@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import pandas as pd
 from textblob import TextBlob
-import re
 
 st.set_page_config(page_title="Gold & Forex AI Dashboard", layout="wide")
 
@@ -26,7 +25,6 @@ def get_gnews_forex_sentiment():
 
     def detect_currency(title):
         title_upper = title.upper()
-
         currency_map = {
             "USD": ["USD", "US", "FED", "FEDERAL RESERVE", "AMERICA"],
             "GBP": ["GBP", "UK", "BRITAIN", "BOE", "POUND", "STERLING"],
@@ -37,29 +35,41 @@ def get_gnews_forex_sentiment():
             "CHF": ["CHF", "SWITZERLAND", "SNB"],
             "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
         }
-
         for curr, keywords in currency_map.items():
             for kw in keywords:
                 if kw in title_upper:
                     return curr
         return "Unknown"
 
+    def rate_impact(polarity):
+        if polarity > 0.5:
+            return "Significantly Bullish"
+        elif polarity > 0.1:
+            return "Bullish"
+        elif polarity < -0.5:
+            return "Significantly Bearish"
+        elif polarity < -0.1:
+            return "Bearish"
+        else:
+            return "Neutral"
+
     for article in articles:
         title = article.get("title", "")
         date = article.get("publishedAt", "")[:10]
         currency = detect_currency(title)
         sentiment_score = TextBlob(title).sentiment.polarity
-        sentiment = "Bullish" if sentiment_score > 0.1 else "Bearish" if sentiment_score < -0.1 else "Neutral"
+        impact = rate_impact(sentiment_score)
+        summary = article.get("description", "") or title.split(":")[-1].strip()
 
         rows.append({
             "Date": date,
             "Currency": currency,
             "Headline": title,
-            "Sentiment": sentiment
+            "Impact": impact,
+            "Summary": summary
         })
 
-    df = pd.DataFrame(rows)
-    return df
+    return pd.DataFrame(rows)
 
 # ----------------- PAGE CONTENT -----------------
 
@@ -73,19 +83,32 @@ elif page == "Forex":
 
 elif page == "Forex Fundamentals":
     st.title("📰 Live Forex News Sentiment")
-    st.caption("Data from [GNews.io](https://gnews.io) with basic NLP sentiment tagging")
+    st.caption("Click a headline to view detailed summary and sentiment")
 
     df = get_gnews_forex_sentiment()
 
     if not df.empty:
-        # Debugging - uncomment if needed
-        # st.write("Available columns:", df.columns.tolist())
-        # st.write("Unique currencies:", df['Currency'].unique())
-
         currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
+        selected_headline = st.selectbox("Select a headline for details", df["Headline"].tolist())
+
+        st.dataframe(df[["Date", "Currency", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
+
+        selected_row = df[df["Headline"] == selected_headline].iloc[0]
+
+        st.markdown("### 🧠 Summary")
+        st.info(selected_row["Summary"])
+
+        st.markdown("### 🔥 Impact Rating")
+        impact = selected_row["Impact"]
+        if "Bullish" in impact:
+            st.success(impact)
+        elif "Bearish" in impact:
+            st.error(impact)
+        else:
+            st.warning(impact)
+
     else:
         st.info("No news data available or API limit reached.")
