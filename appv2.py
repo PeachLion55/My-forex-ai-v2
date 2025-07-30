@@ -120,11 +120,20 @@ if page == "Gold":
     df = get_gold_news_sentiment()
 
     if not df.empty:
-        selected_headline = st.selectbox("Select a headline for details", df["Headline"].tolist())
+        # Flag high-probability events
+        df["HighProb"] = df.apply(
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            else "", axis=1
+        )
 
-        st.dataframe(df[["Date", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
+        df_display = df.copy()
+        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
 
-        selected_row = df[df["Headline"] == selected_headline].iloc[0]
+        selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
+
+        st.dataframe(df_display[["Date", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
+
+        selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
 
         st.markdown("### 🧠 Summary")
         st.info(selected_row["Summary"])
@@ -150,6 +159,15 @@ if page == "Gold":
         st.markdown("### 🪙 Affected Gold Markets")
         st.write("XAU/USD, XAU/EUR, XAU/JPY, XAU/GBP")
 
+        st.markdown("---")
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in impact:
+            st.info("🟢 Based on the news sentiment, **gold is expected to rise**. Traders may look for **buying opportunities** on higher timeframes such as H4 and Daily.")
+        elif "Bearish" in impact:
+            st.warning("🔴 The sentiment suggests **bearish pressure on gold**. Traders should be cautious and may consider **selling setups** on H1 or H4 timeframes.")
+        else:
+            st.write("⚪ Current news sentiment on gold is **neutral**. No strong direction is expected in the short term.")
+
     else:
         st.info("No gold news available or API limit reached.")
 
@@ -164,15 +182,25 @@ elif page == "Forex Fundamentals":
     df = get_gnews_forex_sentiment()
 
     if not df.empty:
+        # Currency filter
         currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        selected_headline = st.selectbox("Select a headline for details", df["Headline"].tolist())
+        # Flag high-probability headlines
+        df["HighProb"] = df.apply(
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            else "", axis=1
+        )
 
-        st.dataframe(df[["Date", "Currency", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
+        df_display = df.copy()
+        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
 
-        selected_row = df[df["Headline"] == selected_headline].iloc[0]
+        selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
+
+        st.dataframe(df_display[["Date", "Currency", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
+
+        selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
 
         st.markdown("### 🧠 Summary")
         st.info(selected_row["Summary"])
@@ -185,6 +213,40 @@ elif page == "Forex Fundamentals":
             st.error(impact)
         else:
             st.warning(impact)
+
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
+
+        st.markdown("### 💱 Likely Affected Currency Pairs")
+        base = selected_row["Currency"]
+        if base != "Unknown":
+            pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+            st.write(", ".join(pairs))
+        else:
+            st.write("Cannot determine affected pairs.")
+
+        st.markdown("---")
+        st.markdown("## 📈 Currency Sentiment Bias Table")
+
+        bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
+        st.dataframe(bias_df)
+
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in impact:
+            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4, especially in pairs like {base}/USD or {base}/JPY.")
+        elif "Bearish" in impact:
+            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling opportunities on H1/H4 in pairs like {base}/USD or EUR/{base}.")
+        else:
+            st.write("⚪ No strong directional sentiment detected right now.")
+
+    else:
+        st.info("No forex news available or API limit reached.")
 
         # 🕒 Timeframe Impact
         st.markdown("### ⏱️ Timeframes Likely Affected")
