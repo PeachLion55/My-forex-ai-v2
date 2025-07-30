@@ -16,7 +16,7 @@ page = st.sidebar.radio("Go to:", ["Gold", "Forex", "Forex Fundamentals"])
 # Sentiment from GNews or other provider can go here
 
 def get_finnhub_calendar():
-    API_KEY = "YOUR_FINNHUB_API_KEY"
+    API_KEY = st.secrets["FINNHUB_API_KEY"]
     url = f"https://finnhub.io/api/v1/calendar/economic?token={API_KEY}"
     response = requests.get(url)
     if response.status_code == 200:
