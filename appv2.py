@@ -24,19 +24,30 @@ def get_gnews_forex_sentiment():
     articles = response.json().get("articles", [])
     rows = []
 
+    def detect_currency(title):
+        title_upper = title.upper()
+
+        currency_map = {
+            "USD": ["USD", "US", "FED", "FEDERAL RESERVE", "AMERICA"],
+            "GBP": ["GBP", "UK", "BRITAIN", "BOE", "POUND", "STERLING"],
+            "EUR": ["EUR", "EURO", "EUROZONE", "ECB"],
+            "JPY": ["JPY", "JAPAN", "BOJ", "YEN"],
+            "AUD": ["AUD", "AUSTRALIA", "RBA"],
+            "CAD": ["CAD", "CANADA", "BOC"],
+            "CHF": ["CHF", "SWITZERLAND", "SNB"],
+            "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
+        }
+
+        for curr, keywords in currency_map.items():
+            for kw in keywords:
+                if kw in title_upper:
+                    return curr
+        return "Unknown"
+
     for article in articles:
         title = article.get("title", "")
         date = article.get("publishedAt", "")[:10]
-
-        # Detect currency keywords robustly
-        currency = "Unknown"
-        title_upper = title.upper()
-        for curr in ["USD", "GBP", "EUR", "JPY", "AUD", "CAD", "CHF", "NZD"]:
-            if curr in title_upper:
-                currency = curr
-                break
-
-        # Sentiment score
+        currency = detect_currency(title)
         sentiment_score = TextBlob(title).sentiment.polarity
         sentiment = "Bullish" if sentiment_score > 0.1 else "Bearish" if sentiment_score < -0.1 else "Neutral"
 
