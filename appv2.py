@@ -110,5 +110,21 @@ elif page == "Forex Fundamentals":
         else:
             st.warning(impact)
 
-    else:
-        st.info("No news data available or API limit reached.")
+        # 🕒 Timeframe Impact
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
+
+        # 💱 Affected Forex Pairs
+        st.markdown("### 💱 Likely Affected Currency Pairs")
+        base = selected_row["Currency"]
+        if base != "Unknown":
+            pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+            st.write(", ".join(pairs))
+        else:
+            st.write("Cannot determine affected pairs.")
