@@ -37,9 +37,10 @@ def get_finnhub_calendar():
         })
         df["Date"] = pd.to_datetime(df["Date"])
         return df[["Date", "Event", "Country", "Impact", "Actual", "Forecast", "Previous"]]
-    else:
-        st.error("Failed to fetch data from Finnhub.")
-        return pd.DataFrame()
+else:
+    st.error(f"Failed to fetch data from Finnhub. Status: {response.status_code}")
+    st.text(f"Response text: {response.text}")
+    return pd.DataFrame()
 
 # ----------------- PAGE CONTENT -----------------
 
