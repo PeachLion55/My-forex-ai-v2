@@ -3,4 +3,3 @@ requests
 pandas
 textblob
 beautifulsoup4
-plotly
