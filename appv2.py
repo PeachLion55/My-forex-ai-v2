@@ -113,7 +113,7 @@ def get_gold_news_sentiment():
 
 # ----------------- PAGE CONTENT -----------------
 
-elif page == "Gold":
+if page == "Gold":
     st.title("🟡 Gold News & Sentiment Dashboard")
     st.caption("Gold-related macro news from GNews.io")
 
