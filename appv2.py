@@ -15,32 +15,32 @@ page = st.sidebar.radio("Go to:", ["Gold", "Forex", "Forex Fundamentals"])
 
 # Sentiment from GNews or other provider can go here
 
-def get_finnhub_calendar():
-    API_KEY = st.secrets["FINNHUB_API_KEY"]
-    url = f"https://finnhub.io/api/v1/calendar/economic?token={API_KEY}"
+def get_eodhd_calendar():
+    API_KEY = st.secrets["EODHD_API_KEY"]
+    url = f"https://eodhd.com/api/economic-events?api_token={API_KEY}&from=2024-01-01&to=2025-12-31"
+    
     response = requests.get(url)
 
     if response.status_code == 200:
-        data = response.json().get("economicCalendar", [])
+        data = response.json()
         if not data:
             st.warning("No economic calendar data found.")
             return pd.DataFrame()
+        
         df = pd.DataFrame(data)
         df = df.rename(columns={
-            "date": "Date",
-            "symbol": "Symbol",
+            "event_date": "Date",
             "country": "Country",
+            "event": "Event",
             "actual": "Actual",
-            "forecast": "Forecast",
             "previous": "Previous",
-            "impact": "Impact",
-            "event": "Event"
+            "estimate": "Forecast"
         })
         df["Date"] = pd.to_datetime(df["Date"])
-        return df[["Date", "Event", "Country", "Impact", "Actual", "Forecast", "Previous"]]
+        return df[["Date", "Event", "Country", "Actual", "Forecast", "Previous"]]
     
     else:
-        st.error(f"Failed to fetch data from Finnhub. Status: {response.status_code}")
+        st.error(f"Failed to fetch data from EODHD. Status: {response.status_code}")
         st.text(f"Response text: {response.text}")
         return pd.DataFrame()
 
@@ -55,10 +55,10 @@ elif page == "Forex":
     st.write("Coming soon: Forex news sentiment and rate analysis")
 
 elif page == "Forex Fundamentals":
-    st.title("📅 Forex Economic Calendar (via Finnhub)")
-    st.caption("Data from [finnhub.io](https://finnhub.io)")
-    country = st.selectbox("Filter by Country", options=["All", "US", "EU", "JP", "GB", "CN", "CA"])
-    df = get_finnhub_calendar()
+    st.title("📅 Forex Economic Calendar (via EODHD)")
+    st.caption("Data from [eodhd.com](https://eodhd.com)")
+    country = st.selectbox("Filter by Country", options=["All", "United States", "United Kingdom", "Germany", "Japan", "China", "Canada"])
+    df = get_eodhd_calendar()
     if not df.empty:
         if country != "All":
             df = df[df["Country"] == country]
