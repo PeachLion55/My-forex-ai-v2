@@ -15,34 +15,37 @@ page = st.sidebar.radio("Go to:", ["Gold", "Forex", "Forex Fundamentals"])
 
 # Sentiment from GNews or other provider can go here
 
-def get_eodhd_calendar():
-    API_KEY = st.secrets["EODHD_API_KEY"]
-    url = f"https://eodhd.com/api/economic-events?api_token={API_KEY}&from=2024-01-01&to=2025-12-31"
-    
-    response = requests.get(url)
+def get_gnews_forex_sentiment():
+    import re
+    from textblob import TextBlob
 
-    if response.status_code == 200:
-        data = response.json()
-        if not data:
-            st.warning("No economic calendar data found.")
-            return pd.DataFrame()
-        
-        df = pd.DataFrame(data)
-        df = df.rename(columns={
-            "event_date": "Date",
-            "country": "Country",
-            "event": "Event",
-            "actual": "Actual",
-            "previous": "Previous",
-            "estimate": "Forecast"
-        })
-        df["Date"] = pd.to_datetime(df["Date"])
-        return df[["Date", "Event", "Country", "Actual", "Forecast", "Previous"]]
-    
-    else:
-        st.error(f"Failed to fetch data from EODHD. Status: {response.status_code}")
-        st.text(f"Response text: {response.text}")
+    API_KEY = st.secrets["GNEWS_API_KEY"]
+    url = f"https://gnews.io/api/v4/search?q=forex+OR+inflation+OR+interest+rate+OR+CPI+OR+GDP+OR+Fed+OR+ECB&lang=en&token={API_KEY}"
+
+    response = requests.get(url)
+    if response.status_code != 200:
+        st.error("GNews API error.")
         return pd.DataFrame()
+
+    articles = response.json().get("articles", [])
+    rows = []
+
+    for article in articles:
+        title = article.get("title", "")
+        date = article.get("publishedAt", "")[:10]
+
+        # Detect currency in title
+        match = re.search(r'\b(USD|GBP|EUR|JPY|AUD|CAD|CHF|NZD)\b', title.upper())
+        currency = match.group(1) if match else "Unknown"
+
+        # Sentiment score
+        sentiment_score = TextBlob(title).sentiment.polarity
+        sentiment = "Bullish" if sentiment_score > 0.1 else "Bearish" if sentiment_score < -0.1 else "Neutral"
+
+        rows.append({"Date": date, "Currency": currency, "Headline": title, "Sentiment": sentiment})
+
+    df = pd.DataFrame(rows)
+    return df
 
 # ----------------- PAGE CONTENT -----------------
 
@@ -55,11 +58,16 @@ elif page == "Forex":
     st.write("Coming soon: Forex news sentiment and rate analysis")
 
 elif page == "Forex Fundamentals":
-    st.title("📅 Forex Economic Calendar (via EODHD)")
-    st.caption("Data from [eodhd.com](https://eodhd.com)")
-    country = st.selectbox("Filter by Country", options=["All", "United States", "United Kingdom", "Germany", "Japan", "China", "Canada"])
-    df = get_eodhd_calendar()
+    st.title("📰 Live Forex News Sentiment")
+    st.caption("Data from [GNews.io](https://gnews.io) with basic NLP sentiment tagging")
+
+    df = get_gnews_forex_sentiment()
+
     if not df.empty:
-        if country != "All":
-            df = df[df["Country"] == country]
-        st.dataframe(df.sort_values(by="Date"))
+        currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
+        if currency_filter != "All":
+            df = df[df["Currency"] == currency_filter]
+
+        st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
+    else:
+        st.info("No news data available or API limit reached.")
