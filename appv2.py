@@ -19,6 +19,7 @@ def get_finnhub_calendar():
     API_KEY = st.secrets["FINNHUB_API_KEY"]
     url = f"https://finnhub.io/api/v1/calendar/economic?token={API_KEY}"
     response = requests.get(url)
+
     if response.status_code == 200:
         data = response.json().get("economicCalendar", [])
         if not data:
@@ -37,10 +38,11 @@ def get_finnhub_calendar():
         })
         df["Date"] = pd.to_datetime(df["Date"])
         return df[["Date", "Event", "Country", "Impact", "Actual", "Forecast", "Previous"]]
-else:
-    st.error(f"Failed to fetch data from Finnhub. Status: {response.status_code}")
-    st.text(f"Response text: {response.text}")
-    return pd.DataFrame()
+    
+    else:
+        st.error(f"Failed to fetch data from Finnhub. Status: {response.status_code}")
+        st.text(f"Response text: {response.text}")
+        return pd.DataFrame()
 
 # ----------------- PAGE CONTENT -----------------
 
