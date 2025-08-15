@@ -1,7 +1,15 @@
 import streamlit as st
+import requests
 import pandas as pd
+from textblob import TextBlob
 
-# ----------------- CUSTOM CSS FOR TABS AND PAGE PADDING -----------------
+st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
+
+# ----------------- HORIZONTAL NAVIGATION -----------------
+tabs = ["Forex Fundamentals", "My Account"]
+selected_tab = st.tabs(tabs)
+
+# ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
     /* Active tab styling */
@@ -9,39 +17,92 @@ st.markdown("""
         background-color: #FFD700 !important;  /* Gold color */
         color: black !important;
         font-weight: bold;
-        padding: 12px 24px !important;
-        margin: 4px !important;
-        border-radius: 12px !important;
+        padding: 15px 30px !important;
+        border-radius: 8px;
+        margin-right: 10px !important;
     }
     /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
-        padding: 12px 24px !important;
-        margin: 4px !important;
-        border-radius: 12px !important;
+        padding: 15px 30px !important;
+        border-radius: 8px;
+        margin-right: 10px !important;
     }
-    /* Page-wide padding */
-    .block-container {
-        padding: 2rem 3rem 2rem 3rem !important;
-    }
-    /* Table styling */
-    div[data-testid="stDataFrame"] table {
-        margin-top: 1rem;
-        margin-bottom: 1rem;
+    /* Page content padding */
+    .css-1d391kg { 
+        padding: 30px 40px !important; 
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ----------------- CREATE TABS -----------------
-selected_tab = st.tabs(["📅 Forex Fundamentals", "👤 My Account"])
+# ----------------- FUNCTIONS -----------------
 
-# ----------------- TAB 1: Forex Fundamentals -----------------
+def get_gnews_forex_sentiment():
+    API_KEY = st.secrets["GNEWS_API_KEY"]
+    url = f"https://gnews.io/api/v4/search?q=forex+OR+inflation+OR+interest+rate+OR+CPI+OR+GDP+OR+Fed+OR+ECB&lang=en&token={API_KEY}"
+
+    response = requests.get(url)
+    if response.status_code != 200:
+        st.error(f"GNews API error: {response.status_code}")
+        return pd.DataFrame()
+
+    articles = response.json().get("articles", [])
+    rows = []
+
+    def detect_currency(title):
+        title_upper = title.upper()
+        currency_map = {
+            "USD": ["USD", "US", "FED", "FEDERAL RESERVE", "AMERICA"],
+            "GBP": ["GBP", "UK", "BRITAIN", "BOE", "POUND", "STERLING"],
+            "EUR": ["EUR", "EURO", "EUROZONE", "ECB"],
+            "JPY": ["JPY", "JAPAN", "BOJ", "YEN"],
+            "AUD": ["AUD", "AUSTRALIA", "RBA"],
+            "CAD": ["CAD", "CANADA", "BOC"],
+            "CHF": ["CHF", "SWITZERLAND", "SNB"],
+            "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
+        }
+        for curr, keywords in currency_map.items():
+            for kw in keywords:
+                if kw in title_upper:
+                    return curr
+        return "Unknown"
+
+    def rate_impact(polarity):
+        if polarity > 0.5:
+            return "Significantly Bullish"
+        elif polarity > 0.1:
+            return "Bullish"
+        elif polarity < -0.5:
+            return "Significantly Bearish"
+        elif polarity < -0.1:
+            return "Bearish"
+        else:
+            return "Neutral"
+
+    for article in articles:
+        title = article.get("title", "")
+        date = article.get("publishedAt", "")[:10]
+        currency = detect_currency(title)
+        sentiment_score = TextBlob(title).sentiment.polarity
+        impact = rate_impact(sentiment_score)
+        summary = article.get("description", "") or title.split(":")[-1].strip()
+
+        rows.append({
+            "Date": date,
+            "Currency": currency,
+            "Headline": title,
+            "Impact": impact,
+            "Summary": summary
+        })
+
+    return pd.DataFrame(rows)
+
+# ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
     st.caption("Click a headline to view detailed summary and sentiment")
 
-    # Replace this with your actual function
     df = get_gnews_forex_sentiment()
 
     if not df.empty:
@@ -51,8 +112,7 @@ with selected_tab[0]:
 
         # Flag high-probability headlines
         df["HighProb"] = df.apply(
-            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
-                        and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
 
@@ -109,7 +169,6 @@ with selected_tab[0]:
     else:
         st.info("No forex news available or API limit reached.")
 
-# ----------------- TAB 2: My Account -----------------
 with selected_tab[1]:
     st.title("👤 My Account")
     st.write("This is your account page. You can add user settings, subscription info, or API key management here.")
