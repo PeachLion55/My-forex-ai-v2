@@ -3,7 +3,6 @@ import pandas as pd
 import feedparser
 import requests
 from bs4 import BeautifulSoup
-from transformers import pipeline
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -55,18 +54,6 @@ def detect_currency(title):
                 return curr
     return "Unknown"
 
-def rate_impact(polarity):
-    if polarity > 0.5:
-        return "Significantly Bullish"
-    elif polarity > 0.1:
-        return "Bullish"
-    elif polarity < -0.5:
-        return "Significantly Bearish"
-    elif polarity < -0.1:
-        return "Bearish"
-    else:
-        return "Neutral"
-
 @st.cache_resource
 def get_fxstreet_forex_news():
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -87,27 +74,6 @@ def get_fxstreet_forex_news():
             "Link": entry.link
         })
     return pd.DataFrame(rows)
-
-# Initialize Hugging Face summarizer
-@st.cache_resource
-def get_summarizer():
-    return pipeline("summarization", model="facebook/bart-large-cnn")
-
-summarizer = get_summarizer()
-
-def summarize_article(url):
-    try:
-        r = requests.get(url, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
-        # Extract main content text (may need adjustment per site structure)
-        paragraphs = soup.find_all("p")
-        text = " ".join(p.get_text() for p in paragraphs)
-        if len(text) > 2000:  # Hugging Face models have a max token limit
-            text = text[:2000]
-        summary = summarizer(text, max_length=200, min_length=50, do_sample=False)
-        return summary[0]['summary_text']
-    except Exception as e:
-        return "Summary unavailable."
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -130,11 +96,6 @@ with selected_tab[0]:
         # Blue box - original FXStreet summary
         st.markdown("### 🧠 Original FXStreet Summary")
         st.info(selected_row["Summary"])  # Blue box
-
-        # Yellow box - AI-generated summary
-        st.markdown("### 💛 AI-Generated Summary")
-        ai_summary = summarize_article(selected_row["Link"])
-        st.warning(ai_summary)  # Yellow box
 
 with selected_tab[1]:
     st.title("👤 My Account")
