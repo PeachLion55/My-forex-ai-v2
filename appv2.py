@@ -1,15 +1,42 @@
 import streamlit as st
 import pandas as pd
-from textblob import TextBlob
 import feedparser
-from openai import OpenAI
-import requests
-from bs4 import BeautifulSoup
+from textblob import TextBlob
+import openai
 
+# ----------------- STREAMLIT CONFIG -----------------
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
-# Initialize OpenAI client
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# Set your OpenAI API key from Streamlit secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+# ----------------- HORIZONTAL NAVIGATION -----------------
+tabs = ["Forex Fundamentals", "My Account"]
+selected_tab = st.tabs(tabs)
+
+# ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
+st.markdown("""
+<style>
+    div[data-baseweb="tab-list"] button[aria-selected="true"] {
+        background-color: #FFD700 !important;
+        color: black !important;
+        font-weight: bold;
+        padding: 15px 30px !important;
+        border-radius: 8px;
+        margin-right: 10px !important;
+    }
+    div[data-baseweb="tab-list"] button[aria-selected="false"] {
+        background-color: #f0f0f0 !important;
+        color: #555 !important;
+        padding: 15px 30px !important;
+        border-radius: 8px;
+        margin-right: 10px !important;
+    }
+    .css-1d391kg { 
+        padding: 30px 40px !important; 
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
 
@@ -67,40 +94,21 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-def fetch_full_article(url):
+def get_gpt_summary(text):
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-        resp = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        # Attempt to get main content; fallback to all <p> if nothing found
-        article_div = soup.find("div", class_="news-article-body")
-        if article_div:
-            paragraphs = article_div.find_all("p")
-        else:
-            paragraphs = soup.find_all("p")
-        text = "\n".join([p.get_text() for p in paragraphs if p.get_text().strip() != ""])
-        return text if len(text) > 50 else None  # Require some minimum length
-    except:
-        return None
-
-def get_gpt_summary(article_text):
-    try:
-        response = client.responses.create(
-            model="gpt-4o-mini",
-            input=f"Summarize this forex news article in detailed paragraphs and key points:\n\n{article_text}",
-            max_output_tokens=400
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{
+                "role": "user",
+                "content": f"Summarize this forex news article in detailed paragraphs and key points:\n\n{text}"
+            }],
+            temperature=0.3
         )
-        return response.output_text
+        return response.choices[0].message.content
     except Exception as e:
-        print("GPT error:", e)
-        return None
+        return f"GPT summary unavailable, showing original text.\nError: {str(e)}"
 
 # ----------------- PAGE CONTENT -----------------
-tabs = ["Forex Fundamentals", "My Account"]
-selected_tab = st.tabs(tabs)
-
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
     st.caption("Click a headline to view detailed summary and sentiment")
@@ -126,24 +134,55 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        # ----------------- Original summary (blue box) -----------------
+        # Original summary (blue box)
         st.markdown("### 🧠 Original Summary")
         st.info(selected_row["Summary"])
 
-        # ----------------- GPT summary (yellow box) -----------------
-        st.markdown("### 🟡 GPT Summary")
-        with st.spinner("Generating GPT summary..."):
-            # Try fetching full article first
-            full_article = fetch_full_article(selected_row["Link"])
-            if not full_article:
-                # Fallback to RSS summary if full article unavailable
-                full_article = selected_row["Summary"]
+        # GPT summary (yellow box)
+        st.markdown("### 🌟 AI Summary")
+        gpt_summary = get_gpt_summary(selected_row["Summary"])
+        st.warning(gpt_summary)  # yellow box
 
-            gpt_summary = get_gpt_summary(full_article)
-            if gpt_summary:
-                st.warning(gpt_summary)
-            else:
-                st.warning("GPT summary unavailable, showing original text.")
+        st.markdown("### 🔥 Impact Rating")
+        impact = selected_row["Impact"]
+        if "Bullish" in impact:
+            st.success(impact)
+        elif "Bearish" in impact:
+            st.error(impact)
+        else:
+            st.warning(impact)
+
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
+
+        st.markdown("### 💱 Likely Affected Currency Pairs")
+        base = selected_row["Currency"]
+        if base != "Unknown":
+            pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+            st.write(", ".join(pairs))
+        else:
+            st.write("Cannot determine affected pairs.")
+
+        st.markdown("---")
+        st.markdown("## 📈 Currency Sentiment Bias Table")
+        bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
+        st.dataframe(bias_df)
+
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in impact:
+            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
+        elif "Bearish" in impact:
+            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
+        else:
+            st.write("⚪ No strong directional sentiment detected right now.")
+    else:
+        st.info("No forex news available at the moment.")
 
 with selected_tab[1]:
     st.title("👤 My Account")
