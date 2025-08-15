@@ -138,6 +138,10 @@ with selected_tab[0]:
         bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
         st.info(bullet_points)
 
+        # ----------------- ECONOMIC CALENDAR BELOW SUMMARY -----------------
+        st.markdown("### 🗓️ Upcoming Economic Events")
+        st.dataframe(econ_df)
+
         # ----------------- IMPACT RATING -----------------
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
@@ -181,11 +185,6 @@ with selected_tab[0]:
             st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
         else:
             st.write("⚪ No strong directional sentiment detected right now.")
-
-        # ----------------- ECONOMIC CALENDAR -----------------
-        st.markdown("---")
-        st.markdown("## 🗓️ Upcoming Economic Events")
-        st.dataframe(econ_df)
 
     else:
         st.info("No forex news available at the moment.")
