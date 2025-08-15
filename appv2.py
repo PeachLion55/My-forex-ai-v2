@@ -176,14 +176,25 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
-        currency_filter = st.selectbox(
+        # First currency dropdown
+        currency_filter_1 = st.selectbox(
             "What currency pair would you like to track?", 
-            options=["All"] + sorted(df["Currency"].unique())
+            options=["All"] + sorted(df["Currency"].unique()),
+            key="currency1"
         )
 
-        if currency_filter != "All":
-            df = df[df["Currency"] == currency_filter]
-        selected_currency = currency_filter if currency_filter != "All" else None
+        # Second currency dropdown
+        currency_filter_2 = st.selectbox(
+            "Select a second currency to highlight in the calendar", 
+            options=["None"] + sorted(df["Currency"].unique()),
+            key="currency2"
+        )
+
+        # Filter dataframe by first currency if needed
+        if currency_filter_1 != "All":
+            df = df[df["Currency"] == currency_filter_1]
+        selected_currency_1 = currency_filter_1 if currency_filter_1 != "All" else None
+        selected_currency_2 = currency_filter_2 if currency_filter_2 != "None" else None
 
         # Flag high-probability headlines
         df["HighProb"] = df.apply(
@@ -207,20 +218,22 @@ with selected_tab[0]:
         bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
         st.info(bullet_points)
 
-       # ----------------- ECONOMIC CALENDAR -----------------
-st.markdown("### 🗓️ Upcoming Economic Events")
+        # ----------------- ECONOMIC CALENDAR -----------------
+        st.markdown("### 🗓️ Upcoming Economic Events")
 
-# Highlight the selected currency row with dark background and white text
-def highlight_currency(row):
-    if selected_currency and row['Currency'] == selected_currency:
-        # Apply dark background and white text to all columns in the row
-        return ['background-color: #171447; color: white' for _ in row.index]
-    else:
-        return ['']*len(row)
+        def highlight_currency(row):
+            styles = ['']*len(row)
+            # First currency highlight (blue)
+            if selected_currency_1 and row['Currency'] == selected_currency_1:
+                styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+            # Second currency highlight (dark red)
+            if selected_currency_2 and row['Currency'] == selected_currency_2:
+                styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+            return styles
 
-st.dataframe(
-    econ_df.style.apply(highlight_currency, axis=1)
-)
+        st.dataframe(
+            econ_df.style.apply(highlight_currency, axis=1)
+        )
 
 # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
 if not df.empty:
