@@ -1,31 +1,41 @@
 import streamlit as st
 
-st.set_page_config(page_title="Forex Fundamentals", layout="wide")
-
-# Custom CSS for dark futuristic background
+# Inject custom CSS for animated dark futuristic background
 st.markdown(
     """
     <style>
+    /* Full-page dark background with semi-transparency */
     body {
-        background-color: #0f111a;
-        background-image: linear-gradient(45deg, #0f111a 25%, #1b1f38 25%, #1b1f38 50%, #0f111a 50%, #0f111a 75%, #1b1f38 75%, #1b1f38 100%);
-        background-size: 56.57px 56.57px;
-        color: #00ffcc;
-        font-family: 'Courier New', monospace;
+        background: linear-gradient(120deg, rgba(10,10,30,0.8), rgba(30,10,50,0.8));
+        overflow: hidden;
     }
-    .stApp {
-        background-color: transparent;
+
+    /* Animated floating particles effect */
+    @keyframes float {
+        0% { transform: translateY(0px) translateX(0px);}
+        50% { transform: translateY(-20px) translateX(10px);}
+        100% { transform: translateY(0px) translateX(0px);}
     }
-    h1, h2, h3, h4, h5, h6 {
-        color: #00ffcc;
+
+    .particle {
+        position: absolute;
+        border-radius: 50%;
+        opacity: 0.3;
+        animation: float 6s ease-in-out infinite;
     }
+
+    /* Example particles */
+    .particle:nth-child(1) {width: 15px; height: 15px; background: #0ff; top: 20%; left: 10%;}
+    .particle:nth-child(2) {width: 10px; height: 10px; background: #f0f; top: 50%; left: 30%; animation-duration: 8s;}
+    .particle:nth-child(3) {width: 20px; height: 20px; background: #ff0; top: 70%; left: 70%; animation-duration: 10s;}
     </style>
+
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
     """,
     unsafe_allow_html=True
 )
-
-st.title("Forex Fundamentals")
-st.write("Welcome to the futuristic dark-themed Forex page!")
 import pandas as pd
 import feedparser
 import re
