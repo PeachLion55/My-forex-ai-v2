@@ -19,6 +19,12 @@ def get_fxstreet_forex_news():
         if hasattr(entry, "tags"):
             tags = [tag.term for tag in entry.tags]
             currency = tags[0] if tags else "N/A"
+        # Basic sentiment analysis
+        sentiment = TextBlob(entry.title).sentiment.polarity
+        if sentiment > 0.1:
+            impact = "Bullish"
+        elif sentiment < -0.1:
+            impact = "Bearish"
         items.append({
             "Headline": entry.title,
             "Link": entry.link,
@@ -30,8 +36,7 @@ def get_fxstreet_forex_news():
 
 @st.cache_data
 def get_economic_calendar():
-    """Placeholder for future economic calendar data."""
-    # Can be replaced with real API later
+    """Sample economic calendar (replace with API later)."""
     now = pd.Timestamp.now()
     return pd.DataFrame({
         "Date": [now + pd.Timedelta(days=i) for i in range(5)],
@@ -40,32 +45,53 @@ def get_economic_calendar():
         "Impact": ["High", "Medium", "High", "Low", "Medium"]
     })
 
+@st.cache_data
+def generate_sample_price_data(periods=60):
+    """Sample price data with SMA for demo chart."""
+    dates = pd.date_range(end=pd.Timestamp.today().normalize(), periods=periods)
+    price = pd.Series([100 + i * 0.2 for i in range(periods)], index=dates, name="Price")
+    sma10 = price.rolling(10).mean().rename("SMA10")
+    df = pd.concat([price, sma10], axis=1)
+    return df
+
 # ================== PAGE CONFIG ==================
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
-
 tabs = ["Forex Fundamentals", "Technical Analysis"]
 selected_tab = st.tabs(tabs)
 
 # ================== TAB 1: FOREX FUNDAMENTALS ==================
 with selected_tab[0]:
     st.title("📅 Forex Fundamentals")
-    st.caption("Economic news, sentiment, and live rates.")
+    st.caption("Economic news, sentiment, live rates, and calendar.")
 
     # --- News Feed ---
     news_df = get_fxstreet_forex_news()
     if not news_df.empty:
-        currency_filter = st.selectbox(
-            "Filter news by currency (optional)",
-            options=["All"] + sorted(news_df["Currency"].unique())
+        currency_filter_1 = st.selectbox(
+            "Primary currency filter:", 
+            options=["All"] + sorted(news_df["Currency"].unique()), key="ff_currency1"
         )
-        filtered_news = news_df.copy()
-        if currency_filter != "All":
-            filtered_news = filtered_news[filtered_news["Currency"] == currency_filter]
+        currency_filter_2 = st.selectbox(
+            "Secondary currency filter:", 
+            options=["None"] + sorted(news_df["Currency"].unique()), key="ff_currency2"
+        )
 
-        if not filtered_news.empty:
-            st.dataframe(filtered_news[["Date", "Currency", "Headline", "Link"]])
+        filtered_df = news_df.copy()
+        if currency_filter_1 != "All":
+            filtered_df = filtered_df[filtered_df["Currency"] == currency_filter_1]
+
+        if not filtered_df.empty:
+            # Highlight high-impact headlines
+            filtered_df["HighProb"] = filtered_df.apply(
+                lambda row: "🔥" if row["Impact"] in ["Bullish", "Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+                else "", axis=1
+            )
+            filtered_df_display = filtered_df.copy()
+            filtered_df_display["Headline"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+
+            st.dataframe(filtered_df_display[["Date", "Currency", "Headline", "Impact", "Link"]])
         else:
-            st.info("No headlines for this filter.")
+            st.info("No news for this filter.")
     else:
         st.info("No Forex news available.")
 
@@ -74,10 +100,15 @@ with selected_tab[0]:
     calendar_df = get_economic_calendar()
     st.dataframe(calendar_df)
 
+    # --- Sample Price Series (Demo) ---
+    st.subheader("📈 Sample Price Series (Demo)")
+    ta_df = generate_sample_price_data()
+    st.line_chart(ta_df)
+
 # ================== TAB 2: TECHNICAL ANALYSIS ==================
 with selected_tab[1]:
     st.title("📊 Technical Analysis")
-    st.caption("Live TradingView chart and Forex headlines.")
+    st.caption("Live TradingView chart and Forex headlines below.")
 
     # --- TradingView Widget ---
     tradingview_widget = """
@@ -125,7 +156,7 @@ with selected_tab[1]:
       </script>
     </div>
     """
-    components.html(tradingview_widget, height=900, width=1000)
+    components.html(tradingview_widget, height=900, width=1200)
 
     # --- Forex Headlines Below Widget ---
     st.subheader("📢 Forex Headlines")
@@ -141,16 +172,21 @@ with selected_tab[1]:
             filtered_headlines = filtered_headlines[filtered_headlines["Currency"] == currency_filter]
 
         if not filtered_headlines.empty:
+            filtered_headlines["HighProb"] = filtered_headlines.apply(
+                lambda row: "🔥" if row["Impact"] in ["Bullish", "Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+                else "", axis=1
+            )
+            filtered_headlines["HeadlineDisplay"] = filtered_headlines["HighProb"] + " " + filtered_headlines["Headline"]
+
             selected_headline = st.selectbox(
                 "Select a headline for details",
-                filtered_headlines["Headline"].tolist(),
+                filtered_headlines["HeadlineDisplay"].tolist(),
                 key="ta_headline_select"
             )
-            selected_row = filtered_headlines[filtered_headlines["Headline"] == selected_headline].iloc[0]
+            selected_row = filtered_headlines[filtered_headlines["HeadlineDisplay"] == selected_headline].iloc[0]
             st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
             st.write(f"**Published:** {selected_row['Date']}")
-            if "Impact" in selected_row:
-                st.write(f"**Impact:** {selected_row['Impact']}")
+            st.write(f"**Impact:** {selected_row['Impact']}")
         else:
             st.info("No headlines for this filter.")
     else:
