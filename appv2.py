@@ -1,22 +1,23 @@
 import streamlit as st
-import requests
 import pandas as pd
 from textblob import TextBlob
+import feedparser
 import openai
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-from datetime import datetime, timedelta
 
-# ----------------- CONFIG -----------------
-st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
+# ----------------- OPENAI API -----------------
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+# ----------------- PAGE CONFIG -----------------
+st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
 selected_tab = st.tabs(tabs)
 
-# ----------------- CUSTOM CSS -----------------
+# ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
+    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
         background-color: #FFD700 !important;
         color: black !important;
@@ -25,6 +26,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -32,6 +34,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -39,18 +42,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
-
-def get_fxstreet_rss():
-    """Fetch latest forex news from FXStreet RSS feed"""
-    rss_url = "https://www.fxstreet.com/rss/news"
-    df_list = pd.read_xml(rss_url, xpath="//item")
-    df = df_list[['title', 'pubDate', 'description', 'link']]
-    df['pubDate'] = pd.to_datetime(df['pubDate'])
-    df.rename(columns={'title':'Headline', 'pubDate':'Date', 'description':'Summary', 'link':'URL'}, inplace=True)
-    return df
-
 def detect_currency(title):
-    """Basic currency detection"""
     title_upper = title.upper()
     currency_map = {
         "USD": ["USD", "US", "FED", "FEDERAL RESERVE", "AMERICA"],
@@ -63,12 +55,12 @@ def detect_currency(title):
         "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
     }
     for curr, keywords in currency_map.items():
-        if any(kw in title_upper for kw in keywords):
-            return curr
+        for kw in keywords:
+            if kw in title_upper:
+                return curr
     return "Unknown"
 
 def rate_impact(polarity):
-    """Assign sentiment impact"""
     if polarity > 0.5:
         return "Significantly Bullish"
     elif polarity > 0.1:
@@ -80,62 +72,118 @@ def rate_impact(polarity):
     else:
         return "Neutral"
 
-def gpt_summary(text):
-    """Generate a detailed summary using OpenAI GPT"""
-    prompt = f"Summarize this forex news article in detailed paragraphs and bullet key points:\n\n{text}"
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content":prompt}],
-        temperature=0.5,
-        max_tokens=500
-    )
-    return response['choices'][0]['message']['content']
+def get_fxstreet_forex_news():
+    RSS_URL = "https://www.fxstreet.com/rss/news"
+    feed = feedparser.parse(RSS_URL)
+    rows = []
+
+    for entry in feed.entries:
+        title = entry.title
+        date = entry.published[:10] if hasattr(entry, "published") else ""
+        currency = detect_currency(title)
+        sentiment_score = TextBlob(title).sentiment.polarity
+        impact = rate_impact(sentiment_score)
+        summary = entry.summary
+
+        rows.append({
+            "Date": date,
+            "Currency": currency,
+            "Headline": title,
+            "Impact": impact,
+            "Summary": summary,
+            "Link": entry.link
+        })
+
+    return pd.DataFrame(rows)
+
+def generate_gpt_summary(text):
+    """Generate a detailed GPT summary with paragraphs and key points"""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": f"Summarize this forex news in detailed paragraphs with key points:\n{text}"}],
+            max_tokens=300
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        st.warning("GPT summary unavailable, showing original text.")
+        return text
 
 # ----------------- PAGE CONTENT -----------------
-
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
-    st.caption("Click a headline to view detailed summary and GPT-enhanced insights")
+    st.caption("Click a headline to view detailed summary and sentiment")
 
-    df = get_fxstreet_rss()
+    df = get_fxstreet_forex_news()
+
     if not df.empty:
-        # Filter only today + next 24 hours
-        now = datetime.utcnow()
-        next_24h = now + timedelta(hours=24)
-        df = df[(df['Date'] >= now) & (df['Date'] <= next_24h)]
+        currency_filter = st.selectbox(
+            "What currency pair would you like to track?",
+            options=["All"] + sorted(df["Currency"].unique())
+        )
+        if currency_filter != "All":
+            df = df[df["Currency"] == currency_filter]
 
-        if df.empty:
-            st.info("No news in the next 24 hours.")
+        # Flag high-probability headlines
+        df["HighProb"] = df.apply(
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            else "", axis=1
+        )
+
+        df_display = df.copy()
+        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
+
+        selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
+        selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
+
+        st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
+        st.write(f"**Published:** {selected_row['Date']}")
+
+        # GPT Summary
+        st.markdown("### 🧠 Summary")
+        summary_text = generate_gpt_summary(selected_row["Summary"])
+        st.info(summary_text)
+
+        st.markdown("### 🔥 Impact Rating")
+        impact = selected_row["Impact"]
+        if "Bullish" in impact:
+            st.success(impact)
+        elif "Bearish" in impact:
+            st.error(impact)
         else:
-            df['Currency'] = df['Headline'].apply(detect_currency)
-            df['Polarity'] = df['Headline'].apply(lambda x: TextBlob(x).sentiment.polarity)
-            df['Impact'] = df['Polarity'].apply(rate_impact)
+            st.warning(impact)
 
-            currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
-            if currency_filter != "All":
-                df = df[df["Currency"] == currency_filter]
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
 
-            df_display = df.copy()
-            df_display["HeadlineDisplay"] = df_display.apply(lambda row: f"{'🔥 ' if 'Significantly' in row['Impact'] else ''}{row['Headline']}", axis=1)
+        st.markdown("### 💱 Likely Affected Currency Pairs")
+        base = selected_row["Currency"]
+        if base != "Unknown":
+            pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+            st.write(", ".join(pairs))
+        else:
+            st.write("Cannot determine affected pairs.")
 
-            selected_headline = st.selectbox("Select a headline for details", df_display["HeadlineDisplay"].tolist())
-            selected_row = df_display[df_display["HeadlineDisplay"] == selected_headline].iloc[0]
+        st.markdown("---")
+        st.markdown("## 📈 Currency Sentiment Bias Table")
+        bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
+        st.dataframe(bias_df)
 
-            st.dataframe(df_display[['Date','Currency','Impact','Headline']].sort_values(by='Date', ascending=False), use_container_width=True)
-
-            st.markdown("### 🧠 GPT Detailed Summary & Key Points")
-            with st.spinner("Generating GPT summary..."):
-                detailed_summary = gpt_summary(selected_row['Summary'])
-                st.markdown(detailed_summary)
-
-            st.markdown("### 🔥 Impact Rating")
-            impact = selected_row["Impact"]
-            if "Bullish" in impact:
-                st.success(impact)
-            elif "Bearish" in impact:
-                st.error(impact)
-            else:
-                st.warning(impact)
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in impact:
+            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
+        elif "Bearish" in impact:
+            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
+        else:
+            st.write("⚪ No strong directional sentiment detected right now.")
+    else:
+        st.info("No forex news available at the moment.")
 
 with selected_tab[1]:
     st.title("👤 My Account")
