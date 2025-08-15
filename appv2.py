@@ -103,7 +103,7 @@ econ_df = pd.DataFrame(econ_calendar_data)
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
-    st.title("📅 Forex Economic Calendar & News Sentiment")
+    st.title("📅 Forex News Sentiment")
     st.caption("Click a headline to view detailed summary and sentiment")
 
     df = get_fxstreet_forex_news()
