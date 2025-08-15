@@ -360,20 +360,61 @@ with selected_tab[1]:
 3) Expect volatility around high-impact events; widen stops or reduce size.
         """)
 
-# ----------------- TAB 3: TECHNICAL ANALYSIS (Simple demo distinct from fundamentals) -----------------
+# ----------------- TAB 3: TECHNICAL ANALYSIS -----------------
+import streamlit.components.v1 as components
+
 with selected_tab[2]:
     st.title("📊 Technical Analysis")
-    st.caption("Lightweight demo — add your own charts/indicators later.")
+    st.caption("Live TradingView chart for major currency pairs.")
 
-    st.subheader("Sample Price Series (Demo)")
-    # Create a simple uptrend series without extra imports
-    dates = pd.date_range(end=pd.Timestamp.today().normalize(), periods=60)
-    price = pd.Series([100 + i * 0.2 for i in range(60)], index=dates, name="Price")
-    sma10 = price.rolling(10).mean().rename("SMA10")
-    ta_df = pd.concat([price, sma10], axis=1)
-    st.line_chart(ta_df)
+    # TradingView widget code
+    tradingview_widget = """
+    <div class="tradingview-widget-container" style="height:600px; width:100%">
+      <div class="tradingview-widget-container__widget"></div>
+      <div class="tradingview-widget-copyright">
+        <a href="https://www.tradingview.com/symbols/CMCMARKETS-USDCAD/?exchange=CMCMARKETS" rel="noopener" target="_blank">
+          <span class="blue-text">USDCAD chart by TradingView</span>
+        </a>
+      </div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {
+        "allow_symbol_change": true,
+        "calendar": false,
+        "details": false,
+        "hide_side_toolbar": false,
+        "hide_top_toolbar": false,
+        "hide_legend": true,
+        "hide_volume": true,
+        "hotlist": false,
+        "interval": "D",
+        "locale": "en",
+        "save_image": true,
+        "style": "1",
+        "symbol": "CMCMARKETS:USDCAD",
+        "theme": "dark",
+        "timezone": "Europe/London",
+        "backgroundColor": "#0F0F0F",
+        "gridColor": "rgba(242, 242, 242, 0.06)",
+        "watchlist": [
+          "FX:EURUSD",
+          "FX:USDJPY",
+          "FX:GBPUSD",
+          "OANDA:USDCHF",
+          "FX:AUDUSD",
+          "OANDA:NZDUSD"
+        ],
+        "withdateranges": false,
+        "compareSymbols": [],
+        "studies": [
+          "STD;Divergence%1Indicator"
+        ],
+        "autosize": true
+      }
+      </script>
+    </div>
+    """
 
-    st.info("This is a placeholder so this tab is unique. Replace with real market data, indicators, and multi-timeframe views.")
+    components.html(tradingview_widget, height=600, width=900)
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
