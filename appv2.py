@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 from textblob import TextBlob
 import feedparser
-from newspaper import Article
-from sumy.parsers.plaintext import PlaintextParser
-from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.lsa import LsaSummarizer
+import requests
+from bs4 import BeautifulSoup
+from gensim.summarization import summarize  # or any summarization library you prefer
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -16,14 +15,16 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
+    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;
+        background-color: #FFD700 !important;  /* Gold color */
         color: black !important;
         font-weight: bold;
         padding: 15px 30px !important;
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -31,6 +32,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -93,21 +95,19 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-def get_detailed_summary(url, sentences_count=5):
+# ----------------- SUMMARY FUNCTION -----------------
+def get_detailed_summary(url, sentences_count=8):
     try:
-        article = Article(url)
-        article.download()
-        article.parse()
-        text = article.text
-
-        parser = PlaintextParser.from_string(text, Tokenizer("english"))
-        summarizer = LsaSummarizer()
-        summary_sentences = summarizer(parser.document, sentences_count)
-
-        summary = " ".join([str(sentence) for sentence in summary_sentences])
+        r = requests.get(url, timeout=5)
+        soup = BeautifulSoup(r.text, "html.parser")
+        paragraphs = soup.find_all("p")
+        article_text = " ".join([p.get_text() for p in paragraphs])
+        summary = summarize(article_text, word_count=150)  # You can change word_count
+        if not summary.strip():
+            return article_text[:800] + "..."  # fallback if summarization fails
         return summary
     except Exception as e:
-        return "Unable to generate detailed summary, showing original text."
+        return "Summary unavailable. Showing original text."
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -137,9 +137,9 @@ with selected_tab[0]:
         st.write(f"**Published:** {selected_row['Date']}")
 
         # ----------------- DETAILED SUMMARY -----------------
-        st.markdown("### 🟡 Detailed Summary")
-        detailed_summary = get_detailed_summary(selected_row["Link"], sentences_count=8)
-        st.info(detailed_summary)
+        st.markdown("### 📝 Detailed Summary")
+        detailed_summary = get_detailed_summary(selected_row["Link"])
+        st.write(detailed_summary)
 
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
