@@ -168,10 +168,18 @@ econ_calendar_data = [
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 
-# ----------------- PAGE CONTENT -----------------
+    # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
-    st.title("📅 Forex News Sentiment")
-    st.caption("Click a headline to view detailed summary and sentiment")
+    # Create a row with two columns: title on the left, button on the right
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        st.title("📅 Forex News Sentiment")
+        st.caption("Click a headline to view detailed summary and sentiment")
+
+    with col2:
+        if st.button("Understanding Forex Fundamentals"):
+            st.session_state.selected_tab = "Understanding Forex Fundamentals"
 
     df = get_fxstreet_forex_news()
 
