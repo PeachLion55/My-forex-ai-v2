@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 import feedparser
-import requests
-from bs4 import BeautifulSoup
+import re
 from textblob import TextBlob
 
-st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
@@ -14,6 +13,7 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
+    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
         background-color: #FFD700 !important;
         color: black !important;
@@ -22,6 +22,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -29,6 +30,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -36,6 +38,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
+
 def detect_currency(title):
     title_upper = title.upper()
     currency_map = {
@@ -90,19 +93,6 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-def fetch_detailed_summary(url, max_paragraphs=5):
-    """Fetch a detailed summary from the article link using the first few paragraphs."""
-    try:
-        r = requests.get(url, timeout=5)
-        soup = BeautifulSoup(r.text, "html.parser")
-        paragraphs = [p.get_text().strip() for p in soup.find_all("p") if p.get_text().strip() != ""]
-        if not paragraphs:
-            return "Detailed summary not available."
-        summary = "\n\n".join(paragraphs[:max_paragraphs])
-        return summary
-    except Exception:
-        return "Detailed summary not available."
-
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
@@ -111,12 +101,17 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
-        currency_filter = st.selectbox("What currency pair would you like to track?", options=["All"] + sorted(df["Currency"].unique()))
+        currency_filter = st.selectbox(
+            "What currency pair would you like to track?", 
+            options=["All"] + sorted(df["Currency"].unique())
+        )
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
+        # Flag high-probability headlines
         df["HighProb"] = df.apply(
-            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
+            and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
 
@@ -129,10 +124,13 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        st.markdown("### 📝 Detailed Summary")
-        detailed_summary = fetch_detailed_summary(selected_row['Link'])
-        st.info(detailed_summary)
+        # ----------------- BLUE BOX DETAILED SUMMARY -----------------
+        summary_text = selected_row["Summary"]
+        sentences = re.split(r'(?<=[.!?]) +', summary_text)
+        bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
+        st.info(bullet_points)
 
+        # ----------------- IMPACT RATING -----------------
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
         if "Bullish" in impact:
@@ -142,6 +140,7 @@ with selected_tab[0]:
         else:
             st.warning(impact)
 
+        # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
         st.markdown("### ⏱️ Timeframes Likely Affected")
         if "Significantly" in impact:
             timeframes = ["H4", "Daily"]
@@ -151,6 +150,7 @@ with selected_tab[0]:
             timeframes = ["H1"]
         st.write(", ".join(timeframes))
 
+        # ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
         st.markdown("### 💱 Likely Affected Currency Pairs")
         base = selected_row["Currency"]
         if base != "Unknown":
