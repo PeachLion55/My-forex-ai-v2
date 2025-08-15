@@ -267,7 +267,7 @@ with selected_tab[0]:
             st.write("⚪ No strong directional sentiment detected right now.")
 
     else:
-        st.info("No forex news available at the moment.")------------
+        st.info("No forex news available at the moment.")
     st.markdown("### 💱 Likely Affected Currency Pairs")
     base = selected_row["Currency"]
     if base != "Unknown":
