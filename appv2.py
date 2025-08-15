@@ -207,23 +207,20 @@ with selected_tab[0]:
         bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
         st.info(bullet_points)
 
-        # ----------------- ECONOMIC CALENDAR -----------------
-        st.markdown("### 🗓️ Upcoming Economic Events")
+       # ----------------- ECONOMIC CALENDAR -----------------
+st.markdown("### 🗓️ Upcoming Economic Events")
 
-        # Highlight the selected currency row
-        def highlight_currency(row):
-            if selected_currency and row['Currency'] == selected_currency:
-                return [
-                    'background-color: #171447; color: white' if col == 'Currency' 
-                    else 'background-color: #171447; color: black' 
-                    for col in row.index
-                ]
-            else:
-                return ['']*len(row)
+# Highlight the selected currency row with dark background and white text
+def highlight_currency(row):
+    if selected_currency and row['Currency'] == selected_currency:
+        # Apply dark background and white text to all columns in the row
+        return ['background-color: #171447; color: white' for _ in row.index]
+    else:
+        return ['']*len(row)
 
-        st.dataframe(
-            econ_df.style.apply(highlight_currency, axis=1)
-        )
+st.dataframe(
+    econ_df.style.apply(highlight_currency, axis=1)
+)
 
         # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
         st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
