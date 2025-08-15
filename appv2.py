@@ -282,13 +282,14 @@ with selected_tab[0]:
     bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
     st.dataframe(bias_df)
 
-    # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
-    st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+# ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
+st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+if not df.empty:
     if "Bullish" in impact:
         st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
     elif "Bearish" in impact:
         st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
     else:
         st.write("⚪ No strong directional sentiment detected right now.")
-    else:
+else:
     st.info("No forex news available at the moment.")
