@@ -99,44 +99,69 @@ def get_gnews_forex_sentiment():
     return pd.DataFrame(rows)
 
 # ----------------- PAGE CONTENT -----------------
-with selected_tab[0]:
-    st.title("📅 Forex Economic Calendar & News Sentiment")
+elif page == "Forex Fundamentals":
+    st.title("📰 Live Forex News Sentiment")
     st.caption("Click a headline to view detailed summary and sentiment")
 
     df = get_gnews_forex_sentiment()
 
     if not df.empty:
-        currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
+        # ---------------- Filter and Search ----------------
+        currency_filter = st.selectbox(
+            "Filter by Currency", options=["All"] + sorted(df["Currency"].unique())
+        )
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        # Flag high-probability headlines
+        keyword = st.text_input("Search headlines for keyword")
+        if keyword:
+            df = df[df["Headline"].str.contains(keyword, case=False)]
+
+        # ---------------- High-Probability Highlights ----------------
         df["HighProb"] = df.apply(
-            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
+            and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
-
         df_display = df.copy()
         df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
 
+        # ---------------- Display Headlines ----------------
         selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
 
-        st.dataframe(df_display[["Date", "Currency", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
+        # Custom styling for dataframe
+        st.markdown(
+            """
+            <style>
+            .dataframe th, .dataframe td {
+                padding: 12px 10px !important;
+            }
+            .dataframe tbody tr:hover {
+                background-color: #f9f9f9;
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
+
+        st.dataframe(df_display[["Date", "Currency", "Headline", "Impact"]].sort_values(by="Date", ascending=False), use_container_width=True)
 
         selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
 
+        # ---------------- Headline Details ----------------
         st.markdown("### 🧠 Summary")
         st.info(selected_row["Summary"])
 
-        st.markdown("### 🔥 Impact Rating")
+        st.markdown("### 🔥 Impact Rating & Sentiment Score")
         impact = selected_row["Impact"]
+        sentiment_score = TextBlob(selected_row["Headline"]).sentiment.polarity
         if "Bullish" in impact:
-            st.success(impact)
+            st.success(f"{impact} ({sentiment_score:.2f})")
         elif "Bearish" in impact:
-            st.error(impact)
+            st.error(f"{impact} ({sentiment_score:.2f})")
         else:
-            st.warning(impact)
+            st.warning(f"{impact} ({sentiment_score:.2f})")
 
+        # ---------------- Timeframes ----------------
         st.markdown("### ⏱️ Timeframes Likely Affected")
         if "Significantly" in impact:
             timeframes = ["H4", "Daily"]
@@ -146,6 +171,7 @@ with selected_tab[0]:
             timeframes = ["H1"]
         st.write(", ".join(timeframes))
 
+        # ---------------- Likely Affected Pairs ----------------
         st.markdown("### 💱 Likely Affected Currency Pairs")
         base = selected_row["Currency"]
         if base != "Unknown":
@@ -154,21 +180,29 @@ with selected_tab[0]:
         else:
             st.write("Cannot determine affected pairs.")
 
+        # ---------------- Bias Table ----------------
         st.markdown("---")
         st.markdown("## 📈 Currency Sentiment Bias Table")
         bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
         st.dataframe(bias_df)
 
+        # ---------------- Beginner-Friendly Outlook ----------------
         st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-        if "Bullish" in impact:
-            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
-        elif "Bearish" in impact:
-            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
-        else:
-            st.write("⚪ No strong directional sentiment detected right now.")
+        outlook_table = []
+        for curr in df["Currency"].unique():
+            major_impact = df[df["Currency"]==curr]["Impact"].value_counts().idxmax()
+            outlook_table.append({"Currency": curr, "Sentiment": major_impact})
+        outlook_df = pd.DataFrame(outlook_table)
+        st.dataframe(outlook_df)
+
+        # ---------------- CSV Download ----------------
+        csv = df_display.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Headlines as CSV",
+            data=csv,
+            file_name="forex_news_sentiment.csv",
+            mime="text/csv",
+        )
+
     else:
         st.info("No forex news available or API limit reached.")
-
-with selected_tab[1]:
-    st.title("👤 My Account")
-    st.write("This is your account page. You can add user settings, subscription info, or API key management here.")
