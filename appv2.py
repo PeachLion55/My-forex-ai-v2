@@ -350,8 +350,8 @@ with selected_tab[2]:
 
     # TradingView widget code
     tradingview_widget = """
-    <div class="tradingview-widget-container" style="height:1200px; width:100%">
-      <div class="tradingview-widget-container__widget" style="height:1200px; width:100%"></div>
+    <div class="tradingview-widget-container" style="height:800px; width:100%">
+      <div class="tradingview-widget-container__widget"></div>
       <div class="tradingview-widget-copyright">
         <a href="https://www.tradingview.com/symbols/CMCMARKETS-USDCAD/?exchange=CMCMARKETS" rel="noopener" target="_blank">
           <span class="blue-text">USDCAD chart by TradingView</span>
@@ -389,15 +389,52 @@ with selected_tab[2]:
         "studies": [
           "STD;Divergence%1Indicator"
         ],
-        "autosize": false,
-        "height": 800,
-        "width": "100%"
+        "autosize": true
       }
       </script>
     </div>
     """
+    components.html(tradingview_widget, height=900, width=1000)
 
-    components.html(tradingview_widget, height=1000, width=1000)
+    # --------- Forex News Feed (moved from Fundamentals) ---------
+    st.subheader("Forex News Sentiment")
+    st.caption("Select a headline to view detailed summary and sentiment")
+
+    df = get_fxstreet_forex_news()
+    if not df.empty:
+        # Currency filters
+        currency_filter_1 = st.selectbox(
+            "Primary currency pair:", 
+            options=["All"] + sorted(df["Currency"].unique()),
+            key="ta_currency1_dropdown"
+        )
+        currency_filter_2 = st.selectbox(
+            "Secondary currency pair:", 
+            options=["None"] + sorted(df["Currency"].unique()),
+            key="ta_currency2_dropdown"
+        )
+
+        filtered_df = df.copy()
+        if currency_filter_1 != "All":
+            filtered_df = filtered_df[filtered_df["Currency"] == currency_filter_1]
+
+        # Flag high-probability headlines
+        filtered_df["HighProb"] = filtered_df.apply(
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
+            and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            else "", axis=1
+        )
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display["Headline"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+
+        selected_headline = st.selectbox(
+            "Select a headline for details", 
+            filtered_df_display["Headline"].tolist()
+        )
+        selected_row = filtered_df_display[filtered_df_display["Headline"] == selected_headline].iloc[0]
+
+        st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
+        st.write(f"**Published:** {selected_row['Date']}")
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
