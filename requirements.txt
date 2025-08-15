@@ -6,3 +6,4 @@ textblob
 beautifulsoup4
 plotly
 openai
+newspaper3k
