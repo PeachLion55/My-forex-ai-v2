@@ -414,7 +414,7 @@ with selected_tab[2]:
     </div>
     """
 
-    components.html(tradingview_widget, height=1200, width=100%)
+    components.html(tradingview_widget, height=1200, width=1000%)
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
