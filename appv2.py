@@ -225,25 +225,6 @@ with selected_tab[0]:
         if st.session_state.selected_currency_1:
             filtered_df = filtered_df[filtered_df["Currency"] == st.session_state.selected_currency_1]
 
-        # Flag high-probability headlines
-        filtered_df["HighProb"] = filtered_df.apply(
-            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
-            and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
-            else "", axis=1
-        )
-
-        filtered_df_display = filtered_df.copy()
-        filtered_df_display["Headline"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-
-        selected_headline = st.selectbox(
-            "Select a headline for details", 
-            filtered_df_display["Headline"].tolist()
-        )
-        selected_row = filtered_df_display[filtered_df_display["Headline"] == selected_headline].iloc[0]
-
-        st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
-        st.write(f"**Published:** {selected_row['Date']}")
-
         # Economic calendar table (with currency highlights)
         st.markdown("### 🗓️ Upcoming Economic Events")
         def highlight_currency(row):
