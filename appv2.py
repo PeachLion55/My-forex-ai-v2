@@ -176,7 +176,7 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
-        # Initialize session state for dropdowns
+        # Initialize session state
         if 'selected_currency_1' not in st.session_state:
             st.session_state.selected_currency_1 = None
         if 'selected_currency_2' not in st.session_state:
@@ -198,31 +198,29 @@ with selected_tab[0]:
         )
         st.session_state.selected_currency_2 = None if currency_filter_2 in ["None", "All"] else currency_filter_2
 
-        # Filter dataframe by first currency if needed
+        # Now filter dataframe for headlines based on BOTH dropdowns if needed
+        filtered_df = df.copy()
         if st.session_state.selected_currency_1:
-            df = df[df["Currency"] == st.session_state.selected_currency_1]
+            filtered_df = filtered_df[filtered_df["Currency"] == st.session_state.selected_currency_1]
 
         # Flag high-probability headlines
-        df["HighProb"] = df.apply(
+        filtered_df["HighProb"] = filtered_df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
             and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
 
-        df_display = df.copy()
-        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display["Headline"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
 
-        selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
-        selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
+        selected_headline = st.selectbox(
+            "Select a headline for details", 
+            filtered_df_display["Headline"].tolist()
+        )
+        selected_row = filtered_df_display[filtered_df_display["Headline"] == selected_headline].iloc[0]
 
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
-
-        # ----------------- BLUE BOX DETAILED SUMMARY -----------------
-        summary_text = selected_row["Summary"]
-        sentences = re.split(r'(?<=[.!?]) +', summary_text)
-        bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
-        st.info(bullet_points)
 
         # ----------------- ECONOMIC CALENDAR -----------------
         st.markdown("### 🗓️ Upcoming Economic Events")
@@ -230,11 +228,9 @@ with selected_tab[0]:
         def highlight_currency(row):
             styles = [''] * len(row)
             
-            # Highlight first currency (blue)
             if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
                 styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
             
-            # Highlight second currency (dark red)
             if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
                 styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
 
