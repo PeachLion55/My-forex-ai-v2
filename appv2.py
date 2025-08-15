@@ -1,4 +1,31 @@
 import streamlit as st
+
+st.set_page_config(page_title="Forex Fundamentals", layout="wide")
+
+# Custom CSS for dark futuristic background
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #0f111a;
+        background-image: linear-gradient(45deg, #0f111a 25%, #1b1f38 25%, #1b1f38 50%, #0f111a 50%, #0f111a 75%, #1b1f38 75%, #1b1f38 100%);
+        background-size: 56.57px 56.57px;
+        color: #00ffcc;
+        font-family: 'Courier New', monospace;
+    }
+    .stApp {
+        background-color: transparent;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #00ffcc;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("Forex Fundamentals")
+st.write("Welcome to the futuristic dark-themed Forex page!")
 import pandas as pd
 import feedparser
 import re
