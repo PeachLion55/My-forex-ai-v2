@@ -207,7 +207,17 @@ with selected_tab[0]:
 
         # ----------------- ECONOMIC CALENDAR BELOW SUMMARY -----------------
         st.markdown("### 🗓️ Upcoming Economic Events")
-        st.dataframe(econ_df)
+        # Function to color rows based on currency
+def highlight_currency(row):
+    color = 'background-color: #ADD8E6' if row['Currency'] == selected_currency else ''
+    return [color]*len(row)
+
+# Apply styling to the dataframe
+st.dataframe(
+    econ_df.style
+    .apply(highlight_currency, axis=1)
+    .set_properties(**{'color': '#0000FF'}, subset=pd.IndexSlice[:, ['Currency']])
+)
 
         # ----------------- IMPACT RATING -----------------
         st.markdown("### 🔥 Impact Rating")
