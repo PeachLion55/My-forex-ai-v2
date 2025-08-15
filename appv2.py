@@ -6,27 +6,9 @@ from textblob import TextBlob
 
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
-import streamlit as st
-
 # ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
-tab1, tab2 = st.tabs(tabs)  # unpack the tabs
-
-# ----------------- FOREX FUNDAMENTALS + TECHNICAL ANALYSIS -----------------
-with tab1:
-    st.header("Forex Fundamentals")
-    st.subheader("Economic News & Analysis")
-    st.write("Display your latest economic news, market updates, or fundamental indicators here.")
-
-    st.subheader("Technical Analysis")
-    st.write("Include charts, indicators, or trading signals here.")
-    # Example: simple candlestick chart placeholder
-    st.line_chart([1, 3, 2, 4, 3, 5, 4])  
-
-# ----------------- MY ACCOUNT -----------------
-with tab2:
-    st.header("My Account")
-    st.write("User account details, portfolio info, or settings go here.")
+selected_tab = st.tabs(tabs)
 
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
