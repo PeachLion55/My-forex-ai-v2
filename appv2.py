@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
-from textblob import TextBlob
 import feedparser
 import requests
 from bs4 import BeautifulSoup
-from gensim.summarization import summarize  # or any summarization library you prefer
+from textblob import TextBlob
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -15,16 +14,14 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
-    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;  /* Gold color */
+        background-color: #FFD700 !important;
         color: black !important;
         font-weight: bold;
         padding: 15px 30px !important;
         border-radius: 8px;
         margin-right: 10px !important;
     }
-    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -32,7 +29,6 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
-    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -40,7 +36,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
-
 def detect_currency(title):
     title_upper = title.upper()
     currency_map = {
@@ -95,19 +90,18 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-# ----------------- SUMMARY FUNCTION -----------------
-def get_detailed_summary(url, sentences_count=8):
+def fetch_detailed_summary(url, max_paragraphs=5):
+    """Fetch a detailed summary from the article link using the first few paragraphs."""
     try:
         r = requests.get(url, timeout=5)
         soup = BeautifulSoup(r.text, "html.parser")
-        paragraphs = soup.find_all("p")
-        article_text = " ".join([p.get_text() for p in paragraphs])
-        summary = summarize(article_text, word_count=150)  # You can change word_count
-        if not summary.strip():
-            return article_text[:800] + "..."  # fallback if summarization fails
+        paragraphs = [p.get_text().strip() for p in soup.find_all("p") if p.get_text().strip() != ""]
+        if not paragraphs:
+            return "Detailed summary not available."
+        summary = "\n\n".join(paragraphs[:max_paragraphs])
         return summary
-    except Exception as e:
-        return "Summary unavailable. Showing original text."
+    except Exception:
+        return "Detailed summary not available."
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -121,7 +115,6 @@ with selected_tab[0]:
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        # Flag high-probability headlines
         df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
@@ -136,10 +129,9 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        # ----------------- DETAILED SUMMARY -----------------
         st.markdown("### 📝 Detailed Summary")
-        detailed_summary = get_detailed_summary(selected_row["Link"])
-        st.write(detailed_summary)
+        detailed_summary = fetch_detailed_summary(selected_row['Link'])
+        st.info(detailed_summary)
 
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
