@@ -1,27 +1,4 @@
-import streamlit as st
-
-# Set the desired opacity (0.0 to 1.0)
-opacity = 50.8
-
-st.markdown(
-    f"""
-    <style>
-    .stApp {{
-        /* Linear gradient with opacity */
-        background: linear-gradient(135deg, rgba(11, 12, 28, {opacity}), rgba(26, 26, 46, {opacity}), rgba(11, 12, 28, {opacity}));
-        background-size: 400% 400%;
-        color: #ffffff;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-import pandas as pd
-import feedparser
-import re
-from textblob import TextBlob
-
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
+import streamlit as st          st.markdown(f"**Current Profile:** {st.session_state.name} | {st.session_state.base_ccy} | Alerts: {'On' if st.session_state.alerts")
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
 # Expanded to 4 tabs so each can have unique content
@@ -225,6 +202,25 @@ with selected_tab[0]:
         if st.session_state.selected_currency_1:
             filtered_df = filtered_df[filtered_df["Currency"] == st.session_state.selected_currency_1]
 
+        # Flag high-probability headlines
+        filtered_df["HighProb"] = filtered_df.apply(
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
+            and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
+            else "", axis=1
+        )
+
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display["Headline"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+
+        selected_headline = st.selectbox(
+            "Select a headline for details", 
+            filtered_df_display["Headline"].tolist()
+        )
+        selected_row = filtered_df_display[filtered_df_display["Headline"] == selected_headline].iloc[0]
+
+        st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
+        st.write(f"**Published:** {selected_row['Date']}")
+
         # Economic calendar table (with currency highlights)
         st.markdown("### 🗓️ Upcoming Economic Events")
         def highlight_currency(row):
@@ -341,100 +337,20 @@ with selected_tab[1]:
 3) Expect volatility around high-impact events; widen stops or reduce size.
         """)
 
-# ----------------- TAB 3: TECHNICAL ANALYSIS -----------------
-import streamlit.components.v1 as components
-
+# ----------------- TAB 3: TECHNICAL ANALYSIS (Simple demo distinct from fundamentals) -----------------
 with selected_tab[2]:
     st.title("📊 Technical Analysis")
-    st.caption("Live TradingView chart for major currency pairs.")
+    st.caption("Lightweight demo — add your own charts/indicators later.")
 
-    # TradingView widget code
-    tradingview_widget = """
-    <div class="tradingview-widget-container" style="height:800px; width:100%">
-      <div class="tradingview-widget-container__widget"></div>
-      <div class="tradingview-widget-copyright">
-        <a href="https://www.tradingview.com/symbols/CMCMARKETS-USDCAD/?exchange=CMCMARKETS" rel="noopener" target="_blank">
-          <span class="blue-text">USDCAD chart by TradingView</span>
-        </a>
-      </div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-      {
-        "allow_symbol_change": true,
-        "calendar": false,
-        "details": false,
-        "hide_side_toolbar": false,
-        "hide_top_toolbar": false,
-        "hide_legend": true,
-        "hide_volume": true,
-        "hotlist": false,
-        "interval": "D",
-        "locale": "en",
-        "save_image": true,
-        "style": "1",
-        "symbol": "CMCMARKETS:USDCAD",
-        "theme": "dark",
-        "timezone": "Europe/London",
-        "backgroundColor": "#0F0F0F",
-        "gridColor": "rgba(242, 242, 242, 0.06)",
-        "watchlist": [
-          "FX:EURUSD",
-          "FX:USDJPY",
-          "FX:GBPUSD",
-          "OANDA:USDCHF",
-          "FX:AUDUSD",
-          "OANDA:NZDUSD"
-        ],
-        "withdateranges": false,
-        "compareSymbols": [],
-        "studies": [
-          "STD;Divergence%1Indicator"
-        ],
-        "autosize": true
-      }
-      </script>
-    </div>
-    """
-    components.html(tradingview_widget, height=900, width=1000)
+    st.subheader("Sample Price Series (Demo)")
+    # Create a simple uptrend series without extra imports
+    dates = pd.date_range(end=pd.Timestamp.today().normalize(), periods=60)
+    price = pd.Series([100 + i * 0.2 for i in range(60)], index=dates, name="Price")
+    sma10 = price.rolling(10).mean().rename("SMA10")
+    ta_df = pd.concat([price, sma10], axis=1)
+    st.line_chart(ta_df)
 
-    # --------- Forex News Feed (moved from Fundamentals) ---------
-    st.subheader("Forex News Sentiment")
-    st.caption("Select a headline to view detailed summary and sentiment")
-
-    df = get_fxstreet_forex_news()
-    if not df.empty:
-        # Currency filters
-        currency_filter_1 = st.selectbox(
-            "Primary currency pair:", 
-            options=["All"] + sorted(df["Currency"].unique()),
-            key="ta_currency1_dropdown"
-        )
-        currency_filter_2 = st.selectbox(
-            "Secondary currency pair:", 
-            options=["None"] + sorted(df["Currency"].unique()),
-            key="ta_currency2_dropdown"
-        )
-
-        filtered_df = df.copy()
-        if currency_filter_1 != "All":
-            filtered_df = filtered_df[filtered_df["Currency"] == currency_filter_1]
-
-        # Flag high-probability headlines
-        filtered_df["HighProb"] = filtered_df.apply(
-            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
-            and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
-            else "", axis=1
-        )
-        filtered_df_display = filtered_df.copy()
-        filtered_df_display["Headline"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-
-        selected_headline = st.selectbox(
-            "Select a headline for details", 
-            filtered_df_display["Headline"].tolist()
-        )
-        selected_row = filtered_df_display[filtered_df_display["Headline"] == selected_headline].iloc[0]
-
-        st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
-        st.write(f"**Published:** {selected_row['Date']}")
+    st.info("This is a placeholder so this tab is unique. Replace with real market data, indicators, and multi-timeframe views.")
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
