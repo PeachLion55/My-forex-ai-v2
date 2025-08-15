@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from textblob import TextBlob
 import feedparser
+from newspaper import Article
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -12,16 +16,14 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
-    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;  /* Gold color */
+        background-color: #FFD700 !important;
         color: black !important;
         font-weight: bold;
         padding: 15px 30px !important;
         border-radius: 8px;
         margin-right: 10px !important;
     }
-    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -29,7 +31,6 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
-    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -92,6 +93,22 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
+def get_detailed_summary(url, sentences_count=5):
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        text = article.text
+
+        parser = PlaintextParser.from_string(text, Tokenizer("english"))
+        summarizer = LsaSummarizer()
+        summary_sentences = summarizer(parser.document, sentences_count)
+
+        summary = " ".join([str(sentence) for sentence in summary_sentences])
+        return summary
+    except Exception as e:
+        return "Unable to generate detailed summary, showing original text."
+
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
@@ -119,8 +136,10 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        st.markdown("### 🧠 Summary")
-        st.info(selected_row["Summary"])  # Blue box with FXStreet summary
+        # ----------------- DETAILED SUMMARY -----------------
+        st.markdown("### 🟡 Detailed Summary")
+        detailed_summary = get_detailed_summary(selected_row["Link"], sentences_count=8)
+        st.info(detailed_summary)
 
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
