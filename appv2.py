@@ -1,22 +1,22 @@
 import streamlit as st
 import pandas as pd
-from textblob import TextBlob
 import feedparser
-import openai
+from textblob import TextBlob
+from openai import OpenAI
 
 # ----------------- CONFIG -----------------
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
 selected_tab = st.tabs(tabs)
 
-# ----------------- CUSTOM CSS -----------------
+# ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;
+        background-color: #FFD700 !important;  
         color: black !important;
         font-weight: bold;
         padding: 15px 30px !important;
@@ -93,15 +93,12 @@ def get_fxstreet_forex_news():
 
 def get_gpt_summary(text):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.responses.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful forex news summarizer."},
-                {"role": "user", "content": f"Summarize this news in detailed paragraphs and key points:\n\n{text}"}
-            ],
-            max_tokens=400,
+            input=f"Summarize this news in detailed paragraphs and key points:\n\n{text}",
+            max_output_tokens=400
         )
-        return response.choices[0].message.content.strip()
+        return response.output_text
     except Exception as e:
         print("GPT summary error:", e)
         return None
@@ -132,19 +129,16 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        # ----- BLUE BOX: original summary -----
-        st.markdown("### 🧠 Original Summary")
+        st.markdown("### 🧠 Original Summary (Blue Box)")
         st.info(selected_row["Summary"])
 
-        # ----- YELLOW BOX: GPT summary -----
-        st.markdown("### 🟡 GPT Summary")
+        st.markdown("### 🟨 GPT Summary (Yellow Box)")
         gpt_summary = get_gpt_summary(selected_row["Summary"])
         if gpt_summary:
             st.warning(gpt_summary)
         else:
             st.warning("GPT summary unavailable, showing original text.")
 
-        # Impact & timeframes
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
         if "Bullish" in impact:
