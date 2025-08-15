@@ -176,24 +176,27 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
+        # Currency filter for headlines and calendar
         currency_filter = st.selectbox(
             "What currency pair would you like to track?", 
             options=["All"] + sorted(df["Currency"].unique())
         )
-
-        if currency_filter != "All":
-            df = df[df["Currency"] == currency_filter]
         selected_currency = currency_filter if currency_filter != "All" else None
 
+        # Filter headlines for selected currency
+        df_filtered = df.copy()
+        if selected_currency:
+            df_filtered = df[df["Currency"] == selected_currency]
+
         # Flag high-probability headlines
-        df["HighProb"] = df.apply(
+        df_filtered["HighProb"] = df_filtered.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
             and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
 
-        df_display = df.copy()
-        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
+        df_display = df_filtered.copy()
+        df_display["Headline"] = df_filtered["HighProb"] + " " + df_filtered["Headline"]
 
         selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
         selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
@@ -210,11 +213,14 @@ with selected_tab[0]:
         # ----------------- ECONOMIC CALENDAR -----------------
         st.markdown("### 🗓️ Upcoming Economic Events")
 
-        # Highlight the selected currency row
         def highlight_currency(row):
             if selected_currency and row['Currency'] == selected_currency:
                 # Dark background for the row, white text for Currency column
-                return ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+                return [
+                    'background-color: #171447; color: white' if col == 'Currency' 
+                    else 'background-color: #171447' 
+                    for col in row.index
+                ]
             else:
                 return ['']*len(row)
 
@@ -222,6 +228,8 @@ with selected_tab[0]:
             econ_df.style
             .apply(highlight_currency, axis=1)
         )
+    else:
+        st.info("No forex news available at the moment.")
 
         # ----------------- IMPACT RATING -----------------
         st.markdown("### 🔥 Impact Rating")
