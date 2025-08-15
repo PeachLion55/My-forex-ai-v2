@@ -1,7 +1,7 @@
 import streamlit as st
-import requests
 import pandas as pd
 from textblob import TextBlob
+import feedparser
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -38,62 +38,56 @@ st.markdown("""
 
 # ----------------- FUNCTIONS -----------------
 
-def get_gnews_forex_sentiment():
-    API_KEY = st.secrets["GNEWS_API_KEY"]
-    url = f"https://gnews.io/api/v4/search?q=forex+OR+inflation+OR+interest+rate+OR+CPI+OR+GDP+OR+Fed+OR+ECB&lang=en&token={API_KEY}"
+def detect_currency(title):
+    title_upper = title.upper()
+    currency_map = {
+        "USD": ["USD", "US", "FED", "FEDERAL RESERVE", "AMERICA"],
+        "GBP": ["GBP", "UK", "BRITAIN", "BOE", "POUND", "STERLING"],
+        "EUR": ["EUR", "EURO", "EUROZONE", "ECB"],
+        "JPY": ["JPY", "JAPAN", "BOJ", "YEN"],
+        "AUD": ["AUD", "AUSTRALIA", "RBA"],
+        "CAD": ["CAD", "CANADA", "BOC"],
+        "CHF": ["CHF", "SWITZERLAND", "SNB"],
+        "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
+    }
+    for curr, keywords in currency_map.items():
+        for kw in keywords:
+            if kw in title_upper:
+                return curr
+    return "Unknown"
 
-    response = requests.get(url)
-    if response.status_code != 200:
-        st.error(f"GNews API error: {response.status_code}")
-        return pd.DataFrame()
+def rate_impact(polarity):
+    if polarity > 0.5:
+        return "Significantly Bullish"
+    elif polarity > 0.1:
+        return "Bullish"
+    elif polarity < -0.5:
+        return "Significantly Bearish"
+    elif polarity < -0.1:
+        return "Bearish"
+    else:
+        return "Neutral"
 
-    articles = response.json().get("articles", [])
+def get_fxstreet_forex_news():
+    RSS_URL = "https://www.fxstreet.com/rss/news"
+    feed = feedparser.parse(RSS_URL)
     rows = []
 
-    def detect_currency(title):
-        title_upper = title.upper()
-        currency_map = {
-            "USD": ["USD", "US", "FED", "FEDERAL RESERVE", "AMERICA"],
-            "GBP": ["GBP", "UK", "BRITAIN", "BOE", "POUND", "STERLING"],
-            "EUR": ["EUR", "EURO", "EUROZONE", "ECB"],
-            "JPY": ["JPY", "JAPAN", "BOJ", "YEN"],
-            "AUD": ["AUD", "AUSTRALIA", "RBA"],
-            "CAD": ["CAD", "CANADA", "BOC"],
-            "CHF": ["CHF", "SWITZERLAND", "SNB"],
-            "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
-        }
-        for curr, keywords in currency_map.items():
-            for kw in keywords:
-                if kw in title_upper:
-                    return curr
-        return "Unknown"
-
-    def rate_impact(polarity):
-        if polarity > 0.5:
-            return "Significantly Bullish"
-        elif polarity > 0.1:
-            return "Bullish"
-        elif polarity < -0.5:
-            return "Significantly Bearish"
-        elif polarity < -0.1:
-            return "Bearish"
-        else:
-            return "Neutral"
-
-    for article in articles:
-        title = article.get("title", "")
-        date = article.get("publishedAt", "")[:10]
+    for entry in feed.entries:
+        title = entry.title
+        date = entry.published[:10] if hasattr(entry, "published") else ""
         currency = detect_currency(title)
         sentiment_score = TextBlob(title).sentiment.polarity
         impact = rate_impact(sentiment_score)
-        summary = article.get("description", "") or title.split(":")[-1].strip()
+        summary = entry.summary
 
         rows.append({
             "Date": date,
             "Currency": currency,
             "Headline": title,
             "Impact": impact,
-            "Summary": summary
+            "Summary": summary,
+            "Link": entry.link
         })
 
     return pd.DataFrame(rows)
@@ -103,7 +97,7 @@ with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
     st.caption("Click a headline to view detailed summary and sentiment")
 
-    df = get_gnews_forex_sentiment()
+    df = get_fxstreet_forex_news()
 
     if not df.empty:
         currency_filter = st.selectbox("What currency pair would you like to track?", options=["All"] + sorted(df["Currency"].unique()))
@@ -120,10 +114,10 @@ with selected_tab[0]:
         df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
 
         selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
-
-        st.dataframe(df_display[["Date", "Currency", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
-
         selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
+
+        st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
+        st.write(f"**Published:** {selected_row['Date']}")
 
         st.markdown("### 🧠 Summary")
         st.info(selected_row["Summary"])
@@ -167,7 +161,7 @@ with selected_tab[0]:
         else:
             st.write("⚪ No strong directional sentiment detected right now.")
     else:
-        st.info("No forex news available or API limit reached.")
+        st.info("No forex news available at the moment.")
 
 with selected_tab[1]:
     st.title("👤 My Account")
