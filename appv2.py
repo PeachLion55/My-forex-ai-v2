@@ -220,51 +220,51 @@ st.dataframe(
 )
 
        # ----------------- IMPACT RATING -----------------
-st.markdown("### 🔥 Impact Rating")
-impact = selected_row["Impact"]
-if "Bullish" in impact:
-    st.success(impact)
-elif "Bearish" in impact:
-    st.error(impact)
-else:
-    st.warning(impact)
-        # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
-st.markdown("### ⏱️ Timeframes Likely Affected")
-if "Significantly" in impact:
-    timeframes = ["H4", "Daily"]
-elif impact in ["Bullish", "Bearish"]:
-    timeframes = ["H1", "H4"]
-else:
-    timeframes = ["H1"]
-st.write(", ".join(timeframes))
+if selected_row is not None:
 
-# ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
-st.markdown("### 💱 Likely Affected Currency Pairs")
-base = selected_row["Currency"]
-if base != "Unknown":
-    pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
-    st.write(", ".join(pairs))
-else:
-    st.write("Cannot determine affected pairs.")
+    # ----------------- IMPACT RATING -----------------
+    st.markdown("### 🔥 Impact Rating")
+    impact = selected_row["Impact"]
+    if "Bullish" in impact:
+        st.success(impact)
+    elif "Bearish" in impact:
+        st.error(impact)
+    else:
+        st.warning(impact)
 
-# ----------------- CURRENCY SENTIMENT BIAS TABLE -----------------
-st.markdown("---")
-st.markdown("## 📈 Currency Sentiment Bias Table")
-bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
-st.dataframe(bias_df)
+    # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
+    st.markdown("### ⏱️ Timeframes Likely Affected")
+    if "Significantly" in impact:
+        timeframes = ["H4", "Daily"]
+    elif impact in ["Bullish", "Bearish"]:
+        timeframes = ["H1", "H4"]
+    else:
+        timeframes = ["H1"]
+    st.write(", ".join(timeframes))
 
-# ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
-st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-if "Bullish" in impact:
-    st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
-elif "Bearish" in impact:
-    st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
-else:
-    st.write("⚪ No strong directional sentiment detected right now.")
+    # ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
+    st.markdown("### 💱 Likely Affected Currency Pairs")
+    base = selected_row["Currency"]
+    if base != "Unknown":
+        pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+        st.write(", ".join(pairs))
+    else:
+        st.write("Cannot determine affected pairs.")
+
+    # ----------------- CURRENCY SENTIMENT BIAS TABLE -----------------
+    st.markdown("---")
+    st.markdown("## 📈 Currency Sentiment Bias Table")
+    bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
+    st.dataframe(bias_df)
+
+    # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
+    st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+    if "Bullish" in impact:
+        st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
+    elif "Bearish" in impact:
+        st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
+    else:
+        st.write("⚪ No strong directional sentiment detected right now.")
 
 else:
     st.info("No forex news available at the moment.")
-
-with selected_tab[1]:
-    st.title("👤 My Account")
-    st.write("This is your account page. You can add user settings, subscription info, or API key management here.")
