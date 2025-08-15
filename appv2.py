@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from textblob import TextBlob
 import openai
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 from datetime import datetime, timedelta
 
 # ----------------- CONFIG -----------------
