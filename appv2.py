@@ -2,27 +2,41 @@ import streamlit as st
 import pandas as pd
 from textblob import TextBlob
 import feedparser
-from newspaper import Article
+import requests
+from bs4 import BeautifulSoup
 import openai
 
-# ----------------- OPENAI API -----------------
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-
-# ----------------- PAGE SETUP -----------------
+# ----------------- CONFIG -----------------
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
+# Add your OpenAI API key here or via Streamlit secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+# ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
 selected_tab = st.tabs(tabs)
 
+# ----------------- CUSTOM CSS -----------------
 st.markdown("""
 <style>
-div[data-baseweb="tab-list"] button[aria-selected="true"] {
-    background-color: #FFD700 !important; color: black !important; font-weight: bold; padding: 15px 30px !important; border-radius: 8px; margin-right: 10px !important;
-}
-div[data-baseweb="tab-list"] button[aria-selected="false"] {
-    background-color: #f0f0f0 !important; color: #555 !important; padding: 15px 30px !important; border-radius: 8px; margin-right: 10px !important;
-}
-.css-1d391kg { padding: 30px 40px !important; }
+    div[data-baseweb="tab-list"] button[aria-selected="true"] {
+        background-color: #FFD700 !important;  
+        color: black !important;
+        font-weight: bold;
+        padding: 15px 30px !important;
+        border-radius: 8px;
+        margin-right: 10px !important;
+    }
+    div[data-baseweb="tab-list"] button[aria-selected="false"] {
+        background-color: #f0f0f0 !important;
+        color: #555 !important;
+        padding: 15px 30px !important;
+        border-radius: 8px;
+        margin-right: 10px !important;
+    }
+    .css-1d391kg { 
+        padding: 30px 40px !important; 
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -81,30 +95,35 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-def get_article_text(url):
+# ----------------- GPT FUNCTIONS -----------------
+def fetch_article_text(url):
     try:
-        article = Article(url)
-        article.download()
-        article.parse()
-        return article.text
-    except:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.content, "html.parser")
+        paragraphs = soup.find_all("p")
+        text = "\n".join([p.get_text() for p in paragraphs])
+        return text
+    except Exception as e:
+        st.error(f"Failed to fetch article: {e}")
         return ""
 
-def generate_gpt_summary_from_url(url, fallback_summary):
-    text = get_article_text(url)
-    if not text:
-        text = fallback_summary  # fallback to RSS summary
-
+def get_gpt_summary(text, max_chars=4000):
     try:
+        text = text[:max_chars]
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": f"Summarize this forex news in detailed paragraphs with key points:\n{text}"}],
+            messages=[
+                {"role": "system", "content": "You are a forex news summarizer."},
+                {"role": "user", "content": f"Summarize this forex news article in detailed paragraphs and key points:\n\n{text}"}
+            ],
+            temperature=0.5,
             max_tokens=500
         )
-        return response['choices'][0]['message']['content']
+        summary = response.choices[0].message.content.strip()
+        return summary
     except Exception as e:
-        st.warning(f"GPT summary unavailable, showing original text. Error: {e}")
-        return text
+        st.error(f"GPT summary error: {e}")
+        return "GPT summary unavailable, showing original text."
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -118,6 +137,7 @@ with selected_tab[0]:
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
+        # Flag high-probability headlines
         df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
@@ -132,9 +152,12 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        st.markdown("### 🧠 GPT Summary")
-        summary_text = generate_gpt_summary_from_url(selected_row["Link"], selected_row["Summary"])
-        st.info(summary_text)
+        # Fetch article text and generate GPT summary
+        article_text = fetch_article_text(selected_row["Link"])
+        gpt_summary = get_gpt_summary(article_text) if article_text else "Article could not be fetched, showing original summary."
+        
+        st.markdown("### 🧠 Summary")
+        st.info(gpt_summary)
 
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
