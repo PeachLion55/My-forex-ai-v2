@@ -4,7 +4,6 @@ pandas
 feedparser
 textblob
 plotly
-openai
 newspaper3k
 transformers
 torch
