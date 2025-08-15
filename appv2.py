@@ -261,13 +261,14 @@ with selected_tab[0]:
             st.write("Cannot determine affected pairs.")
 
         # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
-        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-        if "Bullish" in impact:
-            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
-        elif "Bearish" in impact:
-            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
-        else:
-            st.write("⚪ No strong directional sentiment detected right now.")
+st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
 
+if not df.empty:
+    if "Bullish" in impact:
+        st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
+    elif "Bearish" in impact:
+        st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
     else:
-        st.info("No forex news available at the moment.")
+        st.write("⚪ No strong directional sentiment detected right now.")
+else:
+    st.info("No forex news available at the moment.")
