@@ -106,7 +106,7 @@ with selected_tab[0]:
     df = get_gnews_forex_sentiment()
 
     if not df.empty:
-        currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
+        currency_filter = st.selectbox("What currency pair would you like to track?", options=["All"] + sorted(df["Currency"].unique()))
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
