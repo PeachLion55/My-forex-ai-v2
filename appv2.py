@@ -1,14 +1,12 @@
 import streamlit as st
 import pandas as pd
-import feedparser
 from textblob import TextBlob
-import openai
+import feedparser
+import requests
+from bs4 import BeautifulSoup
+from transformers import pipeline
 
-# ----------------- STREAMLIT CONFIG -----------------
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
-
-# Set your OpenAI API key from Streamlit secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
@@ -39,7 +37,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
-
 def detect_currency(title):
     title_upper = title.upper()
     currency_map = {
@@ -94,19 +91,28 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-def get_gpt_summary(text):
+# Initialize Hugging Face summarization pipeline
+@st.cache_resource
+def load_summarizer():
+    return pipeline("summarization", model="facebook/bart-large-cnn")
+
+summarizer = load_summarizer()
+
+def summarize_article(url):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{
-                "role": "user",
-                "content": f"Summarize this forex news article in detailed paragraphs and key points:\n\n{text}"
-            }],
-            temperature=0.3
-        )
-        return response.choices[0].message.content
+        res = requests.get(url, timeout=10)
+        soup = BeautifulSoup(res.content, "html.parser")
+        paragraphs = soup.find_all("p")
+        text = " ".join(p.get_text() for p in paragraphs)
+        if len(text.strip()) == 0:
+            return "No text found on the page to summarize."
+        # Limit text length for summarizer
+        if len(text) > 2000:
+            text = text[:2000]
+        summary = summarizer(text, max_length=150, min_length=50, do_sample=False)
+        return summary[0]['summary_text']
     except Exception as e:
-        return f"GPT summary unavailable, showing original text.\nError: {str(e)}"
+        return f"Could not summarize the article: {e}"
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -120,6 +126,7 @@ with selected_tab[0]:
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
+        # Flag high-probability headlines
         df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
@@ -134,14 +141,12 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        # Original summary (blue box)
         st.markdown("### 🧠 Original Summary")
         st.info(selected_row["Summary"])
 
-        # GPT summary (yellow box)
-        st.markdown("### 🌟 AI Summary")
-        gpt_summary = get_gpt_summary(selected_row["Summary"])
-        st.warning(gpt_summary)  # yellow box
+        st.markdown("### 🟡 AI Summary")
+        ai_summary = summarize_article(selected_row["Link"])
+        st.warning(ai_summary)
 
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
