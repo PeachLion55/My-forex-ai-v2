@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 from textblob import TextBlob
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -14,9 +15,9 @@ st.markdown("""
 <style>
     /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;  /* Gold color */
+        background-color: #FFD700 !important;  
         color: black !important;
-        font-weight: bold;
+        font-weight: bold !important;
         padding: 15px 30px !important;
         border-radius: 8px;
         margin-right: 10px !important;
@@ -37,7 +38,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
-
 def get_gnews_forex_sentiment():
     API_KEY = st.secrets["GNEWS_API_KEY"]
     url = f"https://gnews.io/api/v4/search?q=forex+OR+inflation+OR+interest+rate+OR+CPI+OR+GDP+OR+Fed+OR+ECB&lang=en&token={API_KEY}"
@@ -96,9 +96,12 @@ def get_gnews_forex_sentiment():
             "Summary": summary
         })
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    # Convert Date to datetime for filtering
+    df["DateTime"] = pd.to_datetime(df["Date"])
+    return df
 
-# ----------------- PAGE CONTENT -----------------
+# ----------------- TAB 1: Forex Fundamentals -----------------
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
     st.caption("Click a headline to view detailed summary and sentiment")
@@ -106,28 +109,30 @@ with selected_tab[0]:
     df = get_gnews_forex_sentiment()
 
     if not df.empty:
+        # Filter by today and next 24 hours
+        now = datetime.now()
+        next_24h = now + timedelta(hours=24)
+        default_df = df[(df["DateTime"] >= now) & (df["DateTime"] <= next_24h)]
+
         currency_filter = st.selectbox("Filter by Currency", options=["All"] + sorted(df["Currency"].unique()))
         if currency_filter != "All":
-            df = df[df["Currency"] == currency_filter]
+            default_df = default_df[default_df["Currency"] == currency_filter]
+
+        st.markdown("### 📌 Economic Calendar (Today + Next 24h)")
 
         # Flag high-probability headlines
-        df["HighProb"] = df.apply(
-            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
-            else "", axis=1
+        default_df["HighProb"] = default_df.apply(
+            lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] else "", axis=1
         )
+        default_df["HeadlineDisplay"] = default_df["HighProb"] + " " + default_df["Headline"]
 
-        df_display = df.copy()
-        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
+        selected_headline = st.selectbox("Select a headline for details", default_df["HeadlineDisplay"].tolist())
+        st.dataframe(default_df[["Date", "Currency", "HeadlineDisplay"]].sort_values(by="DateTime", ascending=True), use_container_width=True)
 
-        selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
-
-        st.dataframe(df_display[["Date", "Currency", "Headline"]].sort_values(by="Date", ascending=False), use_container_width=True)
-
-        selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
-
+        # Show detailed info
+        selected_row = default_df[default_df["HeadlineDisplay"] == selected_headline].iloc[0]
         st.markdown("### 🧠 Summary")
         st.info(selected_row["Summary"])
-
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
         if "Bullish" in impact:
@@ -154,21 +159,23 @@ with selected_tab[0]:
         else:
             st.write("Cannot determine affected pairs.")
 
-        st.markdown("---")
-        st.markdown("## 📈 Currency Sentiment Bias Table")
-        bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
-        st.dataframe(bias_df)
+        # Load more data button
+        if st.button("Load More Data (All Articles)"):
+            full_df = df.copy()
+            if currency_filter != "All":
+                full_df = full_df[full_df["Currency"] == currency_filter]
 
-        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-        if "Bullish" in impact:
-            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
-        elif "Bearish" in impact:
-            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
-        else:
-            st.write("⚪ No strong directional sentiment detected right now.")
+            full_df["HighProb"] = full_df.apply(
+                lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] else "", axis=1
+            )
+            full_df["HeadlineDisplay"] = full_df["HighProb"] + " " + full_df["Headline"]
+            st.markdown("### 📌 Full Economic Calendar")
+            st.dataframe(full_df[["Date", "Currency", "HeadlineDisplay"]].sort_values(by="DateTime", ascending=True), use_container_width=True)
+
     else:
         st.info("No forex news available or API limit reached.")
 
+# ----------------- TAB 2: My Account -----------------
 with selected_tab[1]:
     st.title("👤 My Account")
     st.write("This is your account page. You can add user settings, subscription info, or API key management here.")
