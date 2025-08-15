@@ -222,17 +222,17 @@ st.dataframe(
     econ_df.style.apply(highlight_currency, axis=1)
 )
 
-        # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
-        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-        if "Bullish" in selected_row["Impact"]:
-            st.info(f"🟢 Sentiment on **{selected_row['Currency']}** is bullish. Look for buying setups on H1/H4.")
-        elif "Bearish" in selected_row["Impact"]:
-            st.warning(f"🔴 Sentiment on **{selected_row['Currency']}** is bearish. Look for selling setups on H1/H4.")
-        else:
-            st.write("⚪ No strong directional sentiment detected right now.")
-
+# ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
+if not df.empty:
+    st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+    if "Bullish" in selected_row["Impact"]:
+        st.info(f"🟢 Sentiment on **{selected_row['Currency']}** is bullish. Look for buying setups on H1/H4.")
+    elif "Bearish" in selected_row["Impact"]:
+        st.warning(f"🔴 Sentiment on **{selected_row['Currency']}** is bearish. Look for selling setups on H1/H4.")
     else:
-        st.info("No forex news available at the moment.")
+        st.write("⚪ No strong directional sentiment detected right now.")
+else:
+    st.info("No forex news available at the moment.")
 
         # ----------------- IMPACT RATING -----------------
         st.markdown("### 🔥 Impact Rating")
