@@ -1,68 +1,17 @@
 import streamlit as st
 
+# Set the desired opacity (0.0 to 1.0)
+opacity = 0.8
+
 st.markdown(
-    """
-    <canvas id="futuristic-bg"></canvas>
-    <script>
-    const canvas = document.getElementById('futuristic-bg');
-    const ctx = canvas.getContext('2d');
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-
-    // Create particles
-    const particles = [];
-    const particleCount = 100;
-
-    for (let i = 0; i < particleCount; i++) {
-        particles.push({
-            x: Math.random() * width,
-            y: Math.random() * height,
-            speedX: (Math.random() - 0.5) * 2,
-            speedY: (Math.random() - 0.5) * 2,
-            radius: Math.random() * 2 + 1
-        });
-    }
-
-    function animate() {
-        ctx.fillStyle = "rgba(11,12,28,0.2)";
-        ctx.fillRect(0, 0, width, height);
-
-        particles.forEach(p => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
-            ctx.fillStyle = "rgba(0,255,255,0.7)";
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "cyan";
-            ctx.fill();
-
-            p.x += p.speedX;
-            p.y += p.speedY;
-
-            if(p.x < 0 || p.x > width) p.speedX *= -1;
-            if(p.y < 0 || p.y > height) p.speedY *= -1;
-        });
-
-        requestAnimationFrame(animate);
-    }
-
-    animate();
-
-    window.addEventListener('resize', () => {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
-    });
-    </script>
+    f"""
     <style>
-    canvas {
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: -1;
-    }
+    .stApp {{
+        /* Linear gradient with opacity */
+        background: linear-gradient(135deg, rgba(11, 12, 28, {opacity}), rgba(26, 26, 46, {opacity}), rgba(11, 12, 28, {opacity}));
+        background-size: 400% 400%;
+        color: #ffffff;
+    }}
     </style>
     """,
     unsafe_allow_html=True
