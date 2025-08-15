@@ -2,14 +2,10 @@ import streamlit as st
 import pandas as pd
 from textblob import TextBlob
 import feedparser
-import requests
-from bs4 import BeautifulSoup
 import openai
 
 # ----------------- CONFIG -----------------
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
-
-# Add your OpenAI API key here or via Streamlit secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
@@ -20,7 +16,7 @@ selected_tab = st.tabs(tabs)
 st.markdown("""
 <style>
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;  
+        background-color: #FFD700 !important;
         color: black !important;
         font-weight: bold;
         padding: 15px 30px !important;
@@ -95,35 +91,20 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-# ----------------- GPT FUNCTIONS -----------------
-def fetch_article_text(url):
+def get_gpt_summary(text):
     try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.content, "html.parser")
-        paragraphs = soup.find_all("p")
-        text = "\n".join([p.get_text() for p in paragraphs])
-        return text
-    except Exception as e:
-        st.error(f"Failed to fetch article: {e}")
-        return ""
-
-def get_gpt_summary(text, max_chars=4000):
-    try:
-        text = text[:max_chars]
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a forex news summarizer."},
-                {"role": "user", "content": f"Summarize this forex news article in detailed paragraphs and key points:\n\n{text}"}
+                {"role": "system", "content": "You are a helpful forex news summarizer."},
+                {"role": "user", "content": f"Summarize this news in detailed paragraphs and key points:\n\n{text}"}
             ],
-            temperature=0.5,
-            max_tokens=500
+            max_tokens=400,
         )
-        summary = response.choices[0].message.content.strip()
-        return summary
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        st.error(f"GPT summary error: {e}")
-        return "GPT summary unavailable, showing original text."
+        print("GPT summary error:", e)
+        return None
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -137,7 +118,6 @@ with selected_tab[0]:
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        # Flag high-probability headlines
         df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
@@ -152,13 +132,19 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        # Fetch article text and generate GPT summary
-        article_text = fetch_article_text(selected_row["Link"])
-        gpt_summary = get_gpt_summary(article_text) if article_text else "Article could not be fetched, showing original summary."
-        
-        st.markdown("### 🧠 Summary")
-        st.info(gpt_summary)
+        # ----- BLUE BOX: original summary -----
+        st.markdown("### 🧠 Original Summary")
+        st.info(selected_row["Summary"])
 
+        # ----- YELLOW BOX: GPT summary -----
+        st.markdown("### 🟡 GPT Summary")
+        gpt_summary = get_gpt_summary(selected_row["Summary"])
+        if gpt_summary:
+            st.warning(gpt_summary)
+        else:
+            st.warning("GPT summary unavailable, showing original text.")
+
+        # Impact & timeframes
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
         if "Bullish" in impact:
