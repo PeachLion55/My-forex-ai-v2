@@ -243,7 +243,6 @@ with selected_tab[0]:
 # ----------------- INTEREST RATES -----------------
 st.markdown("### 💹 Major Central Bank Interest Rates")
 
-# Define major currencies data
 interest_rates = [
     {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
     {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
@@ -255,14 +254,29 @@ interest_rates = [
     {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
 ]
 
-# Display each currency in a box
-for rate in interest_rates:
-    st.info(
-        f"**{rate['Currency']}**\n"
-        f"Current Rate: {rate['Current']}\n"
-        f"Previous Rate: {rate['Previous']}\n"
-        f"Rate Changed On: {rate['Changed']}"
-    )
+# Number of boxes per row
+boxes_per_row = 4
+
+for i in range(0, len(interest_rates), boxes_per_row):
+    cols = st.columns(boxes_per_row)
+    for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+        with cols[j]:
+            st.markdown(
+                f"""
+                <div style="
+                    background-color:#f0f2f6;
+                    border-radius:10px;
+                    padding:15px;
+                    text-align:center;
+                    box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+                ">
+                    <h3>{rate['Currency']}</h3>
+                    <p><b>Current:</b> {rate['Current']}</p>
+                    <p><b>Previous:</b> {rate['Previous']}</p>
+                    <p><b>Changed On:</b> {rate['Changed']}</p>
+                </div>
+                """, unsafe_allow_html=True
+            )
 # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
 if not df.empty:
     st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
