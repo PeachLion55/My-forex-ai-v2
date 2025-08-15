@@ -256,19 +256,22 @@ interest_rates = [
 
 # Number of boxes per row
 boxes_per_row = 4
+colors = ["#171447", "#471414"]  # Blue, Dark Red
 
 for i in range(0, len(interest_rates), boxes_per_row):
     cols = st.columns(boxes_per_row)
     for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+        color = colors[j % 2]  # alternate colors
         with cols[j]:
             st.markdown(
                 f"""
                 <div style="
-                    background-color:#f0f2f6;
+                    background-color:{color};
                     border-radius:10px;
                     padding:15px;
                     text-align:center;
-                    box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+                    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+                    color:white;
                 ">
                     <h3>{rate['Currency']}</h3>
                     <p><b>Current:</b> {rate['Current']}</p>
