@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-from textblob import TextBlob
 import feedparser
 import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
+from textblob import TextBlob
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -15,6 +15,7 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
+    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
         background-color: #FFD700 !important;
         color: black !important;
@@ -23,6 +24,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -30,6 +32,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -91,13 +94,14 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-# Initialize Hugging Face summarization pipeline
-@st.cache_resource
+# Initialize Hugging Face summarizer
+@st.cache_resource(show_spinner=False)
 def load_summarizer():
     return pipeline("summarization", model="facebook/bart-large-cnn")
 
 summarizer = load_summarizer()
 
+@st.cache_data(show_spinner=False)
 def summarize_article(url):
     try:
         res = requests.get(url, timeout=10)
@@ -106,7 +110,7 @@ def summarize_article(url):
         text = " ".join(p.get_text() for p in paragraphs)
         if len(text.strip()) == 0:
             return "No text found on the page to summarize."
-        # Limit text length for summarizer
+        # Limit text length for summarization
         if len(text) > 2000:
             text = text[:2000]
         summary = summarizer(text, max_length=150, min_length=50, do_sample=False)
@@ -141,7 +145,7 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        st.markdown("### 🧠 Original Summary")
+        st.markdown("### 🧠 Original Summary (Blue Box)")
         st.info(selected_row["Summary"])
 
         st.markdown("### 🟡 AI Summary")
