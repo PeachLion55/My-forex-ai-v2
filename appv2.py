@@ -409,14 +409,14 @@ with selected_tab[2]:
           "STD;Divergence%1Indicator"
         ],
         "autosize": false,
-        "height": 1000,
-        "width": "120%"
+        "height": 800,
+        "width": "100%"
       }
       </script>
     </div>
     """
 
-    components.html(tradingview_widget, height=1000, width=1200)
+    components.html(tradingview_widget, height=1000, width=1000)
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
