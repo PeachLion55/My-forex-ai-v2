@@ -5,35 +5,24 @@ import feedparser
 from newspaper import Article
 import openai
 
-# ----------------- SETUP -----------------
-st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
+# ----------------- OPENAI API -----------------
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# ----------------- HORIZONTAL NAVIGATION -----------------
+# ----------------- PAGE SETUP -----------------
+st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
+
 tabs = ["Forex Fundamentals", "My Account"]
 selected_tab = st.tabs(tabs)
 
-# ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
 div[data-baseweb="tab-list"] button[aria-selected="true"] {
-    background-color: #FFD700 !important;
-    color: black !important;
-    font-weight: bold;
-    padding: 15px 30px !important;
-    border-radius: 8px;
-    margin-right: 10px !important;
+    background-color: #FFD700 !important; color: black !important; font-weight: bold; padding: 15px 30px !important; border-radius: 8px; margin-right: 10px !important;
 }
 div[data-baseweb="tab-list"] button[aria-selected="false"] {
-    background-color: #f0f0f0 !important;
-    color: #555 !important;
-    padding: 15px 30px !important;
-    border-radius: 8px;
-    margin-right: 10px !important;
+    background-color: #f0f0f0 !important; color: #555 !important; padding: 15px 30px !important; border-radius: 8px; margin-right: 10px !important;
 }
-.css-1d391kg { 
-    padding: 30px 40px !important; 
-}
+.css-1d391kg { padding: 30px 40px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -98,14 +87,13 @@ def get_article_text(url):
         article.download()
         article.parse()
         return article.text
-    except Exception:
-        st.warning("Could not fetch full article, using RSS summary.")
-        return None
+    except:
+        return ""
 
-def generate_gpt_summary_from_url(url):
+def generate_gpt_summary_from_url(url, fallback_summary):
     text = get_article_text(url)
     if not text:
-        return "Summary unavailable, showing original RSS text."
+        text = fallback_summary  # fallback to RSS summary
 
     try:
         response = openai.ChatCompletion.create(
@@ -114,8 +102,8 @@ def generate_gpt_summary_from_url(url):
             max_tokens=500
         )
         return response['choices'][0]['message']['content']
-    except Exception:
-        st.warning("GPT summary unavailable, showing original text.")
+    except Exception as e:
+        st.warning(f"GPT summary unavailable, showing original text. Error: {e}")
         return text
 
 # ----------------- PAGE CONTENT -----------------
@@ -130,7 +118,6 @@ with selected_tab[0]:
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        # Flag high-probability headlines
         df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
@@ -146,7 +133,7 @@ with selected_tab[0]:
         st.write(f"**Published:** {selected_row['Date']}")
 
         st.markdown("### 🧠 GPT Summary")
-        summary_text = generate_gpt_summary_from_url(selected_row["Link"])
+        summary_text = generate_gpt_summary_from_url(selected_row["Link"], selected_row["Summary"])
         st.info(summary_text)
 
         st.markdown("### 🔥 Impact Rating")
