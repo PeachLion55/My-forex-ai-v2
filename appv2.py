@@ -410,13 +410,13 @@ with selected_tab[2]:
         ],
         "autosize": false,
         "height": 1000,
-        "width": "100%"
+        "width": "1200%"
       }
       </script>
     </div>
     """
 
-    components.html(tradingview_widget, height=1000, width=1000)
+    components.html(tradingview_widget, height=1000, width=1200)
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
