@@ -169,8 +169,13 @@ econ_calendar_data = [
 econ_df = pd.DataFrame(econ_calendar_data)
 
     # ----------------- PAGE CONTENT -----------------
-with selected_tab[0]:
-    # Create a row with two columns: title on the left, button on the right
+# Ensure session state for selected_tab exists
+if "selected_tab" not in st.session_state:
+    st.session_state.selected_tab = "Forex News Sentiment"
+
+# Display page based on selected_tab
+if st.session_state.selected_tab == "Forex News Sentiment":
+    # Row with title on left and button on right
     col1, col2 = st.columns([3, 1])
 
     with col1:
@@ -184,7 +189,7 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
-        # Initialize session state
+        # Initialize session state for currencies
         if 'selected_currency_1' not in st.session_state:
             st.session_state.selected_currency_1 = None
         if 'selected_currency_2' not in st.session_state:
@@ -206,7 +211,7 @@ with selected_tab[0]:
         )
         st.session_state.selected_currency_2 = None if currency_filter_2 in ["None", "All"] else currency_filter_2
 
-        # Now filter dataframe for headlines based on BOTH dropdowns if needed
+        # Filter dataframe based on selected currencies
         filtered_df = df.copy()
         if st.session_state.selected_currency_1:
             filtered_df = filtered_df[filtered_df["Currency"] == st.session_state.selected_currency_1]
@@ -247,6 +252,11 @@ with selected_tab[0]:
         st.dataframe(
             econ_df.style.apply(highlight_currency, axis=1)
         )
+
+# ----------------- NEW PAGE: Understanding Forex Fundamentals -----------------
+elif st.session_state.selected_tab == "Understanding Forex Fundamentals":
+    st.title("📖 Understanding Forex Fundamentals")
+    st.write("Here you can add content explaining forex fundamentals...")
 
 # ----------------- INTEREST RATES -----------------
 st.markdown("### 💹 Major Central Bank Interest Rates")
