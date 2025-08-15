@@ -1,7 +1,7 @@
 import streamlit as st
 
 # Set the desired opacity (0.0 to 1.0)
-opacity = 0.8
+opacity = 50.8
 
 st.markdown(
     f"""
