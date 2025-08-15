@@ -176,25 +176,31 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
+        # Initialize session state for dropdowns
+        if 'selected_currency_1' not in st.session_state:
+            st.session_state.selected_currency_1 = None
+        if 'selected_currency_2' not in st.session_state:
+            st.session_state.selected_currency_2 = None
+
         # First currency dropdown
         currency_filter_1 = st.selectbox(
             "What primary currency pair would you like to track?", 
             options=["All"] + sorted(df["Currency"].unique()),
-            key="currency1"
+            key="currency1_dropdown"
         )
+        st.session_state.selected_currency_1 = None if currency_filter_1 == "All" else currency_filter_1
 
         # Second currency dropdown
         currency_filter_2 = st.selectbox(
             "What secondary currency pair would you like to track?", 
             options=["None"] + sorted(df["Currency"].unique()),
-            key="currency2"
+            key="currency2_dropdown"
         )
+        st.session_state.selected_currency_2 = None if currency_filter_2 in ["None", "All"] else currency_filter_2
 
         # Filter dataframe by first currency if needed
-        if currency_filter_1 != "All":
-            df = df[df["Currency"] == currency_filter_1]
-        selected_currency_1 = currency_filter_1 if currency_filter_1 != "All" else None
-        selected_currency_2 = currency_filter_2 if currency_filter_2 != "None" else None
+        if st.session_state.selected_currency_1:
+            df = df[df["Currency"] == st.session_state.selected_currency_1]
 
         # Flag high-probability headlines
         df["HighProb"] = df.apply(
@@ -218,30 +224,25 @@ with selected_tab[0]:
         bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
         st.info(bullet_points)
 
-   # ----------------- ECONOMIC CALENDAR -----------------
-st.markdown("### 🗓️ Upcoming Economic Events")
+        # ----------------- ECONOMIC CALENDAR -----------------
+        st.markdown("### 🗓️ Upcoming Economic Events")
 
-def highlight_currency(row):
-    styles = [''] * len(row)
-    
-    # Highlight first currency (blue)
-    if selected_currency_1 and row['Currency'] == selected_currency_1:
-        styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
-    
-    # Highlight second currency (dark red) without removing the first highlight
-    if selected_currency_2 and row['Currency'] == selected_currency_2:
-        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
-    
-    # If a row matches both currencies (rare), use a gradient-like approach or prioritize second color
-    if selected_currency_1 and selected_currency_2 and row['Currency'] == selected_currency_1 == selected_currency_2:
-        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+        def highlight_currency(row):
+            styles = [''] * len(row)
+            
+            # Highlight first currency (blue)
+            if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
+                styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+            
+            # Highlight second currency (dark red)
+            if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
+                styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
 
-    return styles
+            return styles
 
-st.dataframe(
-    econ_df.style.apply(highlight_currency, axis=1)
-)
-
+        st.dataframe(
+            econ_df.style.apply(highlight_currency, axis=1)
+        )
 # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
 if not df.empty:
     st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
