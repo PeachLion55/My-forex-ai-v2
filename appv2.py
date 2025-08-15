@@ -7,7 +7,7 @@ from textblob import TextBlob
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
-tabs = ["Forex Fundamentals", "My Account"]
+tabs = ["Forex Fundamentals", "Technical Analysis", "My Account"]
 selected_tab = st.tabs(tabs)
 
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
