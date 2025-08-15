@@ -1,38 +1,61 @@
 import streamlit as st
 
-# Inject custom CSS for animated dark futuristic background
+# Futuristic dark animated background
 st.markdown(
     """
     <style>
-    /* Full-page dark background with semi-transparency */
     body {
-        background: linear-gradient(120deg, rgba(10,10,30,0.8), rgba(30,10,50,0.8));
+        background: #0b0c1c;
         overflow: hidden;
     }
 
-    /* Animated floating particles effect */
-    @keyframes float {
-        0% { transform: translateY(0px) translateX(0px);}
-        50% { transform: translateY(-20px) translateX(10px);}
-        100% { transform: translateY(0px) translateX(0px);}
+    /* Container for animated lines */
+    .line {
+        position: absolute;
+        width: 2px;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(0,255,255,0.2), rgba(0,255,255,0));
+        animation: moveLine linear infinite;
+        opacity: 0.5;
     }
 
+    @keyframes moveLine {
+        0% {transform: translateY(-100%);}
+        100% {transform: translateY(100%);}
+    }
+
+    /* Glowing particles */
     .particle {
         position: absolute;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
-        opacity: 0.3;
-        animation: float 6s ease-in-out infinite;
+        background: rgba(0,255,255,0.6);
+        box-shadow: 0 0 15px rgba(0,255,255,0.8);
+        animation: floatParticle infinite ease-in-out;
     }
 
-    /* Example particles */
-    .particle:nth-child(1) {width: 15px; height: 15px; background: #0ff; top: 20%; left: 10%;}
-    .particle:nth-child(2) {width: 10px; height: 10px; background: #f0f; top: 50%; left: 30%; animation-duration: 8s;}
-    .particle:nth-child(3) {width: 20px; height: 20px; background: #ff0; top: 70%; left: 70%; animation-duration: 10s;}
+    @keyframes floatParticle {
+        0% {transform: translate(0,0);}
+        25% {transform: translate(20px,-20px);}
+        50% {transform: translate(-15px,15px);}
+        75% {transform: translate(10px,-10px);}
+        100% {transform: translate(0,0);}
+    }
+
     </style>
 
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
+    <!-- Multiple animated vertical lines -->
+    <div class="line" style="left: 10%; animation-duration: 6s;"></div>
+    <div class="line" style="left: 30%; animation-duration: 8s;"></div>
+    <div class="line" style="left: 50%; animation-duration: 5s;"></div>
+    <div class="line" style="left: 70%; animation-duration: 7s;"></div>
+
+    <!-- Floating glowing particles -->
+    <div class="particle" style="top:20%; left:15%;"></div>
+    <div class="particle" style="top:50%; left:35%;"></div>
+    <div class="particle" style="top:70%; left:60%;"></div>
+    <div class="particle" style="top:40%; left:80%;"></div>
     """,
     unsafe_allow_html=True
 )
