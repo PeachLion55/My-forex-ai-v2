@@ -13,6 +13,7 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
+    /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
         background-color: #FFD700 !important;
         color: black !important;
@@ -21,6 +22,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Inactive tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
@@ -28,6 +30,7 @@ st.markdown("""
         border-radius: 8px;
         margin-right: 10px !important;
     }
+    /* Page content padding */
     .css-1d391kg { 
         padding: 30px 40px !important; 
     }
@@ -35,7 +38,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
-
 def detect_currency(title):
     title_upper = title.upper()
     currency_map = {
@@ -90,82 +92,54 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-def parse_economic_calendar(raw_text):
-    lines = raw_text.split('\n')
-    dates, times, currencies, events, actuals, forecasts, previous, impacts = [], [], [], [], [], [], [], []
-    current_date = ""
-
-    for line in lines:
-        if not line.strip():
-            continue
-        if re.match(r'(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s\w+\s\d+', line.strip()):
-            current_date = line.strip()
-            continue
-        parts = re.split(r'\t+|\s{2,}', line.strip())
-        if len(parts) < 2:
-            continue
-        time = parts[0] if re.match(r'\d{1,2}:\d{2}[ap]m', parts[0]) else ""
-        currency = parts[1] if time else parts[0]
-        rest = parts[2:] if time else parts[1:]
-        event = rest[0] if len(rest) > 0 else ""
-        actual = rest[1] if len(rest) > 1 else ""
-        forecast = rest[2] if len(rest) > 2 else ""
-        previous = rest[3] if len(rest) > 3 else ""
-        impact = rest[4] if len(rest) > 4 else ""
-        dates.append(current_date)
-        times.append(time)
-        currencies.append(currency)
-        events.append(event)
-        actuals.append(actual)
-        forecasts.append(forecast)
-        previous.append(previous)
-        impacts.append(impact)
-
-    return pd.DataFrame({
-        "Date": dates,
-        "Time": times,
-        "Currency": currencies,
-        "Event": events,
-        "Actual": actuals,
-        "Forecast": forecasts,
-        "Previous": previous,
-        "Impact": impacts
-    })
+# ----------------- ECONOMIC CALENDAR DATA -----------------
+# Replace with your actual data
+econ_calendar_data = [
+    {"Date": "2025-08-15", "Time": "12:30", "Currency": "USD", "Event": "CPI m/m", "Actual": "0.3%", "Forecast": "0.2%", "Previous": "0.4%", "Impact": "High"},
+    {"Date": "2025-08-15", "Time": "14:00", "Currency": "EUR", "Event": "ECB Interest Rate Decision", "Actual": "0.50%", "Forecast": "0.50%", "Previous": "0.25%", "Impact": "High"},
+    {"Date": "2025-08-16", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
+]
+econ_df = pd.DataFrame(econ_calendar_data)
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
     st.title("📅 Forex Economic Calendar & News Sentiment")
-    st.caption("Click a headline or event to view details")
+    st.caption("Click a headline to view detailed summary and sentiment")
 
-    # --- SECTION 1: Forex News ---
-    st.subheader("📰 Forex News Sentiment")
-    df_news = get_fxstreet_forex_news()
-    if not df_news.empty:
+    df = get_fxstreet_forex_news()
+
+    if not df.empty:
         currency_filter = st.selectbox(
-            "Filter by currency for news:", 
-            options=["All"] + sorted(df_news["Currency"].unique())
+            "What currency pair would you like to track?", 
+            options=["All"] + sorted(df["Currency"].unique())
         )
         if currency_filter != "All":
-            df_news = df_news[df_news["Currency"] == currency_filter]
+            df = df[df["Currency"] == currency_filter]
 
-        df_news["HighProb"] = df_news.apply(
+        # Flag high-probability headlines
+        df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
             and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
-        df_display = df_news.copy()
-        df_display["Headline"] = df_news["HighProb"] + " " + df_news["Headline"]
+
+        df_display = df.copy()
+        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
 
         selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
         selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
 
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
+
+        # ----------------- BLUE BOX DETAILED SUMMARY -----------------
         summary_text = selected_row["Summary"]
         sentences = re.split(r'(?<=[.!?]) +', summary_text)
-        bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])
+        bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
         st.info(bullet_points)
 
+        # ----------------- IMPACT RATING -----------------
+        st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
         if "Bullish" in impact:
             st.success(impact)
@@ -174,6 +148,17 @@ with selected_tab[0]:
         else:
             st.warning(impact)
 
+        # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
+
+        # ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
         st.markdown("### 💱 Likely Affected Currency Pairs")
         base = selected_row["Currency"]
         if base != "Unknown":
@@ -182,36 +167,28 @@ with selected_tab[0]:
         else:
             st.write("Cannot determine affected pairs.")
 
+        # ----------------- CURRENCY SENTIMENT BIAS TABLE -----------------
+        st.markdown("---")
+        st.markdown("## 📈 Currency Sentiment Bias Table")
+        bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
+        st.dataframe(bias_df)
+
+        # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in impact:
+            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
+        elif "Bearish" in impact:
+            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
+        else:
+            st.write("⚪ No strong directional sentiment detected right now.")
+
+        # ----------------- ECONOMIC CALENDAR -----------------
+        st.markdown("---")
+        st.markdown("## 🗓️ Upcoming Economic Events")
+        st.dataframe(econ_df)
+
     else:
         st.info("No forex news available at the moment.")
-
-    # --- SECTION 2: Economic Calendar ---
-    st.subheader("📆 Economic Calendar")
-    raw_calendar = st.text_area(
-        "Paste your Myfxbook or similar economic calendar text here",
-        height=300
-    )
-    if raw_calendar:
-        df_calendar = parse_economic_calendar(raw_calendar)
-        currency_filter_cal = st.selectbox(
-            "Filter economic events by currency:",
-            options=["All"] + sorted(df_calendar["Currency"].unique())
-        )
-        if currency_filter_cal != "All":
-            df_calendar = df_calendar[df_calendar["Currency"] == currency_filter_cal]
-
-        st.dataframe(df_calendar, use_container_width=True)
-
-        st.subheader("Event Details")
-        for idx, row in df_calendar.iterrows():
-            with st.expander(f"{row['Date']} {row['Time']} - {row['Currency']} - {row['Event']}"):
-                st.write(f"**Currency:** {row['Currency']}")
-                st.write(f"**Event:** {row['Event']}")
-                st.write(f"**Actual:** {row['Actual']}")
-                st.write(f"**Forecast:** {row['Forecast']}")
-                st.write(f"**Previous:** {row['Previous']}")
-                if row['Impact']:
-                    st.write(f"**Impact:** {row['Impact']}")
 
 with selected_tab[1]:
     st.title("👤 My Account")
