@@ -178,14 +178,14 @@ with selected_tab[0]:
     if not df.empty:
         # First currency dropdown
         currency_filter_1 = st.selectbox(
-            "What currency pair would you like to track?", 
+            "What primary currency pair would you like to track?", 
             options=["All"] + sorted(df["Currency"].unique()),
             key="currency1"
         )
 
         # Second currency dropdown
         currency_filter_2 = st.selectbox(
-            "Select a second currency to highlight in the calendar", 
+            "What secondary currency pair would you like to track?", 
             options=["None"] + sorted(df["Currency"].unique()),
             key="currency2"
         )
