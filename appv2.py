@@ -219,16 +219,15 @@ st.dataframe(
     .set_properties(**{'color': '#0000FF'}, subset=pd.IndexSlice[:, ['Currency']])
 )
 
-        # ----------------- IMPACT RATING -----------------
-        st.markdown("### 🔥 Impact Rating")
-        impact = selected_row["Impact"]
-        if "Bullish" in impact:
-            st.success(impact)
-        elif "Bearish" in impact:
-            st.error(impact)
-        else:
-            st.warning(impact)
-
+       # ----------------- IMPACT RATING -----------------
+st.markdown("### 🔥 Impact Rating")
+impact = selected_row["Impact"]
+if "Bullish" in impact:
+    st.success(impact)
+elif "Bearish" in impact:
+    st.error(impact)
+else:
+    st.warning(impact)
         # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
         st.markdown("### ⏱️ Timeframes Likely Affected")
         if "Significantly" in impact:
