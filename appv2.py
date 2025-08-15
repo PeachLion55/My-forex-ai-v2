@@ -5,7 +5,7 @@ from textblob import TextBlob
 
 st.set_page_config(page_title="Gold & Forex AI Dashboard", layout="wide")
 
-# ----------------- CUSTOM CSS FOR TABS -----------------
+# ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
     /* Active tab styling */
@@ -18,6 +18,15 @@ st.markdown("""
     div[data-baseweb="tab-list"] button[aria-selected="false"] {
         background-color: #f0f0f0 !important;
         color: #555 !important;
+    }
+    /* Add padding/margin to main page content */
+    .css-1d391kg {  /* Streamlit main container class, may vary by version */
+        padding-left: 40px !important;
+        padding-right: 40px !important;
+    }
+    /* Optional: add more spacing between tabs and content */
+    div[data-baseweb="tab-list"] {
+        margin-bottom: 30px;
     }
 </style>
 """, unsafe_allow_html=True)
