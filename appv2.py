@@ -410,7 +410,7 @@ with selected_tab[2]:
         ],
         "autosize": false,
         "height": 1000,
-        "width": "1200%"
+        "width": "120%"
       }
       </script>
     </div>
