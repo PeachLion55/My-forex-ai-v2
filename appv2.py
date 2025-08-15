@@ -1,61 +1,69 @@
 import streamlit as st
 
-# Futuristic dark animated background
 st.markdown(
     """
+    <canvas id="futuristic-bg"></canvas>
+    <script>
+    const canvas = document.getElementById('futuristic-bg');
+    const ctx = canvas.getContext('2d');
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Create particles
+    const particles = [];
+    const particleCount = 100;
+
+    for (let i = 0; i < particleCount; i++) {
+        particles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            speedX: (Math.random() - 0.5) * 2,
+            speedY: (Math.random() - 0.5) * 2,
+            radius: Math.random() * 2 + 1
+        });
+    }
+
+    function animate() {
+        ctx.fillStyle = "rgba(11,12,28,0.2)";
+        ctx.fillRect(0, 0, width, height);
+
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+            ctx.fillStyle = "rgba(0,255,255,0.7)";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "cyan";
+            ctx.fill();
+
+            p.x += p.speedX;
+            p.y += p.speedY;
+
+            if(p.x < 0 || p.x > width) p.speedX *= -1;
+            if(p.y < 0 || p.y > height) p.speedY *= -1;
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+    });
+    </script>
     <style>
-    body {
-        background: #0b0c1c;
-        overflow: hidden;
+    canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: -1;
     }
-
-    /* Container for animated lines */
-    .line {
-        position: absolute;
-        width: 2px;
-        height: 100%;
-        background: linear-gradient(180deg, rgba(0,255,255,0.2), rgba(0,255,255,0));
-        animation: moveLine linear infinite;
-        opacity: 0.5;
-    }
-
-    @keyframes moveLine {
-        0% {transform: translateY(-100%);}
-        100% {transform: translateY(100%);}
-    }
-
-    /* Glowing particles */
-    .particle {
-        position: absolute;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: rgba(0,255,255,0.6);
-        box-shadow: 0 0 15px rgba(0,255,255,0.8);
-        animation: floatParticle infinite ease-in-out;
-    }
-
-    @keyframes floatParticle {
-        0% {transform: translate(0,0);}
-        25% {transform: translate(20px,-20px);}
-        50% {transform: translate(-15px,15px);}
-        75% {transform: translate(10px,-10px);}
-        100% {transform: translate(0,0);}
-    }
-
     </style>
-
-    <!-- Multiple animated vertical lines -->
-    <div class="line" style="left: 10%; animation-duration: 6s;"></div>
-    <div class="line" style="left: 30%; animation-duration: 8s;"></div>
-    <div class="line" style="left: 50%; animation-duration: 5s;"></div>
-    <div class="line" style="left: 70%; animation-duration: 7s;"></div>
-
-    <!-- Floating glowing particles -->
-    <div class="particle" style="top:20%; left:15%;"></div>
-    <div class="particle" style="top:50%; left:35%;"></div>
-    <div class="particle" style="top:70%; left:60%;"></div>
-    <div class="particle" style="top:40%; left:80%;"></div>
     """,
     unsafe_allow_html=True
 )
