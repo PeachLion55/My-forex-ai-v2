@@ -239,6 +239,30 @@ with selected_tab[0]:
         st.dataframe(
             econ_df.style.apply(highlight_currency, axis=1)
         )
+
+# ----------------- INTEREST RATES -----------------
+st.markdown("### 💹 Major Central Bank Interest Rates")
+
+# Define major currencies data
+interest_rates = [
+    {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
+    {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
+    {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
+    {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
+    {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
+    {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
+    {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
+    {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
+]
+
+# Display each currency in a box
+for rate in interest_rates:
+    st.info(
+        f"**{rate['Currency']}**\n"
+        f"Current Rate: {rate['Current']}\n"
+        f"Previous Rate: {rate['Previous']}\n"
+        f"Rate Changed On: {rate['Changed']}"
+    )
 # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
 if not df.empty:
     st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
