@@ -176,22 +176,24 @@ with selected_tab[0]:
     df = get_fxstreet_forex_news()
 
     if not df.empty:
-        currency_filter = st.selectbox(
-            "What currency pair would you like to track?", 
+        # ----------------- CURRENCY FILTER -----------------
+        selected_currency = st.selectbox(
+            "What currency would you like to track?", 
             options=["All"] + sorted(df["Currency"].unique())
         )
-        if currency_filter != "All":
-            df = df[df["Currency"] == currency_filter]
+        df_filtered = df.copy()
+        if selected_currency != "All":
+            df_filtered = df_filtered[df_filtered["Currency"] == selected_currency]
 
         # Flag high-probability headlines
-        df["HighProb"] = df.apply(
+        df_filtered["HighProb"] = df_filtered.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] 
             and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
         )
 
-        df_display = df.copy()
-        df_display["Headline"] = df["HighProb"] + " " + df["Headline"]
+        df_display = df_filtered.copy()
+        df_display["Headline"] = df_filtered["HighProb"] + " " + df_filtered["Headline"]
 
         selected_headline = st.selectbox("Select a headline for details", df_display["Headline"].tolist())
         selected_row = df_display[df_display["Headline"] == selected_headline].iloc[0]
@@ -207,42 +209,65 @@ with selected_tab[0]:
 
         # ----------------- ECONOMIC CALENDAR BELOW SUMMARY -----------------
         st.markdown("### 🗓️ Upcoming Economic Events")
-        # Function to color rows based on currency
-def highlight_currency(row):
-    color = 'background-color: #ADD8E6' if row['Currency'] == selected_currency else ''
-    return [color]*len(row)
 
-# Apply styling to the dataframe
-st.dataframe(
-    econ_df.style
-    .apply(highlight_currency, axis=1)
-    .set_properties(**{'color': '#0000FF'}, subset=pd.IndexSlice[:, ['Currency']])
-)
+        # Function to highlight selected currency rows
+        def highlight_currency(row):
+            color = 'background-color: #ADD8E6' if selected_currency != "All" and row['Currency'] == selected_currency else ''
+            return [color] * len(row)
 
-       # ----------------- IMPACT RATING -----------------
-if selected_row is not None:
+        # Apply styling to the dataframe
+        st.dataframe(
+            econ_df.style
+            .apply(highlight_currency, axis=1)
+            .set_properties(**{'color': '#0000FF'}, subset=pd.IndexSlice[:, ['Currency']])
+        )
 
-    # ----------------- IMPACT RATING -----------------
-    st.markdown("### 🔥 Impact Rating")
-    impact = selected_row["Impact"]
-    if "Bullish" in impact:
-        st.success(impact)
-    elif "Bearish" in impact:
-        st.error(impact)
+        # ----------------- IMPACT RATING -----------------
+        st.markdown("### 🔥 Impact Rating")
+        impact = selected_row["Impact"]
+        if "Bullish" in impact:
+            st.success(impact)
+        elif "Bearish" in impact:
+            st.error(impact)
+        else:
+            st.warning(impact)
+
+        # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
+
+        # ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
+        st.markdown("### 💱 Likely Affected Currency Pairs")
+        base = selected_row["Currency"]
+        if base != "Unknown":
+            pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+            st.write(", ".join(pairs))
+        else:
+            st.write("Cannot determine affected pairs.")
+
+        # ----------------- CURRENCY SENTIMENT BIAS TABLE -----------------
+        st.markdown("---")
+        st.markdown("## 📈 Currency Sentiment Bias Table")
+        bias_df = df.groupby("Currency")["Impact"].value_counts().unstack().fillna(0)
+        st.dataframe(bias_df)
+
+        # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in impact:
+            st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
+        elif "Bearish" in impact:
+            st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
+        else:
+            st.write("⚪ No strong directional sentiment detected right now.")
+
     else:
-        st.warning(impact)
-
-    # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
-    st.markdown("### ⏱️ Timeframes Likely Affected")
-    if "Significantly" in impact:
-        timeframes = ["H4", "Daily"]
-    elif impact in ["Bullish", "Bearish"]:
-        timeframes = ["H1", "H4"]
-    else:
-        timeframes = ["H1"]
-    st.write(", ".join(timeframes))
-
-    # ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
+        st.info("No forex news available at the moment.")------------
     st.markdown("### 💱 Likely Affected Currency Pairs")
     base = selected_row["Currency"]
     if base != "Unknown":
