@@ -369,8 +369,8 @@ with selected_tab[2]:
 
     # TradingView widget code
     tradingview_widget = """
-    <div class="tradingview-widget-container" style="height:600px; width:100%">
-      <div class="tradingview-widget-container__widget"></div>
+    <div class="tradingview-widget-container" style="height:1200px; width:100%">
+      <div class="tradingview-widget-container__widget" style="height:1200px; width:100%"></div>
       <div class="tradingview-widget-copyright">
         <a href="https://www.tradingview.com/symbols/CMCMARKETS-USDCAD/?exchange=CMCMARKETS" rel="noopener" target="_blank">
           <span class="blue-text">USDCAD chart by TradingView</span>
@@ -408,13 +408,15 @@ with selected_tab[2]:
         "studies": [
           "STD;Divergence%1Indicator"
         ],
-        "autosize": true
+        "autosize": false,
+        "height": 1200,
+        "width": "100%"
       }
       </script>
     </div>
     """
 
-    components.html(tradingview_widget, height=1200, width=1000)
+    components.html(tradingview_widget, height=1200, width=1200)
 
 # ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
 with selected_tab[3]:
