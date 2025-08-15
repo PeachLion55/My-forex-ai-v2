@@ -5,3 +5,4 @@ feedparser
 textblob
 beautifulsoup4
 plotly
+openai
