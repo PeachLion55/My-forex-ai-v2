@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
 import feedparser
-import requests
-from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
 tabs = ["Forex Fundamentals", "My Account"]
@@ -13,29 +11,28 @@ selected_tab = st.tabs(tabs)
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
 st.markdown("""
 <style>
-    div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;
-        color: black !important;
-        font-weight: bold;
-        padding: 15px 30px !important;
-        border-radius: 8px;
-        margin-right: 10px !important;
-    }
-    div[data-baseweb="tab-list"] button[aria-selected="false"] {
-        background-color: #f0f0f0 !important;
-        color: #555 !important;
-        padding: 15px 30px !important;
-        border-radius: 8px;
-        margin-right: 10px !important;
-    }
-    .css-1d391kg { 
-        padding: 30px 40px !important; 
-    }
+div[data-baseweb="tab-list"] button[aria-selected="true"] {
+    background-color: #FFD700 !important;
+    color: black !important;
+    font-weight: bold;
+    padding: 15px 30px !important;
+    border-radius: 8px;
+    margin-right: 10px !important;
+}
+div[data-baseweb="tab-list"] button[aria-selected="false"] {
+    background-color: #f0f0f0 !important;
+    color: #555 !important;
+    padding: 15px 30px !important;
+    border-radius: 8px;
+    margin-right: 10px !important;
+}
+.css-1d391kg { 
+    padding: 30px 40px !important; 
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
-
 def detect_currency(title):
     title_upper = title.upper()
     currency_map = {
@@ -59,13 +56,11 @@ def get_fxstreet_forex_news():
     RSS_URL = "https://www.fxstreet.com/rss/news"
     feed = feedparser.parse(RSS_URL)
     rows = []
-
     for entry in feed.entries:
         title = entry.title
         date = entry.published[:10] if hasattr(entry, "published") else ""
         currency = detect_currency(title)
         summary = entry.summary
-
         rows.append({
             "Date": date,
             "Currency": currency,
@@ -77,7 +72,7 @@ def get_fxstreet_forex_news():
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
-    st.title("📅 Forex Economic Calendar & News Sentiment")
+    st.title("📅 Forex Economic Calendar & News")
     st.caption("Click a headline to view detailed summary")
 
     df = get_fxstreet_forex_news()
@@ -92,10 +87,10 @@ with selected_tab[0]:
 
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
-        
-        # Blue box - original FXStreet summary
+
+        # Blue box - original FXStreet summary only
         st.markdown("### 🧠 Original FXStreet Summary")
-        st.info(selected_row["Summary"])  # Blue box
+        st.info(selected_row["Summary"])  # Blue box only
 
 with selected_tab[1]:
     st.title("👤 My Account")
