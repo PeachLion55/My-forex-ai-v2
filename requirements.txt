@@ -3,7 +3,9 @@ requests
 pandas
 feedparser
 textblob
-beautifulsoup4
 plotly
 openai
 newspaper3k
+transformers
+torch
+beautifulsoup4
