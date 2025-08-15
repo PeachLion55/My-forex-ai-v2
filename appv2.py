@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import feedparser
+from textblob import TextBlob
 import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
-from textblob import TextBlob
 
 st.set_page_config(page_title="Forex AI Dashboard", layout="wide")
 
@@ -17,7 +17,7 @@ st.markdown("""
 <style>
     /* Active tab styling */
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
-        background-color: #FFD700 !important;
+        background-color: #FFD700 !important;  /* Gold color */
         color: black !important;
         font-weight: bold;
         padding: 15px 30px !important;
@@ -40,6 +40,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- FUNCTIONS -----------------
+
 def detect_currency(title):
     title_upper = title.upper()
     currency_map = {
@@ -94,29 +95,26 @@ def get_fxstreet_forex_news():
 
     return pd.DataFrame(rows)
 
-# Initialize Hugging Face summarizer
-@st.cache_resource(show_spinner=False)
-def load_summarizer():
+# ----------------- HUGGING FACE SUMMARIZER -----------------
+@st.cache_resource
+def get_summarizer():
     return pipeline("summarization", model="facebook/bart-large-cnn")
 
-summarizer = load_summarizer()
+summarizer = get_summarizer()
 
-@st.cache_data(show_spinner=False)
 def summarize_article(url):
     try:
-        res = requests.get(url, timeout=10)
-        soup = BeautifulSoup(res.content, "html.parser")
+        resp = requests.get(url, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
         paragraphs = soup.find_all("p")
-        text = " ".join(p.get_text() for p in paragraphs)
-        if len(text.strip()) == 0:
-            return "No text found on the page to summarize."
-        # Limit text length for summarization
-        if len(text) > 2000:
-            text = text[:2000]
-        summary = summarizer(text, max_length=150, min_length=50, do_sample=False)
-        return summary[0]['summary_text']
+        text = " ".join([p.get_text() for p in paragraphs])
+        if len(text.split()) > 30:
+            summary = summarizer(text, max_length=120, min_length=50, do_sample=False)
+            return summary[0]["summary_text"]
+        else:
+            return text
     except Exception as e:
-        return f"Could not summarize the article: {e}"
+        return f"Could not summarize article: {e}"
 
 # ----------------- PAGE CONTENT -----------------
 with selected_tab[0]:
@@ -130,7 +128,6 @@ with selected_tab[0]:
         if currency_filter != "All":
             df = df[df["Currency"] == currency_filter]
 
-        # Flag high-probability headlines
         df["HighProb"] = df.apply(
             lambda row: "🔥" if row["Impact"] in ["Significantly Bullish", "Significantly Bearish"] and pd.to_datetime(row["Date"]) >= pd.Timestamp.now() - pd.Timedelta(days=1)
             else "", axis=1
@@ -146,11 +143,11 @@ with selected_tab[0]:
         st.write(f"**Published:** {selected_row['Date']}")
 
         st.markdown("### 🧠 Original Summary (Blue Box)")
-        st.info(selected_row["Summary"])
+        st.info(selected_row["Summary"])  # Blue box stays the same
 
-        st.markdown("### 🟡 AI Summary")
+        st.markdown("### 💛 AI-Generated Summary (Yellow Box)")
         ai_summary = summarize_article(selected_row["Link"])
-        st.warning(ai_summary)
+        st.warning(ai_summary)  # Yellow box now shows Hugging Face summary
 
         st.markdown("### 🔥 Impact Rating")
         impact = selected_row["Impact"]
