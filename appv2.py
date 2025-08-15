@@ -218,22 +218,29 @@ with selected_tab[0]:
         bullet_points = "\n".join([f"- {s}" for s in sentences[:10]])  # first 10 sentences
         st.info(bullet_points)
 
-        # ----------------- ECONOMIC CALENDAR -----------------
-        st.markdown("### 🗓️ Upcoming Economic Events")
+   # ----------------- ECONOMIC CALENDAR -----------------
+st.markdown("### 🗓️ Upcoming Economic Events")
 
-        def highlight_currency(row):
-            styles = ['']*len(row)
-            # First currency highlight (blue)
-            if selected_currency_1 and row['Currency'] == selected_currency_1:
-                styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
-            # Second currency highlight (dark red)
-            if selected_currency_2 and row['Currency'] == selected_currency_2:
-                styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
-            return styles
+def highlight_currency(row):
+    styles = [''] * len(row)
+    
+    # Highlight first currency (blue)
+    if selected_currency_1 and row['Currency'] == selected_currency_1:
+        styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+    
+    # Highlight second currency (dark red) without removing the first highlight
+    if selected_currency_2 and row['Currency'] == selected_currency_2:
+        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+    
+    # If a row matches both currencies (rare), use a gradient-like approach or prioritize second color
+    if selected_currency_1 and selected_currency_2 and row['Currency'] == selected_currency_1 == selected_currency_2:
+        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
 
-        st.dataframe(
-            econ_df.style.apply(highlight_currency, axis=1)
-        )
+    return styles
+
+st.dataframe(
+    econ_df.style.apply(highlight_currency, axis=1)
+)
 
 # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
 if not df.empty:
