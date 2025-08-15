@@ -7,7 +7,8 @@ from textblob import TextBlob
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # ----------------- HORIZONTAL NAVIGATION -----------------
-tabs = ["Forex Fundamentals", "Technical Analysis", "My Account"]
+# Expanded to 4 tabs so each can have unique content
+tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "My Account"]
 selected_tab = st.tabs(tabs)
 
 # ----------------- CUSTOM CSS FOR TABS AND PADDING -----------------
@@ -93,7 +94,6 @@ def get_fxstreet_forex_news():
     return pd.DataFrame(rows)
 
 # ----------------- ECONOMIC CALENDAR DATA -----------------
-# Replace with your actual data
 econ_calendar_data = [
     # Fri Aug 15
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
@@ -168,29 +168,27 @@ econ_calendar_data = [
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 
-    # ----------------- PAGE CONTENT -----------------
+# ----------------- TAB 1: FOREX FUNDAMENTALS (News + Calendar + Rates + Sentiment) -----------------
 with selected_tab[0]:
-    # Create a row with two columns: title on the left, button on the right
+    # Header row
     col1, col2 = st.columns([3, 1])
-
     with col1:
         st.title("📅 Forex News Sentiment")
         st.caption("Click a headline to view detailed summary and sentiment")
-
     with col2:
+        # Button kept (informational); st.tabs can't be programmatically switched
         if st.button("Understanding Forex Fundamentals"):
-            st.session_state.selected_tab = "Understanding Forex Fundamentals"
+            st.info("Use the 'Understanding Forex Fundamentals' tab above.")
 
+    # News feed
     df = get_fxstreet_forex_news()
-
     if not df.empty:
-        # Initialize session state
+        # Session state for currency filters
         if 'selected_currency_1' not in st.session_state:
             st.session_state.selected_currency_1 = None
         if 'selected_currency_2' not in st.session_state:
             st.session_state.selected_currency_2 = None
 
-        # First currency dropdown
         currency_filter_1 = st.selectbox(
             "What primary currency pair would you like to track?", 
             options=["All"] + sorted(df["Currency"].unique()),
@@ -198,7 +196,6 @@ with selected_tab[0]:
         )
         st.session_state.selected_currency_1 = None if currency_filter_1 == "All" else currency_filter_1
 
-        # Second currency dropdown
         currency_filter_2 = st.selectbox(
             "What secondary currency pair would you like to track?", 
             options=["None"] + sorted(df["Currency"].unique()),
@@ -206,7 +203,7 @@ with selected_tab[0]:
         )
         st.session_state.selected_currency_2 = None if currency_filter_2 in ["None", "All"] else currency_filter_2
 
-        # Now filter dataframe for headlines based on BOTH dropdowns if needed
+        # Filter by primary currency (secondary is just for highlight below)
         filtered_df = df.copy()
         if st.session_state.selected_currency_1:
             filtered_df = filtered_df[filtered_df["Currency"] == st.session_state.selected_currency_1]
@@ -230,113 +227,157 @@ with selected_tab[0]:
         st.markdown(f"### [{selected_row['Headline']}]({selected_row['Link']})")
         st.write(f"**Published:** {selected_row['Date']}")
 
-        # ----------------- ECONOMIC CALENDAR -----------------
+        # Economic calendar table (with currency highlights)
         st.markdown("### 🗓️ Upcoming Economic Events")
-
         def highlight_currency(row):
             styles = [''] * len(row)
-            
             if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
                 styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
-            
             if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
                 styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
-
             return styles
+        st.dataframe(econ_df.style.apply(highlight_currency, axis=1))
 
-        st.dataframe(
-            econ_df.style.apply(highlight_currency, axis=1)
-        )
+        # Interest rates tiles (kept ONLY on this tab)
+        st.markdown("### 💹 Major Central Bank Interest Rates")
+        interest_rates = [
+            {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
+            {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
+            {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
+            {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
+            {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
+            {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
+            {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
+            {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
+        ]
+        boxes_per_row = 4
+        colors = ["#171447", "#471414"]
+        for i in range(0, len(interest_rates), boxes_per_row):
+            cols = st.columns(boxes_per_row)
+            for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+                color = colors[j % 2]
+                with cols[j]:
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background-color:{color};
+                            border-radius:10px;
+                            padding:15px;
+                            text-align:center;
+                            box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+                            color:white;
+                        ">
+                            <h3>{rate['Currency']}</h3>
+                            <p><b>Current:</b> {rate['Current']}</p>
+                            <p><b>Previous:</b> {rate['Previous']}</p>
+                            <p><b>Changed On:</b> {rate['Changed']}</p>
+                        </div>
+                        """, unsafe_allow_html=True
+                    )
 
-# ----------------- INTEREST RATES -----------------
-st.markdown("### 💹 Major Central Bank Interest Rates")
+        # Sentiment guidance & impact (ONLY on this tab)
+        st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
+        if "Bullish" in selected_row["Impact"]:
+            st.info(f"🟢 Sentiment on **{selected_row['Currency']}** is bullish. Look for buying setups on H1/H4.")
+        elif "Bearish" in selected_row["Impact"]:
+            st.warning(f"🔴 Sentiment on **{selected_row['Currency']}** is bearish. Look for selling setups on H1/H4.")
+        else:
+            st.write("⚪ No strong directional sentiment detected right now.")
 
-interest_rates = [
-    {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
-    {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
-    {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
-    {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
-    {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
-    {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
-    {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
-    {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
-]
+        st.markdown("### 🔥 Impact Rating")
+        impact = selected_row["Impact"]
+        if "Bullish" in impact:
+            st.success(impact)
+        elif "Bearish" in impact:
+            st.error(impact)
+        else:
+            st.warning(impact)
 
-# Number of boxes per row
-boxes_per_row = 4
-colors = ["#171447", "#471414"]  # Blue, Dark Red
+        st.markdown("### ⏱️ Timeframes Likely Affected")
+        if "Significantly" in impact:
+            timeframes = ["H4", "Daily"]
+        elif impact in ["Bullish", "Bearish"]:
+            timeframes = ["H1", "H4"]
+        else:
+            timeframes = ["H1"]
+        st.write(", ".join(timeframes))
 
-for i in range(0, len(interest_rates), boxes_per_row):
-    cols = st.columns(boxes_per_row)
-    for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
-        color = colors[j % 2]  # alternate colors
-        with cols[j]:
-            st.markdown(
-                f"""
-                <div style="
-                    background-color:{color};
-                    border-radius:10px;
-                    padding:15px;
-                    text-align:center;
-                    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
-                    color:white;
-                ">
-                    <h3>{rate['Currency']}</h3>
-                    <p><b>Current:</b> {rate['Current']}</p>
-                    <p><b>Previous:</b> {rate['Previous']}</p>
-                    <p><b>Changed On:</b> {rate['Changed']}</p>
-                </div>
-                """, unsafe_allow_html=True
-            )
-# ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
-if not df.empty:
-    st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-    if "Bullish" in selected_row["Impact"]:
-        st.info(f"🟢 Sentiment on **{selected_row['Currency']}** is bullish. Look for buying setups on H1/H4.")
-    elif "Bearish" in selected_row["Impact"]:
-        st.warning(f"🔴 Sentiment on **{selected_row['Currency']}** is bearish. Look for selling setups on H1/H4.")
+        st.markdown("### 💱 Likely Affected Currency Pairs")
+        base = selected_row["Currency"]
+        if base != "Unknown":
+            pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
+            st.write(", ".join(pairs))
+        else:
+            st.write("Cannot determine affected pairs.")
     else:
-        st.write("⚪ No strong directional sentiment detected right now.")
-else:
-    st.info("No forex news available at the moment.")
+        st.info("No forex news available at the moment.")
 
-# ----------------- IMPACT RATING -----------------
-if not df.empty:
-    st.markdown("### 🔥 Impact Rating")
-    impact = selected_row["Impact"]
-    if "Bullish" in impact:
-        st.success(impact)
-    elif "Bearish" in impact:
-        st.error(impact)
-    else:
-        st.warning(impact)
+# ----------------- TAB 2: UNDERSTANDING FOREX FUNDAMENTALS (Educational content) -----------------
+with selected_tab[1]:
+    st.title("📖 Understanding Forex Fundamentals")
+    st.caption("Core drivers of currencies, explained simply.")
 
-    # ----------------- TIMEFRAMES LIKELY AFFECTED -----------------
-    st.markdown("### ⏱️ Timeframes Likely Affected")
-    if "Significantly" in impact:
-        timeframes = ["H4", "Daily"]
-    elif impact in ["Bullish", "Bearish"]:
-        timeframes = ["H1", "H4"]
-    else:
-        timeframes = ["H1"]
-    st.write(", ".join(timeframes))
+    with st.expander("Interest Rates & Central Banks"):
+        st.write("""
+- Central banks adjust rates to control inflation and growth.
+- Higher rates tend to attract capital → stronger currency.
+- Watch: FOMC (USD), ECB (EUR), BoE (GBP), BoJ (JPY), RBA (AUD), BoC (CAD), SNB (CHF), RBNZ (NZD).
+        """)
 
-    # ----------------- LIKELY AFFECTED CURRENCY PAIRS -----------------
-    st.markdown("### 💱 Likely Affected Currency Pairs")
-    base = selected_row["Currency"]
-    if base != "Unknown":
-        pairs = [f"{base}/USD", f"EUR/{base}", f"{base}/JPY", f"{base}/CHF", f"{base}/CAD", f"{base}/NZD", f"{base}/AUD"]
-        st.write(", ".join(pairs))
-    else:
-        st.write("Cannot determine affected pairs.")
+    with st.expander("Inflation & Growth"):
+        st.write("""
+- Inflation (CPI/PPI) impacts real yields and policy expectations.
+- Growth indicators (GDP, PMIs, employment) shift risk appetite and rate paths.
+        """)
 
-    # ----------------- BEGINNER-FRIENDLY TRADE OUTLOOK -----------------
-    st.markdown("## 🧭 Beginner-Friendly Trade Outlook")
-    if "Bullish" in impact:
-        st.info(f"🟢 Sentiment on **{base}** is bullish. Look for buying setups on H1/H4.")
-    elif "Bearish" in impact:
-        st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
-    else:
-        st.write("⚪ No strong directional sentiment detected right now.")
-else:
-    st.info("No forex news available at the moment.")
+    with st.expander("Risk Sentiment & Commodities"):
+        st.write("""
+- Risk-on often lifts AUD/NZD; risk-off supports USD/JPY/CHF.
+- Oil impacts CAD; gold sometimes correlates with AUD.
+        """)
+
+    with st.expander("How to Use the Economic Calendar"):
+        st.write("""
+1) Filter by the currency you trade.
+2) Note forecast vs. actual.
+3) Expect volatility around high-impact events; widen stops or reduce size.
+        """)
+
+# ----------------- TAB 3: TECHNICAL ANALYSIS (Simple demo distinct from fundamentals) -----------------
+with selected_tab[2]:
+    st.title("📊 Technical Analysis")
+    st.caption("Lightweight demo — add your own charts/indicators later.")
+
+    st.subheader("Sample Price Series (Demo)")
+    # Create a simple uptrend series without extra imports
+    dates = pd.date_range(end=pd.Timestamp.today().normalize(), periods=60)
+    price = pd.Series([100 + i * 0.2 for i in range(60)], index=dates, name="Price")
+    sma10 = price.rolling(10).mean().rename("SMA10")
+    ta_df = pd.concat([price, sma10], axis=1)
+    st.line_chart(ta_df)
+
+    st.info("This is a placeholder so this tab is unique. Replace with real market data, indicators, and multi-timeframe views.")
+
+# ----------------- TAB 4: MY ACCOUNT (Simple unique form) -----------------
+with selected_tab[3]:
+    st.title("👤 My Account")
+    st.caption("Your preferences are stored in-session.")
+
+    colA, colB = st.columns(2)
+    with colA:
+        name = st.text_input("Name", value=st.session_state.get("name", ""))
+        base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"],
+                                index=0)
+    with colB:
+        email = st.text_input("Email", value=st.session_state.get("email", ""))
+        alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True))
+
+    if st.button("Save Preferences"):
+        st.session_state.name = name
+        st.session_state.email = email
+        st.session_state.base_ccy = base_ccy
+        st.session_state.alerts = alerts
+        st.success("Preferences saved for this session.")
+
+    if "name" in st.session_state:
+        st.markdown(f"**Current Profile:** {st.session_state.name} | {st.session_state.base_ccy} | Alerts: {'On' if st.session_state.alerts else 'Off'}")
