@@ -290,6 +290,5 @@ with selected_tab[0]:
         st.warning(f"🔴 Sentiment on **{base}** is bearish. Look for selling setups on H1/H4.")
     else:
         st.write("⚪ No strong directional sentiment detected right now.")
-
-else:
+    else:
     st.info("No forex news available at the moment.")
