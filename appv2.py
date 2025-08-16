@@ -100,54 +100,98 @@ selected_tab = st.tabs(tabs)
 # ---------- Tools ----------
 with selected_tab[3]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
 
-    # Profit/Stop-loss Calculator
+    # ---------------- Profit/Stop-loss Calculator ----------------
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
-        currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
-        account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"])
-        position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
-        open_price = st.number_input("Open Price", value=1.1000, step=0.0001)
-        close_price = st.number_input("Close Price", value=1.1050, step=0.0001)
-        trade_direction = st.radio("Trade Direction", ["Long", "Short"])
+
+        currency_pair = st.selectbox(
+            "Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="tools_currency_pair"
+        )
+        account_currency = st.selectbox(
+            "Account Currency", ["USD", "EUR", "GBP", "JPY"], key="tools_account_currency"
+        )
+        position_size = st.number_input(
+            "Position Size (lots)", min_value=0.01, value=0.1, step=0.01, key="tools_position_size"
+        )
+        open_price = st.number_input(
+            "Open Price", value=1.1000, step=0.0001, key="tools_open_price"
+        )
+        close_price = st.number_input(
+            "Close Price", value=1.1050, step=0.0001, key="tools_close_price"
+        )
+        trade_direction = st.radio(
+            "Trade Direction", ["Long", "Short"], key="tools_trade_direction"
+        )
 
         pip_multiplier = 100 if "JPY" in currency_pair else 10000
         pip_movement = abs(close_price - open_price) * pip_multiplier
 
         exchange_rate = 1.1000
-        pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
+        pip_value = (
+            (0.0001 / exchange_rate) * position_size * 100000
+            if "JPY" not in currency_pair
+            else (0.01 / exchange_rate) * position_size * 100000
+        )
         profit_loss = pip_movement * pip_value
 
         st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
-# ---------- My Account ----------
-with selected_tab[4]:
-    st.title("👤 My Account")
-    st.caption("Your preferences are stored in-session.")
-
-    colA, colB = st.columns(2)
-    with colA:
-        name = st.text_input("Name", value=st.session_state.get("name", ""))
-        base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0)
-    with colB:
-        email = st.text_input("Email", value=st.session_state.get("email", ""))
-        alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True))
-
-    if st.button("Save Preferences"):
-        st.session_state.name = name
-        st.session_state.email = email
-        st.session_state.base_ccy = base_ccy
-        st.session_state.alerts = alerts
-        st.success("Preferences saved for this session.")
-
-    if "name" in st.session_state:
+    # ---------------- Backtesting ----------------
+    with tools_subtabs[1]:
+        st.header("📈 Backtesting")
         st.markdown(
-            f"**Current Profile:** {st.session_state.name} | {st.session_state.get('base_ccy','USD')} | Alerts: "
-            f"{'On' if st.session_state.get('alerts', False) else 'Off'}"
+            "Analyze historical candlestick charts manually and log trades below."
+        )
+
+        # Advanced TradingView widget with fixed size and drawing tools enabled
+        st.components.v1.html(
+            """
+            <!-- TradingView Widget BEGIN -->
+            <div class="tradingview-widget-container">
+              <div id="tradingview_advanced"></div>
+              <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+              <script type="text/javascript">
+              new TradingView.widget({
+                "width": 1000,
+                "height": 600,
+                "symbol": "EURUSD",
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#f1f3f6",
+                "enable_publishing": false,
+                "hide_side_toolbar": false,
+                "allow_symbol_change": true,
+                "save_image": false,
+                "studies": [],
+                "hideideas": true,
+                "withdateranges": true,
+                "details": true,
+                "hotlist": true,
+                "calendar": true,
+                "news": ["headlines"]
+              });
+              </script>
+            </div>
+            <!-- TradingView Widget END -->
+            """,
+            height=650,
+        )
+
+        st.subheader("📝 Trading Journal")
+        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+        st.data_editor(
+            data=None,  # starts empty
+            num_rows="dynamic",
+            columns=[{"name": col, "type": "text"} for col in journal_cols],
+            key="tools_backtesting_journal"
         )
 # =========================================================
 # HELPERS / DATA
