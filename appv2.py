@@ -217,7 +217,7 @@ df_news = get_fxstreet_forex_news()
 # =========================================================
 with selected_tab[0]:
     st.title("📊 Currency Strength Meter")
-    st.caption("Compare major currencies relative to a selected base currency (Fixer.io)")
+    st.caption("Compare major currencies relative to EUR (Fixer.io free plan)")
 
     import requests
     import pandas as pd
@@ -230,14 +230,14 @@ with selected_tab[0]:
         st.error("API key not found! Set 'fixer' under [api_keys] in Streamlit secrets.")
         st.stop()
 
-    # List of major currencies
+    # Major currencies
     currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
-    # Select base currency dynamically
-    base_currency = st.selectbox("Select Base Currency", currencies, index=currencies.index("USD"))
+    # Select “display base currency” (for user convenience)
+    display_base = st.selectbox("Select Display Base Currency", currencies, index=currencies.index("USD"))
 
-    # Fixer.io API endpoint
-    url = f"http://data.fixer.io/api/latest?access_key={api_key}&base={base_currency}&symbols={','.join(currencies)}"
+    # Fixer.io endpoint (free plan, base EUR)
+    url = f"http://data.fixer.io/api/latest?access_key={api_key}&symbols={','.join(currencies)}"
 
     try:
         response = requests.get(url)
@@ -247,27 +247,36 @@ with selected_tab[0]:
             st.error(f"Error fetching rates: {data.get('error', {}).get('info', 'Unknown error')}")
             st.stop()
 
-        rates = data["rates"]
+        rates = data["rates"]  # EUR is base
 
-        # Compute relative strength: average of each currency vs all others
+        # Convert all rates to selected display base currency
+        base_rate = rates[display_base]
+        converted_rates = {c: r / base_rate for c, r in rates.items()}
+
+        # Compute strength: average vs all others using converted rates
         strength = {}
         for c1 in currencies:
             score = 0
             for c2 in currencies:
                 if c1 != c2:
-                    score += rates[c1] / rates[c2]
+                    score += converted_rates[c1] / converted_rates[c2]
             strength[c1] = score / (len(currencies) - 1)
 
         # Sort strongest to weakest
         sorted_strength = dict(sorted(strength.items(), key=lambda x: x[1], reverse=True))
 
-        st.subheader(f"💪 Currency Strength Ranking (Base: {base_currency})")
+        st.subheader(f"💪 Currency Strength Ranking (Base: {display_base})")
         for c, s in sorted_strength.items():
             st.write(f"{c}: {s:.2f}")
 
         # Bar chart visualization
-        df = pd.DataFrame(list(sorted_strength.items()), columns=["Currency", "Strength"])
-        st.bar_chart(df.set_index("Currency"))
+        df_strength = pd.DataFrame(list(sorted_strength.items()), columns=["Currency", "Strength"])
+        st.bar_chart(df_strength.set_index("Currency"))
+
+        # Optional: show conversion table from display_base to all others
+        st.subheader(f"💱 {display_base} Conversion Rates")
+        df_conv = pd.DataFrame(list(converted_rates.items()), columns=["Currency", f"{display_base} Rate"])
+        st.table(df_conv.set_index("Currency"))
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
