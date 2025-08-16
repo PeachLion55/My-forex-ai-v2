@@ -217,50 +217,54 @@ df_news = get_fxstreet_forex_news()
 # =========================================================
 with selected_tab[0]:
     st.title("📊 Currency Strength Meter")
-    st.caption("Compare USD against multiple major currencies.")
+    st.caption("Relative strength across major currencies")
 
     import requests
+    import pandas as pd
     import streamlit as st
 
-    # Safe secret check
     try:
         api_key = st.secrets["api_keys"]["exchangerate"]
     except KeyError:
-        st.error("API key not found! Please set 'exchangerate' under [api_keys] in Streamlit secrets.")
+        st.error("API key not found! Set 'exchangerate' under [api_keys] in Streamlit secrets.")
         st.stop()
 
-    # Base currency
+    currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
     base_currency = "USD"
 
-    # Major currencies to compare
-    currencies = ["EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
-
-    # API request
     url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/{base_currency}"
+    response = requests.get(url)
+    data = response.json()
 
-    try:
-        response = requests.get(url)
-        data = response.json()
+    if response.status_code == 200 and data.get("result") == "success":
+        # Collect rates for all currencies
+        rates = {c: data["conversion_rates"].get(c) for c in currencies}
 
-        if response.status_code == 200 and data.get("result") == "success":
-            rates = {c: data["conversion_rates"].get(c) for c in currencies}
+        # Build a strength score: average of value vs all others
+        strength = {}
+        for c1 in currencies:
+            score = 0
+            for c2 in currencies:
+                if c1 != c2:
+                    rate1 = rates[c1]
+                    rate2 = rates[c2]
+                    if rate1 and rate2:
+                        score += rate1 / rate2
+            strength[c1] = score / (len(currencies)-1)
 
-            # Sort currencies by strength
-            sorted_rates = dict(sorted(rates.items(), key=lambda item: item[1], reverse=True))
+        # Sort strongest to weakest
+        sorted_strength = dict(sorted(strength.items(), key=lambda x: x[1], reverse=True))
 
-            st.subheader("💪 Currency Strength (relative to USD)")
-            for currency, rate in sorted_rates.items():
-                st.write(f"{currency}: {rate:.2f} per 1 USD")
-            
-            # Optional: visualize with a bar chart
-            import pandas as pd
-            df = pd.DataFrame(list(sorted_rates.items()), columns=["Currency", "Rate"])
-            st.bar_chart(df.set_index("Currency"))
+        st.subheader("💪 Currency Strength Ranking")
+        for c, s in sorted_strength.items():
+            st.write(f"{c}: {s:.2f}")
 
-        else:
-            st.error(f"Error fetching exchange rate: {data.get('error-type', 'Unknown error')}")
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
+        # Optional bar chart
+        df = pd.DataFrame(list(sorted_strength.items()), columns=["Currency", "Strength"])
+        st.bar_chart(df.set_index("Currency"))
+
+    else:
+        st.error(f"Error fetching exchange rates: {data.get('error-type', 'Unknown error')}")
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
