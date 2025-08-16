@@ -85,16 +85,16 @@ tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Ana
 selected_tab = st.tabs(tabs)
 
 # ---------- Forex Fundamentals ----------
-with selected_tab[0]:
+
 
     # Your existing code here
 
 # ---------- Understanding Forex Fundamentals ----------
-with selected_tab[1]:
+
     # Your existing code here
 
 # ---------- Technical Analysis ----------
-with selected_tab[2]:
+
     # Your existing code here
 
 # ---------- Tools ----------
