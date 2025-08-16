@@ -347,47 +347,40 @@ with selected_tab[2]:
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
 
-    # ---- TradingView Widget (responsive, tall) ----
-    watchlist = list(pairs_map.values())
-    tv_symbol = pairs_map[pair]
+  # ---- TradingView Widget (responsive, tall) ----
+watchlist = list(pairs_map.values())
+tv_symbol = pairs_map[pair]
 
-    tv_html = f"""
-    <div class="tradingview-widget-container" style="height:100%; width:100%">
-      <div class="tradingview-widget-container__widget" style="height:calc(100% - 24px); width:100%"></div>
-      <div class="tradingview-widget-copyright" style="padding-top:6px">
-        <a href="https://www.tradingview.com/symbols/{tv_symbol.replace(':','-')}/" rel="noopener" target="_blank">
-          <span class="blue-text">{pair} chart by TradingView</span>
-        </a>
-      </div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-      {{
-        "allow_symbol_change": true,
-        "calendar": false,
-        "details": false,
-        "hide_side_toolbar": false,
-        "hide_top_toolbar": false,
-        "hide_legend": true,
-        "hide_volume": true,
-        "hotlist": false,
-        "interval": "D",
-        "locale": "en",
-        "save_image": true,
-        "style": "1",
-        "symbol": "{tv_symbol}",
-        "theme": "dark",
-        "timezone": "Etc/UTC",
-        "backgroundColor": "#0F0F0F",
-        "gridColor": "rgba(242, 242, 242, 0.06)",
-        "watchlist": {watchlist},
-        "withdateranges": false,
-        "compareSymbols": [],
-        "studies": [],
-        "autosize": true
-      }}
-      </script>
-    </div>
-    """
-    components.html(tv_html, height=tv_height, scrolling=False)
+tv_html = f"""
+<div class="tradingview-widget-container" style="height:800px; width:100%">
+  <div id="tradingview_chart" class="tradingview-widget-container__widget" style="height:800px; width:100%"></div>
+  <div class="tradingview-widget-copyright" style="padding-top:6px">
+    <a href="https://www.tradingview.com/symbols/{tv_symbol.replace(':','-')}/" rel="noopener" target="_blank">
+      <span class="blue-text">{pair} chart by TradingView</span>
+    </a>
+  </div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+  {{
+    "autosize": true,
+    "symbol": "{tv_symbol}",
+    "interval": "D",
+    "timezone": "Etc/UTC",
+    "theme": "dark",
+    "style": "1",
+    "locale": "en",
+    "hide_top_toolbar": false,
+    "hide_side_toolbar": false,
+    "allow_symbol_change": true,
+    "save_image": true,
+    "calendar": false,
+    "studies": [],
+    "watchlist": {watchlist}
+  }}
+  </script>
+</div>
+"""
+
+components.html(tv_html, height=850, scrolling=False)
 
     # -------- MOVED News selector (filtered by selected pair's currencies) --------
     st.markdown("### 📰 News & Sentiment for Selected Pair")
