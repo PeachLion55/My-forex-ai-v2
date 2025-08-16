@@ -141,6 +141,7 @@ with selected_tab[3]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
+
     # ---------------- Backtesting ----------------
     with tools_subtabs[1]:
         st.header("📈 Backtesting")
@@ -148,7 +149,7 @@ with selected_tab[3]:
             "Analyze historical candlestick charts manually and log trades below."
         )
 
-        # Advanced TradingView widget with fixed size and drawing tools enabled
+        # Advanced TradingView widget with fixed size
         st.components.v1.html(
             """
             <!-- TradingView Widget BEGIN -->
@@ -157,8 +158,8 @@ with selected_tab[3]:
               <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
               <script type="text/javascript">
               new TradingView.widget({
-                "width": 1000,
-                "height": 600,
+                "width": "1000",
+                "height": "600",
                 "symbol": "EURUSD",
                 "interval": "D",
                 "timezone": "Etc/UTC",
@@ -185,16 +186,25 @@ with selected_tab[3]:
             height=650,
         )
 
+        # ---------------- Trading Journal ----------------
+        st.subheader("📝 Trading Journal")
+        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
 
-st.subheader("📝 Trading Journal")
-journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-empty_journal = pd.DataFrame(columns=journal_cols)  # create empty DataFrame
+        # Load existing journal if saved
+        journal_data = st.session_state.get("trade_journal", pd.DataFrame(columns=journal_cols))
 
-st.data_editor(
-    data=empty_journal,          # use DataFrame, not None
-    num_rows="dynamic",          # allow user to add rows
-    key="tools_backtesting_journal"
-)
+        journal_editor = st.data_editor(
+            data=journal_data,
+            num_rows="dynamic",
+            key="tools_backtesting_journal"
+        )
+
+        if st.button("💾 Save to My Account"):
+            if "name" not in st.session_state:
+                st.warning("You must create an account or sign in to save your journal.")
+            else:
+                st.session_state.trade_journal = journal_editor
+                st.success("Your journal has been saved to your account!")
 # =========================================================
 # HELPERS / DATA
 # =========================================================
