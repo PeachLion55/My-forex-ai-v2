@@ -153,15 +153,25 @@ with selected_tab[3]:
         if "tools_trade_journal" not in st.session_state:
             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
 
-        # Load user's saved journal if logged in
-        if "logged_in_user" in st.session_state:
-            username = st.session_state.logged_in_user
-            if os.path.exists(ACCOUNTS_FILE):
-                with open(ACCOUNTS_FILE, "r") as f:
-                    accounts = json.load(f)
-                saved_journal = accounts.get(username, {}).get("trade_journal", [])
-                if saved_journal and st.session_state.tools_trade_journal.empty:
-                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+       # ---------------- Load user's saved backtesting journal ----------------
+if "logged_in_user" in st.session_state:
+    username = st.session_state.logged_in_user
+
+    # Ensure the accounts file exists
+    if os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "r") as f:
+            accounts = json.load(f)
+        # Get the saved journal for the user
+        saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
+    else:
+        saved_journal = []
+
+    # Initialize the backtesting journal in session state if not already done
+    if "tools_trade_journal" not in st.session_state:
+        if saved_journal:
+            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+        else:
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
 
         # Editable trading journal
         updated_journal_tools = st.data_editor(
