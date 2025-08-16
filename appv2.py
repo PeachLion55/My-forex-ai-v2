@@ -86,15 +86,15 @@ selected_tab = st.tabs(tabs)
 with selected_tab[0]:
     st.title("📅 Forex Fundamentals")
     st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-    # your existing Forex Fundamentals code
+    pass  # replace with your existing Forex Fundamentals code
 
 # ---------- Understanding Forex Fundamentals ----------
 with selected_tab[1]:
-    # your existing code for this tab
+    pass  # replace with your existing code for this tab
 
 # ---------- Technical Analysis ----------
 with selected_tab[2]:
-    # your existing Technical Analysis code
+    pass  # replace with your existing Technical Analysis code
 
 # ---------- Tools ----------
 with selected_tab[3]:
@@ -105,7 +105,7 @@ with selected_tab[3]:
 
 # ---------- My Account ----------
 with selected_tab[4]:
-    # your existing My Account code
+    pass  # replace with your existing My Account code
 # =========================================================
 # HELPERS / DATA
 # =========================================================
