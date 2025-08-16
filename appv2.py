@@ -192,15 +192,16 @@ with selected_tab[3]:
             st.session_state.trade_journal = pd.DataFrame(columns=journal_cols)
 
         # Load journal from account if logged in and first load
-        if "logged_in_user" in st.session_state and not st.session_state.trade_journal.shape[0]:
+        if "logged_in_user" in st.session_state and st.session_state.trade_journal.empty:
             import json, os
             ACCOUNTS_FILE = "user_accounts.json"
             if os.path.exists(ACCOUNTS_FILE):
                 with open(ACCOUNTS_FILE, "r") as f:
                     accounts = json.load(f)
                 username = st.session_state.logged_in_user
-                if "trade_journal" in accounts.get(username, {}):
-                    st.session_state.trade_journal = pd.DataFrame(accounts[username]["trade_journal"])
+                saved_journal = accounts.get(username, {}).get("trade_journal", [])
+                # Convert to DataFrame to keep it editable
+                st.session_state.trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
 
         # Display editable journal
         journal_editor = st.data_editor(
@@ -221,7 +222,7 @@ with selected_tab[3]:
                     with open(ACCOUNTS_FILE, "r") as f:
                         accounts = json.load(f)
                     username = st.session_state.logged_in_user
-                    accounts[username]["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
+                    accounts.setdefault(username, {})["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
                     with open(ACCOUNTS_FILE, "w") as f:
                         json.dump(accounts, f, indent=4)
                     st.success("Trading journal saved to your account!")
