@@ -358,25 +358,24 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-# -------- Forex Trading Sessions (Dark Theme, Correct Sydney) --------
+# -------- Forex Trading Sessions (Dark Theme, Overnight Fixed) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
 from datetime import datetime, time
 
-# User inputs
 season = st.radio("Select Season:", ["Summer", "Winter"])
 user_tz = st.selectbox(
     "Your Time Zone:",
     ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"]
 )
 
-# Session timings
+# Correct session timings for summer/winter
 SESSION_HOURS = {
     "Sydney": {"summer": (time(23,0), time(8,0)), "winter": (time(22,0), time(7,0))},
-    "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(1,0), time(10,0))},
-    "London": {"summer": (time(8,0), time(17,0)), "winter": (time(8,0), time(17,0))},
-    "New York": {"summer": (time(13,0), time(22,0)), "winter": (time(13,0), time(22,0))}
+    "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(0,0), time(9,0))},
+    "London": {"summer": (time(8,0), time(17,0)), "winter": (time(7,0), time(16,0))},
+    "New York": {"summer": (time(13,0), time(22,0)), "winter": (time(12,0), time(21,0))}
 }
 
 SESSION_COLORS = {
@@ -386,7 +385,6 @@ SESSION_COLORS = {
     "New York": "#e91e63"
 }
 
-# Convert time to decimal hours
 def time_to_decimal(t: time) -> float:
     return t.hour + t.minute / 60
 
@@ -394,8 +392,8 @@ def time_to_decimal(t: time) -> float:
 def convert_to_user_hour(decimal_hour, from_tz="UTC", to_tz="UTC"):
     from_zone = pytz.timezone(from_tz)
     to_zone = pytz.timezone(to_tz)
-    hour = int(decimal_hour)
-    minute = int((decimal_hour - hour) * 60)
+    hour = int(decimal_hour) % 24
+    minute = int((decimal_hour - int(decimal_hour)) * 60)
     dt = datetime(2025, 1, 1, hour, minute)  # dummy date
     dt = from_zone.localize(dt)
     dt = dt.astimezone(to_zone)
@@ -415,35 +413,35 @@ for session, times in SESSION_HOURS.items():
     end_dec = time_to_decimal(end)
 
     blocks = []
-    if session == "Sydney" and end_dec <= start_dec:
-        # Sydney overnight split
-        blocks.append((start_dec, 24))
-        blocks.append((0, end_dec))
+    if end_dec <= start_dec:  # Overnight session
+        blocks.append((start_dec, 24, SESSION_COLORS[session]))
+        blocks.append((0, end_dec, SESSION_COLORS[session]))
     else:
-        blocks.append((start_dec, end_dec))
+        blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
 
-    # Convert to user timezone
-    blocks_local = []
-    for block_start, block_end in blocks:
-        local_start = convert_to_user_hour(block_start, "UTC", user_tz)
-        local_end = convert_to_user_hour(block_end, "UTC", user_tz)
-        blocks_local.append((local_start, local_end))
-
-    # Render HTML row
+    # Build row HTML
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
     cursor = 0
-    for block_start, block_end in blocks_local:
-        if block_start > cursor:
-            row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
-        width = block_end - block_start
+    for block_start, block_end, color in blocks:
+        block_start_local = convert_to_user_hour(block_start, "UTC", user_tz)
+        block_end_local = convert_to_user_hour(block_end, "UTC", user_tz)
+        
+        # Calculate flex widths
+        left_space = (block_start_local - cursor) % 24
+        width = (block_end_local - block_start_local) % 24
+
+        if left_space > 0:
+            row_html += f"<div style='flex:{left_space}; background:#171447;'></div>"
+
         row_html += f"""
-            <div style='flex:{width}; background:{SESSION_COLORS[session]};
+            <div style='flex:{width}; background:{color};
                         display:flex; align-items:center; justify-content:center;
                         color:#000; font-size:12px; font-weight:bold;'>
                 {session}
             </div>
         """
-        cursor = block_end
+        cursor = (cursor + left_space + width) % 24
+
     if cursor < 24:
         row_html += f"<div style='flex:{24 - cursor}; background:#171447;'></div>"
     row_html += "</div>"
