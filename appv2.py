@@ -627,3 +627,54 @@ with selected_tab[2]:
     else:
         st.info("News feed unavailable right now.")
 
+
+# =========================================================
+# TAB 5: MT5 STATS DASHBOARD
+# =========================================================
+with selected_tab[5]:
+    st.title("📊 MT5 Stats Dashboard")
+    st.markdown("Enter your MetaTrader 5 account details to fetch your trading stats.")
+
+    # ---------------- MT5 LOGIN ----------------
+    mt5_login_expander = st.expander("MT5 Login")
+    with mt5_login_expander:
+        mt5_server = st.text_input("Server", key="mt5_server")
+        mt5_login = st.text_input("Login (Account Number)", key="mt5_login")
+        mt5_password = st.text_input("Password", type="password", key="mt5_password")
+        if st.button("Connect to MT5"):
+            try:
+                import MetaTrader5 as mt5
+
+                # initialize MT5
+                if not mt5.initialize(login=int(mt5_login), password=mt5_password, server=mt5_server):
+                    st.error(f"MT5 initialization failed: {mt5.last_error()}")
+                else:
+                    st.success("Connected to MT5 successfully!")
+                    st.session_state.mt5_connected = True
+
+            except Exception as e:
+                st.error(f"Error connecting to MT5: {e}")
+                st.session_state.mt5_connected = False
+
+    # ---------------- DASHBOARD ----------------
+    if st.session_state.get("mt5_connected", False):
+        st.subheader("📈 Account Summary")
+        account_info = mt5.account_info()
+        if account_info:
+            st.write(f"**Balance:** {account_info.balance}")
+            st.write(f"**Equity:** {account_info.equity}")
+            st.write(f"**Margin:** {account_info.margin}")
+            st.write(f"**Free Margin:** {account_info.margin_free}")
+            st.write(f"**Leverage:** {account_info.leverage}")
+
+        st.subheader("📊 Recent Trades")
+        positions = mt5.positions_get()
+        if positions:
+            import pandas as pd
+            df_positions = pd.DataFrame(list(positions), columns=positions[0]._asdict().keys())
+            st.dataframe(df_positions)
+        else:
+            st.info("No open positions found.")
+
+        # You can add more stats, charts, P/L graphs here later
+
