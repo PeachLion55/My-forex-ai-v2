@@ -216,71 +216,10 @@ df_news = get_fxstreet_forex_news()
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
 with selected_tab[0]:
-    import streamlit as st
-    import pandas as pd
-    import plotly.express as px
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from bs4 import BeautifulSoup
-    import time
-
     col1, col2 = st.columns([3, 1])
-
     with col1:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-
-        # ------------------------
-        # Selenium setup (headless)
-        # ------------------------
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-
-        driver = webdriver.Chrome(options=chrome_options)
-
-        # Open LiveCharts currency strength page
-        driver.get("https://www.livecharts.co.uk/currency-strength.php")
-        time.sleep(5)  # wait for JavaScript to render
-
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
-
-        driver.quit()
-
-        # ------------------------
-        # Parse table
-        # ------------------------
-        table = soup.find("table", {"class": "datatablethin"})
-        currencies = []
-        strength_values = []
-
-        for row in table.find_all("tr")[1:]:  # skip header
-            div = row.find("div", {"class": "strengthrate"})
-            if div:
-                text = div.text.strip()
-                parts = text.split()
-                if len(parts) == 2:
-                    currency, value = parts
-                    try:
-                        currencies.append(currency)
-                        strength_values.append(float(value))
-                    except ValueError:
-                        continue
-
-        # Create DataFrame
-        df = pd.DataFrame({"Currency": currencies, "Strength": strength_values})
-        df = df.sort_values(by="Strength", ascending=False)
-
-        # Plot
-        fig = px.bar(df, x="Currency", y="Strength", title="Currency Strength Meter (LiveCharts)")
-        st.plotly_chart(fig)
-
-        # Show table
-        st.write("Currency Strength Values:")
-        st.dataframe(df)
-
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
