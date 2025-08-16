@@ -100,7 +100,7 @@ selected_tab = st.tabs(tabs)
 # ---------- Tools ----------
 with selected_tab[3]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
 
     # Profit/Stop-loss Calculator
     with tools_subtabs[0]:
@@ -124,6 +124,42 @@ with selected_tab[3]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
+import pandas as pd
+
+# Backtesting Sub-tab
+with tools_subtabs[1]:
+    st.header("📊 Backtesting")
+    st.markdown("Upload historical price data (CSV) and define a simple strategy to backtest.")
+
+    uploaded_file = st.file_uploader("Upload Historical Data CSV", type="csv")
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        st.write("Preview of data:", df.head())
+
+        # User inputs for simple backtesting
+        open_col = st.selectbox("Column for Open Price", df.columns, index=0)
+        close_col = st.selectbox("Column for Close Price", df.columns, index=1)
+        short_ma = st.number_input("Short MA Period", min_value=1, value=5)
+        long_ma = st.number_input("Long MA Period", min_value=1, value=20)
+
+        if st.button("Run Backtest"):
+            df["Short_MA"] = df[close_col].rolling(short_ma).mean()
+            df["Long_MA"] = df[close_col].rolling(long_ma).mean()
+
+            df["Signal"] = 0
+            df.loc[df["Short_MA"] > df["Long_MA"], "Signal"] = 1   # Buy
+            df.loc[df["Short_MA"] < df["Long_MA"], "Signal"] = -1  # Sell
+
+            df["Position"] = df["Signal"].shift(1)
+            df["Returns"] = df[close_col].pct_change() * df["Position"]
+
+            total_return = df["Returns"].sum() * 100
+            st.write(f"**Total Return:** {total_return:.2f}%")
+
+            # Plot equity curve
+            df["Equity"] = (1 + df["Returns"]).cumprod()
+            st.line_chart(df["Equity"])
+        
 # ---------- My Account ----------
 with selected_tab[4]:
     st.title("👤 My Account")
