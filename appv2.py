@@ -76,31 +76,12 @@ div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     unsafe_allow_html=True,
 )
 
-# =========================================================
-# NAVIGATION
-# =========================================================
-tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
-selected_tab = st.tabs(tabs)
-
-# ---------- Forex Fundamentals ----------
-with selected_tab[0]:
-   
-    pass  # replace with your existing Forex Fundamentals code
-
-# ---------- Understanding Forex Fundamentals ----------
-with selected_tab[1]:
-    pass  # replace with your existing code for this tab
-
-# ---------- Technical Analysis ----------
-with selected_tab[2]:
-    pass  # replace with your existing Technical Analysis code
-
 # ---------- Tools ----------
 with selected_tab[3]:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])
 
-    # ---------- Profit/Stop-loss Calculator ----------
+    # Profit/Stop-loss Calculator
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
