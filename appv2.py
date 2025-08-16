@@ -636,71 +636,103 @@ with selected_tab[2]:
 
 
 # =========================================================
-# TAB: MT5 STATS DASHBOARD
+# TAB 5: MT5 STATS DASHBOARD
 # =========================================================
 with selected_tab[5]:
     st.title("📊 MT5 Stats Dashboard")
     st.markdown("Enter your MetaTrader 5 account details to fetch your trading stats.")
 
-    # ---------------- MT5 LOGIN / LOAD CSV ----------------
-    mt5_login_expander = st.expander("MT5 Login / Load Test Data")
+    # ---------------- MT5 LOGIN ----------------
+    mt5_login_expander = st.expander("MT5 Login")
     with mt5_login_expander:
-        st.info("For testing on Mac, you can load a CSV file with your MT5 history.")
-        mt5_file = st.file_uploader("Upload MT5 Trade History CSV", type=["csv"])
-        if mt5_file:
-            import pandas as pd
-            df_trades = pd.read_csv(mt5_file)
-            st.session_state.mt5_connected = True
-            st.session_state.df_trades = df_trades
-            st.success("Trade history loaded successfully!")
+        mt5_server = st.text_input("Server", key="mt5_server")
+        mt5_login = st.text_input("Login (Account Number)", key="mt5_login")
+        mt5_password = st.text_input("Password", type="password", key="mt5_password")
+        if st.button("Connect to MT5"):
+            try:
+                import MetaTrader5 as mt5
+                if not mt5.initialize(login=int(mt5_login), password=mt5_password, server=mt5_server):
+                    st.error(f"MT5 initialization failed: {mt5.last_error()}")
+                    st.session_state.mt5_connected = False
+                else:
+                    st.success("✅ Connected to MT5 successfully!")
+                    st.session_state.mt5_connected = True
+            except Exception as e:
+                st.error(f"Error connecting to MT5: {e}")
+                st.session_state.mt5_connected = False
 
     # ---------------- DASHBOARD ----------------
     if st.session_state.get("mt5_connected", False):
-        df_trades = st.session_state.df_trades.copy()
-
-        # Add Direction Icons
-        df_trades['Direction'] = df_trades['Type'].apply(lambda x: "🟢 Buy" if x.lower()=='buy' else "🔴 Sell")
-
-        # Account Summary Cards
-        st.subheader("📈 Account Summary")
-        total_balance = df_trades['Balance'].iloc[-1] if 'Balance' in df_trades.columns else df_trades['Profit'].sum()
-        total_equity = total_balance  # placeholder, adjust with real equity if available
-        margin_free = total_balance * 0.5  # fake free margin
-        leverage = 30  # placeholder
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Balance", f"${total_balance:,.2f}", "💰")
-        col2.metric("Equity", f"${total_equity:,.2f}", "📊")
-        col3.metric("Margin Free", f"${margin_free:,.2f}", "🛡️")
-        col4.metric("Leverage", f"{leverage}x", "⚡")
-
-        # KPIs
-        st.subheader("📌 Key Stats")
-        total_trades = len(df_trades)
-        winning_trades = len(df_trades[df_trades['Profit'] > 0])
-        losing_trades = len(df_trades[df_trades['Profit'] <= 0])
-        avg_profit = df_trades['Profit'].mean()
-
-        kcol1, kcol2, kcol3, kcol4 = st.columns(4)
-        kcol1.metric("Total Trades", total_trades, "📂")
-        kcol2.metric("Winning Trades", winning_trades, "✅")
-        kcol3.metric("Losing Trades", losing_trades, "❌")
-        kcol4.metric("Avg Profit/Trade", f"${avg_profit:,.2f}", "💹")
-
-        # P/L per Trade Chart
-        st.subheader("📊 Profit / Loss per Trade")
+        import pandas as pd
+        import numpy as np
         import plotly.express as px
-        fig = px.bar(df_trades, x='Ticket', y='Profit', color='Profit',
-                     color_continuous_scale='RdYlGn', title="Profit/Loss per Trade")
-        st.plotly_chart(fig, use_container_width=True)
 
-        # Equity Curve
-        if 'Balance' in df_trades.columns:
-            st.subheader("📈 Equity Curve")
-            fig2 = px.line(df_trades, x='Date', y='Balance', title="Equity Over Time")
-            st.plotly_chart(fig2, use_container_width=True)
+        # ---------------- ACCOUNT INFO ----------------
+        account_info = mt5.account_info()
+        if account_info:
+            st.subheader("💼 Account Summary")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Balance 💰", f"{account_info.balance:.2f}")
+            col2.metric("Equity 📈", f"{account_info.equity:.2f}")
+            col3.metric("Free Margin 🟢", f"{account_info.margin_free:.2f}")
+            col4.metric("Leverage ⚡", f"{account_info.leverage}x")
 
-        # Recent Trades Table
-        st.subheader("📋 Recent Trades")
-        display_cols = ['Date', 'Symbol', 'Direction', 'Volume', 'Profit']
-        st.dataframe(df_trades[display_cols].sort_values(by='Date', ascending=False))
+        # ---------------- FETCH TRADES ----------------
+        positions = mt5.history_deals_get()
+        if positions:
+            df_trades = pd.DataFrame([deal._asdict() for deal in positions])
+            
+            # Ensure required columns exist
+            df_trades['Profit'] = df_trades.get('profit', 0)
+            df_trades['Symbol'] = df_trades.get('symbol', 'N/A')
+            df_trades['Type'] = df_trades.get('type', 0).map({0: 'Buy', 1: 'Sell'})
+            df_trades['Date'] = pd.to_datetime(df_trades['time'], unit='s')
+
+            # ---------------- METRICS ----------------
+            st.subheader("📊 Key Metrics")
+            total_trades = len(df_trades)
+            total_profit = df_trades['Profit'].sum()
+            wins = df_trades[df_trades['Profit'] > 0]
+            losses = df_trades[df_trades['Profit'] < 0]
+            win_rate = len(wins) / total_trades * 100 if total_trades > 0 else 0
+            avg_trade = df_trades['Profit'].mean()
+            largest_win = df_trades['Profit'].max()
+            largest_loss = df_trades['Profit'].min()
+            long_trades = len(df_trades[df_trades['Type'] == 'Buy'])
+            short_trades = len(df_trades[df_trades['Type'] == 'Sell'])
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total Trades 📝", total_trades)
+            m2.metric("Total Profit 💵", f"{total_profit:.2f}")
+            m3.metric("Win Rate 🏆", f"{win_rate:.1f}%")
+            m4.metric("Avg Trade P/L 📊", f"{avg_trade:.2f}")
+
+            m5, m6, m7, m8 = st.columns(4)
+            m5.metric("Largest Win 🥳", f"{largest_win:.2f}")
+            m6.metric("Largest Loss 😢", f"{largest_loss:.2f}")
+            m7.metric("Long Trades 📈", long_trades)
+            m8.metric("Short Trades 📉", short_trades)
+
+            # ---------------- P/L OVER TIME ----------------
+            st.subheader("📈 P/L Over Time")
+            df_trades_sorted = df_trades.sort_values('Date')
+            df_trades_sorted['Cumulative Profit'] = df_trades_sorted['Profit'].cumsum()
+            fig_cum = px.line(df_trades_sorted, x='Date', y='Cumulative Profit', title="Cumulative Profit Over Time",
+                              markers=True)
+            st.plotly_chart(fig_cum, use_container_width=True)
+
+            # ---------------- TRADES BY SYMBOL ----------------
+            st.subheader("🔢 Trades by Symbol")
+            symbol_counts = df_trades['Symbol'].value_counts().reset_index()
+            symbol_counts.columns = ['Symbol', 'Trades']
+            fig_sym = px.bar(symbol_counts, x='Symbol', y='Trades', color='Symbol', text='Trades')
+            st.plotly_chart(fig_sym, use_container_width=True)
+
+            # ---------------- RECENT TRADES ----------------
+            st.subheader("📋 Recent Trades")
+            recent_cols = ['Date', 'Symbol', 'Type', 'Volume', 'Profit']
+            existing_cols = [col for col in recent_cols if col in df_trades.columns]
+            st.dataframe(df_trades[existing_cols].sort_values(by='Date', ascending=False).reset_index(drop=True))
+
+        else:
+            st.info("No historical trades found. Execute some trades to see your stats.")
