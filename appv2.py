@@ -516,3 +516,90 @@ with selected_tab[2]:
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
+with selected_tab[4]:
+    st.title("👤 My Account")
+    st.caption("Manage your profile, preferences, and trading journal.")
+
+    import os, json
+
+    # Load user data if logged in
+    username = st.session_state.get("logged_in_user")
+    accounts = {}
+    ACCOUNTS_FILE = "user_accounts.json"
+    if os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "r") as f:
+            accounts = json.load(f)
+    
+    user_data = accounts.get(username, {}) if username else {}
+
+    colA, colB = st.columns(2)
+
+    with colA:
+        name = st.text_input("Name", value=st.session_state.get("name", user_data.get("name", "")))
+        base_ccy = st.selectbox(
+            "Preferred Base Currency",
+            ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"],
+            index=["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"].index(
+                st.session_state.get("base_ccy", user_data.get("base_ccy", "USD"))
+            )
+        )
+
+    with colB:
+        email = st.text_input("Email", value=st.session_state.get("email", user_data.get("email", "")))
+        alerts = st.checkbox(
+            "Email me before high-impact events",
+            value=st.session_state.get("alerts", user_data.get("alerts", True))
+        )
+
+    # Save preferences button
+    if st.button("💾 Save Preferences"):
+        if username:
+            # Update session state
+            st.session_state.name = name
+            st.session_state.email = email
+            st.session_state.base_ccy = base_ccy
+            st.session_state.alerts = alerts
+
+            # Save to accounts file
+            accounts.setdefault(username, {})
+            accounts[username]["name"] = name
+            accounts[username]["email"] = email
+            accounts[username]["base_ccy"] = base_ccy
+            accounts[username]["alerts"] = alerts
+            with open(ACCOUNTS_FILE, "w") as f:
+                json.dump(accounts, f, indent=4)
+            st.success("Preferences saved to your account!")
+        else:
+            st.error("You must be logged in to save preferences.")
+
+    # Display current profile
+    if username:
+        st.markdown(
+            f"**Current Profile:** {st.session_state.get('name', '')} | "
+            f"{st.session_state.get('base_ccy', '')} | Alerts: "
+            f"{'On' if st.session_state.get('alerts', False) else 'Off'}"
+        )
+
+    # Optional: Show trading journal for logged in user
+    st.subheader("📝 Your Trading Journal")
+    journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+
+    # Load journal from account
+    trade_journal = pd.DataFrame(user_data.get("trade_journal", []), columns=journal_cols) if username else pd.DataFrame(columns=journal_cols)
+
+    # Display editable journal
+    trade_journal = st.data_editor(
+        data=trade_journal,
+        num_rows="dynamic",
+        key="account_trade_journal"
+    )
+
+    # Save journal button
+    if username and st.button("💾 Save Trading Journal"):
+        accounts.setdefault(username, {})
+        accounts[username]["trade_journal"] = trade_journal.to_dict(orient="records")
+        with open(ACCOUNTS_FILE, "w") as f:
+            json.dump(accounts, f, indent=4)
+        st.success("Trading journal saved to your account!")
+    elif not username:
+        st.info("Sign in to save your trading journal to your account.")
