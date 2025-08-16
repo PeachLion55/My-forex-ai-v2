@@ -358,13 +358,13 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-# -------- Forex Trading Sessions (Dark Theme, Corrected Overnight) --------
+# -------- Forex Trading Sessions (Dark Theme, Correct Sydney) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
 from datetime import datetime, time
 
-# User options
+# User inputs
 season = st.radio("Select Season:", ["Summer", "Winter"])
 user_tz = st.selectbox(
     "Your Time Zone:",
@@ -374,9 +374,9 @@ user_tz = st.selectbox(
 # Session timings
 SESSION_HOURS = {
     "Sydney": {"summer": (time(23,0), time(8,0)), "winter": (time(22,0), time(7,0))},
-    "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(0,0), time(9,0))},
-    "London": {"summer": (time(8,0), time(17,0)), "winter": (time(7,0), time(16,0))},
-    "New York": {"summer": (time(13,0), time(22,0)), "winter": (time(12,0), time(21,0))}
+    "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(1,0), time(10,0))},
+    "London": {"summer": (time(8,0), time(17,0)), "winter": (time(8,0), time(17,0))},
+    "New York": {"summer": (time(13,0), time(22,0)), "winter": (time(13,0), time(22,0))}
 }
 
 SESSION_COLORS = {
@@ -386,23 +386,24 @@ SESSION_COLORS = {
     "New York": "#e91e63"
 }
 
+# Convert time to decimal hours
 def time_to_decimal(t: time) -> float:
     return t.hour + t.minute / 60
 
-def convert_to_user_hour(hour: float, tz_from: str, tz_to: str) -> float:
-    """Convert hour in tz_from to tz_to as decimal hour, handling hours >= 24"""
-    day = 1
-    if hour >= 24:
-        hour -= 24
-        day = 2  # next day
-    dt = datetime(2025, 1, day, int(hour), int((hour % 1)*60))
-    dt_from = pytz.timezone(tz_from).localize(dt)
-    dt_to = dt_from.astimezone(pytz.timezone(tz_to))
-    return dt_to.hour + dt_to.minute/60
+# Convert decimal hour to user timezone
+def convert_to_user_hour(decimal_hour, from_tz="UTC", to_tz="UTC"):
+    from_zone = pytz.timezone(from_tz)
+    to_zone = pytz.timezone(to_tz)
+    hour = int(decimal_hour)
+    minute = int((decimal_hour - hour) * 60)
+    dt = datetime(2025, 1, 1, hour, minute)  # dummy date
+    dt = from_zone.localize(dt)
+    dt = dt.astimezone(to_zone)
+    return dt.hour + dt.minute / 60
 
 # Timeline header (0–24h)
 hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
-for h in range(24):
+for h in range(25):
     hours_html += f"<div style='flex:1; font-size:10px; text-align:center; color:white;'>{h:02d}</div>"
 hours_html += "</div>"
 st.markdown(hours_html, unsafe_allow_html=True)
@@ -410,18 +411,18 @@ st.markdown(hours_html, unsafe_allow_html=True)
 # Build session bars
 for session, times in SESSION_HOURS.items():
     start, end = times[season.lower()]
-    start_hour = time_to_decimal(start)
-    end_hour = time_to_decimal(end)
+    start_dec = time_to_decimal(start)
+    end_dec = time_to_decimal(end)
 
     blocks = []
-    # Handle overnight
-    if end_hour <= start_hour:
-        blocks.append((start_hour, 24))
-        blocks.append((0, end_hour))
+    if session == "Sydney" and end_dec <= start_dec:
+        # Sydney overnight split
+        blocks.append((start_dec, 24))
+        blocks.append((0, end_dec))
     else:
-        blocks.append((start_hour, end_hour))
+        blocks.append((start_dec, end_dec))
 
-    # Convert blocks to user timezone
+    # Convert to user timezone
     blocks_local = []
     for block_start, block_end in blocks:
         local_start = convert_to_user_hour(block_start, "UTC", user_tz)
@@ -433,7 +434,6 @@ for session, times in SESSION_HOURS.items():
     cursor = 0
     for block_start, block_end in blocks_local:
         if block_start > cursor:
-            # empty space
             row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
         width = block_end - block_start
         row_html += f"""
