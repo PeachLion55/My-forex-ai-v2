@@ -10,3 +10,4 @@ torch
 beautifulsoup4
 plotly
 selenium
+pytz
