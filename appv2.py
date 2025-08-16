@@ -86,18 +86,18 @@ selected_tab = st.tabs(tabs)
 
 # ---------- Forex Fundamentals ----------
 with selected_tab[0]:
-    st.title("📅 Forex Fundamentals")
-    st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+    st.title("")
+    st.caption("")
     # Your existing code here
 
 # ---------- Understanding Forex Fundamentals ----------
 with selected_tab[1]:
-    st.title("📖 Understanding Forex Fundamentals")
+    st.title("")
     # Your existing code here
 
 # ---------- Technical Analysis ----------
 with selected_tab[2]:
-    st.title("📊 Technical Analysis")
+    st.title("")
     # Your existing code here
 
 # ---------- Tools ----------
