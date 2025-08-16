@@ -8,3 +8,5 @@ newspaper3k
 transformers
 torch
 beautifulsoup4
+matplotlib
+numpy
