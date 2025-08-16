@@ -225,32 +225,6 @@ with selected_tab[0]:
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
-    # -------- Sentiment Summary (derived, safe even if no selection) --------
-    st.markdown("### 🧭 Sentiment Snapshot (last 3 days)")
-    if not df_news.empty:
-        # Aggregate polarity by currency
-        agg = (
-            df_news[df_news["Currency"] != "Unknown"]
-            .groupby("Currency")
-            .agg(AvgPolarity=("Polarity", "mean"), Headlines=("Headline", "count"))
-            .sort_values("AvgPolarity", ascending=False)
-        )
-        top_bull = agg.head(3)
-        top_bear = agg.tail(3).sort_values("AvgPolarity")
-
-        cA, cB, cC = st.columns([1,1,2])
-        with cA:
-            st.markdown("**Most Bullish**")
-            st.dataframe(top_bull.style.format({"AvgPolarity": "{:.2f}"}))
-        with cB:
-            st.markdown("**Most Bearish**")
-            st.dataframe(top_bear.style.format({"AvgPolarity": "{:.2f}"}))
-        with cC:
-            st.markdown("**All Currencies (Avg Polarity)**")
-            st.dataframe(agg.style.format({"AvgPolarity": "{:.2f}"}))
-    else:
-        st.info("No recent news loaded yet.")
-
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     # Session state for calendar highlight
