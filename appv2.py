@@ -1,9 +1,13 @@
+# ===================== IMPORTS =====================
 import streamlit as st
 import pandas as pd
 import feedparser
 from textblob import TextBlob
 import streamlit.components.v1 as components
 from datetime import datetime, timedelta
+import os
+import json
+import hashlib
 
 # =========================================================
 # PAGE CONFIG
