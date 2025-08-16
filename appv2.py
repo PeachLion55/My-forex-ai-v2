@@ -226,26 +226,42 @@ with selected_tab[0]:
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
 try:
+    major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
+
+    # Fetch latest rates (base=USD)
     url = "https://api.exchangerate.host/latest?base=USD"
     response = requests.get(url)
     data = response.json()
     rates = data.get("rates", {})
 
-    # Major currencies (exclude USD from normalization if base is USD)
-    major_currencies = ["EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD", "USD"]
+    # Build cross rates matrix
+    strength_scores = {}
+    for ccy in major_currencies:
+        total = 0
+        for other in major_currencies:
+            if ccy == other:
+                continue
+            # cross rate: how much 1 unit of 'ccy' is worth in 'other'
+            if ccy == "USD":
+                cross = rates[other]
+            elif other == "USD":
+                cross = 1 / rates[ccy]
+            else:
+                cross = rates[other] / rates[ccy]
+            total += cross
+        # average strength against all others
+        strength_scores[ccy] = total / (len(major_currencies) - 1)
 
-    currency_strength = {ccy: rates.get(ccy, 1 if ccy == "USD" else 0) for ccy in major_currencies}
+    # Normalize 0–1
+    min_s = min(strength_scores.values())
+    max_s = max(strength_scores.values())
+    normalized_strength = {ccy: (score - min_s) / (max_s - min_s) for ccy, score in strength_scores.items()}
 
-    # Normalize relative to the mean
-    avg_rate = sum(currency_strength.values()) / len(currency_strength)
-    normalized_strength = {ccy: min(max((rate - avg_rate) / avg_rate * 0.5 + 0.5, 0), 1) 
-                           for ccy, rate in currency_strength.items()}
-
-    # Display bars
+    # Display as bars
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
-        strength_pct = int(normalized_strength[ccy] * 100)
+        pct = int(normalized_strength[ccy] * 100)
         color = colors[i % 2]
         st.markdown(
             f"""
@@ -265,13 +281,13 @@ try:
                     margin:5px 0;
                 ">
                     <div style="
-                        width:{strength_pct}%;
+                        width:{pct}%;
                         background-color:#00ff00;
                         height:15px;
                         border-radius:5px;
                     "></div>
                 </div>
-                <p style='margin:0'>{strength_pct}%</p>
+                <p style='margin:0'>{pct}%</p>
             </div>
             """,
             unsafe_allow_html=True
