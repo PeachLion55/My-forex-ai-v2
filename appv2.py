@@ -223,56 +223,45 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
+import streamlit as st
+import requests
+
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
 try:
-    import requests
-
-    # Get API key from secrets
-    api_key = st.secrets["EXCHANGERATE_HOST_API_KEY"]
-
-    # Fetch latest exchange rates relative to USD
-    url = f"https://api.exchangerate.host/latest?base=USD&access_key={api_key}"
-    response = requests.get(url)
-    data = response.json()
-
-    if not data.get("success", True):
-        raise ValueError(data.get("error", {}).get("info", "Unknown API error"))
-
-    rates = data.get("rates", {})
-    if not rates:
-        raise ValueError("No rates returned")
-
-    # Major currencies
     major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
-    # Build currency strength relative to all pairs
-    currency_strength = {}
+    # Fetch rates relative to each major currency
+    rates_matrix = {}
+    for base in major_currencies:
+        url = f"https://api.exchangerate.host/latest?base={base}&symbols={','.join(major_currencies)}"
+        resp = requests.get(url)
+        data = resp.json()
+        rates_matrix[base] = data.get("rates", {})
+
+    # Compute strength for each currency
+    strength = {}
     for ccy in major_currencies:
-        # Average of ccy vs all other major currencies
-        values = []
+        total = 0
         for other in major_currencies:
             if ccy == other:
                 continue
-            pair_rate = rates.get(other)
-            if pair_rate is not None:
-                values.append(pair_rate)
-        # Mean of all rates as a rough "strength"
-        currency_strength[ccy] = sum(values) / len(values) if values else 0
+            total += rates_matrix[ccy].get(other, 1)
+        strength[ccy] = total / (len(major_currencies) - 1)
 
-    # Normalize strength to 0–1 scale
-    max_rate = max(currency_strength.values())
-    min_rate = min(currency_strength.values())
-    if max_rate == min_rate:
-        normalized_strength = {ccy: 0.5 for ccy in currency_strength}  # all equal
+    # Normalize to 0–100 scale
+    min_strength = min(strength.values())
+    max_strength = max(strength.values())
+    if max_strength == min_strength:
+        normalized = {ccy: 50 for ccy in strength}
     else:
-        normalized_strength = {ccy: (val - min_rate) / (max_rate - min_rate) for ccy, val in currency_strength.items()}
+        normalized = {ccy: int((s - min_strength) / (max_strength - min_strength) * 100) for ccy, s in strength.items()}
 
-    # Display as horizontal bars like LiveCharts
+    # Display as horizontal bars
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
-        strength_pct = int(normalized_strength[ccy] * 100)
+        pct = normalized[ccy]
         color = colors[i % 2]
         st.markdown(
             f"""
@@ -292,13 +281,13 @@ try:
                     margin:5px 0;
                 ">
                     <div style="
-                        width:{strength_pct}%;
+                        width:{pct}%;
                         background-color:#00ff00;
                         height:15px;
                         border-radius:5px;
                     "></div>
                 </div>
-                <p style='margin:0'>{strength_pct}%</p>
+                <p style='margin:0'>{pct}%</p>
             </div>
             """,
             unsafe_allow_html=True
