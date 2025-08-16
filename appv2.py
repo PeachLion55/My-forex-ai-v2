@@ -220,6 +220,16 @@ with selected_tab[0]:
     with col1:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+
+        # -------- Live Currency Strength Meter --------
+        st.markdown("### 💪 Live Currency Strength")
+        livecharts_iframe = """
+        <iframe src="https://www.livecharts.co.uk/currency-strength.php" 
+                width="100%" height="600" frameborder="0" style="border:none;">
+        </iframe>
+        """
+        st.components.v1.html(livecharts_iframe, height=600, scrolling=False)
+
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
@@ -290,7 +300,6 @@ with selected_tab[0]:
                     """,
                     unsafe_allow_html=True
                 )
-
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
