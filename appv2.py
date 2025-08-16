@@ -233,19 +233,21 @@ with selected_tab[0]:
         response = requests.get(url)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Find the table (update class if necessary)
-        table = soup.find("table", {"class": "currency-strength-table"})
-        rows = table.find_all("tr")[1:]  # skip header
+        # Find the main table container
+        table = soup.find("table", {"class": "datatablethin"})
 
         currencies = []
         strength_values = []
 
-        for row in rows:
-            cols = row.find_all("td")
-            currency = cols[0].text.strip()
-            strength = float(cols[1].text.strip())
-            currencies.append(currency)
-            strength_values.append(strength)
+        # Each row contains a div with class 'strengthrate'
+        for row in table.find_all("tr")[1:]:  # skip header
+            div = row.find("div", {"class": "strengthrate"})
+            if div:
+                parts = div.text.strip().split()
+                if len(parts) == 2:
+                    currency, value = parts
+                    currencies.append(currency)
+                    strength_values.append(float(value))
 
         # Create DataFrame
         df = pd.DataFrame({"Currency": currencies, "Strength": strength_values})
