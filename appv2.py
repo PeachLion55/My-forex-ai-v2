@@ -141,7 +141,6 @@ with selected_tab[3]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
-
     # ---------------- Backtesting ----------------
     with tools_subtabs[1]:
         st.header("📈 Backtesting")
@@ -149,7 +148,7 @@ with selected_tab[3]:
             "Analyze historical candlestick charts manually and log trades below."
         )
 
-        # Advanced TradingView widget with fixed size
+        # Advanced TradingView widget
         st.components.v1.html(
             """
             <!-- TradingView Widget BEGIN -->
@@ -158,8 +157,8 @@ with selected_tab[3]:
               <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
               <script type="text/javascript">
               new TradingView.widget({
-                "width": "1000",
-                "height": "600",
+                "width": 1000,
+                "height": 600,
                 "symbol": "EURUSD",
                 "interval": "D",
                 "timezone": "Etc/UTC",
@@ -190,21 +189,37 @@ with selected_tab[3]:
         st.subheader("📝 Trading Journal")
         journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
 
-        # Load existing journal if saved
-        journal_data = st.session_state.get("trade_journal", pd.DataFrame(columns=journal_cols))
+        # Initialize journal in session_state if missing
+        if "trade_journal" not in st.session_state:
+            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols)
 
+        # Display editable journal
         journal_editor = st.data_editor(
-            data=journal_data,
+            data=st.session_state.trade_journal,
             num_rows="dynamic",
             key="tools_backtesting_journal"
         )
 
-        if st.button("💾 Save to My Account"):
-            if "name" not in st.session_state:
-                st.warning("You must create an account or sign in to save your journal.")
-            else:
-                st.session_state.trade_journal = journal_editor
-                st.success("Your journal has been saved to your account!")
+        # Update session state with edits
+        st.session_state.trade_journal = journal_editor
+
+        # Save to account button
+        if "logged_in_user" in st.session_state:
+            if st.button("💾 Save to My Account"):
+                import json, os
+                ACCOUNTS_FILE = "user_accounts.json"
+                if os.path.exists(ACCOUNTS_FILE):
+                    with open(ACCOUNTS_FILE, "r") as f:
+                        accounts = json.load(f)
+                    username = st.session_state.logged_in_user
+                    accounts[username]["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
+                    with open(ACCOUNTS_FILE, "w") as f:
+                        json.dump(accounts, f)
+                    st.success("Trading journal saved to your account!")
+                else:
+                    st.error("Accounts file not found.")
+        else:
+            st.info("Sign in to save your trading journal to your account.")
 # =========================================================
 # HELPERS / DATA
 # =========================================================
