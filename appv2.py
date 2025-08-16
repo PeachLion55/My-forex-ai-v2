@@ -358,6 +358,43 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
+    # -------- Forex Trading Sessions --------
+    st.markdown("### ⏰ Forex Trading Sessions")
+
+    import pytz
+    from datetime import datetime
+
+    SESSION_TIMES = {
+        "Sydney": {"summer": ("22:00", "07:00"), "winter": ("21:00", "06:00")},
+        "Tokyo":  {"summer": ("23:00", "08:00"), "winter": ("23:00", "08:00")},
+        "London": {"summer": ("07:00", "16:00"), "winter": ("08:00", "17:00")},
+        "New York": {"summer": ("12:00", "21:00"), "winter": ("13:00", "22:00")},
+    }
+
+    season = st.radio("Select Season:", ["Summer", "Winter"])
+    user_tz = st.selectbox("Select Your Time Zone:", 
+                           ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"])
+
+    rows = []
+    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc).time()
+    user_zone = pytz.timezone(user_tz)
+
+    for session, times in SESSION_TIMES.items():
+        start_str, end_str = times[season.lower()]
+        fmt = "%H:%M"
+        start_utc = datetime.strptime(start_str, fmt).time()
+        end_utc = datetime.strptime(end_str, fmt).time()
+
+        start_local = datetime.strptime(start_str, fmt).replace(tzinfo=pytz.utc).astimezone(user_zone).strftime("%H:%M")
+        end_local = datetime.strptime(end_str, fmt).replace(tzinfo=pytz.utc).astimezone(user_zone).strftime("%H:%M")
+
+        is_open = (start_utc <= now_utc <= end_utc) if start_utc < end_utc else (now_utc >= start_utc or now_utc <= end_utc)
+        status = "🟢 Open" if is_open else "🔴 Closed"
+
+        rows.append({"Session": session, "Local Start": start_local, "Local End": end_local, "Status": status})
+
+    st.table(rows)
+
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
