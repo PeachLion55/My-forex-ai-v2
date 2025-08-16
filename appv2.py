@@ -775,3 +775,44 @@ with selected_tab[5]:
             st.subheader("💾 Download Trades CSV")
             csv = df_trades.to_csv(index=False).encode('utf-8')
             st.download_button("Download CSV", csv, "mt5_trades_processed.csv", "text/csv")
+
+# =========================================================
+# TOOLS TAB -> SUBTAB: CURRENCY CORRELATION
+# =========================================================
+with tools_tab[3]:   # 👈 adjust index if Tools tab has other subtabs
+    st.title("🔗 Currency Correlation Matrix")
+
+    st.markdown("""
+    View correlations between major forex pairs.  
+    Correlation values range from **-100 (perfect negative)** to **+100 (perfect positive)**.  
+    """)
+
+    import pandas as pd
+
+    # Load your pre-saved correlation CSV (must be in same folder as app.py)
+    df_corr = pd.read_csv("currency correlation table.csv", index_col=0)
+
+    # --- User Selection ---
+    currencies = df_corr.index.tolist()
+    primary = st.selectbox("Select Primary Currency (row highlight)", currencies)
+    secondary = st.selectbox("Select Secondary Currency (column highlight)", currencies)
+
+    # --- Styling ---
+    def highlight(corr_df, row, col):
+        styled = corr_df.style.background_gradient(cmap="RdBu", axis=None)
+        styled = styled.set_properties(**{'background-color': '#ffcccc'}, subset=pd.IndexSlice[row, :])   # red row
+        styled = styled.set_properties(**{'background-color': '#cce5ff'}, subset=pd.IndexSlice[:, col])   # blue col
+        return styled
+
+    # --- Show Table ---
+    st.subheader("📊 Correlation Table")
+    st.dataframe(highlight(df_corr, primary, secondary))
+
+    # --- Optional Heatmap ---
+    import plotly.express as px
+    fig = px.imshow(df_corr, 
+                    text_auto=True, 
+                    color_continuous_scale="RdBu", 
+                    zmin=-100, zmax=100, 
+                    title="Currency Correlation Heatmap")
+    st.plotly_chart(fig, use_container_width=True)
