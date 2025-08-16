@@ -362,7 +362,7 @@ with selected_tab[0]:
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 season = st.radio("Select Season:", ["Summer", "Winter"])
 user_tz = st.selectbox(
@@ -384,42 +384,56 @@ SESSION_COLORS = {
     "New York": "#e91e63"
 }
 
-def time_to_decimal(t: time) -> float:
-    return t.hour + t.minute / 60
+# convert time to decimal hours
+def time_to_decimal(t: time):
+    return t.hour + t.minute/60
 
-# Timeline header (0–24h)
+# helper: convert session time in its local timezone to user timezone decimal
+def session_to_user_hours(session_name, t: time, user_zone):
+    tz_map = {
+        "Sydney": "Australia/Sydney",
+        "Tokyo": "Asia/Tokyo",
+        "London": "Europe/London",
+        "New York": "America/New_York"
+    }
+    local = pytz.timezone(tz_map[session_name])
+    dt = datetime(2025, 1, 1, t.hour, t.minute)  # dummy date
+    dt_localized = local.localize(dt)
+    dt_user = dt_localized.astimezone(user_zone)
+    return dt_user.hour + dt_user.minute/60
+
+# timeline header
 hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
 for h in range(25):
     hours_html += f"<div style='flex:1; font-size:10px; text-align:center; color:white;'>{h:02d}</div>"
 hours_html += "</div>"
 st.markdown(hours_html, unsafe_allow_html=True)
 
-# Build session bars
+user_zone = pytz.timezone(user_tz)
+
 for session, times in SESSION_HOURS.items():
     start, end = times[season.lower()]
-    start_dec = time_to_decimal(start)
-    end_dec = time_to_decimal(end)
-    
-    # Handle overnight session
+    start_dec = session_to_user_hours(session, start, user_zone)
+    end_dec = session_to_user_hours(session, end, user_zone)
+
+    # handle overnight
     blocks = []
     if end_dec <= start_dec:
         blocks.append((start_dec, 24, SESSION_COLORS[session]))
         blocks.append((0, end_dec, SESSION_COLORS[session]))
     else:
         blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
-    
+
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
     cursor = 0
     for block_start, block_end, color in blocks:
         if block_start > cursor:
-            # empty space before session
             row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
         width = block_end - block_start
-        text_color = "#000" if color != "#f4c430" else "#000"  # London yellow stays readable
         row_html += f"""
             <div style='flex:{width}; background:{color};
                         display:flex; align-items:center; justify-content:center;
-                        color:{text_color}; font-size:12px; font-weight:bold;'>
+                        color:#000; font-size:12px; font-weight:bold;'>
                 {session}
             </div>
         """
@@ -427,7 +441,6 @@ for session, times in SESSION_HOURS.items():
     if cursor < 24:
         row_html += f"<div style='flex:{24 - cursor}; background:#171447;'></div>"
     row_html += "</div>"
-    
     st.markdown(row_html, unsafe_allow_html=True)
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
