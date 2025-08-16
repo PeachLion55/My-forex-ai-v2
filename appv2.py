@@ -288,8 +288,9 @@ try:
 except Exception as e:
     st.error(f"Failed to load currency strength: {e}")
 
-    with col2:
-        st.info("See the **Technical Analysis** tab for live charts + detailed news.")
+# Make sure other page sections are **outside** try/except
+with col2:
+    st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
