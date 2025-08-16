@@ -234,12 +234,10 @@ try:
     data = response.json()
     rates = data.get("rates", {})
 
-    # Ensure all major currencies are available
-    for ccy in major_currencies:
-        if ccy != "USD" and ccy not in rates:
-            raise ValueError(f"Missing rate for {ccy}")
+    # Include USD explicitly
+    rates["USD"] = 1.0
 
-    # Build cross rates matrix
+    # Compute relative strength
     strength_scores = {}
     for ccy in major_currencies:
         total = 0
@@ -248,12 +246,8 @@ try:
             if ccy == other:
                 continue
             try:
-                if ccy == "USD":
-                    cross = rates[other]
-                elif other == "USD":
-                    cross = 1 / rates[ccy]
-                else:
-                    cross = rates[other] / rates[ccy]
+                # USD-based cross
+                cross = rates[other] / rates[ccy]
                 total += cross
                 count += 1
             except KeyError:
@@ -266,7 +260,7 @@ try:
     normalized_strength = {ccy: (score - min_s) / (max_s - min_s) if max_s != min_s else 0.5 
                            for ccy, score in strength_scores.items()}
 
-    # Display as bars
+    # Display as bars like LiveCharts
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
