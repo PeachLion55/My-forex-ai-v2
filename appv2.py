@@ -240,7 +240,10 @@ with selected_tab[0]:
             # Normalize strength to 0–1 scale
             max_rate = max(currency_strength.values())
             min_rate = min(currency_strength.values())
-            normalized_strength = {ccy: (rate - min_rate) / (max_rate - min_rate) for ccy, rate in currency_strength.items()}
+            if max_rate == min_rate:
+    normalized_strength = {ccy: 0.5 for ccy in currency_strength}  # all equal, show 50%
+else:
+    normalized_strength = {ccy: (rate - min_rate) / (max_rate - min_rate) for ccy, rate in currency_strength.items()}
 
             # Display as horizontal bars like LiveCharts
             st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
