@@ -151,26 +151,26 @@ with selected_tab[3]:
             height=620,
         )
 
-        # Initialize journal columns
+        # Journal columns
         journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
 
-        # Load user's saved backtesting journal if logged in
+        # ---------------- Load user's saved backtesting journal ----------------
         saved_journal = []
         if "logged_in_user" in st.session_state:
             username = st.session_state.logged_in_user
             if os.path.exists(ACCOUNTS_FILE):
                 with open(ACCOUNTS_FILE, "r") as f:
                     accounts = json.load(f)
-                saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
+                saved_journal = accounts.get(username, {}).get("trade_journal", [])
 
-        # Initialize session state journal if not already done
+        # ---------------- Initialize session state journal ----------------
         if "tools_trade_journal" not in st.session_state:
             if saved_journal:
                 st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
             else:
                 st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
 
-        # Editable trading journal
+        # ---------------- Editable trading journal ----------------
         updated_journal_tools = st.data_editor(
             data=st.session_state.tools_trade_journal.copy(),
             num_rows="dynamic",
@@ -178,7 +178,7 @@ with selected_tab[3]:
         )
         st.session_state.tools_trade_journal = updated_journal_tools
 
-        # Save button for logged-in users
+        # ---------------- Save button for logged-in users ----------------
         if "logged_in_user" in st.session_state:
             if st.button("💾 Save to My Account", key="save_journal_button"):
                 username = st.session_state.logged_in_user
@@ -186,13 +186,13 @@ with selected_tab[3]:
                 if os.path.exists(ACCOUNTS_FILE):
                     with open(ACCOUNTS_FILE, "r") as f:
                         accounts = json.load(f)
-                accounts.setdefault(username, {})["tools_trade_journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
+                # Save under the correct key
+                accounts.setdefault(username, {})["trade_journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
                 with open(ACCOUNTS_FILE, "w") as f:
                     json.dump(accounts, f, indent=4)
                 st.success("Trading journal saved to your account!")
         else:
             st.info("Sign in to save your trading journal to your account.")
-
 
 # =========================================================
 # TAB 4: MY ACCOUNT
