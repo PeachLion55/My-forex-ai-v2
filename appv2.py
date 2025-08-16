@@ -185,7 +185,6 @@ with selected_tab[3]:
             height=650,
         )
 
-       import pandas as pd
 
 st.subheader("📝 Trading Journal")
 journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
