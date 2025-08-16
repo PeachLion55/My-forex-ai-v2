@@ -223,6 +223,8 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
+import streamlit as st
+import requests
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
 
