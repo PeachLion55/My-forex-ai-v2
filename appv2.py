@@ -651,20 +651,24 @@ with selected_tab[5]:
         if st.button("Connect to MT5"):
             try:
                 import MetaTrader5 as mt5
+                import pandas as pd
 
-                # initialize MT5
                 if not mt5.initialize(login=int(mt5_login), password=mt5_password, server=mt5_server):
                     st.error(f"MT5 initialization failed: {mt5.last_error()}")
+                    st.session_state.mt5_connected = False
                 else:
-                    st.success("Connected to MT5 successfully!")
+                    st.success("✅ Connected to MT5 successfully!")
                     st.session_state.mt5_connected = True
-
             except Exception as e:
                 st.error(f"Error connecting to MT5: {e}")
                 st.session_state.mt5_connected = False
 
     # ---------------- DASHBOARD ----------------
     if st.session_state.get("mt5_connected", False):
+        import plotly.express as px
+        import plotly.graph_objects as go
+
+        # ---------------- ACCOUNT SUMMARY ----------------
         st.subheader("📈 Account Summary")
         account_info = mt5.account_info()
         if account_info:
@@ -674,14 +678,42 @@ with selected_tab[5]:
             st.write(f"**Free Margin:** {account_info.margin_free}")
             st.write(f"**Leverage:** {account_info.leverage}")
 
-        st.subheader("📊 Recent Trades")
+        # ---------------- POSITIONS AND TRADES ----------------
+        st.subheader("📊 Recent Trades / Open Positions")
         positions = mt5.positions_get()
+        history = mt5.history_deals_get()
         if positions:
-            import pandas as pd
             df_positions = pd.DataFrame(list(positions), columns=positions[0]._asdict().keys())
-            st.dataframe(df_positions)
+            st.data_editor(df_positions, num_rows="dynamic")
         else:
             st.info("No open positions found.")
 
-        # You can add more stats, charts, P/L graphs here later
+        # ---------------- TRADE HISTORY ----------------
+        if history:
+            df_history = pd.DataFrame(list(history), columns=history[0]._asdict().keys())
+            df_history['profit'] = df_history['profit'].astype(float)
+            st.subheader("📋 Trade History")
+            st.dataframe(df_history)
+
+            # ---------------- EQUITY CURVE ----------------
+            st.subheader("📈 Equity Curve")
+            df_history['time'] = pd.to_datetime(df_history['time'], unit='s')
+            df_history = df_history.sort_values('time')
+            df_history['cum_profit'] = df_history['profit'].cumsum()
+            fig_curve = go.Figure()
+            fig_curve.add_trace(go.Scatter(x=df_history['time'], y=df_history['cum_profit'],
+                                           mode='lines+markers', name='Equity Curve'))
+            st.plotly_chart(fig_curve, use_container_width=True)
+
+            # ---------------- SYMBOL PERFORMANCE HEATMAP ----------------
+            st.subheader("💹 Symbol Performance")
+            symbol_perf = df_history.groupby('symbol')['profit'].sum().reset_index()
+            fig_heat = px.treemap(symbol_perf, path=['symbol'], values='profit',
+                                  color='profit', color_continuous_scale='RdYlGn',
+                                  title='Profit by Symbol')
+            st.plotly_chart(fig_heat, use_container_width=True)
+        else:
+            st.info("No trade history found.")
+
+        # You can later add: KPIs (win rate, avg R:R, max drawdown), filters, charts by timeframe, etc.
 
