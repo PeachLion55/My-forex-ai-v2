@@ -358,7 +358,7 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-    # -------- Forex Trading Sessions (Visual Timeline) --------
+   # -------- Forex Trading Sessions (Continuous Blocks with Labels) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
@@ -374,31 +374,53 @@ SESSION_HOURS = {
     "New York": {"summer": (time(12,0), time(21,0)), "winter": (time(13,0), time(22,0))}
 }
 
-# Build 24 columns (hour timeline)
-hours = list(range(24))
-cols = st.columns(24, gap="small")
+# Map colors for sessions
+SESSION_COLORS = {
+    "Sydney": "#8bc34a",
+    "Tokyo": "#00bcd4",
+    "London": "#f4c430",
+    "New York": "#e91e63"
+}
 
-# Display hour headers in user’s timezone
-for i, col in enumerate(cols):
-    display_hour = datetime.now(pytz.timezone(user_tz)).replace(hour=i, minute=0).strftime("%H")
-    col.write(f"**{display_hour}**")
-
-# Draw bars per session
+# Render blocks
 for session, times in SESSION_HOURS.items():
-    start_u, end_u = times[season.lower()]
+    start, end = times[season.lower()]
+    start_hour = start.hour
+    end_hour = end.hour if end.hour != 0 else 24  # handle midnight wrap
+
+    # handle wrap-around sessions (Sydney, etc.)
+    if start_hour < end_hour:
+        span = list(range(start_hour, end_hour))
+    else:
+        span = list(range(start_hour, 24)) + list(range(0, end_hour))
+
+    # Build row
+    cols = st.columns(24, gap="small")
     for i, col in enumerate(cols):
-        current_time = time(i, 0)
-        in_session = (start_u <= current_time < end_u) if start_u < end_u else (current_time >= start_u or current_time < end_u)
-        color = {
-            "Sydney": "#8bc34a",
-            "Tokyo": "#00bcd4",
-            "London": "#f4c430",
-            "New York": "#e91e63"
-        }[session]
-        if in_session:
-            col.markdown(f"<div style='height:20px; background-color:{color};'></div>", unsafe_allow_html=True)
+        if i in span:
+            # Add block with label in the middle of the span
+            midpoint = span[len(span)//2]
+            if i == midpoint:
+                col.markdown(
+                    f"<div style='height:25px; background-color:{SESSION_COLORS[session]}; "
+                    f"display:flex; justify-content:center; align-items:center; color:black; "
+                    f"font-weight:bold; border-radius:4px;'>{session}</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                col.markdown(
+                    f"<div style='height:25px; background-color:{SESSION_COLORS[session]}; "
+                    f"border-radius:4px;'></div>",
+                    unsafe_allow_html=True
+                )
         else:
-            col.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
+            col.markdown("<div style='height:25px;'></div>", unsafe_allow_html=True)
+
+# Hour labels
+hour_cols = st.columns(24, gap="small")
+for i, col in enumerate(hour_cols):
+    display_hour = datetime.now(pytz.timezone(user_tz)).replace(hour=i, minute=0).strftime("%H")
+    col.markdown(f"<div style='text-align:center; font-size:12px;'>{display_hour}</div>", unsafe_allow_html=True)
 
 # Legend
 st.markdown(
