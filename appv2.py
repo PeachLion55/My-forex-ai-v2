@@ -86,18 +86,15 @@ selected_tab = st.tabs(tabs)
 
 # ---------- Forex Fundamentals ----------
 with selected_tab[0]:
-    st.title("")
-    st.caption("")
+
     # Your existing code here
 
 # ---------- Understanding Forex Fundamentals ----------
 with selected_tab[1]:
-    st.title("")
     # Your existing code here
 
 # ---------- Technical Analysis ----------
 with selected_tab[2]:
-    st.title("")
     # Your existing code here
 
 # ---------- Tools ----------
