@@ -182,49 +182,52 @@ if selected_tab[3]:
             height=650,
         )
 
-        # ---------------- Trading Journal ----------------
-        st.subheader("📝 Trading Journal")
-        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+       # ---------------- Trading Journal ----------------
+st.subheader("📝 Trading Journal")
+journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
 
-        # Initialize journal in session_state if missing
-        if "trade_journal" not in st.session_state:
-            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols)
+# Initialize journal in session_state if missing
+if "trade_journal" not in st.session_state:
+    st.session_state.trade_journal = pd.DataFrame(columns=journal_cols)
 
-        # Load journal from account if logged in and first load
-        if "logged_in_user" in st.session_state and st.session_state.trade_journal.empty:
-            import json, os
-            ACCOUNTS_FILE = "user_accounts.json"
-            if os.path.exists(ACCOUNTS_FILE):
-                with open(ACCOUNTS_FILE, "r") as f:
-                    accounts = json.load(f)
-                username = st.session_state.logged_in_user
-                saved_journal = accounts.get(username, {}).get("trade_journal", [])
-                st.session_state.trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+# Load journal from account if logged in and first load
+if "logged_in_user" in st.session_state and st.session_state.trade_journal.empty:
+    import json, os
+    ACCOUNTS_FILE = "user_accounts.json"
+    if os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "r") as f:
+            accounts = json.load(f)
+        username = st.session_state.logged_in_user
+        saved_journal = accounts.get(username, {}).get("trade_journal", [])
+        st.session_state.trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
 
-        # Display editable journal and immediately save edits to session state
-        st.session_state.trade_journal = st.data_editor(
-            data=st.session_state.trade_journal,
-            num_rows="dynamic",
-            key="tools_backtesting_journal"
-        )
+# Display editable journal (pass a copy to avoid internal mutation issues)
+journal_editor = st.data_editor(
+    data=st.session_state.trade_journal.copy(),
+    num_rows="dynamic",
+    key="tools_backtesting_journal"
+)
 
-        # Save to account button
-        if "logged_in_user" in st.session_state:
-            if st.button("💾 Save to My Account"):
-                import json, os
-                ACCOUNTS_FILE = "user_accounts.json"
-                if os.path.exists(ACCOUNTS_FILE):
-                    with open(ACCOUNTS_FILE, "r") as f:
-                        accounts = json.load(f)
-                    username = st.session_state.logged_in_user
-                    accounts.setdefault(username, {})["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
-                    with open(ACCOUNTS_FILE, "w") as f:
-                        json.dump(accounts, f, indent=4)
-                    st.success("Trading journal saved to your account!")
-                else:
-                    st.error("Accounts file not found.")
+# Save edits back to session_state
+st.session_state.trade_journal = journal_editor
+
+# Save to account button
+if "logged_in_user" in st.session_state:
+    if st.button("💾 Save to My Account"):
+        import json, os
+        ACCOUNTS_FILE = "user_accounts.json"
+        if os.path.exists(ACCOUNTS_FILE):
+            with open(ACCOUNTS_FILE, "r") as f:
+                accounts = json.load(f)
+            username = st.session_state.logged_in_user
+            accounts.setdefault(username, {})["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
+            with open(ACCOUNTS_FILE, "w") as f:
+                json.dump(accounts, f, indent=4)
+            st.success("Trading journal saved to your account!")
         else:
-            st.info("Sign in to save your trading journal to your account.")
+            st.error("Accounts file not found.")
+else:
+    st.info("Sign in to save your trading journal to your account.")
 # =========================================================
 # HELPERS / DATA
 # =========================================================
