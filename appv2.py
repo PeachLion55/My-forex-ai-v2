@@ -100,6 +100,7 @@ with selected_tab[3]:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])
 
+    # ---------- Profit/Stop-loss Calculator ----------
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
@@ -113,23 +114,25 @@ with selected_tab[3]:
         trade_direction = st.radio("Trade Direction", ["Long", "Short"])
 
         # Calculate pip movement
-        pip_movement = abs(close_price - open_price) * 10000 if "JPY" not in currency_pair else abs(close_price - open_price) * 100
+        pip_multiplier = 100 if "JPY" in currency_pair else 10000
+        pip_movement = abs(close_price - open_price) * pip_multiplier
 
         # Calculate pip value
-        exchange_rate = 1.1000  # Placeholder, can be updated dynamically later
+        exchange_rate = 1.1000  # Placeholder, can be updated dynamically
         pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
 
         # Calculate profit/loss
         profit_loss = pip_movement * pip_value
 
         # Display results
-        st.write(f"**Pip Movement**: {pip_movement} pips")
+        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
 # ---------- My Account ----------
 with selected_tab[4]:
-    pass  # replace with your existing My Account code
+    st.title("👤 My Account")
+    # Add your My Account content here
 # =========================================================
 # HELPERS / DATA
 # =========================================================
