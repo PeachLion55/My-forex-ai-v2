@@ -640,80 +640,56 @@ with selected_tab[2]:
 # =========================================================
 with selected_tab[5]:
     st.title("📊 MT5 Stats Dashboard")
-    st.markdown("Enter your MetaTrader 5 account details to fetch your trading stats.")
+    st.markdown("""
+        Upload your MT5 trading history CSV file.
+        The dashboard will generate performance stats and charts automatically.
+    """)
 
-    # ---------------- MT5 LOGIN ----------------
-    mt5_login_expander = st.expander("MT5 Login")
-    with mt5_login_expander:
-        mt5_server = st.text_input("Server", key="mt5_server")
-        mt5_login = st.text_input("Login (Account Number)", key="mt5_login")
-        mt5_password = st.text_input("Password", type="password", key="mt5_password")
-        if st.button("Connect to MT5"):
-            try:
-                import MetaTrader5 as mt5
-                import pandas as pd
+    uploaded_file = st.file_uploader("Upload MT5 CSV", type=["csv"])
+    
+    if uploaded_file:
+        import pandas as pd
+        df = pd.read_csv(uploaded_file)
 
-                if not mt5.initialize(login=int(mt5_login), password=mt5_password, server=mt5_server):
-                    st.error(f"MT5 initialization failed: {mt5.last_error()}")
-                    st.session_state.mt5_connected = False
-                else:
-                    st.success("✅ Connected to MT5 successfully!")
-                    st.session_state.mt5_connected = True
-            except Exception as e:
-                st.error(f"Error connecting to MT5: {e}")
-                st.session_state.mt5_connected = False
+        # Ensure required columns exist
+        required_cols = ["Ticket","Open Time","Type","Size","Symbol","Price Open","Price Close","Profit"]
+        if all(col in df.columns for col in required_cols):
+            st.success("CSV loaded successfully!")
 
-    # ---------------- DASHBOARD ----------------
-    if st.session_state.get("mt5_connected", False):
-        import plotly.express as px
-        import plotly.graph_objects as go
+            # Convert datetime
+            df["Open Time"] = pd.to_datetime(df["Open Time"])
 
-        # ---------------- ACCOUNT SUMMARY ----------------
-        st.subheader("📈 Account Summary")
-        account_info = mt5.account_info()
-        if account_info:
-            st.write(f"**Balance:** {account_info.balance}")
-            st.write(f"**Equity:** {account_info.equity}")
-            st.write(f"**Margin:** {account_info.margin}")
-            st.write(f"**Free Margin:** {account_info.margin_free}")
-            st.write(f"**Leverage:** {account_info.leverage}")
+            # ---------------- ACCOUNT SUMMARY ----------------
+            st.subheader("📈 Account Summary")
+            total_trades = len(df)
+            total_profit = df["Profit"].sum()
+            winning_trades = df[df["Profit"] > 0]
+            losing_trades = df[df["Profit"] <= 0]
 
-        # ---------------- POSITIONS AND TRADES ----------------
-        st.subheader("📊 Recent Trades / Open Positions")
-        positions = mt5.positions_get()
-        history = mt5.history_deals_get()
-        if positions:
-            df_positions = pd.DataFrame(list(positions), columns=positions[0]._asdict().keys())
-            st.data_editor(df_positions, num_rows="dynamic")
+            st.metric("Total Trades", total_trades)
+            st.metric("Total Profit", f"{total_profit:.2f}")
+            st.metric("Winning Trades", len(winning_trades))
+            st.metric("Losing Trades", len(losing_trades))
+
+            # ---------------- P/L OVER TIME ----------------
+            st.subheader("📊 P/L Over Time")
+            pl_by_day = df.groupby(df["Open Time"].dt.date)["Profit"].sum().cumsum()
+
+            import plotly.express as px
+            fig = px.line(pl_by_day, x=pl_by_day.index, y=pl_by_day.values, labels={"x":"Date", "y":"Cumulative P/L"})
+            st.plotly_chart(fig, use_container_width=True)
+
+            # ---------------- WIN RATE BY SYMBOL ----------------
+            st.subheader("🏷 Win Rate by Symbol")
+            symbol_stats = df.groupby("Symbol").apply(
+                lambda x: (x["Profit"] > 0).sum() / len(x) * 100
+            ).reset_index(name="Win Rate (%)")
+            st.dataframe(symbol_stats)
+
+            # ---------------- TRADE SIZE VS PROFIT ----------------
+            st.subheader("💹 Trade Size vs Profit")
+            fig2 = px.scatter(df, x="Size", y="Profit", color="Type", hover_data=["Symbol"])
+            st.plotly_chart(fig2, use_container_width=True)
+
         else:
-            st.info("No open positions found.")
-
-        # ---------------- TRADE HISTORY ----------------
-        if history:
-            df_history = pd.DataFrame(list(history), columns=history[0]._asdict().keys())
-            df_history['profit'] = df_history['profit'].astype(float)
-            st.subheader("📋 Trade History")
-            st.dataframe(df_history)
-
-            # ---------------- EQUITY CURVE ----------------
-            st.subheader("📈 Equity Curve")
-            df_history['time'] = pd.to_datetime(df_history['time'], unit='s')
-            df_history = df_history.sort_values('time')
-            df_history['cum_profit'] = df_history['profit'].cumsum()
-            fig_curve = go.Figure()
-            fig_curve.add_trace(go.Scatter(x=df_history['time'], y=df_history['cum_profit'],
-                                           mode='lines+markers', name='Equity Curve'))
-            st.plotly_chart(fig_curve, use_container_width=True)
-
-            # ---------------- SYMBOL PERFORMANCE HEATMAP ----------------
-            st.subheader("💹 Symbol Performance")
-            symbol_perf = df_history.groupby('symbol')['profit'].sum().reset_index()
-            fig_heat = px.treemap(symbol_perf, path=['symbol'], values='profit',
-                                  color='profit', color_continuous_scale='RdYlGn',
-                                  title='Profit by Symbol')
-            st.plotly_chart(fig_heat, use_container_width=True)
-        else:
-            st.info("No trade history found.")
-
-        # You can later add: KPIs (win rate, avg R:R, max drawdown), filters, charts by timeframe, etc.
-
+            st.error(f"CSV missing required columns: {required_cols}")
