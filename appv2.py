@@ -231,46 +231,66 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 
+import streamlit as st
+from datetime import datetime
+import pandas as pd
+import json
+
 # ---------- Backtesting Tab ----------
-if selected_tab[3]:  # Assuming tab index 3 is Tools
+if selected_tab[3]:  # Tools tab
     st.title("🧪 Backtesting")
 
-    # ---------- TradingView Widget ----------
+    # ---------- TradingView Advanced Chart Widget ----------
     st.markdown("### 📊 Candlestick Chart (TradingView)")
 
-    # Embed TradingView widget
-    st.components.v1.html("""
-        <!-- TradingView Widget BEGIN -->
-        <div class="tradingview-widget-container">
-          <div id="tradingview_widget"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-          new TradingView.widget(
-            {
-              "width": "100%",
-              "height": 500,
-              "symbol": "EURUSD",
-              "interval": "60",
-              "timezone": "Etc/UTC",
-              "theme": "dark",
-              "style": "1",
-              "locale": "en",
-              "toolbar_bg": "#f1f3f6",
-              "enable_publishing": false,
-              "allow_symbol_change": true,
-              "container_id": "tradingview_widget"
-            }
-          );
-          </script>
-        </div>
-        <!-- TradingView Widget END -->
-    """, height=520)
-
-    # ---------- Trading Journal ----------
-    st.markdown("### 📝 Trading Journal")
+    # Prepare markers from logged trades
     if "trades" not in st.session_state:
         st.session_state.trades = []
 
+    markers = []
+    for trade in st.session_state.trades:
+        markers.append({
+            "time": int(pd.Timestamp(trade["Date"]).timestamp()),
+            "position": "above" if trade["Direction"] == "Short" else "below",
+            "color": "red" if trade["Direction"] == "Short" else "green",
+            "shape": "arrow_up" if trade["Direction"] == "Long" else "arrow_down",
+            "text": f'{trade["Pair"]} {trade["Direction"]}'
+        })
+
+    # Embed TradingView advanced chart widget
+    st.components.v1.html(f"""
+        <div class="tradingview-widget-container">
+            <div id="tradingview_chart"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+                new TradingView.widget({{
+                    "container_id": "tradingview_chart",
+                    "autosize": true,
+                    "symbol": "EURUSD",
+                    "interval": "60",
+                    "timezone": "Etc/UTC",
+                    "theme": "dark",
+                    "style": "1",
+                    "locale": "en",
+                    "toolbar_bg": "#f1f3f6",
+                    "enable_publishing": false,
+                    "allow_symbol_change": true,
+                    "hideideas": false,
+                    "withdateranges": true,
+                    "studies": ["MACD@tv-basicstudies", "RSI@tv-basicstudies"],
+                    "overrides": {{
+                        "paneProperties.background": "#0b1e34",
+                        "paneProperties.vertGridProperties.color": "#2a2a2a",
+                        "paneProperties.horzGridProperties.color": "#2a2a2a"
+                    }},
+                    "markers": {json.dumps(markers)}
+                }});
+            </script>
+        </div>
+    """, height=550)
+
+    # ---------- Trading Journal ----------
+    st.markdown("### 📝 Trading Journal")
     with st.form("log_trade"):
         trade_date = st.date_input("Trade Date", value=datetime.today())
         pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
@@ -294,7 +314,6 @@ if selected_tab[3]:  # Assuming tab index 3 is Tools
     if st.session_state.trades:
         st.markdown("### 💼 Logged Trades")
         st.table(pd.DataFrame(st.session_state.trades))
-        
 # ---------- My Account ----------
 with selected_tab[4]:
     st.title("👤 My Account")
