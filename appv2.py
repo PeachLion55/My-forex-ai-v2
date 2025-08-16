@@ -488,27 +488,4 @@ with selected_tab[2]:
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
-with selected_tab[3]:
-    st.title("👤 My Account")
-    st.caption("Your preferences are stored in-session.")
 
-    colA, colB = st.columns(2)
-    with colA:
-        name = st.text_input("Name", value=st.session_state.get("name", ""))
-        base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0)
-    with colB:
-        email = st.text_input("Email", value=st.session_state.get("email", ""))
-        alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True))
-
-    if st.button("Save Preferences"):
-        st.session_state.name = name
-        st.session_state.email = email
-        st.session_state.base_ccy = base_ccy
-        st.session_state.alerts = alerts
-        st.success("Preferences saved for this session.")
-
-    if "name" in st.session_state:
-        st.markdown(
-            f"**Current Profile:** {st.session_state.name} | {st.session_state.get('base_ccy','USD')} | Alerts: "
-            f"{'On' if st.session_state.get('alerts', False) else 'Off'}"
-        )
