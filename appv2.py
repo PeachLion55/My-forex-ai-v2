@@ -88,7 +88,14 @@ import streamlit as st
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
+tabs = [
+    "Forex Fundamentals",
+    "Understanding Forex Fundamentals",
+    "Technical Analysis",
+    "Tools",
+    "My Account",
+    "MT5 Stats Dashboard"  # New tab added
+]
 selected_tab = st.tabs(tabs)
 
 # ---------- Forex Fundamentals ----------
