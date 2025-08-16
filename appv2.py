@@ -219,29 +219,41 @@ with selected_tab[0]:
     st.title("📅 Forex Fundamentals")
     st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-import requests
+    import requests
+    import streamlit as st
 
-# Base currency
-base_currency = "EUR"
+    # Get API key from Streamlit secrets
+    api_key = st.secrets["api_keys"]["exchangerate"]
 
-# Target currency
-target_currency = "USD"  # change as needed
+    # Base currency
+    base_currency = "USD"
 
-# Amount to convert
-amount = 100
+    # Target currencies
+    target_currencies = ["EUR", "GBP", "JPY", "AUD", "CAD"]  # add more if needed
 
-# API endpoint
-url = f"https://api.exchangerate.host/convert?from={base_currency}&to={target_currency}&amount={amount}"
+    # Amount to convert
+    amount = 100
 
-response = requests.get(url)
-data = response.json()
+    # API endpoint
+    url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/{base_currency}"
 
-if response.status_code == 200 and data.get("success", True):
-    result = data["result"]
-    print(f"{amount} {base_currency} = {result} {target_currency}")
-else:
-    print("Error fetching exchange rate:", data)
+    try:
+        response = requests.get(url)
+        data = response.json()
 
+        if response.status_code == 200 and data.get("result") == "success":
+            st.subheader(f"💱 {amount} {base_currency} Conversion")
+            for target_currency in target_currencies:
+                exchange_rate = data["conversion_rates"].get(target_currency)
+                if exchange_rate:
+                    converted_amount = amount * exchange_rate
+                    st.write(f"{amount} {base_currency} = {converted_amount:.2f} {target_currency}")
+                else:
+                    st.write(f"Exchange rate for {target_currency} not found.")
+        else:
+            st.error(f"Error fetching exchange rate: {data.get('error-type', 'Unknown error')}")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
