@@ -11,4 +11,4 @@ beautifulsoup4
 plotly
 selenium
 pytz
-MetaTrader5
+MT5
