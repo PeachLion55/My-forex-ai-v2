@@ -541,3 +541,103 @@ with selected_tab[2]:
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
+with selected_tab[4]:
+    st.title("👤 My Account")
+    st.caption("Create an account or sign in to save your preferences and trading journal.")
+
+    # File to store user accounts (JSON)
+    import os, json
+
+    ACCOUNTS_FILE = "user_accounts.json"
+    if not os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "w") as f:
+            json.dump({}, f)
+
+    # Load existing accounts
+    with open(ACCOUNTS_FILE, "r") as f:
+        accounts = json.load(f)
+
+    # --- Account Actions: Sign In / Create ---
+    account_action = st.radio("Select Action", ["Sign In", "Create Account"], horizontal=True)
+
+    if account_action == "Create Account":
+        st.subheader("Create New Account")
+        new_username = st.text_input("Username", key="create_username")
+        new_password = st.text_input("Password", type="password", key="create_password")
+        new_name = st.text_input("Full Name", key="create_name")
+        new_base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0)
+        save_alerts = st.checkbox("Email me before high-impact events", value=True)
+
+        if st.button("Create Account"):
+            if new_username in accounts:
+                st.error("Username already exists. Please choose another.")
+            elif not new_username or not new_password:
+                st.error("Username and password cannot be empty.")
+            else:
+                # Save new account
+                accounts[new_username] = {
+                    "password": new_password,
+                    "name": new_name,
+                    "base_ccy": new_base_ccy,
+                    "alerts": save_alerts,
+                    "trade_journal": []
+                }
+                with open(ACCOUNTS_FILE, "w") as f:
+                    json.dump(accounts, f)
+                st.success("Account created successfully! You can now sign in.")
+
+    elif account_action == "Sign In":
+        st.subheader("Sign In")
+        username = st.text_input("Username", key="signin_username")
+        password = st.text_input("Password", type="password", key="signin_password")
+
+        if st.button("Sign In"):
+            if username not in accounts:
+                st.error("Username does not exist.")
+            elif accounts[username]["password"] != password:
+                st.error("Incorrect password.")
+            else:
+                st.session_state.logged_in_user = username
+                st.session_state.name = accounts[username].get("name", "")
+                st.session_state.base_ccy = accounts[username].get("base_ccy", "USD")
+                st.session_state.alerts = accounts[username].get("alerts", True)
+                st.session_state.trade_journal = pd.DataFrame(accounts[username].get("trade_journal", []))
+                st.success(f"Signed in as {username}!")
+
+    # --- If logged in, show profile and option to save journal ---
+    if "logged_in_user" in st.session_state:
+        st.markdown(f"**Current Profile:** {st.session_state.name} | {st.session_state.base_ccy} | Alerts: {'On' if st.session_state.alerts else 'Off'}")
+
+        colA, colB = st.columns(2)
+        with colA:
+            st.session_state.name = st.text_input("Name", value=st.session_state.get("name", ""))
+            st.session_state.base_ccy = st.selectbox(
+                "Preferred Base Currency",
+                ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"],
+                index=["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"].index(st.session_state.base_ccy)
+            )
+        with colB:
+            st.session_state.alerts = st.checkbox(
+                "Email me before high-impact events", value=st.session_state.get("alerts", True)
+            )
+
+        if st.button("Save Preferences"):
+            username = st.session_state.logged_in_user
+            accounts[username]["name"] = st.session_state.name
+            accounts[username]["base_ccy"] = st.session_state.base_ccy
+            accounts[username]["alerts"] = st.session_state.alerts
+            with open(ACCOUNTS_FILE, "w") as f:
+                json.dump(accounts, f)
+            st.success("Preferences saved!")
+
+        # Button to save the backtesting journal
+        if st.button("💾 Save Trading Journal"):
+            username = st.session_state.logged_in_user
+            if "trade_journal" in st.session_state:
+                # Convert DataFrame to list of dicts
+                accounts[username]["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
+                with open(ACCOUNTS_FILE, "w") as f:
+                    json.dump(accounts, f)
+                st.success("Trading journal saved to your account!")
+            else:
+                st.warning("No journal data to save.")
