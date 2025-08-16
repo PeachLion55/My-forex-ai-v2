@@ -122,7 +122,6 @@ with selected_tab[3]:
 
         pip_multiplier = 100 if "JPY" in currency_pair else 10000
         pip_movement = abs(close_price - open_price) * pip_multiplier
-
         exchange_rate = 1.1000
         pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
         profit_loss = pip_movement * pip_value
@@ -150,6 +149,16 @@ with selected_tab[3]:
         if "tools_trade_journal" not in st.session_state:
             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
 
+        # Load user's saved journal if logged in
+        if "logged_in_user" in st.session_state:
+            username = st.session_state.logged_in_user
+            if os.path.exists(ACCOUNTS_FILE):
+                with open(ACCOUNTS_FILE, "r") as f:
+                    accounts = json.load(f)
+                saved_journal = accounts.get(username, {}).get("trade_journal", [])
+                if saved_journal and st.session_state.tools_trade_journal.empty:
+                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+
         # Editable trading journal
         updated_journal_tools = st.data_editor(
             data=st.session_state.tools_trade_journal.copy(),
@@ -157,6 +166,22 @@ with selected_tab[3]:
             key="tools_backtesting_journal_unique"
         )
         st.session_state.tools_trade_journal = updated_journal_tools
+
+        # Save button for logged-in users
+        if "logged_in_user" in st.session_state:
+            if st.button("💾 Save to My Account", key="save_journal_button"):
+                username = st.session_state.logged_in_user
+                if os.path.exists(ACCOUNTS_FILE):
+                    with open(ACCOUNTS_FILE, "r") as f:
+                        accounts = json.load(f)
+                else:
+                    accounts = {}
+                accounts.setdefault(username, {})["trade_journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
+                with open(ACCOUNTS_FILE, "w") as f:
+                    json.dump(accounts, f, indent=4)
+                st.success("Trading journal saved to your account!")
+        else:
+            st.info("Sign in to save your trading journal to your account.")
 
 
 # =========================================================
@@ -196,7 +221,7 @@ with selected_tab[4]:
             if new_username in accounts:
                 st.error("Username already exists")
             else:
-                accounts[new_username] = {"password": new_password, "trade_journal": []}
+                accounts[new_username] = {"password": new_password}
                 with open(ACCOUNTS_FILE, "w") as f:
                     json.dump(accounts, f, indent=4)
                 st.success(f"Account created for {new_username}")
@@ -218,27 +243,6 @@ with selected_tab[4]:
             st.session_state.base_ccy = base_ccy
             st.session_state.alerts = alerts
             st.success("Preferences saved for this session.")
-
-        st.subheader("📝 Trading Journal")
-        df_journal = pd.DataFrame(
-            st.session_state.get("trade_journal", []),
-            columns=["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-        )
-
-        updated_journal = st.data_editor(
-            data=df_journal,
-            num_rows="dynamic",
-            key="myaccount_trade_journal_unique"
-        )
-        st.session_state.trade_journal = updated_journal.to_dict(orient="records")
-
-        if st.button("💾 Save to My Account", key="save_account_journal"):
-            with open(ACCOUNTS_FILE, "r") as f:
-                accounts = json.load(f)
-            accounts[st.session_state.logged_in_user]["trade_journal"] = st.session_state.trade_journal
-            with open(ACCOUNTS_FILE, "w") as f:
-                json.dump(accounts, f, indent=4)
-            st.success("Trading journal saved to your account!")
 # =========================================================
 # HELPERS / DATA
 # =========================================================
