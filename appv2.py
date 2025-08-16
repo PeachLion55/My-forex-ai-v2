@@ -413,11 +413,19 @@ for session, times in SESSION_HOURS.items():
     end_dec = time_to_decimal(end)
 
     blocks = []
-    if end_dec <= start_dec:  # Overnight session
-        blocks.append((start_dec, 24, SESSION_COLORS[session]))
-        blocks.append((0, end_dec, SESSION_COLORS[session]))
+    # Special fix for Sydney overnight session
+    if session == "Sydney":
+        if end_dec <= start_dec:
+            blocks.append((start_dec, 24, SESSION_COLORS[session]))
+            blocks.append((0, end_dec, SESSION_COLORS[session]))
+        else:
+            blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
     else:
-        blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
+        if end_dec <= start_dec:  # Other overnight sessions
+            blocks.append((start_dec, 24, SESSION_COLORS[session]))
+            blocks.append((0, end_dec, SESSION_COLORS[session]))
+        else:
+            blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
 
     # Build row HTML
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
@@ -429,6 +437,8 @@ for session, times in SESSION_HOURS.items():
         # Calculate flex widths
         left_space = (block_start_local - cursor) % 24
         width = (block_end_local - block_start_local) % 24
+        if width == 0:
+            width = 24  # full block if wrapping
 
         if left_space > 0:
             row_html += f"<div style='flex:{left_space}; background:#171447;'></div>"
