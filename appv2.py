@@ -223,53 +223,74 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-import streamlit as st
 import requests
+import streamlit as st
+
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
 
-try:
-    # Major currencies
-    major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
+major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
-    # Fetch rates for all pairs by using USD as base
-    api_key = st.secrets["EXCHANGERATE_HOST_API_KEY"]
+try:
+    # Dictionary to hold each base's rates vs others
     rates_matrix = {}
+
     for base in major_currencies:
         url = f"https://api.exchangerate.host/latest?base={base}"
         response = requests.get(url)
-        data = response.json()
-        rates_matrix[base] = {ccy: data["rates"].get(ccy) for ccy in major_currencies if ccy != base}
+        if response.status_code != 200:
+            st.warning(f"Failed to fetch rates for {base}: HTTP {response.status_code}")
+            continue
 
-    # Compute strength
+        data = response.json()
+        rates = data.get("rates")
+        if not rates:
+            st.warning(f"No rates returned for {base}: {data}")
+            continue
+
+        # Keep only major currencies excluding the base itself
+        rates_matrix[base] = {ccy: rates.get(ccy) for ccy in major_currencies if ccy != base}
+
+    # Calculate average strength per currency
     currency_strength = {}
     for ccy in major_currencies:
-        # Average relative performance vs other currencies
-        scores = []
+        total = 0
+        count = 0
         for other in major_currencies:
             if ccy == other:
                 continue
-            # If ccy is base in pair, a higher rate = stronger
-            if ccy in rates_matrix and other in rates_matrix[ccy]:
-                scores.append(rates_matrix[ccy][other])
-            # If other is base in pair, invert
-            elif other in rates_matrix and ccy in rates_matrix[other]:
-                scores.append(1 / rates_matrix[other][ccy])
-        currency_strength[ccy] = sum(scores) / len(scores)
+            try:
+                # If ccy is base, use its rate vs other; else use reciprocal
+                if ccy in rates_matrix and other in rates_matrix[ccy]:
+                    total += rates_matrix[ccy][other]
+                elif other in rates_matrix and ccy in rates_matrix[other]:
+                    total += 1 / rates_matrix[other][ccy]
+                count += 1
+            except Exception:
+                pass
+        if count > 0:
+            currency_strength[ccy] = total / count
+        else:
+            currency_strength[ccy] = 0
 
-    # Normalize to 0–100%
+    # Normalize strengths to 0–100%
     min_s = min(currency_strength.values())
     max_s = max(currency_strength.values())
-    normalized_strength = {ccy: int((s - min_s) / (max_s - min_s) * 100) for ccy, s in currency_strength.items()}
+    if max_s == min_s:
+        normalized_strength = {ccy: 50 for ccy in major_currencies}  # fallback
+    else:
+        normalized_strength = {
+            ccy: int((val - min_s) / (max_s - min_s) * 100)
+            for ccy, val in currency_strength.items()
+        }
 
-    # Display bars
+    # Display horizontal bars
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
-        strength_pct = normalized_strength[ccy]
+        strength_pct = normalized_strength.get(ccy, 0)
         color = colors[i % 2]
-        st.markdown(
-            f"""
+        st.markdown(f"""
             <div style="
                 background-color:{color};
                 border-radius:10px;
@@ -294,9 +315,7 @@ try:
                 </div>
                 <p style='margin:0'>{strength_pct}%</p>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+        """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 except Exception as e:
