@@ -216,25 +216,26 @@ df_news = get_fxstreet_forex_news()
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
 with selected_tab[0]:
-    st.title("📅 Forex Fundamentals")
-    st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+    st.title("📊 Currency Strength Meter")
+    st.caption("Compare USD against multiple major currencies.")
 
     import requests
     import streamlit as st
 
-    # Get API key from Streamlit secrets
-    api_key = st.secrets["api_keys"]["exchangerate"]
+    # Safe secret check
+    try:
+        api_key = st.secrets["api_keys"]["exchangerate"]
+    except KeyError:
+        st.error("API key not found! Please set 'exchangerate' under [api_keys] in Streamlit secrets.")
+        st.stop()
 
     # Base currency
     base_currency = "USD"
 
-    # Target currencies
-    target_currencies = ["EUR", "GBP", "JPY", "AUD", "CAD"]  # add more if needed
+    # Major currencies to compare
+    currencies = ["EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
-    # Amount to convert
-    amount = 100
-
-    # API endpoint
+    # API request
     url = f"https://v6.exchangerate-api.com/v6/{api_key}/latest/{base_currency}"
 
     try:
@@ -242,14 +243,20 @@ with selected_tab[0]:
         data = response.json()
 
         if response.status_code == 200 and data.get("result") == "success":
-            st.subheader(f"💱 {amount} {base_currency} Conversion")
-            for target_currency in target_currencies:
-                exchange_rate = data["conversion_rates"].get(target_currency)
-                if exchange_rate:
-                    converted_amount = amount * exchange_rate
-                    st.write(f"{amount} {base_currency} = {converted_amount:.2f} {target_currency}")
-                else:
-                    st.write(f"Exchange rate for {target_currency} not found.")
+            rates = {c: data["conversion_rates"].get(c) for c in currencies}
+
+            # Sort currencies by strength
+            sorted_rates = dict(sorted(rates.items(), key=lambda item: item[1], reverse=True))
+
+            st.subheader("💪 Currency Strength (relative to USD)")
+            for currency, rate in sorted_rates.items():
+                st.write(f"{currency}: {rate:.2f} per 1 USD")
+            
+            # Optional: visualize with a bar chart
+            import pandas as pd
+            df = pd.DataFrame(list(sorted_rates.items()), columns=["Currency", "Rate"])
+            st.bar_chart(df.set_index("Currency"))
+
         else:
             st.error(f"Error fetching exchange rate: {data.get('error-type', 'Unknown error')}")
     except Exception as e:
