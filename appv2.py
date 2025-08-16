@@ -84,98 +84,7 @@ import streamlit as st
 tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
 selected_tab = st.tabs(tabs)
 
-with selected_tab[0]:  # Forex Fundamentals
-    st.title("📈 Forex Fundamentals")
-
-    # -------- Forex Trading Sessions (Dark Theme, Overnight Fixed) --------
-    st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
-
-    import pytz
-    from datetime import datetime, time
-
-    season = st.radio("Select Season:", ["Summer", "Winter"])
-    user_tz = st.selectbox(
-        "Your Time Zone:",
-        ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"]
-    )
-
-    SESSION_HOURS = {
-        "Sydney": {"summer": (time(23,0), time(8,0)), "winter": (time(22,0), time(7,0))},
-        "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(0,0), time(9,0))},
-        "London": {"summer": (time(8,0), time(17,0)), "winter": (time(7,0), time(16,0))},
-        "New York": {"summer": (time(13,0), time(22,0)), "winter": (time(12,0), time(21,0))}
-    }
-
-    SESSION_COLORS = {
-        "Sydney": "#8bc34a",
-        "Tokyo": "#00bcd4",
-        "London": "#f4c430",
-        "New York": "#e91e63"
-    }
-
-    def time_to_decimal(t: time) -> float:
-        return t.hour + t.minute / 60
-
-    def convert_to_user_hour(decimal_hour, from_tz="UTC", to_tz="UTC"):
-        from_zone = pytz.timezone(from_tz)
-        to_zone = pytz.timezone(to_tz)
-        decimal_hour = decimal_hour % 24
-        hour = int(decimal_hour)
-        minute = int(round((decimal_hour - hour) * 60))
-        if minute == 60:
-            minute = 0
-            hour = (hour + 1) % 24
-        dt = datetime(2025, 1, 1, hour, minute)  # dummy date
-        dt = from_zone.localize(dt)
-        dt = dt.astimezone(to_zone)
-        return dt.hour + dt.minute / 60
-
-    # Timeline header (0–24h)
-    hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
-    for h in range(25):
-        hours_html += f"<div style='flex:1; font-size:10px; text-align:center; color:white;'>{h:02d}</div>"
-    hours_html += "</div>"
-    st.markdown(hours_html, unsafe_allow_html=True)
-
-    # Build session bars
-    for session, times in SESSION_HOURS.items():
-        start, end = times[season.lower()]
-        start_dec = time_to_decimal(start)
-        end_dec = time_to_decimal(end)
-
-        blocks = []
-        if end_dec <= start_dec:  # Overnight session
-            blocks.append((start_dec, 24, SESSION_COLORS[session]))
-            blocks.append((0, end_dec, SESSION_COLORS[session]))
-        else:
-            blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
-
-        row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
-        cursor = 0
-        for block_start, block_end, color in blocks:
-            block_start_local = convert_to_user_hour(block_start, "UTC", user_tz)
-            block_end_local = convert_to_user_hour(block_end, "UTC", user_tz)
-
-            left_space = (block_start_local - cursor) % 24
-            width = (block_end_local - block_start_local) % 24
-
-            if left_space > 0:
-                row_html += f"<div style='flex:{left_space}; background:#171447;'></div>"
-
-            row_html += f"""
-                <div style='flex:{width}; background:{color};
-                            display:flex; align-items:center; justify-content:center;
-                            color:#000; font-size:12px; font-weight:bold;'>
-                    {session}
-                </div>
-            """
-            cursor = (cursor + left_space + width) % 24
-
-        if cursor < 24:
-            row_html += f"<div style='flex:{24 - cursor}; background:#171447;'></div>"
-        row_html += "</div>"
-
-        st.markdown(row_html, unsafe_allow_html=True)
+# ---------- Forex Fundamentals ----------
 
 
     # Your existing code here
@@ -191,7 +100,7 @@ with selected_tab[0]:  # Forex Fundamentals
 # ---------- Tools ----------
 with selected_tab[3]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])
 
     # Profit/Stop-loss Calculator
     with tools_subtabs[0]:
@@ -215,90 +124,6 @@ with selected_tab[3]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
-
-import streamlit as st
-from datetime import datetime
-import pandas as pd
-import json
-
-if selected_tab[3]:  # Tools Tab
-    st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
-
-    # Profit/Stop-loss Calculator
-    with tools_subtabs[0]:
-        st.header("💰 Profit / Stop-loss Calculator")
-        st.markdown("Calculate your potential profit or loss for a trade.")
-        currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
-        account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"])
-        position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
-        open_price = st.number_input("Open Price", value=1.1000, step=0.0001)
-        close_price = st.number_input("Close Price", value=1.1050, step=0.0001)
-        trade_direction = st.radio("Trade Direction", ["Long", "Short"])
-
-        pip_multiplier = 100 if "JPY" in currency_pair else 10000
-        pip_movement = abs(close_price - open_price) * pip_multiplier
-
-        exchange_rate = 1.1000
-        pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
-        profit_loss = pip_movement * pip_value
-
-        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
-        st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
-        st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
-
-    # Backtesting
-    with tools_subtabs[1]:
-        st.header("📊 Backtesting")
-        st.markdown(
-            "Analyze historical candlestick charts and log your trades manually."
-        )
-
-        # Optional: default symbol & interval
-        symbol = st.text_input("Symbol (TradingView format)", "EURUSD")
-        interval = st.selectbox("Interval", ["1", "5", "15", "60", "D", "W"], index=3)  # 60 min default
-
-        # TradingView widget container
-        st.components.v1.html(f"""
-        <div class="tradingview-widget-container" style="width:100%; height:600px;">
-            <div id="tradingview_chart" style="width:100%; height:100%;"></div>
-            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-            <script type="text/javascript">
-                new TradingView.widget({{
-                    "container_id": "tradingview_chart",
-                    "width": "100%",
-                    "height": "100%",
-                    "symbol": "{symbol}",
-                    "interval": "{interval}",
-                    "timezone": "Etc/UTC",
-                    "theme": "dark",
-                    "style": "1",
-                    "locale": "en",
-                    "toolbar_bg": "#f1f3f6",
-                    "enable_publishing": false,
-                    "allow_symbol_change": true,
-                    "hideideas": false,
-                    "withdateranges": true,
-                    "studies": ["MACD@tv-basicstudies", "RSI@tv-basicstudies"],
-                    "enabled_features": [
-                        "study_templates",
-                        "left_toolbar",
-                        "timeframes_toolbar",
-                        "chart_drawings",
-                        "compare_symbol"
-                    ],
-                    "overrides": {{
-                        "paneProperties.background": "#0b1e34",
-                        "paneProperties.vertGridProperties.color": "#2a2a2a",
-                        "paneProperties.horzGridProperties.color": "#2a2a2a"
-                    }}
-                }});
-            </script>
-        </div>
-        """, height=620)
-
-        st.markdown("### 📝 Trading Journal")
-        st.text_area("Log your trades here (date, entry, exit, notes)...", height=200)
 # ---------- My Account ----------
 with selected_tab[4]:
     st.title("👤 My Account")
@@ -660,4 +485,3 @@ with selected_tab[2]:
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
-
