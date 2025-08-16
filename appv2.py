@@ -216,9 +216,40 @@ df_news = get_fxstreet_forex_news()
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
 with selected_tab[0]:
-    st.title("📊 Currency Strength Meter")
-    st.caption("Compare major currencies relative to EUR (Fixer.io free plan)")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("📅 Forex Fundamentals")
+        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+    with col2:
+        st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
+    # -------- Economic Calendar (with currency highlight filters) --------
+    st.markdown("### 🗓️ Upcoming Economic Events")
+    if 'selected_currency_1' not in st.session_state:
+        st.session_state.selected_currency_1 = None
+    if 'selected_currency_2' not in st.session_state:
+        st.session_state.selected_currency_2 = None
+
+    uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
+    currency_filter_1 = st.selectbox(
+        "Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1"
+    )
+    st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
+
+    currency_filter_2 = st.selectbox(
+        "Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2"
+    )
+    st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
+
+    def highlight_currency(row):
+        styles = [''] * len(row)
+        if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
+            styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+        if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
+            styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+        return styles
+
+    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True)
 
     # -------- Interest rate tiles --------
     st.markdown("### 💹 Major Central Bank Interest Rates")
