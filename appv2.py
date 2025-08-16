@@ -214,7 +214,6 @@ df_news = get_fxstreet_forex_news()
 
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
-# (No headline selector here — lives under Technical Analysis)
 # =========================================================
 with selected_tab[0]:
     col1, col2 = st.columns([3, 1])
@@ -226,7 +225,6 @@ with selected_tab[0]:
 
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
-    # Session state for calendar highlight
     if 'selected_currency_1' not in st.session_state:
         st.session_state.selected_currency_1 = None
     if 'selected_currency_2' not in st.session_state:
@@ -327,7 +325,7 @@ with selected_tab[1]:
         """)
 
 # =========================================================
-# TAB 3: TECHNICAL ANALYSIS (TradingView + MOVED News selector)
+# TAB 3: TECHNICAL ANALYSIS
 # =========================================================
 with selected_tab[2]:
     st.title("📊 Technical Analysis")
@@ -346,80 +344,76 @@ with selected_tab[2]:
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
 
-  # ---- TradingView Widget (responsive, tall) ----
-watchlist = list(pairs_map.values())
-tv_symbol = pairs_map[pair]
+    # ---- TradingView Widget (only in Tab 3) ----
+    watchlist = list(pairs_map.values())
+    tv_symbol = pairs_map[pair]
 
-tv_html = f"""
-<div class="tradingview-widget-container" style="height:800px; width:100%">
-  <div id="tradingview_chart" class="tradingview-widget-container__widget" style="height:800px; width:100%"></div>
-  <div class="tradingview-widget-copyright" style="padding-top:6px">
-    <a href="https://www.tradingview.com/symbols/{tv_symbol.replace(':','-')}/" rel="noopener" target="_blank">
-      <span class="blue-text">{pair} chart by TradingView</span>
-    </a>
-  </div>
-  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-  {{
-    "autosize": true,
-    "symbol": "{tv_symbol}",
-    "interval": "D",
-    "timezone": "Etc/UTC",
-    "theme": "dark",
-    "style": "1",
-    "locale": "en",
-    "hide_top_toolbar": false,
-    "hide_side_toolbar": false,
-    "allow_symbol_change": true,
-    "save_image": true,
-    "calendar": false,
-    "studies": [],
-    "watchlist": {watchlist}
-  }}
-  </script>
-</div>
-"""
+    tv_html = f"""
+    <div class="tradingview-widget-container" style="height:800px; width:100%">
+      <div id="tradingview_chart" class="tradingview-widget-container__widget" style="height:800px; width:100%"></div>
+      <div class="tradingview-widget-copyright" style="padding-top:6px">
+        <a href="https://www.tradingview.com/symbols/{tv_symbol.replace(':','-')}/" rel="noopener" target="_blank">
+          <span class="blue-text">{pair} chart by TradingView</span>
+        </a>
+      </div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "hide_top_toolbar": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "save_image": true,
+        "calendar": false,
+        "studies": [],
+        "watchlist": {watchlist}
+      }}
+      </script>
+    </div>
+    """
 
-components.html(tv_html, height=850, scrolling=False)
+    components.html(tv_html, height=850, scrolling=False)
 
-# -------- MOVED News selector (filtered by selected pair's currencies) --------
-st.markdown("### 📰 News & Sentiment for Selected Pair")
+    # -------- News selector --------
+    st.markdown("### 📰 News & Sentiment for Selected Pair")
+    if not df_news.empty:
+        base, quote = pair.split("/")
+        filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
 
-if not df_news.empty:
-    # Figure out the two currencies in the selected pair
-    base, quote = pair.split("/")
-    # Filter news rows where Currency matches one side of pair
-    filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
+        try:
+            filtered_df["HighProb"] = filtered_df.apply(
+                lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
+                                     (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                else "", axis=1
+            )
+        except Exception:
+            filtered_df["HighProb"] = ""
 
-    # Flag high-probability + recent (24h)
-    try:
-        filtered_df["HighProb"] = filtered_df.apply(
-            lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                 (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
-            else "", axis=1
-        )
-    except Exception:
-        filtered_df["HighProb"] = ""
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
 
-    filtered_df_display = filtered_df.copy()
-    filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+        if not filtered_df_display.empty:
+            selected_headline = st.selectbox(
+                "Select a headline for details",
+                filtered_df_display["HeadlineDisplay"].tolist(),
+                key="ta_headline_select"
+            )
+            selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
 
-    if not filtered_df_display.empty:
-        selected_headline = st.selectbox(
-            "Select a headline for details",
-            filtered_df_display["HeadlineDisplay"].tolist(),
-            key="ta_headline_select"
-        )
-        selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
-
-        st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
-        st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
-        st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
-        with st.expander("Summary"):
-            st.write(selected_row["Summary"])
+            st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
+            st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
+            st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
+            with st.expander("Summary"):
+                st.write(selected_row["Summary"])
+        else:
+            st.info("No pair-specific headlines found in the recent feed.")
     else:
-        st.info("No pair-specific headlines found in the recent feed.")
-else:
-    st.info("News feed unavailable right now.")
+        st.info("News feed unavailable right now.")
 
 # =========================================================
 # TAB 4: MY ACCOUNT
