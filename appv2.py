@@ -358,14 +358,17 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-   # -------- Forex Trading Sessions (Continuous Blocks with Labels) --------
+  # -------- Forex Trading Sessions (Gapless Blocks) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
 from datetime import datetime, time
 
 season = st.radio("Select Season:", ["Summer", "Winter"])
-user_tz = st.selectbox("Your Time Zone:", ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"])
+user_tz = st.selectbox(
+    "Your Time Zone:",
+    ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"]
+)
 
 SESSION_HOURS = {
     "Sydney": {"summer": (time(22,0), time(7,0)), "winter": (time(21,0), time(6,0))},
@@ -374,7 +377,6 @@ SESSION_HOURS = {
     "New York": {"summer": (time(12,0), time(21,0)), "winter": (time(13,0), time(22,0))}
 }
 
-# Map colors for sessions
 SESSION_COLORS = {
     "Sydney": "#8bc34a",
     "Tokyo": "#00bcd4",
@@ -382,56 +384,44 @@ SESSION_COLORS = {
     "New York": "#e91e63"
 }
 
-# Render blocks
+def time_to_decimal(t: time) -> float:
+    return t.hour + t.minute/60
+
+# Build timeline rows
 for session, times in SESSION_HOURS.items():
     start, end = times[season.lower()]
-    start_hour = start.hour
-    end_hour = end.hour if end.hour != 0 else 24  # handle midnight wrap
+    start_dec = time_to_decimal(start)
+    end_dec = time_to_decimal(end)
 
-    # handle wrap-around sessions (Sydney, etc.)
-    if start_hour < end_hour:
-        span = list(range(start_hour, end_hour))
+    # Handle wrap-around (e.g. Sydney)
+    if start_dec < end_dec:
+        spans = [(start_dec, end_dec)]
     else:
-        span = list(range(start_hour, 24)) + list(range(0, end_hour))
+        spans = [(start_dec, 24), (0, end_dec)]
 
-    # Build row
-    cols = st.columns(24, gap="small")
-    for i, col in enumerate(cols):
-        if i in span:
-            # Add block with label in the middle of the span
-            midpoint = span[len(span)//2]
-            if i == midpoint:
-                col.markdown(
-                    f"<div style='height:25px; background-color:{SESSION_COLORS[session]}; "
-                    f"display:flex; justify-content:center; align-items:center; color:black; "
-                    f"font-weight:bold; border-radius:4px;'>{session}</div>",
-                    unsafe_allow_html=True
-                )
-            else:
-                col.markdown(
-                    f"<div style='height:25px; background-color:{SESSION_COLORS[session]}; "
-                    f"border-radius:4px;'></div>",
-                    unsafe_allow_html=True
-                )
-        else:
-            col.markdown("<div style='height:25px;'></div>", unsafe_allow_html=True)
+    html_row = "<div style='display:flex; width:100%; height:28px; margin-bottom:6px;'>"
 
-# Hour labels
-hour_cols = st.columns(24, gap="small")
-for i, col in enumerate(hour_cols):
-    display_hour = datetime.now(pytz.timezone(user_tz)).replace(hour=i, minute=0).strftime("%H")
-    col.markdown(f"<div style='text-align:center; font-size:12px;'>{display_hour}</div>", unsafe_allow_html=True)
+    for span in spans:
+        left = (span[0] / 24) * 100
+        width = ((span[1] - span[0]) / 24) * 100
+        html_row += f"""
+            <div style='position:relative; background:{SESSION_COLORS[session]};
+                        height:100%; width:{width}%; margin-left:{left - (0 if span==spans[0] else 0)}%;
+                        border-radius:4px; display:flex; justify-content:center; align-items:center;
+                        color:black; font-size:12px; font-weight:bold;'>
+                {session}
+            </div>
+        """
 
-# Legend
-st.markdown(
-    """
-    **Legend:**  
-    <span style='background-color:#8bc34a;padding:4px 8px;border-radius:4px;'>Sydney</span>  
-    <span style='background-color:#00bcd4;padding:4px 8px;border-radius:4px;'>Tokyo</span>  
-    <span style='background-color:#f4c430;padding:4px 8px;border-radius:4px;'>London</span>  
-    <span style='background-color:#e91e63;padding:4px 8px;border-radius:4px;'>New York</span>
-    """, unsafe_allow_html=True
-)
+    html_row += "</div>"
+    st.markdown(html_row, unsafe_allow_html=True)
+
+# Hour labels below
+hour_labels = "<div style='display:flex; width:100%; height:20px;'>"
+for h in range(24):
+    hour_labels += f"<div style='flex:1; text-align:center; font-size:11px;'>{h:02d}:00</div>"
+hour_labels += "</div>"
+st.markdown(hour_labels, unsafe_allow_html=True)
 
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
