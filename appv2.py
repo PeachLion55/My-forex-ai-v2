@@ -227,46 +227,44 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
+import streamlit as st
+from datetime import datetime
+import pandas as pd
+
 # ---------- Backtesting Tab ----------
 if selected_tab[3]:  # Assuming tab index 3 is Tools
     st.title("🧪 Backtesting")
 
-    # Load historical data
-    st.markdown("### 📊 Candlestick Chart")
-    uploaded_file = st.file_uploader("Upload historical data CSV (optional)", type=["csv"])
+    # ---------- TradingView Widget ----------
+    st.markdown("### 📊 Candlestick Chart (TradingView)")
 
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        # Expecting columns: Date, Open, High, Low, Close
-        df['Date'] = pd.to_datetime(df['Date'])
-    else:
-        # Example data if no file is uploaded
-        df = pd.DataFrame({
-            "Date": pd.date_range(start="2025-08-01", periods=10),
-            "Open": [1.1000,1.1020,1.1010,1.1030,1.1040,1.1025,1.1035,1.1050,1.1060,1.1070],
-            "High": [1.1050,1.1060,1.1040,1.1070,1.1080,1.1055,1.1065,1.1080,1.1090,1.1100],
-            "Low":  [1.0980,1.1000,1.0990,1.1010,1.1020,1.1005,1.1015,1.1030,1.1040,1.1050],
-            "Close":[1.1020,1.1040,1.1015,1.1050,1.1060,1.1035,1.1050,1.1070,1.1080,1.1095]
-        })
-
-    # Candlestick chart
-    fig = go.Figure(data=[go.Candlestick(
-        x=df['Date'],
-        open=df['Open'],
-        high=df['High'],
-        low=df['Low'],
-        close=df['Close']
-    )])
-
-    fig.update_layout(
-        title="📈 Historical Candlestick Chart",
-        xaxis_title="Date",
-        yaxis_title="Price",
-        xaxis_rangeslider_visible=False,
-        height=500
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+    # Embed TradingView widget
+    st.components.v1.html("""
+        <!-- TradingView Widget BEGIN -->
+        <div class="tradingview-widget-container">
+          <div id="tradingview_widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          new TradingView.widget(
+            {
+              "width": "100%",
+              "height": 500,
+              "symbol": "EURUSD",
+              "interval": "60",
+              "timezone": "Etc/UTC",
+              "theme": "dark",
+              "style": "1",
+              "locale": "en",
+              "toolbar_bg": "#f1f3f6",
+              "enable_publishing": false,
+              "allow_symbol_change": true,
+              "container_id": "tradingview_widget"
+            }
+          );
+          </script>
+        </div>
+        <!-- TradingView Widget END -->
+    """, height=520)
 
     # ---------- Trading Journal ----------
     st.markdown("### 📝 Trading Journal")
