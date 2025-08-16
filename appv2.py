@@ -11,10 +11,9 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # ----------------- SIDEBAR CONTROLS -----------------
-with st.sidebar:
-    st.markdown("## ⚙️ Settings")
-    bg_opacity = st.slider("Background FX Opacity", 0.0, 1.0, 0.25, 0.05)
-    tv_height = st.slider("TradingView Chart Height (px)", 600, 1400, 950, 50)
+# Fixed settings (no sidebar controls)
+bg_opacity = 0.5     # Background FX opacity
+tv_height = 950      # TradingView chart height in px
 
 # ----------------- CUSTOM CSS (Dark Futuristic BG + Tabs) -----------------
 st.markdown(
