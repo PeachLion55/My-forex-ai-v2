@@ -219,7 +219,7 @@ with selected_tab[0]:
     st.title("📅 Forex Fundamentals")
     st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-    import requests
+import requests
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, timedelta
@@ -243,37 +243,68 @@ def get_currency_strength():
         response.raise_for_status()
         data = response.json()
         
+        # Check if we got valid rates data
+        if 'rates' not in data or not data['rates']:
+            print("No rates data found in API response")
+            return None
+            
         # Calculate average rates over the period
-        avg_rates = {}
+        avg_rates = {'EUR': 1.0}  # EUR is our base currency
+        
         for currency in major_currencies:
             if currency == 'EUR':
-                avg_rates[currency] = 1.0
-            else:
-                rates = [day['rates'][currency] for day in data['rates'].values()]
+                continue
+                
+            rates = []
+            for date, day_data in data['rates'].items():
+                if currency in day_data.get('rates', {}):
+                    rates.append(day_data['rates'][currency])
+            
+            if rates:  # Only calculate average if we got rates
                 avg_rates[currency] = sum(rates) / len(rates)
+            else:
+                print(f"No rates found for {currency}")
+                avg_rates[currency] = 0  # or handle differently
         
         # Calculate currency strength index (relative to EUR)
         strength = {}
         for currency in major_currencies:
             if currency == 'EUR':
                 # For EUR, calculate average of inverses of other currencies
-                inverses = [1/avg_rates[c] for c in major_currencies if c != 'EUR']
-                strength[currency] = sum(inverses) / len(inverses)
+                inverses = [1/avg_rates[c] for c in major_currencies if c != 'EUR' and avg_rates[c] != 0]
+                if inverses:
+                    strength[currency] = sum(inverses) / len(inverses)
+                else:
+                    strength[currency] = 1.0
             else:
-                strength[currency] = 1 / avg_rates[currency]
+                if avg_rates[currency] != 0:
+                    strength[currency] = 1 / avg_rates[currency]
+                else:
+                    strength[currency] = 0
         
         # Normalize strengths to 0-100 scale
-        min_strength = min(strength.values())
-        max_strength = max(strength.values())
-        normalized_strength = {
-            curr: ((s - min_strength) / (max_strength - min_strength)) * 100 
-            for curr, s in strength.items()
-        }
-        
-        return normalized_strength
+        if strength:
+            min_strength = min(strength.values())
+            max_strength = max(strength.values())
+            
+            # Avoid division by zero if all strengths are equal
+            if max_strength - min_strength > 0:
+                normalized_strength = {
+                    curr: ((s - min_strength) / (max_strength - min_strength)) * 100 
+                    for curr, s in strength.items()
+                }
+            else:
+                normalized_strength = {curr: 50 for curr in strength.keys()}
+            
+            return normalized_strength
+        else:
+            return None
     
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error: {e}")
         return None
 
 def plot_currency_strength(strength_data):
@@ -314,6 +345,8 @@ if __name__ == "__main__":
     strength_data = get_currency_strength()
     if strength_data:
         plot_currency_strength(strength_data)
+    else:
+        print("Failed to get currency strength data")
 
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
