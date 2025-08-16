@@ -221,69 +221,70 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-col1, col2 = st.columns([3, 1])
+import streamlit as st
+import requests
 
-with col1:
-    st.markdown("### 💪 Live Currency Strength (Base: EUR)")
-    try:
-        major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
-        symbols = ",".join([c for c in major_currencies if c != "EUR"])  # EUR is base
+st.markdown("### 💪 Live Currency Strength (Base: EUR)")
 
-        # Fetch rates with EUR as base
-        response = requests.get(f"https://api.frankfurter.app/latest?base=EUR&symbols={symbols}")
-        data = response.json()
-        rates = data.get("rates", {})
-        rates["EUR"] = 1.0  # Base currency
+try:
+    major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
+    symbols = ",".join([c for c in major_currencies if c != "EUR"])  # EUR is base
 
-        # Fill missing rates with 1 to avoid crash
-        for ccy in major_currencies:
-            if ccy not in rates:
-                rates[ccy] = 1.0
+    # Fetch rates with EUR as base
+    response = requests.get(f"https://api.frankfurter.app/latest?base=EUR&symbols={symbols}")
+    data = response.json()
+    rates = data.get("rates", {})
+    rates["EUR"] = 1.0  # Base currency
 
-        # Normalize 0–100%
-        max_rate = max(rates.values())
-        min_rate = min(rates.values())
-        normalized_strength = {
-            ccy: int(100 * (rate - min_rate) / (max_rate - min_rate)) if max_rate != min_rate else 50
-            for ccy, rate in rates.items()
-        }
+    # Fill missing rates with 1 to avoid crash
+    for ccy in major_currencies:
+        if ccy not in rates:
+            rates[ccy] = 1.0
 
-        # Display bars
-        st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
-        colors = ["#171447", "#471414"]
-        for i, ccy in enumerate(major_currencies):
-            strength_pct = normalized_strength.get(ccy, 0)
-            color = colors[i % 2]
-            st.markdown(f"""
+    # Normalize 0–100%
+    max_rate = max(rates.values())
+    min_rate = min(rates.values())
+    normalized_strength = {
+        ccy: int(100 * (rate - min_rate) / (max_rate - min_rate)) if max_rate != min_rate else 50
+        for ccy, rate in rates.items()
+    }
+
+    # Display bars
+    st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
+    colors = ["#171447", "#471414"]
+    for i, ccy in enumerate(major_currencies):
+        strength_pct = normalized_strength.get(ccy, 0)
+        color = colors[i % 2]
+        st.markdown(f"""
+            <div style="
+                background-color:{color};
+                border-radius:10px;
+                padding:10px;
+                text-align:center;
+                color:white;
+                flex:1;
+            ">
+                <h4 style='margin:5px 0'>{ccy}</h4>
                 <div style="
-                    background-color:{color};
-                    border-radius:10px;
-                    padding:10px;
-                    text-align:center;
-                    color:white;
-                    flex:1;
+                    background-color: #f1f1f1;
+                    border-radius:5px;
+                    height:15px;
+                    margin:5px 0;
                 ">
-                    <h4 style='margin:5px 0'>{ccy}</h4>
                     <div style="
-                        background-color: #f1f1f1;
-                        border-radius:5px;
+                        width:{strength_pct}%;
+                        background-color:#00ff00;
                         height:15px;
-                        margin:5px 0;
-                    ">
-                        <div style="
-                            width:{strength_pct}%;
-                            background-color:#00ff00;
-                            height:15px;
-                            border-radius:5px;
-                        "></div>
-                    </div>
-                    <p style='margin:0'>{strength_pct}%</p>
+                        border-radius:5px;
+                    "></div>
                 </div>
-            """, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+                <p style='margin:0'>{strength_pct}%</p>
+            </div>
+        """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    except Exception as e:
-        st.error(f"Failed to load currency strength: {e}")
+except Exception as e:
+    st.error(f"Failed to load currency strength: {e}")
 
 with col2:
     st.info("See the **Technical Analysis** tab for live charts + detailed news.")
