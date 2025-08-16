@@ -215,87 +215,13 @@ df_news = get_fxstreet_forex_news()
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
-import requests
-
 with selected_tab[0]:
     col1, col2 = st.columns([3, 1])
     with col1:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-
-col1, col2 = st.columns([3, 1])
-
-with col1:
-    # -------- Live Currency Strength Meter --------
-    st.markdown("### 💪 Live Currency Strength")
-    try:
-        major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
-        symbols = ",".join([c for c in major_currencies if c != "EUR"])  # EUR is base
-
-        response = requests.get(f"https://api.frankfurter.app/latest?symbols={symbols}")
-        data = response.json()
-        rates = data.get("rates", {})
-        rates["EUR"] = 1.0  # EUR base
-
-        # Fill missing rates with 1 to avoid crash
-        for ccy in major_currencies:
-            if ccy not in rates:
-                rates[ccy] = 1.0
-
-        # Convert all to USD base
-        usd_rate = rates.get("USD", 1.0)
-        rates_usd_base = {ccy: rate / usd_rate for ccy, rate in rates.items()}
-
-        # Normalize 0–100%
-        max_rate = max(rates_usd_base.values())
-        min_rate = min(rates_usd_base.values())
-        normalized_strength = {
-            ccy: int(100 * (rate - min_rate) / (max_rate - min_rate)) if max_rate != min_rate else 50
-            for ccy, rate in rates_usd_base.items()
-        }
-
-        # Display bars
-        st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
-        colors = ["#171447", "#471414"]
-        for i, ccy in enumerate(major_currencies):
-            strength_pct = normalized_strength.get(ccy, 0)
-            color = colors[i % 2]
-            st.markdown(f"""
-                <div style="
-                    background-color:{color};
-                    border-radius:10px;
-                    padding:10px;
-                    text-align:center;
-                    color:white;
-                    flex:1;
-                ">
-                    <h4 style='margin:5px 0'>{ccy}</h4>
-                    <div style="
-                        background-color: #f1f1f1;
-                        border-radius:5px;
-                        height:15px;
-                        margin:5px 0;
-                    ">
-                        <div style="
-                            width:{strength_pct}%;
-                            background-color:#00ff00;
-                            height:15px;
-                            border-radius:5px;
-                        "></div>
-                    </div>
-                    <p style='margin:0'>{strength_pct}%</p>
-                </div>
-            """, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    except Exception as e:
-        st.error(f"Failed to load currency strength: {e}")
-
-    # Any other content for the left column goes here
-    # ...
-
-with col2:
-    st.info("See the **Technical Analysis** tab for live charts + detailed news.")
+    with col2:
+        st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
@@ -364,6 +290,7 @@ with col2:
                     """,
                     unsafe_allow_html=True
                 )
+
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
