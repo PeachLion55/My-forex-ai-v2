@@ -219,85 +219,101 @@ with selected_tab[0]:
     st.title("📅 Forex Fundamentals")
     st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-    # -------- Live Currency Strength Meter --------
-    import streamlit as st
-import requests
+    import requests
+import matplotlib.pyplot as plt
+import numpy as np
+from datetime import datetime, timedelta
 
-st.markdown("### 💪 Live Currency Strength")
-
-try:
-    # Major currencies
-    major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
-
-    # EUR is base
-    symbols = ",".join([c for c in major_currencies if c != "EUR"])
-    response = requests.get(f"https://api.frankfurter.app/latest?symbols={symbols}")
-    data = response.json()
-    rates = data.get("rates", {})
-    rates["EUR"] = 1.0  # EUR base
-
-    # Fill missing rates just in case
-    for ccy in major_currencies:
-        if ccy not in rates:
-            rates[ccy] = 1.0
-
-    # Compute “strength” as average of ratios vs other currencies
-    strength = {}
-    for ccy in major_currencies:
-        score = 0
-        count = 0
-        for other in major_currencies:
-            if ccy == other:
-                continue
-            ratio = rates[ccy] / rates[other]
-            score += ratio
-            count += 1
-        strength[ccy] = score / count  # average strength
-
-    # Normalize 0–100%
-    min_strength = min(strength.values())
-    max_strength = max(strength.values())
-    normalized_strength = {
-        ccy: int(100 * (val - min_strength) / (max_strength - min_strength))
-        for ccy, val in strength.items()
+def get_currency_strength():
+    # Define major currencies
+    major_currencies = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD', 'CNY']
+    
+    # Get exchange rates for all pairs against EUR (base)
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=7)  # 1 week data
+    
+    url = f"https://api.frankfurter.app/{start_date}..{end_date}"
+    params = {
+        'from': 'EUR',
+        'to': ','.join([c for c in major_currencies if c != 'EUR'])
     }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Calculate average rates over the period
+        avg_rates = {}
+        for currency in major_currencies:
+            if currency == 'EUR':
+                avg_rates[currency] = 1.0
+            else:
+                rates = [day['rates'][currency] for day in data['rates'].values()]
+                avg_rates[currency] = sum(rates) / len(rates)
+        
+        # Calculate currency strength index (relative to EUR)
+        strength = {}
+        for currency in major_currencies:
+            if currency == 'EUR':
+                # For EUR, calculate average of inverses of other currencies
+                inverses = [1/avg_rates[c] for c in major_currencies if c != 'EUR']
+                strength[currency] = sum(inverses) / len(inverses)
+            else:
+                strength[currency] = 1 / avg_rates[currency]
+        
+        # Normalize strengths to 0-100 scale
+        min_strength = min(strength.values())
+        max_strength = max(strength.values())
+        normalized_strength = {
+            curr: ((s - min_strength) / (max_strength - min_strength)) * 100 
+            for curr, s in strength.items()
+        }
+        
+        return normalized_strength
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching data: {e}")
+        return None
 
-    # Display bars
-    st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
-    colors = ["#171447", "#471414"]
-    for i, ccy in enumerate(major_currencies):
-        strength_pct = normalized_strength.get(ccy, 0)
-        color = colors[i % 2]
-        st.markdown(f"""
-            <div style="
-                background-color:{color};
-                border-radius:10px;
-                padding:10px;
-                text-align:center;
-                color:white;
-                flex:1;
-            ">
-                <h4 style='margin:5px 0'>{ccy}</h4>
-                <div style="
-                    background-color: #f1f1f1;
-                    border-radius:5px;
-                    height:15px;
-                    margin:5px 0;
-                ">
-                    <div style="
-                        width:{strength_pct}%;
-                        background-color:#00ff00;
-                        height:15px;
-                        border-radius:5px;
-                    "></div>
-                </div>
-                <p style='margin:0'>{strength_pct}%</p>
-            </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+def plot_currency_strength(strength_data):
+    if not strength_data:
+        print("No data to plot")
+        return
+    
+    # Sort currencies by strength
+    sorted_currencies = sorted(strength_data.items(), key=lambda x: x[1], reverse=True)
+    currencies = [curr[0] for curr in sorted_currencies]
+    values = [curr[1] for curr in sorted_currencies]
+    
+    # Create figure
+    plt.figure(figsize=(10, 6))
+    colors = plt.cm.viridis(np.linspace(0, 1, len(currencies)))
+    
+    # Horizontal bar plot
+    bars = plt.barh(currencies, values, color=colors)
+    
+    # Add value labels
+    for bar in bars:
+        width = bar.get_width()
+        plt.text(width + 1, bar.get_y() + bar.get_height()/2,
+                f'{width:.1f}',
+                va='center')
+    
+    # Customize plot
+    plt.title('Currency Strength Meter', fontsize=16)
+    plt.xlabel('Strength Index (0-100)', fontsize=12)
+    plt.xlim(0, 105)
+    plt.grid(axis='x', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    
+    # Show plot
+    plt.show()
 
-except Exception as e:
-    st.error(f"Failed to load currency strength: {e}")
+if __name__ == "__main__":
+    strength_data = get_currency_strength()
+    if strength_data:
+        plot_currency_strength(strength_data)
 
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
