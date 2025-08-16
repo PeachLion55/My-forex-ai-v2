@@ -358,7 +358,7 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-  # -------- Forex Trading Sessions (Dark Theme, Overnight Fix) --------
+# -------- Forex Trading Sessions (Dark Theme, Overnight Fixed) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
@@ -400,45 +400,32 @@ for session, times in SESSION_HOURS.items():
     start_dec = time_to_decimal(start)
     end_dec = time_to_decimal(end)
     
-    row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
-    
-    # Overnight session: split into two blocks
-    if end_dec <= start_dec:
-        # First block: start -> 24
-        row_html += f"<div style='flex:{start_dec}; background:#171447;'></div>"
-        row_html += f"""
-            <div style='flex:{24-start_dec}; background:{SESSION_COLORS[session]};
-                        display:flex; align-items:center; justify-content:center;
-                        color:#000; font-size:12px; font-weight:bold;'>
-                {session}
-            </div>
-        """
-        # Second block: 0 -> end
-        row_html += f"""
-            <div style='flex:{end_dec}; background:{SESSION_COLORS[session]};
-                        display:flex; align-items:center; justify-content:center;
-                        color:#000; font-size:12px; font-weight:bold;'>
-                {session}
-            </div>
-        """
-        if end_dec < 24:
-            row_html += f"<div style='flex:{24-end_dec}; background:#171447;'></div>"
+    blocks = []
+    if end_dec <= start_dec:  # Overnight session
+        blocks.append((start_dec, 24, SESSION_COLORS[session]))
+        blocks.append((0, end_dec, SESSION_COLORS[session]))
     else:
-        # Normal session
-        if start_dec > 0:
-            row_html += f"<div style='flex:{start_dec}; background:#171447;'></div>"
-        width = end_dec - start_dec
+        blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
+    
+    row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
+    cursor = 0
+    for block_start, block_end, color in blocks:
+        if block_start > cursor:
+            # empty space before session
+            row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
+        width = block_end - block_start
         row_html += f"""
-            <div style='flex:{width}; background:{SESSION_COLORS[session]};
+            <div style='flex:{width}; background:{color};
                         display:flex; align-items:center; justify-content:center;
                         color:#000; font-size:12px; font-weight:bold;'>
                 {session}
             </div>
         """
-        if end_dec < 24:
-            row_html += f"<div style='flex:{24-end_dec}; background:#171447;'></div>"
-    
+        cursor = block_end
+    if cursor < 24:
+        row_html += f"<div style='flex:{24 - cursor}; background:#171447;'></div>"
     row_html += "</div>"
+    
     st.markdown(row_html, unsafe_allow_html=True)
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
