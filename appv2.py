@@ -97,27 +97,33 @@ selected_tab = st.tabs(tabs)
 
     # Your existing code here
 
-# ---------- Tools ----------
+import streamlit as st
+import pandas as pd
+import json, os
+
+# =========================================================
+# TAB 3: TOOLS
+# =========================================================
 with selected_tab[3]:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
 
-    # ---------- Profit/Stop-loss Calculator ----------
+    # ---------------- Profit/Stop-loss Calculator ----------------
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
 
-        currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
-        account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"])
-        position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
-        open_price = st.number_input("Open Price", value=1.1000, step=0.0001)
-        close_price = st.number_input("Close Price", value=1.1050, step=0.0001)
-        trade_direction = st.radio("Trade Direction", ["Long", "Short"])
+        currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
+        account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"], key="pl_account_currency")
+        position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01, key="pl_position_size")
+        open_price = st.number_input("Open Price", value=1.1000, step=0.0001, key="pl_open_price")
+        close_price = st.number_input("Close Price", value=1.1050, step=0.0001, key="pl_close_price")
+        trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction")
 
         pip_multiplier = 100 if "JPY" in currency_pair else 10000
         pip_movement = abs(close_price - open_price) * pip_multiplier
 
-        exchange_rate = 1.1000  # You can make this dynamic if needed
+        exchange_rate = 1.1000
         pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
         profit_loss = pip_movement * pip_value
 
@@ -125,61 +131,114 @@ with selected_tab[3]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
-    # ---------- Backtesting ----------
+    # ---------------- Backtesting ----------------
     with tools_subtabs[1]:
-        st.header("📊 Backtesting & Charting")
-        st.markdown("Visualize trades and strategies with TradingView widget.")
+        st.header("📊 Backtesting")
+        st.markdown("Backtest your trading strategies here.")
 
-        # TradingView Widget
-        tv_symbol = st.text_input("TradingView Symbol", value="EURUSD")
-        tv_interval = st.selectbox("Interval", ["1", "5", "15", "60", "D", "W"])
-        st.components.v1.html(f"""
-            <iframe src="https://s.tradingview.com/widgetembed/?symbol={tv_symbol}&interval={tv_interval}&hidesidetoolbar=1&theme=dark" 
-            style="width:100%; height:600px; border:0;" allowtransparency="true" frameborder="0"></iframe>
-        """, height=620)
-
-        # ---------------- Trading Journal ----------------
-        st.subheader("📝 Trading Journal")
-        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-
-        # Ensure trade_journal exists as DataFrame
-        import pandas as pd, json, os
-
-        if "trade_journal" not in st.session_state or not isinstance(st.session_state.trade_journal, pd.DataFrame):
-            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols)
-
-        # Load journal from account if logged in and first load
-        if "logged_in_user" in st.session_state and st.session_state.trade_journal.empty:
-            ACCOUNTS_FILE = "user_accounts.json"
-            if os.path.exists(ACCOUNTS_FILE):
-                with open(ACCOUNTS_FILE, "r") as f:
-                    accounts = json.load(f)
-                username = st.session_state.logged_in_user
-                saved_journal = accounts.get(username, {}).get("trade_journal", [])
-                st.session_state.trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
-
-        # Editable journal
-        st.session_state.trade_journal = st.data_editor(
-            data=st.session_state.trade_journal,
-            num_rows="dynamic",
-            key="tools_backtesting_journal"
+        # TradingView widget
+        st.components.v1.html(
+            """
+            <iframe src="https://s.tradingview.com/embed-widget/advanced-chart/?symbol=FX:EURUSD"
+            width="800" height="600" frameborder="0" allowfullscreen></iframe>
+            """,
+            height=620,
         )
 
-        # Save to account button
-        if "logged_in_user" in st.session_state:
-            if st.button("💾 Save to My Account"):
-                ACCOUNTS_FILE = "user_accounts.json"
-                accounts = {}
-                if os.path.exists(ACCOUNTS_FILE):
-                    with open(ACCOUNTS_FILE, "r") as f:
-                        accounts = json.load(f)
-                username = st.session_state.logged_in_user
-                accounts.setdefault(username, {})["trade_journal"] = st.session_state.trade_journal.to_dict(orient="records")
+        # Initialize session state journal for backtesting
+        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+        if "tools_trade_journal" not in st.session_state:
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+
+        # Editable trading journal
+        updated_journal_tools = st.data_editor(
+            data=st.session_state.tools_trade_journal.copy(),
+            num_rows="dynamic",
+            key="tools_backtesting_journal_unique"
+        )
+        st.session_state.tools_trade_journal = updated_journal_tools
+
+
+# =========================================================
+# TAB 4: MY ACCOUNT
+# =========================================================
+with selected_tab[4]:
+    st.title("👤 My Account")
+    st.subheader("Account Login / Sign Up")
+
+    ACCOUNTS_FILE = "user_accounts.json"
+    if not os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "w") as f:
+            json.dump({}, f)
+
+    # ---------------- LOGIN ----------------
+    login_expander = st.expander("Login")
+    with login_expander:
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login"):
+            with open(ACCOUNTS_FILE, "r") as f:
+                accounts = json.load(f)
+            if username in accounts and accounts[username]["password"] == password:
+                st.session_state.logged_in_user = username
+                st.success(f"Logged in as {username}")
+            else:
+                st.error("Invalid username or password")
+
+    # ---------------- SIGN UP ----------------
+    signup_expander = st.expander("Sign Up")
+    with signup_expander:
+        new_username = st.text_input("New Username", key="signup_username")
+        new_password = st.text_input("New Password", type="password", key="signup_password")
+        if st.button("Sign Up"):
+            with open(ACCOUNTS_FILE, "r") as f:
+                accounts = json.load(f)
+            if new_username in accounts:
+                st.error("Username already exists")
+            else:
+                accounts[new_username] = {"password": new_password, "trade_journal": []}
                 with open(ACCOUNTS_FILE, "w") as f:
                     json.dump(accounts, f, indent=4)
-                st.success("Trading journal saved to your account!")
-        else:
-            st.info("Sign in to save your trading journal to your account.")
+                st.success(f"Account created for {new_username}")
+
+    # ---------------- ACCOUNT SETTINGS ----------------
+    if "logged_in_user" in st.session_state:
+        st.subheader("Profile Settings")
+        colA, colB = st.columns(2)
+        with colA:
+            name = st.text_input("Name", value=st.session_state.get("name",""), key="account_name")
+            base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0, key="account_base_ccy")
+        with colB:
+            email = st.text_input("Email", value=st.session_state.get("email",""), key="account_email")
+            alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True), key="account_alerts")
+
+        if st.button("Save Preferences", key="account_save_prefs"):
+            st.session_state.name = name
+            st.session_state.email = email
+            st.session_state.base_ccy = base_ccy
+            st.session_state.alerts = alerts
+            st.success("Preferences saved for this session.")
+
+        st.subheader("📝 Trading Journal")
+        df_journal = pd.DataFrame(
+            st.session_state.get("trade_journal", []),
+            columns=["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+        )
+
+        updated_journal = st.data_editor(
+            data=df_journal,
+            num_rows="dynamic",
+            key="myaccount_trade_journal_unique"
+        )
+        st.session_state.trade_journal = updated_journal.to_dict(orient="records")
+
+        if st.button("💾 Save to My Account", key="save_account_journal"):
+            with open(ACCOUNTS_FILE, "r") as f:
+                accounts = json.load(f)
+            accounts[st.session_state.logged_in_user]["trade_journal"] = st.session_state.trade_journal
+            with open(ACCOUNTS_FILE, "w") as f:
+                json.dump(accounts, f, indent=4)
+            st.success("Trading journal saved to your account!")
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -513,110 +572,3 @@ with selected_tab[2]:
     else:
         st.info("News feed unavailable right now.")
 
-# =========================================================
-# TAB 4: MY ACCOUNT
-# =========================================================
-import streamlit as st
-import json, os
-import hashlib
-import pandas as pd
-
-ACCOUNTS_FILE = "user_accounts.json"
-if os.path.exists(ACCOUNTS_FILE):
-    with open(ACCOUNTS_FILE, "r") as f:
-        accounts = json.load(f)
-else:
-    accounts = {}
-
-with selected_tab[4]:
-    st.title("👤 My Account")
-
-    def hash_password(password):
-        return hashlib.sha256(password.encode()).hexdigest()
-
-    # ---------------- Login / Signup ----------------
-    if "logged_in_user" not in st.session_state:
-        st.subheader("🔑 Login or Sign Up")
-        username = st.text_input("Username", key="account_username")
-        password = st.text_input("Password", type="password", key="account_password")
-        colA, colB = st.columns(2)
-
-        with colA:
-            if st.button("Login"):
-                if username in accounts and accounts[username]["password"] == hash_password(password):
-                    st.session_state.logged_in_user = username
-                    st.success(f"Welcome back, {username}!")
-                else:
-                    st.error("Invalid username or password.")
-
-        with colB:
-            if st.button("Sign Up"):
-                if username in accounts:
-                    st.error("Username already exists.")
-                elif username and password:
-                    accounts[username] = {"password": hash_password(password), "preferences": {}, "trade_journal": []}
-                    with open(ACCOUNTS_FILE, "w") as f:
-                        json.dump(accounts, f, indent=4)
-                    st.session_state.logged_in_user = username
-                    st.success(f"Account created for {username}!")
-                else:
-                    st.error("Enter both username and password to sign up.")
-
-    # ---------------- Logged-in User ----------------
-    if "logged_in_user" in st.session_state:
-        username = st.session_state.logged_in_user
-        st.subheader(f"Welcome, {username}!")
-
-        # Load preferences
-        user_data = accounts.get(username, {})
-        preferences = user_data.get("preferences", {})
-        trade_journal_data = user_data.get("trade_journal", [])
-
-        # ---------------- Preferences ----------------
-        st.markdown("### ⚙ Preferences")
-        colA, colB = st.columns(2)
-        with colA:
-            name = st.text_input("Name", value=preferences.get("name", ""))
-            base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0)
-        with colB:
-            email = st.text_input("Email", value=preferences.get("email", ""))
-            alerts = st.checkbox("Email me before high-impact events", value=preferences.get("alerts", True))
-
-        if st.button("Save Preferences"):
-            accounts[username]["preferences"] = {
-                "name": name,
-                "base_ccy": base_ccy,
-                "email": email,
-                "alerts": alerts
-            }
-            with open(ACCOUNTS_FILE, "w") as f:
-                json.dump(accounts, f, indent=4)
-            st.success("Preferences saved!")
-
-        # ---------------- Trading Journal ----------------
-        st.markdown("### 📝 Trading Journal")
-        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-
-        # Initialize DataFrame
-        if trade_journal_data:
-            df_journal = pd.DataFrame(trade_journal_data, columns=journal_cols)
-        else:
-            df_journal = pd.DataFrame(columns=journal_cols)
-
-        # Editable DataFrame
-        updated_journal = st.data_editor(
-            data=df_journal,
-            num_rows="dynamic",
-            key="tools_backtesting_journal"
-        )
-
-        if st.button("💾 Save Trading Journal"):
-            accounts[username]["trade_journal"] = updated_journal.to_dict(orient="records")
-            with open(ACCOUNTS_FILE, "w") as f:
-                json.dump(accounts, f, indent=4)
-            st.success("Trading journal saved!")
-
-        # Logout
-        if st.button("Logout"):
-            del st.session_state.logged_in_user
-            st.experimental_rerun()
