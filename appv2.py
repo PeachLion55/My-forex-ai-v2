@@ -358,7 +358,7 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-  # -------- Forex Trading Sessions (Gapless Blocks) --------
+  # -------- Forex Trading Sessions (Continuous Blocks, No Gaps at Midnight) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
@@ -387,42 +387,46 @@ SESSION_COLORS = {
 def time_to_decimal(t: time) -> float:
     return t.hour + t.minute/60
 
-# Build timeline rows
+# Timeline header (0–24h)
+hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
+for h in range(25):
+    hours_html += f"<div style='flex:1; font-size:10px; text-align:center;'>{h:02d}</div>"
+hours_html += "</div>"
+st.markdown(hours_html, unsafe_allow_html=True)
+
+# Build session bars
 for session, times in SESSION_HOURS.items():
     start, end = times[season.lower()]
     start_dec = time_to_decimal(start)
     end_dec = time_to_decimal(end)
 
-    # Handle wrap-around (e.g. Sydney)
-    if start_dec < end_dec:
-        spans = [(start_dec, end_dec)]
-    else:
-        spans = [(start_dec, 24), (0, end_dec)]
+    # Handle overnight sessions by extending end past 24h
+    if end_dec <= start_dec:
+        end_dec += 24
 
-    html_row = "<div style='display:flex; width:100%; height:28px; margin-bottom:6px;'>"
+    # Full row container (48h range compressed into 24h)
+    row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
 
-    for span in spans:
-        left = (span[0] / 24) * 100
-        width = ((span[1] - span[0]) / 24) * 100
-        html_row += f"""
-            <div style='position:relative; background:{SESSION_COLORS[session]};
-                        height:100%; width:{width}%; margin-left:{left - (0 if span==spans[0] else 0)}%;
-                        border-radius:4px; display:flex; justify-content:center; align-items:center;
-                        color:black; font-size:12px; font-weight:bold;'>
-                {session}
-            </div>
-        """
+    # Empty space before session
+    if start_dec > 0:
+        row_html += f"<div style='flex:{start_dec}; background:#eee;'></div>"
 
-    html_row += "</div>"
-    st.markdown(html_row, unsafe_allow_html=True)
+    # Session block
+    width = end_dec - start_dec
+    row_html += f"""
+        <div style='flex:{width}; background:{SESSION_COLORS[session]};
+                    display:flex; align-items:center; justify-content:center;
+                    color:#000; font-size:12px; font-weight:bold;'>
+            {session}
+        </div>
+    """
 
-# Hour labels below
-hour_labels = "<div style='display:flex; width:100%; height:20px;'>"
-for h in range(24):
-    hour_labels += f"<div style='flex:1; text-align:center; font-size:11px;'>{h:02d}:00</div>"
-hour_labels += "</div>"
-st.markdown(hour_labels, unsafe_allow_html=True)
+    # Empty space after session
+    if end_dec < 24:
+        row_html += f"<div style='flex:{24-end_dec}; background:#eee;'></div>"
 
+    row_html += "</div>"
+    st.markdown(row_html, unsafe_allow_html=True)
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
