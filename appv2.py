@@ -79,9 +79,33 @@ div[data-baseweb="tab-list"] button[aria-selected="false"] {{
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "My Account"]
+tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
 selected_tab = st.tabs(tabs)
 
+# ---------- Forex Fundamentals ----------
+with selected_tab[0]:
+    st.title("📅 Forex Fundamentals")
+    st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+    # your existing Forex Fundamentals code
+
+# ---------- Understanding Forex Fundamentals ----------
+with selected_tab[1]:
+    # your existing code for this tab
+
+# ---------- Technical Analysis ----------
+with selected_tab[2]:
+    # your existing Technical Analysis code
+
+# ---------- Tools ----------
+with selected_tab[3]:
+    st.title("🛠 Tools")
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])  # add more sub-tabs later
+    with tools_subtabs[0]:
+        st.write("Profit/Stop-loss Calculator content goes here")
+
+# ---------- My Account ----------
+with selected_tab[4]:
+    # your existing My Account code
 # =========================================================
 # HELPERS / DATA
 # =========================================================
