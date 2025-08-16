@@ -216,42 +216,43 @@ df_news = get_fxstreet_forex_news()
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
 with selected_tab[0]:
+    import streamlit as st
+    import requests
+    import pandas as pd
+    import plotly.express as px
+
     col1, col2 = st.columns([3, 1])
+
     with col1:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-import streamlit as st
-import requests
-import pandas as pd
-import plotly.express as px
+        # Fetch currency strength data
+        url = "https://currencystrengthmeter.org/api/strength"
+        response = requests.get(url)
+        data = response.json()
 
-# Fetch currency strength data
-url = "https://currencystrengthmeter.org/api/strength"
-response = requests.get(url)
-data = response.json()
+        # Process the data
+        currencies = data['currencies']
+        strength_values = data['strength']
 
-# Process the data
-currencies = data['currencies']
-strength_values = data['strength']
+        # Create a DataFrame
+        df = pd.DataFrame({
+            'Currency': currencies,
+            'Strength': strength_values
+        })
 
-# Create a DataFrame
-df = pd.DataFrame({
-    'Currency': currencies,
-    'Strength': strength_values
-})
+        # Sort the DataFrame by strength
+        df = df.sort_values(by='Strength', ascending=False)
 
-# Sort the DataFrame by strength
-df = df.sort_values(by='Strength', ascending=False)
+        # Plot the data
+        fig = px.bar(df, x='Currency', y='Strength', title="Currency Strength Meter")
+        st.plotly_chart(fig)
 
-# Plot the data
-fig = px.bar(df, x='Currency', y='Strength', title="Currency Strength Meter")
-st.plotly_chart(fig)
+        # Display the data table
+        st.write("Currency Strength Values:")
+        st.dataframe(df)
 
-# Display the data table
-st.write("Currency Strength Values:")
-st.dataframe(df)
-    
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
 
