@@ -358,11 +358,11 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-# -------- Forex Trading Sessions (Dark Theme, Fixed Overnight) --------
+# -------- Forex Trading Sessions (Corrected for Overnight) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
 season = st.radio("Select Season:", ["Summer", "Winter"])
 user_tz = st.selectbox(
@@ -370,11 +370,12 @@ user_tz = st.selectbox(
     ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"]
 )
 
+# Corrected session hours (local time)
 SESSION_HOURS = {
-    "Sydney": {"summer": (time(23,0), time(8,0)), "winter": (time(22,0), time(7,0))},
-    "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(1,0), time(10,0))},
-    "London": {"summer": (time(7,0), time(16,0)), "winter": (time(8,0), time(17,0))},
-    "New York": {"summer": (time(12,0), time(21,0)), "winter": (time(13,0), time(22,0))}
+    "Sydney": {"summer": (23, 8), "winter": (22, 7)},  # start_hour, end_hour (next day)
+    "Tokyo":  {"summer": (1, 10), "winter": (1, 10)},
+    "London": {"summer": (7, 16), "winter": (8, 17)},
+    "New York": {"summer": (12, 21), "winter": (13, 22)}
 }
 
 SESSION_COLORS = {
@@ -384,68 +385,55 @@ SESSION_COLORS = {
     "New York": "#e91e63"
 }
 
-tz_map = {
-    "Sydney": "Australia/Sydney",
-    "Tokyo": "Asia/Tokyo",
-    "London": "Europe/London",
-    "New York": "America/New_York"
-}
+def convert_to_user_hour(hour: int, tz_from: str, tz_to: str) -> float:
+    """Convert hour in tz_from to tz_to as decimal hour"""
+    dt = datetime(2025, 1, 1, hour, 0)  # dummy date
+    dt_from = pytz.timezone(tz_from).localize(dt)
+    dt_to = dt_from.astimezone(pytz.timezone(tz_to))
+    return dt_to.hour + dt_to.minute / 60
 
-user_zone = pytz.timezone(user_tz)
-
-def time_to_decimal(t: time) -> float:
-    return t.hour + t.minute/60
-
-def convert_session_to_user(session_name, start_time, end_time):
-    local = pytz.timezone(tz_map[session_name])
-    ref_date = datetime(2025,1,1)
-    
-    dt_start = local.localize(datetime.combine(ref_date, start_time))
-    dt_end = local.localize(datetime.combine(ref_date, end_time))
-    
-    # Handle overnight sessions
-    if end_time <= start_time:
-        dt_end += timedelta(days=1)
-    
-    dt_start_user = dt_start.astimezone(user_zone)
-    dt_end_user = dt_end.astimezone(user_zone)
-    
-    start_dec = dt_start_user.hour + dt_start_user.minute/60
-    end_dec = dt_end_user.hour + dt_end_user.minute/60
-    
-    # Wrap around 24h timeline
-    start_dec %= 24
-    end_dec %= 24
-    return start_dec, end_dec
-
-# Timeline header
+# Timeline header (0–24h)
 hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
-for h in range(25):
+for h in range(24):
     hours_html += f"<div style='flex:1; font-size:10px; text-align:center; color:white;'>{h:02d}</div>"
 hours_html += "</div>"
 st.markdown(hours_html, unsafe_allow_html=True)
 
 # Build session bars
 for session, times in SESSION_HOURS.items():
-    start_time, end_time = times[season.lower()]
-    start_dec, end_dec = convert_session_to_user(session, start_time, end_time)
-    
+    start_hour, end_hour = times[season.lower()]
     blocks = []
-    if end_dec <= start_dec:  # overnight in user TZ
-        blocks.append((start_dec, 24, SESSION_COLORS[session]))
-        blocks.append((0, end_dec, SESSION_COLORS[session]))
+
+    # Determine if overnight
+    overnight = end_hour <= start_hour
+
+    if overnight:
+        blocks.append((start_hour, 24))
+        blocks.append((0, end_hour))
     else:
-        blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
-    
+        blocks.append((start_hour, end_hour))
+
+    # Convert to user timezone
+    user_blocks = []
+    for block_start, block_end in blocks:
+        start_local = convert_to_user_hour(block_start, "UTC", user_tz)
+        end_local = convert_to_user_hour(block_end, "UTC", user_tz)
+        # Adjust for overnight conversion
+        if end_local <= start_local:
+            user_blocks.append((start_local, 24))
+            user_blocks.append((0, end_local))
+        else:
+            user_blocks.append((start_local, end_local))
+
+    # Render blocks
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
     cursor = 0
-    for block_start, block_end, color in blocks:
+    for block_start, block_end in user_blocks:
         if block_start > cursor:
-            # empty space before session
             row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
         width = block_end - block_start
         row_html += f"""
-            <div style='flex:{width}; background:{color};
+            <div style='flex:{width}; background:{SESSION_COLORS[session]};
                         display:flex; align-items:center; justify-content:center;
                         color:#000; font-size:12px; font-weight:bold;'>
                 {session}
@@ -455,7 +443,7 @@ for session, times in SESSION_HOURS.items():
     if cursor < 24:
         row_html += f"<div style='flex:{24 - cursor}; background:#171447;'></div>"
     row_html += "</div>"
-    
+
     st.markdown(row_html, unsafe_allow_html=True)
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
