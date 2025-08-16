@@ -97,8 +97,7 @@ selected_tab = st.tabs(tabs)
 
     # Your existing code here
 
-# ---------- Tools ----------
-with selected_tab[3]:
+selected_tab[3]:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
 
@@ -200,18 +199,22 @@ with selected_tab[3]:
                     accounts = json.load(f)
                 username = st.session_state.logged_in_user
                 saved_journal = accounts.get(username, {}).get("trade_journal", [])
+                # Convert to DataFrame to keep it editable
                 st.session_state.trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
 
-        # Display editable journal (linked directly to session_state)
-        st.data_editor(
+        # Ensure journal is always a DataFrame
+        if not isinstance(st.session_state.trade_journal, pd.DataFrame):
+            st.session_state.trade_journal = pd.DataFrame(st.session_state.trade_journal, columns=journal_cols)
+
+        # Display editable journal
+        journal_editor = st.data_editor(
             st.session_state.trade_journal,
             num_rows="dynamic",
             key="tools_backtesting_journal"
         )
 
-        # Update session_state immediately after editing
-        if "tools_backtesting_journal" in st.session_state:
-            st.session_state.trade_journal = st.session_state.tools_backtesting_journal
+        # Update session state with edits
+        st.session_state.trade_journal = journal_editor
 
         # Save to account button
         if "logged_in_user" in st.session_state:
