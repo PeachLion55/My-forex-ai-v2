@@ -9,6 +9,9 @@ import os
 import json
 import hashlib
 
+# Path to your accounts JSON file
+ACCOUNTS_FILE = "accounts.json"  # or a full path if needed
+
 # =========================================================
 # PAGE CONFIG
 # =========================================================
