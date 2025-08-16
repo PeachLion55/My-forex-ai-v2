@@ -9,3 +9,4 @@ transformers
 torch
 beautifulsoup4
 plotly
+selenium
