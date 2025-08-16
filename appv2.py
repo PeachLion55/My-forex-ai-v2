@@ -223,55 +223,42 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-import streamlit as st
-import requests
-import pandas as pd
-
-st.set_page_config(layout="wide")
-st.title("💪 Live Currency Strength Meter")
-
-# Major currencies
-major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
-
+# -------- Live Currency Strength Meter --------
+st.markdown("### 💪 Live Currency Strength")
 try:
-    # Fetch latest rates relative to EUR
+    # Major currencies
+    major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
+
+    # Fetch latest rates from Frankfurter (EUR base)
     response = requests.get("https://api.frankfurter.app/latest")
     data = response.json()
-    eur_rates = data["rates"]
-    eur_rates["EUR"] = 1.0  # add EUR itself
+    eur_rates = data.get("rates", {})
+    eur_rates["EUR"] = 1.0  # add EUR base
 
-    # Compute all pairs
-    currency_strength = {}
-    for ccy in major_currencies:
-        # Average of the currency relative to all other major currencies
-        sum_ratio = 0
-        count = 0
-        for other in major_currencies:
-            if ccy == other:
-                continue
-            # Compute ccy/other
-            pair_value = eur_rates[other] / eur_rates[ccy]
-            sum_ratio += pair_value
-            count += 1
-        currency_strength[ccy] = sum_ratio / count
+    # Convert all rates to USD base
+    usd_rate = eur_rates.get("USD")
+    if not usd_rate:
+        raise ValueError("USD rate missing from API")
+    rates_usd_base = {ccy: (rate / usd_rate) for ccy, rate in eur_rates.items() if ccy in major_currencies}
 
-    # Normalize to 0–1 scale
-    values = list(currency_strength.values())
-    min_val = min(values)
-    max_val = max(values)
+    # Ensure USD is 1
+    rates_usd_base["USD"] = 1.0
+
+    # Calculate strength as relative to min/max (0-100%)
+    max_rate = max(rates_usd_base.values())
+    min_rate = min(rates_usd_base.values())
     normalized_strength = {
-        ccy: (val - min_val) / (max_val - min_val) if max_val != min_val else 0.5
-        for ccy, val in currency_strength.items()
+        ccy: int(100 * (rate - min_rate) / (max_rate - min_rate)) if max_rate != min_rate else 50
+        for ccy, rate in rates_usd_base.items()
     }
 
-    # Display as horizontal bars
+    # Display as horizontal bars like LiveCharts
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
-        strength_pct = int(normalized_strength[ccy] * 100)
+        strength_pct = normalized_strength.get(ccy, 0)
         color = colors[i % 2]
-        st.markdown(
-            f"""
+        st.markdown(f"""
             <div style="
                 background-color:{color};
                 border-radius:10px;
@@ -296,13 +283,11 @@ try:
                 </div>
                 <p style='margin:0'>{strength_pct}%</p>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+        """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 except Exception as e:
-    st.error(f"Failed to load currency strength: {e}")    
+    st.error(f"Failed to load currency strength: {e}")
 
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
