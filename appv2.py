@@ -225,46 +225,46 @@ with selected_tab[0]:
 
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
+
 try:
+    # Major currencies
     major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
-    # Fetch latest rates (base=USD)
-    url = "https://api.exchangerate.host/latest?base=USD"
-    response = requests.get(url)
-    data = response.json()
-    rates = data.get("rates", {})
+    # Fetch rates for all pairs by using USD as base
+    api_key = st.secrets["EXCHANGERATE_HOST_API_KEY"]
+    rates_matrix = {}
+    for base in major_currencies:
+        url = f"https://api.exchangerate.host/latest?base={base}"
+        response = requests.get(url)
+        data = response.json()
+        rates_matrix[base] = {ccy: data["rates"].get(ccy) for ccy in major_currencies if ccy != base}
 
-    # Include USD explicitly
-    rates["USD"] = 1.0
-
-    # Compute relative strength
-    strength_scores = {}
+    # Compute strength
+    currency_strength = {}
     for ccy in major_currencies:
-        total = 0
-        count = 0
+        # Average relative performance vs other currencies
+        scores = []
         for other in major_currencies:
             if ccy == other:
                 continue
-            try:
-                # USD-based cross
-                cross = rates[other] / rates[ccy]
-                total += cross
-                count += 1
-            except KeyError:
-                continue
-        strength_scores[ccy] = total / count if count else 0
+            # If ccy is base in pair, a higher rate = stronger
+            if ccy in rates_matrix and other in rates_matrix[ccy]:
+                scores.append(rates_matrix[ccy][other])
+            # If other is base in pair, invert
+            elif other in rates_matrix and ccy in rates_matrix[other]:
+                scores.append(1 / rates_matrix[other][ccy])
+        currency_strength[ccy] = sum(scores) / len(scores)
 
-    # Normalize 0–1
-    min_s = min(strength_scores.values())
-    max_s = max(strength_scores.values())
-    normalized_strength = {ccy: (score - min_s) / (max_s - min_s) if max_s != min_s else 0.5 
-                           for ccy, score in strength_scores.items()}
+    # Normalize to 0–100%
+    min_s = min(currency_strength.values())
+    max_s = max(currency_strength.values())
+    normalized_strength = {ccy: int((s - min_s) / (max_s - min_s) * 100) for ccy, s in currency_strength.items()}
 
-    # Display as bars like LiveCharts
+    # Display bars
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
-        pct = int(normalized_strength[ccy] * 100)
+        strength_pct = normalized_strength[ccy]
         color = colors[i % 2]
         st.markdown(
             f"""
@@ -284,13 +284,13 @@ try:
                     margin:5px 0;
                 ">
                     <div style="
-                        width:{pct}%;
+                        width:{strength_pct}%;
                         background-color:#00ff00;
                         height:15px;
                         border-radius:5px;
                     "></div>
                 </div>
-                <p style='margin:0'>{pct}%</p>
+                <p style='margin:0'>{strength_pct}%</p>
             </div>
             """,
             unsafe_allow_html=True
