@@ -516,90 +516,107 @@ with selected_tab[2]:
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
+import streamlit as st
+import json, os
+import hashlib
+import pandas as pd
+
+ACCOUNTS_FILE = "user_accounts.json"
+if os.path.exists(ACCOUNTS_FILE):
+    with open(ACCOUNTS_FILE, "r") as f:
+        accounts = json.load(f)
+else:
+    accounts = {}
+
 with selected_tab[4]:
     st.title("👤 My Account")
-    st.caption("Manage your profile, preferences, and trading journal.")
 
-    import os, json
+    def hash_password(password):
+        return hashlib.sha256(password.encode()).hexdigest()
 
-    # Load user data if logged in
-    username = st.session_state.get("logged_in_user")
-    accounts = {}
-    ACCOUNTS_FILE = "user_accounts.json"
-    if os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, "r") as f:
-            accounts = json.load(f)
-    
-    user_data = accounts.get(username, {}) if username else {}
+    # ---------------- Login / Signup ----------------
+    if "logged_in_user" not in st.session_state:
+        st.subheader("🔑 Login or Sign Up")
+        username = st.text_input("Username", key="account_username")
+        password = st.text_input("Password", type="password", key="account_password")
+        colA, colB = st.columns(2)
 
-    colA, colB = st.columns(2)
+        with colA:
+            if st.button("Login"):
+                if username in accounts and accounts[username]["password"] == hash_password(password):
+                    st.session_state.logged_in_user = username
+                    st.success(f"Welcome back, {username}!")
+                else:
+                    st.error("Invalid username or password.")
 
-    with colA:
-        name = st.text_input("Name", value=st.session_state.get("name", user_data.get("name", "")))
-        base_ccy = st.selectbox(
-            "Preferred Base Currency",
-            ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"],
-            index=["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"].index(
-                st.session_state.get("base_ccy", user_data.get("base_ccy", "USD"))
-            )
-        )
+        with colB:
+            if st.button("Sign Up"):
+                if username in accounts:
+                    st.error("Username already exists.")
+                elif username and password:
+                    accounts[username] = {"password": hash_password(password), "preferences": {}, "trade_journal": []}
+                    with open(ACCOUNTS_FILE, "w") as f:
+                        json.dump(accounts, f, indent=4)
+                    st.session_state.logged_in_user = username
+                    st.success(f"Account created for {username}!")
+                else:
+                    st.error("Enter both username and password to sign up.")
 
-    with colB:
-        email = st.text_input("Email", value=st.session_state.get("email", user_data.get("email", "")))
-        alerts = st.checkbox(
-            "Email me before high-impact events",
-            value=st.session_state.get("alerts", user_data.get("alerts", True))
-        )
+    # ---------------- Logged-in User ----------------
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        st.subheader(f"Welcome, {username}!")
 
-    # Save preferences button
-    if st.button("💾 Save Preferences"):
-        if username:
-            # Update session state
-            st.session_state.name = name
-            st.session_state.email = email
-            st.session_state.base_ccy = base_ccy
-            st.session_state.alerts = alerts
+        # Load preferences
+        user_data = accounts.get(username, {})
+        preferences = user_data.get("preferences", {})
+        trade_journal_data = user_data.get("trade_journal", [])
 
-            # Save to accounts file
-            accounts.setdefault(username, {})
-            accounts[username]["name"] = name
-            accounts[username]["email"] = email
-            accounts[username]["base_ccy"] = base_ccy
-            accounts[username]["alerts"] = alerts
+        # ---------------- Preferences ----------------
+        st.markdown("### ⚙ Preferences")
+        colA, colB = st.columns(2)
+        with colA:
+            name = st.text_input("Name", value=preferences.get("name", ""))
+            base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0)
+        with colB:
+            email = st.text_input("Email", value=preferences.get("email", ""))
+            alerts = st.checkbox("Email me before high-impact events", value=preferences.get("alerts", True))
+
+        if st.button("Save Preferences"):
+            accounts[username]["preferences"] = {
+                "name": name,
+                "base_ccy": base_ccy,
+                "email": email,
+                "alerts": alerts
+            }
             with open(ACCOUNTS_FILE, "w") as f:
                 json.dump(accounts, f, indent=4)
-            st.success("Preferences saved to your account!")
-        else:
-            st.error("You must be logged in to save preferences.")
+            st.success("Preferences saved!")
 
-    # Display current profile
-    if username:
-        st.markdown(
-            f"**Current Profile:** {st.session_state.get('name', '')} | "
-            f"{st.session_state.get('base_ccy', '')} | Alerts: "
-            f"{'On' if st.session_state.get('alerts', False) else 'Off'}"
+        # ---------------- Trading Journal ----------------
+        st.markdown("### 📝 Trading Journal")
+        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+
+        # Initialize DataFrame
+        if trade_journal_data:
+            df_journal = pd.DataFrame(trade_journal_data, columns=journal_cols)
+        else:
+            df_journal = pd.DataFrame(columns=journal_cols)
+
+        # Editable DataFrame
+        updated_journal = st.data_editor(
+            data=df_journal,
+            num_rows="dynamic",
+            key="tools_backtesting_journal"
         )
 
-    # Optional: Show trading journal for logged in user
-    st.subheader("📝 Your Trading Journal")
-    journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+        if st.button("💾 Save Trading Journal"):
+            accounts[username]["trade_journal"] = updated_journal.to_dict(orient="records")
+            with open(ACCOUNTS_FILE, "w") as f:
+                json.dump(accounts, f, indent=4)
+            st.success("Trading journal saved!")
 
-    # Load journal from account
-    trade_journal = pd.DataFrame(user_data.get("trade_journal", []), columns=journal_cols) if username else pd.DataFrame(columns=journal_cols)
-
-    # Display editable journal
-    trade_journal = st.data_editor(
-        data=trade_journal,
-        num_rows="dynamic",
-        key="account_trade_journal"
-    )
-
-    # Save journal button
-    if username and st.button("💾 Save Trading Journal"):
-        accounts.setdefault(username, {})
-        accounts[username]["trade_journal"] = trade_journal.to_dict(orient="records")
-        with open(ACCOUNTS_FILE, "w") as f:
-            json.dump(accounts, f, indent=4)
-        st.success("Trading journal saved to your account!")
-    elif not username:
-        st.info("Sign in to save your trading journal to your account.")
+        # Logout
+        if st.button("Logout"):
+            del st.session_state.logged_in_user
+            st.experimental_rerun()
