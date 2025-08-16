@@ -226,25 +226,24 @@ with selected_tab[0]:
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
 try:
-    # Major currencies
     major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
+    symbols = ",".join([c for c in major_currencies if c != "EUR"])  # EUR is base
 
-    # Fetch latest rates from Frankfurter (EUR base)
-    response = requests.get("https://api.frankfurter.app/latest")
+    response = requests.get(f"https://api.frankfurter.app/latest?symbols={symbols}")
     data = response.json()
-    eur_rates = data.get("rates", {})
-    eur_rates["EUR"] = 1.0  # add EUR base
+    rates = data.get("rates", {})
+    rates["EUR"] = 1.0  # EUR base
 
-    # Convert all rates to USD base
-    usd_rate = eur_rates.get("USD")
-    if not usd_rate:
-        raise ValueError("USD rate missing from API")
-    rates_usd_base = {ccy: (rate / usd_rate) for ccy, rate in eur_rates.items() if ccy in major_currencies}
+    # Fill missing rates with 1 to avoid crash
+    for ccy in major_currencies:
+        if ccy not in rates:
+            rates[ccy] = 1.0
 
-    # Ensure USD is 1
-    rates_usd_base["USD"] = 1.0
+    # Convert all to USD base
+    usd_rate = rates.get("USD", 1.0)
+    rates_usd_base = {ccy: rate / usd_rate for ccy, rate in rates.items()}
 
-    # Calculate strength as relative to min/max (0-100%)
+    # Normalize 0–100%
     max_rate = max(rates_usd_base.values())
     min_rate = min(rates_usd_base.values())
     normalized_strength = {
@@ -252,7 +251,7 @@ try:
         for ccy, rate in rates_usd_base.items()
     }
 
-    # Display as horizontal bars like LiveCharts
+    # Display bars
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
