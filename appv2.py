@@ -358,7 +358,7 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-  # -------- Forex Trading Sessions (Continuous Blocks, No Gaps at Midnight) --------
+  # -------- Forex Trading Sessions (Dark Theme, Overnight Fix) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
@@ -390,7 +390,7 @@ def time_to_decimal(t: time) -> float:
 # Timeline header (0–24h)
 hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
 for h in range(25):
-    hours_html += f"<div style='flex:1; font-size:10px; text-align:center;'>{h:02d}</div>"
+    hours_html += f"<div style='flex:1; font-size:10px; text-align:center; color:white;'>{h:02d}</div>"
 hours_html += "</div>"
 st.markdown(hours_html, unsafe_allow_html=True)
 
@@ -399,32 +399,45 @@ for session, times in SESSION_HOURS.items():
     start, end = times[season.lower()]
     start_dec = time_to_decimal(start)
     end_dec = time_to_decimal(end)
-
-    # Handle overnight sessions by extending end past 24h
-    if end_dec <= start_dec:
-        end_dec += 24
-
-    # Full row container (48h range compressed into 24h)
+    
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
-
-    # Empty space before session
-    if start_dec > 0:
-        row_html += f"<div style='flex:{start_dec}; background:#eee;'></div>"
-
-    # Session block
-    width = end_dec - start_dec
-    row_html += f"""
-        <div style='flex:{width}; background:{SESSION_COLORS[session]};
-                    display:flex; align-items:center; justify-content:center;
-                    color:#000; font-size:12px; font-weight:bold;'>
-            {session}
-        </div>
-    """
-
-    # Empty space after session
-    if end_dec < 24:
-        row_html += f"<div style='flex:{24-end_dec}; background:#eee;'></div>"
-
+    
+    # Overnight session: split into two blocks
+    if end_dec <= start_dec:
+        # First block: start -> 24
+        row_html += f"<div style='flex:{start_dec}; background:#171447;'></div>"
+        row_html += f"""
+            <div style='flex:{24-start_dec}; background:{SESSION_COLORS[session]};
+                        display:flex; align-items:center; justify-content:center;
+                        color:#000; font-size:12px; font-weight:bold;'>
+                {session}
+            </div>
+        """
+        # Second block: 0 -> end
+        row_html += f"""
+            <div style='flex:{end_dec}; background:{SESSION_COLORS[session]};
+                        display:flex; align-items:center; justify-content:center;
+                        color:#000; font-size:12px; font-weight:bold;'>
+                {session}
+            </div>
+        """
+        if end_dec < 24:
+            row_html += f"<div style='flex:{24-end_dec}; background:#171447;'></div>"
+    else:
+        # Normal session
+        if start_dec > 0:
+            row_html += f"<div style='flex:{start_dec}; background:#171447;'></div>"
+        width = end_dec - start_dec
+        row_html += f"""
+            <div style='flex:{width}; background:{SESSION_COLORS[session]};
+                        display:flex; align-items:center; justify-content:center;
+                        color:#000; font-size:12px; font-weight:bold;'>
+                {session}
+            </div>
+        """
+        if end_dec < 24:
+            row_html += f"<div style='flex:{24-end_dec}; background:#171447;'></div>"
+    
     row_html += "</div>"
     st.markdown(row_html, unsafe_allow_html=True)
 # =========================================================
