@@ -218,6 +218,7 @@ df_news = get_fxstreet_forex_news()
 with selected_tab[0]:
     import streamlit as st
     import requests
+    from bs4 import BeautifulSoup
     import pandas as pd
     import plotly.express as px
 
@@ -227,26 +228,31 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
-        # Fetch currency strength data
-        url = "https://currencystrengthmeter.org/api/strength"
+        # Scrape LiveCharts currency strength
+        url = "https://www.livecharts.co.uk/currency-strength.php"
         response = requests.get(url)
-        data = response.json()
+        soup = BeautifulSoup(response.text, "html.parser")
 
-        # Process the data
-        currencies = data['currencies']
-        strength_values = data['strength']
+        # Find the table (update class if necessary)
+        table = soup.find("table", {"class": "currency-strength-table"})
+        rows = table.find_all("tr")[1:]  # skip header
 
-        # Create a DataFrame
-        df = pd.DataFrame({
-            'Currency': currencies,
-            'Strength': strength_values
-        })
+        currencies = []
+        strength_values = []
 
-        # Sort the DataFrame by strength
-        df = df.sort_values(by='Strength', ascending=False)
+        for row in rows:
+            cols = row.find_all("td")
+            currency = cols[0].text.strip()
+            strength = float(cols[1].text.strip())
+            currencies.append(currency)
+            strength_values.append(strength)
+
+        # Create DataFrame
+        df = pd.DataFrame({"Currency": currencies, "Strength": strength_values})
+        df = df.sort_values(by="Strength", ascending=False)
 
         # Plot the data
-        fig = px.bar(df, x='Currency', y='Strength', title="Currency Strength Meter")
+        fig = px.bar(df, x="Currency", y="Strength", title="Currency Strength Meter")
         st.plotly_chart(fig)
 
         # Display the data table
