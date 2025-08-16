@@ -236,38 +236,58 @@ from datetime import datetime
 import pandas as pd
 import json
 
-# ---------- Backtesting Tab ----------
-if selected_tab[3]:  # Tools tab
-    st.title("🧪 Backtesting")
+import streamlit as st
+import json
 
-    # ---------- TradingView Advanced Chart Widget ----------
-    st.markdown("### 📊 Candlestick Chart (TradingView)")
+if selected_tab[3]:  # Tools Tab
+    st.title("🛠 Tools")
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
 
-    # Prepare markers from logged trades
-    if "trades" not in st.session_state:
-        st.session_state.trades = []
+    # Profit/Stop-loss Calculator
+    with tools_subtabs[0]:
+        st.header("💰 Profit / Stop-loss Calculator")
+        st.markdown("Calculate your potential profit or loss for a trade.")
+        currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
+        account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"])
+        position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
+        open_price = st.number_input("Open Price", value=1.1000, step=0.0001)
+        close_price = st.number_input("Close Price", value=1.1050, step=0.0001)
+        trade_direction = st.radio("Trade Direction", ["Long", "Short"])
 
-    markers = []
-    for trade in st.session_state.trades:
-        markers.append({
-            "time": int(pd.Timestamp(trade["Date"]).timestamp()),
-            "position": "above" if trade["Direction"] == "Short" else "below",
-            "color": "red" if trade["Direction"] == "Short" else "green",
-            "shape": "arrow_up" if trade["Direction"] == "Long" else "arrow_down",
-            "text": f'{trade["Pair"]} {trade["Direction"]}'
-        })
+        pip_multiplier = 100 if "JPY" in currency_pair else 10000
+        pip_movement = abs(close_price - open_price) * pip_multiplier
 
-    # Embed TradingView advanced chart widget
-    st.components.v1.html(f"""
-        <div class="tradingview-widget-container">
-            <div id="tradingview_chart"></div>
+        exchange_rate = 1.1000
+        pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
+        profit_loss = pip_movement * pip_value
+
+        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
+        st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
+        st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
+
+    # Backtesting
+    with tools_subtabs[1]:
+        st.header("📊 Backtesting")
+        st.markdown(
+            "Analyze historical candlestick charts and log your trades manually."
+        )
+
+        # Optional: default symbol & interval
+        symbol = st.text_input("Symbol (TradingView format)", "EURUSD")
+        interval = st.selectbox("Interval", ["1", "5", "15", "60", "D", "W"], index=3)  # 60 min default
+
+        # TradingView widget container
+        st.components.v1.html(f"""
+        <div class="tradingview-widget-container" style="width:100%; height:600px;">
+            <div id="tradingview_chart" style="width:100%; height:100%;"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
             <script type="text/javascript">
                 new TradingView.widget({{
                     "container_id": "tradingview_chart",
-                    "autosize": true,
-                    "symbol": "EURUSD",
-                    "interval": "60",
+                    "width": "100%",
+                    "height": "100%",
+                    "symbol": "{symbol}",
+                    "interval": "{interval}",
                     "timezone": "Etc/UTC",
                     "theme": "dark",
                     "style": "1",
@@ -278,42 +298,25 @@ if selected_tab[3]:  # Tools tab
                     "hideideas": false,
                     "withdateranges": true,
                     "studies": ["MACD@tv-basicstudies", "RSI@tv-basicstudies"],
+                    "enabled_features": [
+                        "study_templates",
+                        "left_toolbar",
+                        "timeframes_toolbar",
+                        "chart_drawings",
+                        "compare_symbol"
+                    ],
                     "overrides": {{
                         "paneProperties.background": "#0b1e34",
                         "paneProperties.vertGridProperties.color": "#2a2a2a",
                         "paneProperties.horzGridProperties.color": "#2a2a2a"
-                    }},
-                    "markers": {json.dumps(markers)}
+                    }}
                 }});
             </script>
         </div>
-    """, height=550)
+        """, height=620)
 
-    # ---------- Trading Journal ----------
-    st.markdown("### 📝 Trading Journal")
-    with st.form("log_trade"):
-        trade_date = st.date_input("Trade Date", value=datetime.today())
-        pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
-        direction = st.radio("Direction", ["Long", "Short"])
-        entry = st.number_input("Entry Price", value=1.1000, step=0.0001)
-        exit_price = st.number_input("Exit Price", value=1.1050, step=0.0001)
-        lots = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
-        submitted = st.form_submit_button("Log Trade")
-
-        if submitted:
-            st.session_state.trades.append({
-                "Date": trade_date,
-                "Pair": pair,
-                "Direction": direction,
-                "Entry": entry,
-                "Exit": exit_price,
-                "Lots": lots
-            })
-
-    # Display logged trades
-    if st.session_state.trades:
-        st.markdown("### 💼 Logged Trades")
-        st.table(pd.DataFrame(st.session_state.trades))
+        st.markdown("### 📝 Trading Journal")
+        st.text_area("Log your trades here (date, entry, exit, notes)...", height=200)
 # ---------- My Account ----------
 with selected_tab[4]:
     st.title("👤 My Account")
