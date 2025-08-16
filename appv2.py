@@ -358,24 +358,25 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-# -------- Forex Trading Sessions (Corrected for Overnight) --------
+# -------- Forex Trading Sessions (Dark Theme, Corrected Overnight) --------
 st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, time
 
+# User options
 season = st.radio("Select Season:", ["Summer", "Winter"])
 user_tz = st.selectbox(
     "Your Time Zone:",
     ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"]
 )
 
-# Corrected session hours (local time)
+# Session timings
 SESSION_HOURS = {
-    "Sydney": {"summer": (23, 8), "winter": (22, 7)},  # start_hour, end_hour (next day)
-    "Tokyo":  {"summer": (1, 10), "winter": (1, 10)},
-    "London": {"summer": (7, 16), "winter": (8, 17)},
-    "New York": {"summer": (12, 21), "winter": (13, 22)}
+    "Sydney": {"summer": (time(23,0), time(8,0)), "winter": (time(22,0), time(7,0))},
+    "Tokyo":  {"summer": (time(1,0), time(10,0)), "winter": (time(0,0), time(9,0))},
+    "London": {"summer": (time(8,0), time(17,0)), "winter": (time(7,0), time(16,0))},
+    "New York": {"summer": (time(13,0), time(22,0)), "winter": (time(12,0), time(21,0))}
 }
 
 SESSION_COLORS = {
@@ -385,12 +386,19 @@ SESSION_COLORS = {
     "New York": "#e91e63"
 }
 
-def convert_to_user_hour(hour: int, tz_from: str, tz_to: str) -> float:
-    """Convert hour in tz_from to tz_to as decimal hour"""
-    dt = datetime(2025, 1, 1, hour, 0)  # dummy date
+def time_to_decimal(t: time) -> float:
+    return t.hour + t.minute / 60
+
+def convert_to_user_hour(hour: float, tz_from: str, tz_to: str) -> float:
+    """Convert hour in tz_from to tz_to as decimal hour, handling hours >= 24"""
+    day = 1
+    if hour >= 24:
+        hour -= 24
+        day = 2  # next day
+    dt = datetime(2025, 1, day, int(hour), int((hour % 1)*60))
     dt_from = pytz.timezone(tz_from).localize(dt)
     dt_to = dt_from.astimezone(pytz.timezone(tz_to))
-    return dt_to.hour + dt_to.minute / 60
+    return dt_to.hour + dt_to.minute/60
 
 # Timeline header (0–24h)
 hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
@@ -401,35 +409,31 @@ st.markdown(hours_html, unsafe_allow_html=True)
 
 # Build session bars
 for session, times in SESSION_HOURS.items():
-    start_hour, end_hour = times[season.lower()]
+    start, end = times[season.lower()]
+    start_hour = time_to_decimal(start)
+    end_hour = time_to_decimal(end)
+
     blocks = []
-
-    # Determine if overnight
-    overnight = end_hour <= start_hour
-
-    if overnight:
+    # Handle overnight
+    if end_hour <= start_hour:
         blocks.append((start_hour, 24))
         blocks.append((0, end_hour))
     else:
         blocks.append((start_hour, end_hour))
 
-    # Convert to user timezone
-    user_blocks = []
+    # Convert blocks to user timezone
+    blocks_local = []
     for block_start, block_end in blocks:
-        start_local = convert_to_user_hour(block_start, "UTC", user_tz)
-        end_local = convert_to_user_hour(block_end, "UTC", user_tz)
-        # Adjust for overnight conversion
-        if end_local <= start_local:
-            user_blocks.append((start_local, 24))
-            user_blocks.append((0, end_local))
-        else:
-            user_blocks.append((start_local, end_local))
+        local_start = convert_to_user_hour(block_start, "UTC", user_tz)
+        local_end = convert_to_user_hour(block_end, "UTC", user_tz)
+        blocks_local.append((local_start, local_end))
 
-    # Render blocks
+    # Render HTML row
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
     cursor = 0
-    for block_start, block_end in user_blocks:
+    for block_start, block_end in blocks_local:
         if block_start > cursor:
+            # empty space
             row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
         width = block_end - block_start
         row_html += f"""
