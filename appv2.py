@@ -185,14 +185,17 @@ with selected_tab[3]:
             height=650,
         )
 
-        st.subheader("📝 Trading Journal")
-        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-        st.data_editor(
-            data=None,  # starts empty
-            num_rows="dynamic",
-            columns=[{"name": col, "type": "text"} for col in journal_cols],
-            key="tools_backtesting_journal"
-        )
+       import pandas as pd
+
+st.subheader("📝 Trading Journal")
+journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+empty_journal = pd.DataFrame(columns=journal_cols)  # create empty DataFrame
+
+st.data_editor(
+    data=empty_journal,          # use DataFrame, not None
+    num_rows="dynamic",          # allow user to add rows
+    key="tools_backtesting_journal"
+)
 # =========================================================
 # HELPERS / DATA
 # =========================================================
