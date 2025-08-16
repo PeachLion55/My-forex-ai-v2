@@ -217,39 +217,84 @@ with selected_tab[3]:
 
 import pandas as pd
 
-# Backtesting Sub-tab
-with tools_subtabs[1]:
-    st.header("📊 Backtesting")
-    st.markdown("Upload historical price data (CSV) and define a simple strategy to backtest.")
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime
 
-    uploaded_file = st.file_uploader("Upload Historical Data CSV", type="csv")
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        st.write("Preview of data:", df.head())
+# ---------- Backtesting Tab ----------
+st.title("📊 Backtesting")
 
-        # User inputs for simple backtesting
-        open_col = st.selectbox("Column for Open Price", df.columns, index=0)
-        close_col = st.selectbox("Column for Close Price", df.columns, index=1)
-        short_ma = st.number_input("Short MA Period", min_value=1, value=5)
-        long_ma = st.number_input("Long MA Period", min_value=1, value=20)
+# Step 1: Upload CSV
+uploaded_file = st.file_uploader("Upload Historical Data (CSV)", type="csv")
 
-        if st.button("Run Backtest"):
-            df["Short_MA"] = df[close_col].rolling(short_ma).mean()
-            df["Long_MA"] = df[close_col].rolling(long_ma).mean()
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
 
-            df["Signal"] = 0
-            df.loc[df["Short_MA"] > df["Long_MA"], "Signal"] = 1   # Buy
-            df.loc[df["Short_MA"] < df["Long_MA"], "Signal"] = -1  # Sell
+    # Ensure proper columns exist
+    required_cols = ['Date', 'Open', 'High', 'Low', 'Close']
+    if not all(col in df.columns for col in required_cols):
+        st.error(f"CSV must contain columns: {required_cols}")
+    else:
+        # Parse Date and set as index
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.set_index('Date', inplace=True)
 
-            df["Position"] = df["Signal"].shift(1)
-            df["Returns"] = df[close_col].pct_change() * df["Position"]
+        st.success("File uploaded successfully!")
 
-            total_return = df["Returns"].sum() * 100
-            st.write(f"**Total Return:** {total_return:.2f}%")
+        # Step 2: Display Candlestick Chart
+        st.subheader("Candlestick Chart")
+        fig = go.Figure(data=[go.Candlestick(
+            x=df.index,
+            open=df['Open'],
+            high=df['High'],
+            low=df['Low'],
+            close=df['Close'],
+            increasing_line_color='green',
+            decreasing_line_color='red'
+        )])
 
-            # Plot equity curve
-            df["Equity"] = (1 + df["Returns"]).cumprod()
-            st.line_chart(df["Equity"])
+        fig.update_layout(
+            xaxis_rangeslider_visible=True,
+            xaxis_title="Date",
+            yaxis_title="Price",
+            height=500,
+            template='plotly_dark'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Step 3: Trading Journal
+        st.subheader("📒 Trading Journal")
+
+        if 'journal' not in st.session_state:
+            st.session_state['journal'] = []
+
+        with st.form(key="trade_form", clear_on_submit=True):
+            trade_date = st.date_input("Trade Date", value=datetime.today())
+            trade_pair = st.text_input("Currency Pair", "EUR/USD")
+            trade_direction = st.selectbox("Trade Direction", ["Long", "Short"])
+            entry_price = st.number_input("Entry Price", value=0.0, step=0.0001)
+            exit_price = st.number_input("Exit Price", value=0.0, step=0.0001)
+            position_size = st.number_input("Position Size (lots)", value=0.1, step=0.01)
+            notes = st.text_area("Notes / Strategy")
+
+            submit_trade = st.form_submit_button("Log Trade")
+            if submit_trade:
+                trade_record = {
+                    "Date": trade_date,
+                    "Pair": trade_pair,
+                    "Direction": trade_direction,
+                    "Entry": entry_price,
+                    "Exit": exit_price,
+                    "Size": position_size,
+                    "Notes": notes
+                }
+                st.session_state.journal.append(trade_record)
+                st.success("Trade logged successfully!")
+
+        # Display Trading Journal
+        if st.session_state.journal:
+            st.table(pd.DataFrame(st.session_state.journal))
         
 # ---------- My Account ----------
 with selected_tab[4]:
