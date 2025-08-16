@@ -219,7 +219,28 @@ with selected_tab[0]:
     st.title("📅 Forex Fundamentals")
     st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
 
+import requests
 
+# Base currency
+base_currency = "EUR"
+
+# Target currency
+target_currency = "USD"  # change as needed
+
+# Amount to convert
+amount = 100
+
+# API endpoint
+url = f"https://api.exchangerate.host/convert?from={base_currency}&to={target_currency}&amount={amount}"
+
+response = requests.get(url)
+data = response.json()
+
+if response.status_code == 200 and data.get("success", True):
+    result = data["result"]
+    print(f"{amount} {base_currency} = {result} {target_currency}")
+else:
+    print("Error fetching exchange rate:", data)
 
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
