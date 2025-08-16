@@ -636,11 +636,11 @@ with selected_tab[2]:
 
 
 # =========================================================
-# TAB 5: MT5 STATS DASHBOARD
+# TAB 5: MT5 STATS DASHBOARD (Upgraded)
 # =========================================================
 with selected_tab[5]:
-    st.title("📊 MT5 Stats Dashboard")
-    st.markdown("Upload your MetaTrader 5 trade history CSV file to view your trading stats.")
+    st.title("📊 MT5 Stats Dashboard 2.0")
+    st.markdown("Upload your MetaTrader 5 trade history CSV file to explore your trading performance.")
 
     # ---------------- CSV UPLOAD ----------------
     uploaded_file = st.file_uploader("Upload MT5 Trade History CSV", type=['csv'])
@@ -648,65 +648,79 @@ with selected_tab[5]:
         import pandas as pd
         import numpy as np
         import plotly.express as px
+        import plotly.graph_objects as go
 
-        df_trades = pd.read_csv(uploaded_file)
+        df = pd.read_csv(uploaded_file)
 
-        # Ensure required columns exist
-        if 'profit' not in df_trades.columns or 'time' not in df_trades.columns:
+        # Ensure required columns
+        if 'profit' not in df.columns or 'time' not in df.columns:
             st.error("CSV must contain at least 'time' and 'profit' columns.")
         else:
-            # Map MT5 types if present
-            if 'type' in df_trades.columns:
-                df_trades['Type'] = df_trades['type'].map({0: 'Buy', 1: 'Sell'})
-            else:
-                df_trades['Type'] = 'N/A'
+            df['Profit'] = df['profit']
+            df['Symbol'] = df.get('symbol', 'N/A')
+            df['Date'] = pd.to_datetime(df['time'], unit='s', errors='coerce')
 
-            df_trades['Profit'] = df_trades['profit']
-            df_trades['Symbol'] = df_trades.get('symbol', 'N/A')
-            df_trades['Date'] = pd.to_datetime(df_trades['time'], unit='s', errors='coerce')
+            if 'type' in df.columns:
+                df['Type'] = df['type'].map({0:'Buy',1:'Sell'})
+            else:
+                df['Type'] = 'N/A'
 
             # ---------------- METRICS ----------------
             st.subheader("📊 Key Metrics")
-            total_trades = len(df_trades)
-            total_profit = df_trades['Profit'].sum()
-            wins = df_trades[df_trades['Profit'] > 0]
-            losses = df_trades[df_trades['Profit'] < 0]
-            win_rate = len(wins) / total_trades * 100 if total_trades > 0 else 0
-            avg_trade = df_trades['Profit'].mean()
-            largest_win = df_trades['Profit'].max()
-            largest_loss = df_trades['Profit'].min()
-            long_trades = len(df_trades[df_trades['Type'] == 'Buy'])
-            short_trades = len(df_trades[df_trades['Type'] == 'Sell'])
+            total_trades = len(df)
+            total_profit = df['Profit'].sum()
+            wins = df[df['Profit'] > 0]
+            losses = df[df['Profit'] < 0]
+            win_rate = len(wins)/total_trades*100 if total_trades>0 else 0
+            avg_trade = df['Profit'].mean()
+            largest_win = df['Profit'].max()
+            largest_loss = df['Profit'].min()
+            long_trades = len(df[df['Type']=='Buy'])
+            short_trades = len(df[df['Type']=='Sell'])
 
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Trades 📝", total_trades)
-            m2.metric("Total Profit 💵", f"{total_profit:.2f}")
-            m3.metric("Win Rate 🏆", f"{win_rate:.1f}%")
-            m4.metric("Avg Trade P/L 📊", f"{avg_trade:.2f}")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total Trades 📝", total_trades)
+            col2.metric("Total Profit 💵", f"{total_profit:.2f}")
+            col3.metric("Win Rate 🏆", f"{win_rate:.1f}%")
+            col4.metric("Avg Trade P/L 📊", f"{avg_trade:.2f}")
 
-            m5, m6, m7, m8 = st.columns(4)
-            m5.metric("Largest Win 🥳", f"{largest_win:.2f}")
-            m6.metric("Largest Loss 😢", f"{largest_loss:.2f}")
-            m7.metric("Long Trades 📈", long_trades)
-            m8.metric("Short Trades 📉", short_trades)
+            col5, col6, col7, col8 = st.columns(4)
+            col5.metric("Largest Win 🥳", f"{largest_win:.2f}")
+            col6.metric("Largest Loss 😢", f"{largest_loss:.2f}")
+            col7.metric("Long Trades 📈", long_trades)
+            col8.metric("Short Trades 📉", short_trades)
 
-            # ---------------- P/L OVER TIME ----------------
+            # ---------------- CUMULATIVE P/L ----------------
             st.subheader("📈 Cumulative P/L Over Time")
-            df_trades_sorted = df_trades.sort_values('Date')
-            df_trades_sorted['Cumulative Profit'] = df_trades_sorted['Profit'].cumsum()
-            fig_cum = px.line(df_trades_sorted, x='Date', y='Cumulative Profit',
+            df_sorted = df.sort_values('Date')
+            df_sorted['Cumulative Profit'] = df_sorted['Profit'].cumsum()
+            fig_cum = px.line(df_sorted, x='Date', y='Cumulative Profit',
                               title="Cumulative Profit Over Time", markers=True)
             st.plotly_chart(fig_cum, use_container_width=True)
 
+            # ---------------- PROFIT DISTRIBUTION ----------------
+            st.subheader("📊 Profit Distribution")
+            fig_dist = px.histogram(df, x='Profit', nbins=30, color=df['Profit']>0,
+                                    color_discrete_map={True:'green', False:'red'},
+                                    title="Profit Distribution (Green=Win, Red=Loss)")
+            st.plotly_chart(fig_dist, use_container_width=True)
+
             # ---------------- TRADES BY SYMBOL ----------------
             st.subheader("🔢 Trades by Symbol")
-            symbol_counts = df_trades['Symbol'].value_counts().reset_index()
+            symbol_counts = df['Symbol'].value_counts().reset_index()
             symbol_counts.columns = ['Symbol', 'Trades']
             fig_sym = px.bar(symbol_counts, x='Symbol', y='Trades', color='Symbol', text='Trades')
             st.plotly_chart(fig_sym, use_container_width=True)
 
+            # ---------------- TRADES BY TYPE ----------------
+            st.subheader("📊 Trades by Type")
+            type_counts = df['Type'].value_counts().reset_index()
+            type_counts.columns = ['Type', 'Count']
+            fig_type = px.pie(type_counts, names='Type', values='Count', title="Trade Type Breakdown")
+            st.plotly_chart(fig_type, use_container_width=True)
+
             # ---------------- RECENT TRADES ----------------
             st.subheader("📋 Recent Trades")
-            recent_cols = ['Date', 'Symbol', 'Type', 'volume', 'Profit']
-            existing_cols = [col for col in recent_cols if col in df_trades.columns]
-            st.dataframe(df_trades[existing_cols].sort_values(by='Date', ascending=False).reset_index(drop=True))
+            display_cols = ['Date', 'Symbol', 'Type', 'volume', 'Profit']
+            display_cols = [c for c in display_cols if c in df.columns]
+            st.dataframe(df[display_cols].sort_values('Date', ascending=False).reset_index(drop=True))
