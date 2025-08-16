@@ -640,53 +640,30 @@ with selected_tab[2]:
 # =========================================================
 with selected_tab[5]:
     st.title("📊 MT5 Stats Dashboard")
-    st.markdown("Enter your MetaTrader 5 account details to fetch your trading stats.")
+    st.markdown("Upload your MetaTrader 5 trade history CSV file to view your trading stats.")
 
-    # ---------------- MT5 LOGIN ----------------
-    mt5_login_expander = st.expander("MT5 Login")
-    with mt5_login_expander:
-        mt5_server = st.text_input("Server", key="mt5_server")
-        mt5_login = st.text_input("Login (Account Number)", key="mt5_login")
-        mt5_password = st.text_input("Password", type="password", key="mt5_password")
-        if st.button("Connect to MT5"):
-            try:
-                import MetaTrader5 as mt5
-                if not mt5.initialize(login=int(mt5_login), password=mt5_password, server=mt5_server):
-                    st.error(f"MT5 initialization failed: {mt5.last_error()}")
-                    st.session_state.mt5_connected = False
-                else:
-                    st.success("✅ Connected to MT5 successfully!")
-                    st.session_state.mt5_connected = True
-            except Exception as e:
-                st.error(f"Error connecting to MT5: {e}")
-                st.session_state.mt5_connected = False
-
-    # ---------------- DASHBOARD ----------------
-    if st.session_state.get("mt5_connected", False):
+    # ---------------- CSV UPLOAD ----------------
+    uploaded_file = st.file_uploader("Upload MT5 Trade History CSV", type=['csv'])
+    if uploaded_file:
         import pandas as pd
         import numpy as np
         import plotly.express as px
 
-        # ---------------- ACCOUNT INFO ----------------
-        account_info = mt5.account_info()
-        if account_info:
-            st.subheader("💼 Account Summary")
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Balance 💰", f"{account_info.balance:.2f}")
-            col2.metric("Equity 📈", f"{account_info.equity:.2f}")
-            col3.metric("Free Margin 🟢", f"{account_info.margin_free:.2f}")
-            col4.metric("Leverage ⚡", f"{account_info.leverage}x")
+        df_trades = pd.read_csv(uploaded_file)
 
-        # ---------------- FETCH TRADES ----------------
-        positions = mt5.history_deals_get()
-        if positions:
-            df_trades = pd.DataFrame([deal._asdict() for deal in positions])
-            
-            # Ensure required columns exist
-            df_trades['Profit'] = df_trades.get('profit', 0)
+        # Ensure required columns exist
+        if 'profit' not in df_trades.columns or 'time' not in df_trades.columns:
+            st.error("CSV must contain at least 'time' and 'profit' columns.")
+        else:
+            # Map MT5 types if present
+            if 'type' in df_trades.columns:
+                df_trades['Type'] = df_trades['type'].map({0: 'Buy', 1: 'Sell'})
+            else:
+                df_trades['Type'] = 'N/A'
+
+            df_trades['Profit'] = df_trades['profit']
             df_trades['Symbol'] = df_trades.get('symbol', 'N/A')
-            df_trades['Type'] = df_trades.get('type', 0).map({0: 'Buy', 1: 'Sell'})
-            df_trades['Date'] = pd.to_datetime(df_trades['time'], unit='s')
+            df_trades['Date'] = pd.to_datetime(df_trades['time'], unit='s', errors='coerce')
 
             # ---------------- METRICS ----------------
             st.subheader("📊 Key Metrics")
@@ -714,11 +691,11 @@ with selected_tab[5]:
             m8.metric("Short Trades 📉", short_trades)
 
             # ---------------- P/L OVER TIME ----------------
-            st.subheader("📈 P/L Over Time")
+            st.subheader("📈 Cumulative P/L Over Time")
             df_trades_sorted = df_trades.sort_values('Date')
             df_trades_sorted['Cumulative Profit'] = df_trades_sorted['Profit'].cumsum()
-            fig_cum = px.line(df_trades_sorted, x='Date', y='Cumulative Profit', title="Cumulative Profit Over Time",
-                              markers=True)
+            fig_cum = px.line(df_trades_sorted, x='Date', y='Cumulative Profit',
+                              title="Cumulative Profit Over Time", markers=True)
             st.plotly_chart(fig_cum, use_container_width=True)
 
             # ---------------- TRADES BY SYMBOL ----------------
@@ -730,9 +707,6 @@ with selected_tab[5]:
 
             # ---------------- RECENT TRADES ----------------
             st.subheader("📋 Recent Trades")
-            recent_cols = ['Date', 'Symbol', 'Type', 'Volume', 'Profit']
+            recent_cols = ['Date', 'Symbol', 'Type', 'volume', 'Profit']
             existing_cols = [col for col in recent_cols if col in df_trades.columns]
             st.dataframe(df_trades[existing_cols].sort_values(by='Date', ascending=False).reset_index(drop=True))
-
-        else:
-            st.info("No historical trades found. Execute some trades to see your stats.")
