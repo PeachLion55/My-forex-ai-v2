@@ -222,79 +222,80 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime
+
 # ---------- Backtesting Tab ----------
-st.title("📊 Backtesting")
+if selected_tab[3]:  # Assuming tab index 3 is Tools
+    st.title("🧪 Backtesting")
 
-# Step 1: Upload CSV
-uploaded_file = st.file_uploader("Upload Historical Data (CSV)", type="csv")
+    # Load historical data
+    st.markdown("### 📊 Candlestick Chart")
+    uploaded_file = st.file_uploader("Upload historical data CSV (optional)", type=["csv"])
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-
-    # Ensure proper columns exist
-    required_cols = ['Date', 'Open', 'High', 'Low', 'Close']
-    if not all(col in df.columns for col in required_cols):
-        st.error(f"CSV must contain columns: {required_cols}")
-    else:
-        # Parse Date and set as index
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        # Expecting columns: Date, Open, High, Low, Close
         df['Date'] = pd.to_datetime(df['Date'])
-        df.set_index('Date', inplace=True)
+    else:
+        # Example data if no file is uploaded
+        df = pd.DataFrame({
+            "Date": pd.date_range(start="2025-08-01", periods=10),
+            "Open": [1.1000,1.1020,1.1010,1.1030,1.1040,1.1025,1.1035,1.1050,1.1060,1.1070],
+            "High": [1.1050,1.1060,1.1040,1.1070,1.1080,1.1055,1.1065,1.1080,1.1090,1.1100],
+            "Low":  [1.0980,1.1000,1.0990,1.1010,1.1020,1.1005,1.1015,1.1030,1.1040,1.1050],
+            "Close":[1.1020,1.1040,1.1015,1.1050,1.1060,1.1035,1.1050,1.1070,1.1080,1.1095]
+        })
 
-        st.success("File uploaded successfully!")
+    # Candlestick chart
+    fig = go.Figure(data=[go.Candlestick(
+        x=df['Date'],
+        open=df['Open'],
+        high=df['High'],
+        low=df['Low'],
+        close=df['Close']
+    )])
 
-        # Step 2: Display Candlestick Chart
-        st.subheader("Candlestick Chart")
-        fig = go.Figure(data=[go.Candlestick(
-            x=df.index,
-            open=df['Open'],
-            high=df['High'],
-            low=df['Low'],
-            close=df['Close'],
-            increasing_line_color='green',
-            decreasing_line_color='red'
-        )])
+    fig.update_layout(
+        title="📈 Historical Candlestick Chart",
+        xaxis_title="Date",
+        yaxis_title="Price",
+        xaxis_rangeslider_visible=False,
+        height=500
+    )
 
-        fig.update_layout(
-            xaxis_rangeslider_visible=True,
-            xaxis_title="Date",
-            yaxis_title="Price",
-            height=500,
-            template='plotly_dark'
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-        # Step 3: Trading Journal
-        st.subheader("📒 Trading Journal")
+    # ---------- Trading Journal ----------
+    st.markdown("### 📝 Trading Journal")
+    if "trades" not in st.session_state:
+        st.session_state.trades = []
 
-        if 'journal' not in st.session_state:
-            st.session_state['journal'] = []
+    with st.form("log_trade"):
+        trade_date = st.date_input("Trade Date", value=datetime.today())
+        pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
+        direction = st.radio("Direction", ["Long", "Short"])
+        entry = st.number_input("Entry Price", value=1.1000, step=0.0001)
+        exit_price = st.number_input("Exit Price", value=1.1050, step=0.0001)
+        lots = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
+        submitted = st.form_submit_button("Log Trade")
 
-        with st.form(key="trade_form", clear_on_submit=True):
-            trade_date = st.date_input("Trade Date", value=datetime.today())
-            trade_pair = st.text_input("Currency Pair", "EUR/USD")
-            trade_direction = st.selectbox("Trade Direction", ["Long", "Short"])
-            entry_price = st.number_input("Entry Price", value=0.0, step=0.0001)
-            exit_price = st.number_input("Exit Price", value=0.0, step=0.0001)
-            position_size = st.number_input("Position Size (lots)", value=0.1, step=0.01)
-            notes = st.text_area("Notes / Strategy")
+        if submitted:
+            st.session_state.trades.append({
+                "Date": trade_date,
+                "Pair": pair,
+                "Direction": direction,
+                "Entry": entry,
+                "Exit": exit_price,
+                "Lots": lots
+            })
 
-            submit_trade = st.form_submit_button("Log Trade")
-            if submit_trade:
-                trade_record = {
-                    "Date": trade_date,
-                    "Pair": trade_pair,
-                    "Direction": trade_direction,
-                    "Entry": entry_price,
-                    "Exit": exit_price,
-                    "Size": position_size,
-                    "Notes": notes
-                }
-                st.session_state.journal.append(trade_record)
-                st.success("Trade logged successfully!")
-
-        # Display Trading Journal
-        if st.session_state.journal:
-            st.table(pd.DataFrame(st.session_state.journal))
+    # Display logged trades
+    if st.session_state.trades:
+        st.markdown("### 💼 Logged Trades")
+        st.table(pd.DataFrame(st.session_state.trades))
         
 # ---------- My Account ----------
 with selected_tab[4]:
