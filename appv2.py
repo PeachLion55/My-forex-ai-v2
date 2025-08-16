@@ -232,32 +232,6 @@ with selected_tab[3]:
         else:
             st.info("Sign in to save your trading journal to your account.")
 
-# ---------------- Currency Correlation ----------------
-with tools_subtabs[2]:
-    st.header("💱 Currency Correlation")
-    st.markdown("View and explore currency correlation data.")
-
-    import pandas as pd
-    import os
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-
-    CSV_FILE = "currency correlation table.csv"
-    if os.path.exists(CSV_FILE):
-        correlation_df = pd.read_csv(CSV_FILE, index_col=0)
-        
-        # Display the dataframe
-        st.dataframe(correlation_df, use_container_width=True)
-        
-        # ---------------- Heatmap ----------------
-        st.subheader("Correlation Heatmap")
-        plt.figure(figsize=(10,8))
-        sns.heatmap(correlation_df, annot=True, cmap="coolwarm", center=0)
-        st.pyplot(plt)
-        
-    else:
-        st.error(f"{CSV_FILE} not found. Please upload it to the project folder.")
-
 
 # =========================================================
 # TAB 4: MY ACCOUNT
