@@ -385,7 +385,7 @@ SESSION_COLORS = {
 }
 
 def time_to_decimal(t: time) -> float:
-    return t.hour + t.minute/60
+    return t.hour + t.minute / 60
 
 # Timeline header (0–24h)
 hours_html = "<div style='display:flex; width:100%; margin-bottom:6px;'>"
@@ -400,8 +400,9 @@ for session, times in SESSION_HOURS.items():
     start_dec = time_to_decimal(start)
     end_dec = time_to_decimal(end)
     
+    # Handle overnight session
     blocks = []
-    if end_dec <= start_dec:  # Overnight session
+    if end_dec <= start_dec:
         blocks.append((start_dec, 24, SESSION_COLORS[session]))
         blocks.append((0, end_dec, SESSION_COLORS[session]))
     else:
@@ -414,10 +415,11 @@ for session, times in SESSION_HOURS.items():
             # empty space before session
             row_html += f"<div style='flex:{block_start - cursor}; background:#171447;'></div>"
         width = block_end - block_start
+        text_color = "#000" if color != "#f4c430" else "#000"  # London yellow stays readable
         row_html += f"""
             <div style='flex:{width}; background:{color};
                         display:flex; align-items:center; justify-content:center;
-                        color:#000; font-size:12px; font-weight:bold;'>
+                        color:{text_color}; font-size:12px; font-weight:bold;'>
                 {session}
             </div>
         """
