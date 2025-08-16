@@ -222,6 +222,8 @@ with selected_tab[0]:
     import requests
     import pandas as pd
     import streamlit as st
+    import plotly.express as px
+    import time
 
     # Safe secret check
     try:
@@ -233,53 +235,62 @@ with selected_tab[0]:
     # Major currencies
     currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
 
-    # Select “display base currency” (for user convenience)
+    # Select display base currency
     display_base = st.selectbox("Select Display Base Currency", currencies, index=currencies.index("USD"))
 
-    # Fixer.io endpoint (free plan, base EUR)
-    url = f"http://data.fixer.io/api/latest?access_key={api_key}&symbols={','.join(currencies)}"
+    # Placeholder for live updates
+    chart_placeholder = st.empty()
+    table_placeholder = st.empty()
 
-    try:
+    refresh_interval = 30  # seconds
+
+    # Function to fetch rates and compute strength
+    def get_rates_and_strength():
+        url = f"http://data.fixer.io/api/latest?access_key={api_key}&symbols={','.join(currencies)}"
         response = requests.get(url)
         data = response.json()
 
         if not data.get("success", False):
             st.error(f"Error fetching rates: {data.get('error', {}).get('info', 'Unknown error')}")
-            st.stop()
+            return None, None
 
-        rates = data["rates"]  # EUR is base
+        rates = data["rates"]  # EUR base
 
-        # Convert all rates to selected display base currency
+        # Convert all rates to selected display base
         base_rate = rates[display_base]
         converted_rates = {c: r / base_rate for c, r in rates.items()}
 
-        # Compute strength: average vs all others using converted rates
-        strength = {}
-        for c1 in currencies:
-            score = 0
-            for c2 in currencies:
-                if c1 != c2:
-                    score += converted_rates[c1] / converted_rates[c2]
-            strength[c1] = score / (len(currencies) - 1)
+        # Normalized strength: scale 0–1
+        min_rate = min(converted_rates.values())
+        max_rate = max(converted_rates.values())
+        strength = {c: (val - min_rate) / (max_rate - min_rate) for c, val in converted_rates.items()}
 
-        # Sort strongest to weakest
-        sorted_strength = dict(sorted(strength.items(), key=lambda x: x[1], reverse=True))
+        return converted_rates, strength
 
-        st.subheader(f"💪 Currency Strength Ranking (Base: {display_base})")
-        for c, s in sorted_strength.items():
-            st.write(f"{c}: {s:.2f}")
+    # Main loop (refresh every X seconds)
+    while True:
+        converted_rates, strength = get_rates_and_strength()
+        if converted_rates is None:
+            break
 
-        # Bar chart visualization
-        df_strength = pd.DataFrame(list(sorted_strength.items()), columns=["Currency", "Strength"])
-        st.bar_chart(df_strength.set_index("Currency"))
+        # Prepare DataFrame for plotting
+        df_strength = pd.DataFrame(list(strength.items()), columns=["Currency", "Strength"])
+        df_strength = df_strength.sort_values(by="Strength", ascending=False)
 
-        # Optional: show conversion table from display_base to all others
-        st.subheader(f"💱 {display_base} Conversion Rates")
+        # Plotly bar chart
+        fig = px.bar(df_strength, x="Currency", y="Strength", 
+                     title=f"Currency Strength Ranking (Base: {display_base})",
+                     text="Strength", color="Strength", color_continuous_scale="Viridis")
+        fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+        fig.update_layout(yaxis=dict(range=[0,1]))
+
+        chart_placeholder.plotly_chart(fig, use_container_width=True)
+
+        # Conversion table
         df_conv = pd.DataFrame(list(converted_rates.items()), columns=["Currency", f"{display_base} Rate"])
-        st.table(df_conv.set_index("Currency"))
+        table_placeholder.table(df_conv.set_index("Currency"))
 
-    except Exception as e:
-        st.error(f"An error occurred: {e}")
+        time.sleep(refresh_interval)
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
