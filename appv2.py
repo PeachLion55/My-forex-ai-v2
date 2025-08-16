@@ -98,9 +98,34 @@ with selected_tab[2]:
 # ---------- Tools ----------
 with selected_tab[3]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])  # add more sub-tabs later
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator"])
+
     with tools_subtabs[0]:
-        st.write("Profit/Stop-loss Calculator content goes here")
+        st.header("💰 Profit / Stop-loss Calculator")
+        st.markdown("Calculate your potential profit or loss for a trade.")
+
+        # Input fields
+        currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"])
+        account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"])
+        position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01)
+        open_price = st.number_input("Open Price", value=1.1000, step=0.0001)
+        close_price = st.number_input("Close Price", value=1.1050, step=0.0001)
+        trade_direction = st.radio("Trade Direction", ["Long", "Short"])
+
+        # Calculate pip movement
+        pip_movement = abs(close_price - open_price) * 10000 if "JPY" not in currency_pair else abs(close_price - open_price) * 100
+
+        # Calculate pip value
+        exchange_rate = 1.1000  # Placeholder, can be updated dynamically later
+        pip_value = (0.0001 / exchange_rate) * position_size * 100000 if "JPY" not in currency_pair else (0.01 / exchange_rate) * position_size * 100000
+
+        # Calculate profit/loss
+        profit_loss = pip_movement * pip_value
+
+        # Display results
+        st.write(f"**Pip Movement**: {pip_movement} pips")
+        st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
+        st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
 # ---------- My Account ----------
 with selected_tab[4]:
