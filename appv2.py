@@ -226,26 +226,22 @@ with selected_tab[0]:
 # -------- Live Currency Strength Meter --------
 st.markdown("### 💪 Live Currency Strength")
 try:
-    # Fetch latest exchange rates relative to USD
-    api_key = st.secrets["EXCHANGERATE_HOST_API_KEY"]
-    url = f"https://api.exchangerate.host/latest?base=USD"
+    url = "https://api.exchangerate.host/latest?base=USD"
     response = requests.get(url)
     data = response.json()
     rates = data.get("rates", {})
 
-    # Major currencies
-    major_currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"]
-    currency_strength = {ccy: rates.get(ccy, 0) for ccy in major_currencies}
+    # Major currencies (exclude USD from normalization if base is USD)
+    major_currencies = ["EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD", "USD"]
 
-    # Normalize strength to 0–1 scale safely
-    max_rate = max(currency_strength.values())
-    min_rate = min(currency_strength.values())
-    if max_rate == min_rate:
-        normalized_strength = {ccy: 0.5 for ccy in currency_strength}  # all equal, show 50%
-    else:
-        normalized_strength = {ccy: (rate - min_rate) / (max_rate - min_rate) for ccy, rate in currency_strength.items()}
+    currency_strength = {ccy: rates.get(ccy, 1 if ccy == "USD" else 0) for ccy in major_currencies}
 
-    # Display as horizontal bars like LiveCharts
+    # Normalize relative to the mean
+    avg_rate = sum(currency_strength.values()) / len(currency_strength)
+    normalized_strength = {ccy: min(max((rate - avg_rate) / avg_rate * 0.5 + 0.5, 0), 1) 
+                           for ccy, rate in currency_strength.items()}
+
+    # Display bars
     st.markdown("<div style='display:flex; gap:10px;'>", unsafe_allow_html=True)
     colors = ["#171447", "#471414"]
     for i, ccy in enumerate(major_currencies):
