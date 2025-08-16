@@ -358,42 +358,58 @@ with selected_tab[0]:
                     unsafe_allow_html=True
                 )
 
-    # -------- Forex Trading Sessions --------
-    st.markdown("### ⏰ Forex Trading Sessions")
+    # -------- Forex Trading Sessions (Visual Timeline) --------
+st.markdown("### ⏰ Forex Market Sessions (Visual Timeline)")
 
-    import pytz
-    from datetime import datetime
+import pytz
+from datetime import datetime, time
 
-    SESSION_TIMES = {
-        "Sydney": {"summer": ("22:00", "07:00"), "winter": ("21:00", "06:00")},
-        "Tokyo":  {"summer": ("23:00", "08:00"), "winter": ("23:00", "08:00")},
-        "London": {"summer": ("07:00", "16:00"), "winter": ("08:00", "17:00")},
-        "New York": {"summer": ("12:00", "21:00"), "winter": ("13:00", "22:00")},
-    }
+season = st.radio("Select Season:", ["Summer", "Winter"])
+user_tz = st.selectbox("Your Time Zone:", ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"])
 
-    season = st.radio("Select Season:", ["Summer", "Winter"])
-    user_tz = st.selectbox("Select Your Time Zone:", 
-                           ["UTC", "Europe/London", "America/New_York", "Asia/Tokyo", "Australia/Sydney"])
+SESSION_HOURS = {
+    "Sydney": {"summer": (time(22,0), time(7,0)), "winter": (time(21,0), time(6,0))},
+    "Tokyo":  {"summer": (time(23,0), time(8,0)), "winter": (time(23,0), time(8,0))},
+    "London": {"summer": (time(7,0), time(16,0)), "winter": (time(8,0), time(17,0))},
+    "New York": {"summer": (time(12,0), time(21,0)), "winter": (time(13,0), time(22,0))}
+}
 
-    rows = []
-    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc).time()
-    user_zone = pytz.timezone(user_tz)
+# Build 24 columns (hour timeline)
+hours = list(range(24))
+cols = st.columns(24, gap="small")
 
-    for session, times in SESSION_TIMES.items():
-        start_str, end_str = times[season.lower()]
-        fmt = "%H:%M"
-        start_utc = datetime.strptime(start_str, fmt).time()
-        end_utc = datetime.strptime(end_str, fmt).time()
+# Display hour headers in user’s timezone
+for i, col in enumerate(cols):
+    display_hour = datetime.now(pytz.timezone(user_tz)).replace(hour=i, minute=0).strftime("%H")
+    col.write(f"**{display_hour}**")
 
-        start_local = datetime.strptime(start_str, fmt).replace(tzinfo=pytz.utc).astimezone(user_zone).strftime("%H:%M")
-        end_local = datetime.strptime(end_str, fmt).replace(tzinfo=pytz.utc).astimezone(user_zone).strftime("%H:%M")
+# Draw bars per session
+for session, times in SESSION_HOURS.items():
+    start_u, end_u = times[season.lower()]
+    for i, col in enumerate(cols):
+        current_time = time(i, 0)
+        in_session = (start_u <= current_time < end_u) if start_u < end_u else (current_time >= start_u or current_time < end_u)
+        color = {
+            "Sydney": "#8bc34a",
+            "Tokyo": "#00bcd4",
+            "London": "#f4c430",
+            "New York": "#e91e63"
+        }[session]
+        if in_session:
+            col.markdown(f"<div style='height:20px; background-color:{color};'></div>", unsafe_allow_html=True)
+        else:
+            col.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
 
-        is_open = (start_utc <= now_utc <= end_utc) if start_utc < end_utc else (now_utc >= start_utc or now_utc <= end_utc)
-        status = "🟢 Open" if is_open else "🔴 Closed"
-
-        rows.append({"Session": session, "Local Start": start_local, "Local End": end_local, "Status": status})
-
-    st.table(rows)
+# Legend
+st.markdown(
+    """
+    **Legend:**  
+    <span style='background-color:#8bc34a;padding:4px 8px;border-radius:4px;'>Sydney</span>  
+    <span style='background-color:#00bcd4;padding:4px 8px;border-radius:4px;'>Tokyo</span>  
+    <span style='background-color:#f4c430;padding:4px 8px;border-radius:4px;'>London</span>  
+    <span style='background-color:#e91e63;padding:4px 8px;border-radius:4px;'>New York</span>
+    """, unsafe_allow_html=True
+)
 
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
