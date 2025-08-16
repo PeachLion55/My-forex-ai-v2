@@ -11,3 +11,4 @@ beautifulsoup4
 plotly
 selenium
 pytz
+json
