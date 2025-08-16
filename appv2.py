@@ -392,8 +392,8 @@ def time_to_decimal(t: time) -> float:
 def convert_to_user_hour(decimal_hour, from_tz="UTC", to_tz="UTC"):
     from_zone = pytz.timezone(from_tz)
     to_zone = pytz.timezone(to_tz)
-    hour = int(decimal_hour) % 24
-    minute = int((decimal_hour - int(decimal_hour)) * 60)
+    hour = int(decimal_hour)
+    minute = int((decimal_hour - hour) * 60)
     dt = datetime(2025, 1, 1, hour, minute)  # dummy date
     dt = from_zone.localize(dt)
     dt = dt.astimezone(to_zone)
@@ -413,19 +413,11 @@ for session, times in SESSION_HOURS.items():
     end_dec = time_to_decimal(end)
 
     blocks = []
-    # Special fix for Sydney overnight session
-    if session == "Sydney":
-        if end_dec <= start_dec:
-            blocks.append((start_dec, 24, SESSION_COLORS[session]))
-            blocks.append((0, end_dec, SESSION_COLORS[session]))
-        else:
-            blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
+    if end_dec <= start_dec:  # Overnight session
+        blocks.append((start_dec, 24, SESSION_COLORS[session]))
+        blocks.append((0, end_dec, SESSION_COLORS[session]))
     else:
-        if end_dec <= start_dec:  # Other overnight sessions
-            blocks.append((start_dec, 24, SESSION_COLORS[session]))
-            blocks.append((0, end_dec, SESSION_COLORS[session]))
-        else:
-            blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
+        blocks.append((start_dec, end_dec, SESSION_COLORS[session]))
 
     # Build row HTML
     row_html = "<div style='display:flex; width:100%; height:28px; margin-bottom:8px;'>"
@@ -433,24 +425,22 @@ for session, times in SESSION_HOURS.items():
     for block_start, block_end, color in blocks:
         block_start_local = convert_to_user_hour(block_start, "UTC", user_tz)
         block_end_local = convert_to_user_hour(block_end, "UTC", user_tz)
-        
-        # Calculate flex widths
-        left_space = (block_start_local - cursor) % 24
-        width = (block_end_local - block_start_local) % 24
-        if width == 0:
-            width = 24  # full block if wrapping
 
-        if left_space > 0:
-            row_html += f"<div style='flex:{left_space}; background:#171447;'></div>"
-
-        row_html += f"""
-            <div style='flex:{width}; background:{color};
-                        display:flex; align-items:center; justify-content:center;
-                        color:#000; font-size:12px; font-weight:bold;'>
-                {session}
-            </div>
-        """
-        cursor = (cursor + left_space + width) % 24
+        # Handle overnight wrap
+        if block_end_local < block_start_local:
+            width1 = 24 - block_start_local
+            width2 = block_end_local
+            if block_start_local > cursor:
+                row_html += f"<div style='flex:{block_start_local - cursor}; background:#171447;'></div>"
+            row_html += f"<div style='flex:{width1}; background:{color}; display:flex; align-items:center; justify-content:center; color:#000; font-size:12px; font-weight:bold;'>{session}</div>"
+            row_html += f"<div style='flex:{width2}; background:{color}; display:flex; align-items:center; justify-content:center; color:#000; font-size:12px; font-weight:bold;'>{session}</div>"
+            cursor = width2
+        else:
+            width = block_end_local - block_start_local
+            if block_start_local > cursor:
+                row_html += f"<div style='flex:{block_start_local - cursor}; background:#171447;'></div>"
+            row_html += f"<div style='flex:{width}; background:{color}; display:flex; align-items:center; justify-content:center; color:#000; font-size:12px; font-weight:bold;'>{session}</div>"
+            cursor = block_end_local
 
     if cursor < 24:
         row_html += f"<div style='flex:{24 - cursor}; background:#171447;'></div>"
