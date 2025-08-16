@@ -215,28 +215,10 @@ with selected_tab[3]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
 
-import pandas as pd
-
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-from datetime import datetime
-
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-from datetime import datetime
 
 import streamlit as st
 from datetime import datetime
 import pandas as pd
-
-import streamlit as st
-from datetime import datetime
-import pandas as pd
-import json
-
-import streamlit as st
 import json
 
 if selected_tab[3]:  # Tools Tab
