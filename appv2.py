@@ -325,54 +325,68 @@ for i in range(0, len(interest_rates), boxes_per_row):
                 unsafe_allow_html=True
             )
 
+# Add extra spacing before the next section
+st.markdown("<br><br>", unsafe_allow_html=True)
+
 # -------- Forex High-Impact Events --------
 st.markdown("### 📊 Major High-Impact Forex Events")
+
 forex_high_impact_events = [
     {
         "event": "Non-Farm Payrolls (NFP)",
-        "currency": "USD",
         "description": "Measures the change in the number of employed people in the U.S., excluding farm workers. One of the most influential indicators for the USD.",
-        "impact_positive": "USD typically strengthens if the NFP exceeds expectations, signaling a strong labor market and potential for rate hikes.",
-        "impact_negative": "USD usually weakens if NFP is below expectations, indicating labor market weakness."
+        "impact_positive": "USD ↑, all other major currencies ↓ relative to USD",
+        "impact_negative": "USD ↓, all other major currencies ↑ relative to USD"
     },
     {
         "event": "Unemployment Rate",
-        "currency": "USD / EUR / GBP / JPY / AUD / CAD / NZD",
         "description": "Percentage of the labor force that is unemployed. Indicates overall labor market health and economic strength.",
-        "impact_positive": "Lower unemployment than expected strengthens the currency, showing a robust economy.",
-        "impact_negative": "Higher unemployment than expected weakens the currency."
+        "impact_positive": "Currency of the country ↓ if unemployment rises; ↑ if unemployment falls, relative to other majors",
+        "impact_negative": "Currency of the country ↑ if unemployment unexpectedly high; ↓ if unexpectedly low"
     },
     {
         "event": "Consumer Price Index (CPI)",
-        "currency": "USD / EUR / GBP / JPY / CAD / AUD",
         "description": "Measures changes in the price level of a basket of consumer goods and services. Key indicator of inflation.",
-        "impact_positive": "Higher-than-expected CPI suggests inflationary pressure, often strengthening the currency due to potential interest rate hikes.",
-        "impact_negative": "Lower-than-expected CPI indicates low inflation, possibly weakening the currency due to dovish central bank stance."
+        "impact_positive": "Currency ↑ if CPI exceeds expectations (inflationary pressure); ↓ if CPI below expectations",
+        "impact_negative": "Currency ↓ if CPI below expectations (low inflation); ↑ if CPI above expectations"
     },
     {
         "event": "Gross Domestic Product (GDP)",
-        "currency": "USD / EUR / GBP / JPY / AUD / CAD / NZD",
         "description": "Measures total economic output of a country, indicating growth and overall economic health.",
-        "impact_positive": "Higher-than-expected GDP growth strengthens the currency.",
-        "impact_negative": "Lower-than-expected GDP growth weakens the currency."
+        "impact_positive": "Currency ↑ if GDP growth exceeds expectations; other currencies ↓ relative to it",
+        "impact_negative": "Currency ↓ if GDP growth below expectations; other currencies ↑ relative to it"
     },
     {
         "event": "Retail Sales",
-        "currency": "USD / EUR / GBP / JPY / AUD / CAD / NZD",
         "description": "Measures consumer spending, a major component of overall economic activity.",
-        "impact_positive": "Stronger retail sales indicate economic growth, strengthening the currency.",
-        "impact_negative": "Weak retail sales suggest slowing growth, weakening the currency."
+        "impact_positive": "Currency ↑ if retail sales stronger than expected; other currencies ↓ relative to it",
+        "impact_negative": "Currency ↓ if retail sales weaker than expected; other currencies ↑ relative to it"
     },
-    # ... add other events as needed
+    {
+        "event": "Central Bank Interest Rate Decision",
+        "description": "The official interest rate set by the central bank. Signals monetary policy direction.",
+        "impact_positive": "Currency ↑ if rate hike or hawkish statement; other currencies ↓ relative to it",
+        "impact_negative": "Currency ↓ if rate cut or dovish statement; other currencies ↑ relative to it"
+    },
+    {
+        "event": "Trade Balance",
+        "description": "Difference between a country’s exports and imports. Shows economic health and currency demand.",
+        "impact_positive": "Currency ↑ if trade surplus; other currencies ↓ relative to it",
+        "impact_negative": "Currency ↓ if trade deficit; other currencies ↑ relative to it"
+    },
+    # Add other high-impact events as needed
 ]
 
-# Display each event
+# Display each event with clearer spacing
 for ev in forex_high_impact_events:
-    st.subheader(f"{ev['event']} ({ev['currency']})")
-    st.markdown(f"**Description:** {ev['description']}")
-    st.markdown(f"**Impact if Positive:** {ev['impact_positive']}")
-    st.markdown(f"**Impact if Negative:** {ev['impact_negative']}")
-    st.markdown("---")
+    st.markdown(f"""
+        <div style="margin-bottom: 25px;">
+            <h4>{ev['event']}</h4>
+            <p><b>Description:</b> {ev['description']}</p>
+            <p><b>Impact if Positive:</b> {ev['impact_positive']}</p>
+            <p><b>Impact if Negative:</b> {ev['impact_negative']}</p>
+        </div>
+    """, unsafe_allow_html=True)
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
