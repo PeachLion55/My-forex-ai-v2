@@ -575,11 +575,7 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} {direction} {price}")
 
-    # Display current alerts
-    st.subheader("Your Alerts")
-    st.dataframe(st.session_state.price_alerts, use_container_width=True)
-
-    # Fetch live Forex prices (using a free API like exchangerate.host)
+    # Fetch live Forex prices
     import requests
     live_prices = {}
     for pair in forex_pairs:
@@ -591,7 +587,7 @@ with tools_subtabs[2]:
         except:
             live_prices[pair] = None
 
-    # Check alerts
+    # Check alerts and trigger notifications
     triggered_alerts = []
     for idx, row in st.session_state.price_alerts.iterrows():
         pair = row["Pair"]
@@ -609,6 +605,30 @@ with tools_subtabs[2]:
         for alert in triggered_alerts:
             st.balloons()
             st.success(f"⚡ {alert}")
+
+    # Visual dashboard for current alerts
+    st.subheader("📊 Active Alerts")
+    if not st.session_state.price_alerts.empty:
+        for idx, row in st.session_state.price_alerts.iterrows():
+            pair = row["Pair"]
+            target = row["Target Price"]
+            direction = row["Direction"]
+            triggered = row["Triggered"]
+            current_price = live_prices.get(pair, "N/A")
+            
+            color = "green" if triggered else "orange"
+            status = "✅ Triggered" if triggered else "⏳ Pending"
+
+            st.markdown(f"""
+            <div style="border-radius: 12px; background-color:#1e1e2f; padding:15px; margin-bottom:10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                <h4 style="color:#FFD700;">{pair}</h4>
+                <p style="color:#ffffff; margin:0;">Current Price: <b>{current_price}</b></p>
+                <p style="color:#ffffff; margin:0;">Target Price: <b>{target}</b> ({direction})</p>
+                <p style="color:{color}; margin:0; font-weight:bold;">Status: {status}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No price alerts set yet. Add an alert above to get started!")
 # =========================================================
 # TAB 5: MY ACCOUNT
 # =========================================================
