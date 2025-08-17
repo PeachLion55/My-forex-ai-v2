@@ -546,7 +546,7 @@ with selected_tab[3]:
 import pandas as pd
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
-from forex_python.converter import CurrencyRates
+import yfinance as yf
 
 with tools_subtabs[2]:
     st.header("⏰ Price Alerts")
@@ -555,11 +555,11 @@ with tools_subtabs[2]:
     # Auto-refresh every 2 seconds
     st_autorefresh(interval=2000, key="price_alert_refresh")
 
-    # List of popular Forex pairs
-    forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", 
-                   "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
+    # Forex pairs in Yahoo Finance format
+    forex_pairs = ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X",
+                   "USDCHF=X", "NZDUSD=X", "EURGBP=X", "EURJPY=X"]
 
-    # Initialize session state for alerts
+    # Initialize session state
     if "price_alerts" not in st.session_state:
         st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
 
@@ -568,27 +568,27 @@ with tools_subtabs[2]:
         pair = st.selectbox("Currency Pair", forex_pairs)
         price = st.number_input("Target Price", min_value=0.0, format="%.5f")
         submitted = st.form_submit_button("➕ Add Alert")
-    
+
     if submitted:
         new_alert = {"Pair": pair, "Target Price": price, "Triggered": False}
-        st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
+        st.session_state.price_alerts = pd.concat(
+            [st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True
+        )
         st.success(f"Alert added: {pair} at {price}")
 
-    # Initialize CurrencyRates object
-    cr = CurrencyRates()
-
-    # Function to get live price
+    # Function to get live price from Yahoo Finance
     def get_live_price(pair):
-        base, target = pair[:3], pair[3:]
         try:
-            return cr.get_rate(base, target)
+            ticker = yf.Ticker(pair)
+            price = ticker.info.get('regularMarketPrice', None)
+            return price
         except:
             return None
 
     # Fetch live prices for all pairs
     live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
 
-    # Check and trigger alerts
+    # Check alerts
     triggered_alerts = []
     for idx, row in st.session_state.price_alerts.iterrows():
         pair = row["Pair"]
@@ -619,14 +619,14 @@ with tools_subtabs[2]:
             with cols[0]:
                 st.markdown(f"""
                 <div style="border-radius:12px; background-color:#1e1e2f; padding:10px; margin-bottom:5px; box-shadow:2px 2px 8px rgba(0,0,0,0.5);">
-                    <h4 style="color:#FFD700;">{pair}</h4>
+                    <h4 style="color:#FFD700;">{pair.replace('=X','')}</h4>
                     <p style="color:#ffffff; margin:0;">Current Price: <b>{current_price_display}</b></p>
                     <p style="color:#ffffff; margin:0;">Target Price: <b>{target}</b></p>
                     <p style="color:{color}; margin:0; font-weight:bold;">Status: {status}</p>
                 </div>
                 """, unsafe_allow_html=True)
             with cols[1]:
-                st.write("")  # spacing
+                st.write("")
             with cols[2]:
                 if st.button("❌ Cancel", key=f"cancel_{idx}"):
                     st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
