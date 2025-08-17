@@ -556,8 +556,8 @@ with tools_subtabs[2]:
     # Auto-refresh every 2 seconds
     st_autorefresh(interval=2000, key="price_alert_refresh")
 
-    # List of popular Forex pairs (Alpha Vantage format: "FROM/TO")
-    forex_pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", 
+    # List of popular Forex pairs (Finnhub format: "FROM/TO")
+    forex_pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD",
                    "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"]
 
     # Initialize session state for alerts
@@ -575,16 +575,15 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} at {price}")
 
-    # Function to fetch live forex price using Alpha Vantage
+    # Function to fetch live forex price using Finnhub
     def get_live_price(pair):
-        api_key = st.secrets["alpha_vantage"]["api_key"]
+        api_key = st.secrets["finnhub"]["api_key"]
         from_currency, to_currency = pair.split("/")
-        url = f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={api_key}"
+        url = f"https://finnhub.io/api/v1/forex/rates?base={from_currency}&token={api_key}"
         try:
             response = requests.get(url, timeout=10).json()
-            rate = response["Realtime Currency Exchange Rate"]["5. Exchange Rate"]
-            return float(rate)
-        except:
+            return float(response["quote"][to_currency])
+        except Exception as e:
             return None
 
     # Fetch live prices
