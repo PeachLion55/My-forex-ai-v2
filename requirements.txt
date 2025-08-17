@@ -13,3 +13,4 @@ selenium
 pytz
 yfinance
 streamlit-autorefresh
+forex-python
