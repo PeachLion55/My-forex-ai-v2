@@ -438,7 +438,7 @@ with selected_tab[2]:
 # =========================================================
 with selected_tab[3]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts"])
     # ---------------- Profit/Stop-loss Calculator ----------------
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
@@ -541,6 +541,74 @@ with selected_tab[3]:
                         st.info("No saved journal found in your account.")
         else:
             st.info("Sign in to save your trading journal to your account.")
+
+# ---------------- Price Alerts ----------------
+with tools_subtabs[2]:
+    st.header("⏰ Price Alerts")
+    st.markdown("Set price alerts for your favorite forex pairs and get notified in real-time.")
+
+    # List of popular Forex pairs
+    forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
+
+    # Initialize session state for alerts
+    if "price_alerts" not in st.session_state:
+        st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Direction", "Triggered"])
+
+    # Input form for new alert
+    with st.form("add_alert_form"):
+        col1, col2, col3 = st.columns([2,2,2])
+        with col1:
+            pair = st.selectbox("Currency Pair", forex_pairs)
+        with col2:
+            price = st.number_input("Target Price", min_value=0.0, format="%.5f")
+        with col3:
+            direction = st.selectbox("Direction", ["Above", "Below"])
+        submitted = st.form_submit_button("➕ Add Alert")
+    
+    if submitted:
+        new_alert = {
+            "Pair": pair,
+            "Target Price": price,
+            "Direction": direction,
+            "Triggered": False
+        }
+        st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
+        st.success(f"Alert added: {pair} {direction} {price}")
+
+    # Display current alerts
+    st.subheader("Your Alerts")
+    st.dataframe(st.session_state.price_alerts, use_container_width=True)
+
+    # Fetch live Forex prices (using a free API like exchangerate.host)
+    import requests
+    live_prices = {}
+    for pair in forex_pairs:
+        base, quote = pair[:3], pair[3:]
+        try:
+            response = requests.get(f"https://api.exchangerate.host/latest?base={base}&symbols={quote}")
+            data = response.json()
+            live_prices[pair] = data["rates"][quote]
+        except:
+            live_prices[pair] = None
+
+    # Check alerts
+    triggered_alerts = []
+    for idx, row in st.session_state.price_alerts.iterrows():
+        pair = row["Pair"]
+        target = row["Target Price"]
+        direction = row["Direction"]
+        current_price = live_prices.get(pair)
+        if current_price:
+            if (direction == "Above" and current_price >= target) or (direction == "Below" and current_price <= target):
+                if not row["Triggered"]:
+                    st.session_state.price_alerts.at[idx, "Triggered"] = True
+                    triggered_alerts.append(f"{pair} is now {direction} {target} (Current: {current_price:.5f})")
+
+    # Display triggered alerts
+    if triggered_alerts:
+        for alert in triggered_alerts:
+            st.balloons()
+            st.success(f"⚡ {alert}")
 # =========================================================
 # TAB 5: MY ACCOUNT
 # =========================================================
