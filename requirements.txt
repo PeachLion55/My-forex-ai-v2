@@ -12,3 +12,4 @@ plotly
 selenium
 pytz
 yfinance
+streamlit-autorefresh
