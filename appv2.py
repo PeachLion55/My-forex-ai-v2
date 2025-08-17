@@ -451,12 +451,12 @@ with selected_tab[0]:
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     currency_filter_1 = st.selectbox(
-        "Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1"
+        "WHich primary currency would you like to track?", options=["None"] + uniq_ccy, key="cal_curr_1"
     )
     st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
 
     currency_filter_2 = st.selectbox(
-        "Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2"
+        "Which secondary currency would you like to track?", options=["None"] + uniq_ccy, key="cal_curr_2"
     )
     st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
 
