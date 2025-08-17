@@ -543,100 +543,72 @@ with selected_tab[3]:
             st.info("Sign in to save your trading journal to your account.")
 
 # ---------------- Price Alerts ----------------
-import pandas as pd
-import streamlit as st
-from streamlit_autorefresh import st_autorefresh
-import requests
-import time
-
 with tools_subtabs[2]:
     st.header("⏰ Price Alerts")
     st.markdown("Set price alerts for your favorite forex pairs and get notified in real-time.")
 
-    # Auto-refresh every 2 seconds
-    st_autorefresh(interval=2000, key="price_alert_refresh")
-
-    # List of popular Forex pairs (Finnhub format: "FROM/TO")
-    forex_pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD",
-                   "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"]
+    # List of popular Forex pairs
+    forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
 
     # Initialize session state for alerts
     if "price_alerts" not in st.session_state:
-        st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
+        st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Direction", "Triggered"])
 
     # Input form for new alert
     with st.form("add_alert_form"):
-        pair = st.selectbox("Currency Pair", forex_pairs)
-        price = st.number_input("Target Price", min_value=0.0, format="%.5f")
+        col1, col2, col3 = st.columns([2,2,2])
+        with col1:
+            pair = st.selectbox("Currency Pair", forex_pairs)
+        with col2:
+            price = st.number_input("Target Price", min_value=0.0, format="%.5f")
+        with col3:
+            direction = st.selectbox("Direction", ["Above", "Below"])
         submitted = st.form_submit_button("➕ Add Alert")
     
     if submitted:
-        new_alert = {"Pair": pair, "Target Price": price, "Triggered": False}
+        new_alert = {
+            "Pair": pair,
+            "Target Price": price,
+            "Direction": direction,
+            "Triggered": False
+        }
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
-        st.success(f"Alert added: {pair} at {price}")
+        st.success(f"Alert added: {pair} {direction} {price}")
 
-def get_live_price(pair):
-    try:
-        api_key = st.secrets["finnhub"]["api_key"]
-        from_currency, to_currency = pair.split("/")
-        url = f"https://finnhub.io/api/v1/forex/rates?base={from_currency}&token={api_key}"
-        response = requests.get(url, timeout=10).json()
-        rate = response.get(to_currency)
-        if rate:
-            return float(rate)
-        else:
-            return None
-    except Exception as e:
-        return None
+    # Display current alerts
+    st.subheader("Your Alerts")
+    st.dataframe(st.session_state.price_alerts, use_container_width=True)
 
-# Fetch live prices
-live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
+    # Fetch live Forex prices (using a free API like exchangerate.host)
+    import requests
+    live_prices = {}
+    for pair in forex_pairs:
+        base, quote = pair[:3], pair[3:]
+        try:
+            response = requests.get(f"https://api.exchangerate.host/latest?base={base}&symbols={quote}")
+            data = response.json()
+            live_prices[pair] = data["rates"][quote]
+        except:
+            live_prices[pair] = None
 
-# Check and trigger alerts
-triggered_alerts = []
-for idx, row in st.session_state.price_alerts.iterrows():
-    pair = row["Pair"]
-    target = row["Target Price"]
-    current_price = live_prices.get(pair)
-    if isinstance(current_price, (int, float)):
-        if not row["Triggered"] and abs(current_price - target) < 0.0001:
-            st.session_state.price_alerts.at[idx, "Triggered"] = True
-            triggered_alerts.append(f"{pair} reached {target} (Current: {current_price:.5f})")
+    # Check alerts
+    triggered_alerts = []
+    for idx, row in st.session_state.price_alerts.iterrows():
+        pair = row["Pair"]
+        target = row["Target Price"]
+        direction = row["Direction"]
+        current_price = live_prices.get(pair)
+        if current_price:
+            if (direction == "Above" and current_price >= target) or (direction == "Below" and current_price <= target):
+                if not row["Triggered"]:
+                    st.session_state.price_alerts.at[idx, "Triggered"] = True
+                    triggered_alerts.append(f"{pair} is now {direction} {target} (Current: {current_price:.5f})")
 
-    for alert in triggered_alerts:
-        st.balloons()
-        st.success(f"⚡ {alert}")
-
-    # Active Alerts Dashboard
-    st.subheader("📊 Active Alerts")
-    if not st.session_state.price_alerts.empty:
-        for idx, row in st.session_state.price_alerts.iterrows():
-            pair = row["Pair"]
-            target = row["Target Price"]
-            triggered = row["Triggered"]
-            current_price = live_prices.get(pair)
-            current_price_display = f"{current_price:.5f}" if isinstance(current_price, (int, float)) else "N/A"
-            color = "green" if triggered else "orange"
-            status = "✅ Triggered" if triggered else "⏳ Pending"
-
-            cols = st.columns([3, 2, 1])
-            with cols[0]:
-                st.markdown(f"""
-                <div style="border-radius:12px; background-color:#1e1e2f; padding:10px; margin-bottom:5px; box-shadow:2px 2px 8px rgba(0,0,0,0.5);">
-                    <h4 style="color:#FFD700;">{pair}</h4>
-                    <p style="color:#ffffff; margin:0;">Current Price: <b>{current_price_display}</b></p>
-                    <p style="color:#ffffff; margin:0;">Target Price: <b>{target}</b></p>
-                    <p style="color:{color}; margin:0; font-weight:bold;">Status: {status}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with cols[1]:
-                st.write("")  # spacing
-            with cols[2]:
-                if st.button("❌ Cancel", key=f"cancel_{idx}"):
-                    st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
-                    st.experimental_rerun()
-    else:
-        st.info("No price alerts set yet. Add an alert above to get started!")
+    # Display triggered alerts
+    if triggered_alerts:
+        for alert in triggered_alerts:
+            st.balloons()
+            st.success(f"⚡ {alert}")
 # =========================================================
 # TAB 5: MY ACCOUNT
 # =========================================================
