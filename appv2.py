@@ -543,10 +543,10 @@ with selected_tab[3]:
             st.info("Sign in to save your trading journal to your account.")
 
 # ---------------- Price Alerts ----------------
-import streamlit as st
 import pandas as pd
-import requests
+import streamlit as st
 from streamlit_autorefresh import st_autorefresh
+import requests
 import time
 
 with tools_subtabs[2]:
@@ -556,9 +556,9 @@ with tools_subtabs[2]:
     # Auto-refresh every 2 seconds
     st_autorefresh(interval=2000, key="price_alert_refresh")
 
-    # List of popular Forex pairs
-    forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", 
-                   "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
+    # List of popular Forex pairs (Alpha Vantage format: "FROM/TO")
+    forex_pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", 
+                   "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"]
 
     # Initialize session state for alerts
     if "price_alerts" not in st.session_state:
@@ -575,17 +575,15 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} at {price}")
 
-    # Function to get live price from Alpha Vantage
+    # Function to fetch live forex price using Alpha Vantage
     def get_live_price(pair):
         api_key = st.secrets["alpha_vantage"]["api_key"]
-        from_currency = pair[:3]
-        to_currency = pair[3:]
+        from_currency, to_currency = pair.split("/")
         url = f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={api_key}"
         try:
-            response = requests.get(url)
-            data = response.json()
-            price = data["Realtime Currency Exchange Rate"]["5. Exchange Rate"]
-            return float(price)
+            response = requests.get(url, timeout=10).json()
+            rate = response["Realtime Currency Exchange Rate"]["5. Exchange Rate"]
+            return float(rate)
         except:
             return None
 
