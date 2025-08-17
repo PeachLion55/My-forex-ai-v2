@@ -301,14 +301,19 @@ with selected_tab[0]:
     with col2:
         st.info("Use **Technical Analysis** for charts and **Tools** for calculators.")
     # -------- Live Prices Metrics --------
-    st.markdown("### 💹 Live Major Pair Prices")
-    pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD"]
-    cols = st.columns(len(pairs))
-    for i, pair in enumerate(pairs):
-        price = fetch_live_price(pair)
+# -------- Live Prices Metrics --------
+st.markdown("### 💹 Live Major Pair Prices")
+pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD"]
+cols = st.columns(len(pairs))
+for i, pair in enumerate(pairs):
+    price = fetch_live_price(pair)
+    if price is not None and isinstance(price, (int, float)) and not pd.isna(price):
         delta = round((price - price * 0.001), 5)  # Simulated delta for demo
         with cols[i]:
             st.metric(label=pair, value=f"{price:.4f}", delta=f"{delta:.4f}")
+    else:
+        with cols[i]:
+            st.metric(label=pair, value="N/A", delta="N/A", delta_color="off")
     # -------- Economic Calendar (with filters and color-coded impacts) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
