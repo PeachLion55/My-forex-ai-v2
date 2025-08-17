@@ -576,16 +576,19 @@ with tools_subtabs[2]:
         except:
             live_prices[pair] = None
 
-    # Check alerts
-    triggered_alerts = []
-    for idx, row in st.session_state.price_alerts.iterrows():
-        pair = row["Pair"]
-        target = row["Target Price"]
-        current_price = live_prices.get(pair)
-        if current_price:
-            if not row["Triggered"] and abs(current_price - target) < 0.0001:  # consider small float tolerance
-                st.session_state.price_alerts.at[idx, "Triggered"] = True
-                triggered_alerts.append(f"{pair} reached {target} (Current: {current_price:.5f})")
+# Check alerts
+triggered_alerts = []
+for idx, row in st.session_state.price_alerts.iterrows():
+    pair = row["Pair"]
+    target = row["Target Price"]
+    current_price = live_prices.get(pair)
+
+    # Only proceed if current_price is a number
+    if isinstance(current_price, (int, float)):
+        # Trigger alert if target price is hit (exact match within tolerance)
+        if not row["Triggered"] and abs(current_price - target) < 0.0001:
+            st.session_state.price_alerts.at[idx, "Triggered"] = True
+            triggered_alerts.append(f"{pair} reached {target} (Current: {current_price:.5f})")
 
     if triggered_alerts:
         for alert in triggered_alerts:
