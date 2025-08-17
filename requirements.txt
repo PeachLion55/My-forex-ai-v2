@@ -12,6 +12,3 @@ plotly
 selenium
 pytz
 matplotlib
-forex-python
-CurrencyRates
-Pillow
