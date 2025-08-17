@@ -588,4 +588,3 @@ with selected_tab[3]:
             st.session_state.base_ccy = base_ccy
             st.session_state.alerts = alerts
             st.success("Preferences saved for this session.")
-```
