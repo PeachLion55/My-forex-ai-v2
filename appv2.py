@@ -55,7 +55,7 @@ st.markdown(
   background-size: 42px 42px, 42px 42px;
   animation: moveGrid 38s linear infinite;
   pointer-events: none; z-index: 0; opacity: 1;
-}
+}}
 @keyframes moveGrid {{
   0% {{ transform: translateY(0px); }}
   100% {{ transform: translateY(42px); }}
