@@ -544,15 +544,17 @@ with selected_tab[3]:
 
 # ---------------- Price Alerts ----------------
 import yfinance as yf
-from streamlit_autorefresh import st_autorefresh
 import pandas as pd
+import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+import time
 
 with tools_subtabs[2]:
     st.header("⏰ Price Alerts")
-    st.markdown("Set price alerts for your favorite forex pairs and get notified in near real-time.")
+    st.markdown("Set price alerts for your favorite forex pairs and get notified in real-time.")
 
     # Auto-refresh every 2 seconds
-    st_autorefresh(interval=2000, key="price_alert_autorefresh")
+    st_autorefresh(interval=2000, key="price_alert_refresh")
 
     # List of popular Forex pairs (Yahoo Finance format)
     forex_pairs = ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X", 
@@ -573,35 +575,32 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} at {price}")
 
-    # Fetch latest prices for all pairs (more accurate)
-    live_prices = {}
-    for pair in forex_pairs:
+    # Function to get latest price for a pair
+    def get_live_price(pair):
         try:
-            data = yf.download(pair, period="1d", interval="1m")
-            if not data.empty:
-                live_prices[pair] = data["Close"].iloc[-1]
-            else:
-                live_prices[pair] = None
+            df = yf.download(pair, period="1d", interval="1m", progress=False)
+            if not df.empty:
+                return df["Close"].iloc[-1]
         except:
-            live_prices[pair] = None
+            return None
 
-    # Check alerts
+    # Fetch live prices
+    live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
+
+    # Check and trigger alerts
     triggered_alerts = []
     for idx, row in st.session_state.price_alerts.iterrows():
         pair = row["Pair"]
         target = row["Target Price"]
         current_price = live_prices.get(pair)
-
         if isinstance(current_price, (int, float)):
             if not row["Triggered"] and abs(current_price - target) < 0.0001:
                 st.session_state.price_alerts.at[idx, "Triggered"] = True
                 triggered_alerts.append(f"{pair} reached {target} (Current: {current_price:.5f})")
 
-    # Show triggered alerts
-    if triggered_alerts:
-        for alert in triggered_alerts:
-            st.balloons()
-            st.success(f"⚡ {alert}")
+    for alert in triggered_alerts:
+        st.balloons()
+        st.success(f"⚡ {alert}")
 
     # Active Alerts Dashboard
     st.subheader("📊 Active Alerts")
@@ -612,11 +611,10 @@ with tools_subtabs[2]:
             triggered = row["Triggered"]
             current_price = live_prices.get(pair)
             current_price_display = f"{current_price:.5f}" if isinstance(current_price, (int, float)) else "N/A"
-
             color = "green" if triggered else "orange"
             status = "✅ Triggered" if triggered else "⏳ Pending"
 
-            cols = st.columns([3,1])
+            cols = st.columns([3, 2, 1])
             with cols[0]:
                 st.markdown(f"""
                 <div style="border-radius:12px; background-color:#1e1e2f; padding:10px; margin-bottom:5px; box-shadow:2px 2px 8px rgba(0,0,0,0.5);">
@@ -627,9 +625,11 @@ with tools_subtabs[2]:
                 </div>
                 """, unsafe_allow_html=True)
             with cols[1]:
+                st.write("")  # spacing
+            with cols[2]:
                 if st.button("❌ Cancel", key=f"cancel_{idx}"):
                     st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
-                    st.experimental_rerun()  # refresh dashboard immediately
+                    st.experimental_rerun()
     else:
         st.info("No price alerts set yet. Add an alert above to get started!")
 # =========================================================
