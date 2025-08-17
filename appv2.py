@@ -547,7 +547,6 @@ import streamlit as st
 import pandas as pd
 import requests
 from streamlit_autorefresh import st_autorefresh
-import time
 
 with tools_subtabs[2]:
     st.header("⏰ Price Alerts")
@@ -556,13 +555,19 @@ with tools_subtabs[2]:
     # Auto-refresh every 2 seconds
     st_autorefresh(interval=2000, key="price_alert_refresh")
 
-    # List of popular Forex pairs (Twelve Data format uses XXX/YYY)
+    # List of popular Forex pairs (Twelve Data format)
     forex_pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD",
                    "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"]
 
     # Initialize session state for alerts
     if "price_alerts" not in st.session_state:
         st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
+
+    # Safety check for API key
+    api_key = st.secrets.get("twelvedata_api_key", None)
+    if not api_key:
+        st.error("Twelve Data API key not found! Add it to secrets.toml or Streamlit Cloud secrets.")
+        st.stop()
 
     # Input form for new alert
     with st.form("add_alert_form"):
@@ -577,15 +582,16 @@ with tools_subtabs[2]:
 
     # Function to get live price from Twelve Data
     def get_live_price(pair):
-        api_key = st.secrets["twelvedata_api_key"]
         url = f"https://api.twelvedata.com/price?symbol={pair}&apikey={api_key}"
         try:
             response = requests.get(url, timeout=5).json()
-            return float(response["price"]) if "price" in response else None
+            if "price" in response:
+                return float(response["price"])
         except:
             return None
+        return None
 
-    # Fetch live prices for all pairs
+    # Fetch live prices
     live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
 
     # Check and trigger alerts
