@@ -22,36 +22,54 @@ tv_height = 950 # TradingView chart height in px
 st.markdown(
     f"""
 <style>
-/* Futuristic dark background with animated grid */
+/* Advanced forex dashboard background */
 .stApp {{
     background:
-        radial-gradient(circle at 15% 20%, rgba(255,215,0,{bg_opacity*0.18}) 0%, transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(0,170,255,{bg_opacity*0.12}) 0%, transparent 25%),
-        linear-gradient(135deg, #0b0b0b 0%, #0a0a0a 100%);
+        linear-gradient(145deg, #0a0e1a 0%, #1a2236 50%, #0a0e1a 100%),
+        linear-gradient(90deg, rgba(10, 20, 50, 0.9) 0%, rgba(20, 40, 80, 0.7) 100%);
+    background-attachment: fixed;
 }}
+/* Subtle animated grid overlay */
 .stApp::before {{
     content: "";
     position: fixed;
     inset: 0;
     background-image:
-        linear-gradient(90deg, rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px);
-    background-size: 42px 42px, 42px 42px;
-    animation: moveGrid 38s linear infinite;
+        linear-gradient(90deg, rgba(0, 255, 255, {bg_opacity*0.03}) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(0, 255, 255, {bg_opacity*0.03}) 1px, transparent 1px);
+    background-size: 20px 20px, 20px 20px;
+    animation: moveGrid 60s linear infinite;
     pointer-events: none;
     z-index: 0;
-    opacity: 1;
+    opacity: 0.8;
+}}
+/* Subtle particle effect for dynamic feel */
+.stApp::after {{
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="1" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noise)" opacity="0.05"/%3E%3C/svg%3E');
+    animation: flicker 10s infinite;
+    pointer-events: none;
+    z-index: 0;
 }}
 @keyframes moveGrid {{
     0% {{ transform: translateY(0px); }}
-    100% {{ transform: translateY(42px); }}
+    100% {{ transform: translateY(20px); }}
 }}
-/* lift the app content above bg layer */
+@keyframes flicker {{
+    0% {{ opacity: 0.05; }}
+    50% {{ opacity: 0.08; }}
+    100% {{ opacity: 0.05; }}
+}}
+/* Lift app content above background layers */
 .main, .block-container, .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg {{ position: relative; z-index: 1; }}
 /* Tab styling */
 div[data-baseweb="tab-list"] {{
     gap: 8px;
     padding-bottom: 4px;
+    background-color: #0a0e1a;
+    border-bottom: 1px solid #2a2a2a;
 }}
 div[data-baseweb="tab-list"] button[aria-selected="true"] {{
     background-color: #FFD700 !important;
@@ -59,46 +77,55 @@ div[data-baseweb="tab-list"] button[aria-selected="true"] {{
     font-weight: 700;
     padding: 14px 26px !important;
     border-radius: 10px 10px 0 0 !important;
+    border: 1px solid #FFD700 !important;
     border-bottom: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }}
 div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     background-color: #1b1b1b !important;
     color: #bbb !important;
     padding: 14px 26px !important;
     border-radius: 10px 10px 0 0 !important;
-    border: 1px solid #242424 !important;
+    border: 1px solid #2a2a2a !important;
     border-bottom: none !important;
 }}
 div[data-baseweb="tab-list"] button:hover {{
     background-color: #2a2a2a !important;
     color: white !important;
+    border-color: #FFD700 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }}
 /* Card look for info boxes */
 .card {{
     background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
     padding: 16px;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-    transition: transform 0.3s ease;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3), 0 0 8px rgba(255,215,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }}
 .card:hover {{
     transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 12px rgba(255,215,0,0.15);
 }}
 /* Improve dataframe styling */
 .dataframe th {{
     background-color: #1f1f1f;
     color: #FFD700;
+    border-bottom: 1px solid #2a2a2a;
 }}
 .dataframe td {{
     background-color: #121212;
     color: white;
+    border-bottom: 1px solid #2a2a2a;
 }}
 /* Selectbox and input styling */
 .stSelectbox, .stNumberInput, .stTextInput, .stRadio {{
     background-color: #1b1b1b;
     border-radius: 8px;
     padding: 8px;
+    border: 1px solid #2a2a2a;
+    box-shadow: 0 0 4px rgba(255,215,0,0.1);
 }}
 /* Button styling */
 .stButton button {{
@@ -106,15 +133,20 @@ div[data-baseweb="tab-list"] button:hover {{
     color: black;
     border-radius: 8px;
     font-weight: bold;
+    border: 1px solid #FFD700;
+    box-shadow: 0 0 4px rgba(255,215,0,0.2);
 }}
 .stButton button:hover {{
     background-color: #E6C200;
+    border-color: #E6C200;
+    box-shadow: 0 0 8px rgba(255,215,0,0.3);
 }}
 /* Expander styling */
 .stExpander {{
-    border: 1px solid #242424;
+    border: 1px solid #2a2a2a;
     border-radius: 8px;
     background-color: #1b1b1b;
+    box-shadow: 0 0 4px rgba(255,215,0,0.1);
 }}
 </style>
 """,
