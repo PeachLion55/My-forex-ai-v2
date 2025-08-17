@@ -594,16 +594,16 @@ def get_live_price(pair):
 # Fetch live prices
 live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
 
-    # Check and trigger alerts
-    triggered_alerts = []
-    for idx, row in st.session_state.price_alerts.iterrows():
-        pair = row["Pair"]
-        target = row["Target Price"]
-        current_price = live_prices.get(pair)
-        if isinstance(current_price, (int, float)):
-            if not row["Triggered"] and abs(current_price - target) < 0.0001:
-                st.session_state.price_alerts.at[idx, "Triggered"] = True
-                triggered_alerts.append(f"{pair} reached {target} (Current: {current_price:.5f})")
+# Check and trigger alerts
+triggered_alerts = []
+for idx, row in st.session_state.price_alerts.iterrows():
+    pair = row["Pair"]
+    target = row["Target Price"]
+    current_price = live_prices.get(pair)
+    if isinstance(current_price, (int, float)):
+        if not row["Triggered"] and abs(current_price - target) < 0.0001:
+            st.session_state.price_alerts.at[idx, "Triggered"] = True
+            triggered_alerts.append(f"{pair} reached {target} (Current: {current_price:.5f})")
 
     for alert in triggered_alerts:
         st.balloons()
