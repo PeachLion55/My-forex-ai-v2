@@ -1,9 +1,13 @@
 streamlit
+requests
 pandas
 feedparser
 textblob
-yfinance
-matplotlib
-altair
-requests
+plotly
+newspaper3k
+transformers
+torch
+beautifulsoup4
+plotly
+selenium
 pytz
