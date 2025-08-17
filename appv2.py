@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -82,8 +83,7 @@ div[data-baseweb="tab-list"] button:hover {{
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 12px;
     padding: 16px;
-    box-shadow: 0  Lilliam Spencer-Murray
-6px 16px rgba(0,0,0,0.25);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
     transition: transform 0.3s ease;
 }}
 .card:hover {{
@@ -589,32 +589,4 @@ with selected_tab[3]:
             st.session_state.base_ccy = base_ccy
             st.session_state.alerts = alerts
             st.success("Preferences saved for this session.")
-
-# =========================================================
-# UNDERSTANDING FOREX FUNDAMENTALS PAGE
-# =========================================================
-if st.session_state.get("page") == "understanding_forex_fundamentals":
-    st.title("📖 Understanding Forex Fundamentals")
-    st.caption("Core drivers of currencies, explained simply.")
-    with st.expander("Interest Rates & Central Banks"):
-        st.write("""
-- Central banks adjust rates to control inflation and growth.
-- Higher rates tend to attract capital → stronger currency.
-- Watch: FOMC (USD), ECB (EUR), BoE (GBP), BoJ (JPY), RBA (AUD), BoC (CAD), SNB (CHF), RBNZ (NZD).
-        """)
-    with st.expander("Inflation & Growth"):
-        st.write("""
-- Inflation (CPI/PPI) impacts real yields and policy expectations.
-- Growth indicators (GDP, PMIs, employment) shift risk appetite and rate paths.
-        """)
-    with st.expander("Risk Sentiment & Commodities"):
-        st.write("""
-- Risk-on often lifts AUD/NZD; risk-off supports USD/JPY/CHF.
-- Oil impacts CAD; gold sometimes correlates with AUD.
-        """)
-    with st.expander("How to Use the Economic Calendar"):
-        st.write("""
-1) Filter by the currency you trade.
-2) Note forecast vs. actual.
-3) Expect volatility around high-impact events; widen stops or reduce size.
-        """)
+```
