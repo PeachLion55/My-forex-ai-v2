@@ -1,4 +1,3 @@
-# ===================== IMPORTS =====================
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -8,16 +7,20 @@ from datetime import datetime, timedelta
 import os
 import json
 import hashlib
+
 # Path to your accounts JSON file
-ACCOUNTS_FILE = "accounts.json" # or a full path if needed
+ACCOUNTS_FILE = "accounts.json"  # or a full path if needed
+
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
+
 # ----------------- SIDEBAR CONTROLS -----------------
 # Fixed settings (no sidebar controls)
-bg_opacity = 0.5 # Background FX opacity
-tv_height = 950 # TradingView chart height in px
+bg_opacity = 0.5  # Background FX opacity
+tv_height = 950  # TradingView chart height in px
+
 # ----------------- CUSTOM CSS (Dark Futuristic BG + Tabs) -----------------
 st.markdown(
     f"""
@@ -79,7 +82,8 @@ div[data-baseweb="tab-list"] button:hover {{
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 12px;
     padding: 16px;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    box-shadow: 0  Lilliam Spencer-Murray
+6px 16px rgba(0,0,0,0.25);
     transition: transform 0.3s ease;
 }}
 .card:hover {{
@@ -120,11 +124,13 @@ div[data-baseweb="tab-list"] button:hover {{
 """,
     unsafe_allow_html=True,
 )
+
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
+tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
 selected_tab = st.tabs(tabs)
+
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -145,6 +151,7 @@ def detect_currency(title: str) -> str:
             if kw in t:
                 return curr
     return "Unknown"
+
 def rate_impact(polarity: float) -> str:
     if polarity > 0.5:
         return "Significantly Bullish"
@@ -156,6 +163,7 @@ def rate_impact(polarity: float) -> str:
         return "Bearish"
     else:
         return "Neutral"
+
 @st.cache_data(ttl=600, show_spinner=False)
 def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -189,6 +197,7 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             pass
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
+
 # Static calendar (your provided data)
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
@@ -248,8 +257,10 @@ econ_calendar_data = [
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
+
 # Load news once for all tabs
 df_news = get_fxstreet_forex_news()
+
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
@@ -259,7 +270,8 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
-        st.info("See the **Technical Analysis** tab for live charts + detailed news.")
+        if st.button("Understanding Forex Fundamentals"):
+            st.switch_page("pages/understanding_forex_fundamentals.py")
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
@@ -324,38 +336,11 @@ with selected_tab[0]:
                     """,
                     unsafe_allow_html=True
                 )
+
 # =========================================================
-# TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
+# TAB 2: TECHNICAL ANALYSIS
 # =========================================================
 with selected_tab[1]:
-    st.title("📖 Understanding Forex Fundamentals")
-    st.caption("Core drivers of currencies, explained simply.")
-    with st.expander("Interest Rates & Central Banks"):
-        st.write("""
-- Central banks adjust rates to control inflation and growth.
-- Higher rates tend to attract capital → stronger currency.
-- Watch: FOMC (USD), ECB (EUR), BoE (GBP), BoJ (JPY), RBA (AUD), BoC (CAD), SNB (CHF), RBNZ (NZD).
-        """)
-    with st.expander("Inflation & Growth"):
-        st.write("""
-- Inflation (CPI/PPI) impacts real yields and policy expectations.
-- Growth indicators (GDP, PMIs, employment) shift risk appetite and rate paths.
-        """)
-    with st.expander("Risk Sentiment & Commodities"):
-        st.write("""
-- Risk-on often lifts AUD/NZD; risk-off supports USD/JPY/CHF.
-- Oil impacts CAD; gold sometimes correlates with AUD.
-        """)
-    with st.expander("How to Use the Economic Calendar"):
-        st.write("""
-1) Filter by the currency you trade.
-2) Note forecast vs. actual.
-3) Expect volatility around high-impact events; widen stops or reduce size.
-        """)
-# =========================================================
-# TAB 3: TECHNICAL ANALYSIS
-# =========================================================
-with selected_tab[2]:
     st.title("📊 Technical Analysis")
     st.caption("Live TradingView chart + curated news for the selected pair.")
     # ---- Pair selector & symbol map ----
@@ -370,7 +355,7 @@ with selected_tab[2]:
         "EUR/GBP": "FX:EURGBP",
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
-    # ---- TradingView Widget (only in Tab 3) ----
+    # ---- TradingView Widget (only in Tab 2) ----
     watchlist = list(pairs_map.values())
     tv_symbol = pairs_map[pair]
     tv_html = f"""
@@ -433,10 +418,11 @@ with selected_tab[2]:
             st.info("No pair-specific headlines found in the recent feed.")
     else:
         st.info("News feed unavailable right now.")
+
 # =========================================================
-# TAB 4: TOOLS
+# TAB 3: TOOLS
 # =========================================================
-with selected_tab[3]:
+with selected_tab[2]:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
     # ---------------- Profit/Stop-loss Calculator ----------------
@@ -541,10 +527,11 @@ with selected_tab[3]:
                         st.info("No saved journal found in your account.")
         else:
             st.info("Sign in to save your trading journal to your account.")
+
 # =========================================================
-# TAB 5: MY ACCOUNT
+# TAB 4: MY ACCOUNT
 # =========================================================
-with selected_tab[4]:
+with selected_tab[3]:
     st.title("👤 My Account")
     st.subheader("Account Login / Sign Up")
     ACCOUNTS_FILE = "user_accounts.json"
@@ -602,3 +589,32 @@ with selected_tab[4]:
             st.session_state.base_ccy = base_ccy
             st.session_state.alerts = alerts
             st.success("Preferences saved for this session.")
+
+# =========================================================
+# UNDERSTANDING FOREX FUNDAMENTALS PAGE
+# =========================================================
+if st.session_state.get("page") == "understanding_forex_fundamentals":
+    st.title("📖 Understanding Forex Fundamentals")
+    st.caption("Core drivers of currencies, explained simply.")
+    with st.expander("Interest Rates & Central Banks"):
+        st.write("""
+- Central banks adjust rates to control inflation and growth.
+- Higher rates tend to attract capital → stronger currency.
+- Watch: FOMC (USD), ECB (EUR), BoE (GBP), BoJ (JPY), RBA (AUD), BoC (CAD), SNB (CHF), RBNZ (NZD).
+        """)
+    with st.expander("Inflation & Growth"):
+        st.write("""
+- Inflation (CPI/PPI) impacts real yields and policy expectations.
+- Growth indicators (GDP, PMIs, employment) shift risk appetite and rate paths.
+        """)
+    with st.expander("Risk Sentiment & Commodities"):
+        st.write("""
+- Risk-on often lifts AUD/NZD; risk-off supports USD/JPY/CHF.
+- Oil impacts CAD; gold sometimes correlates with AUD.
+        """)
+    with st.expander("How to Use the Economic Calendar"):
+        st.write("""
+1) Filter by the currency you trade.
+2) Note forecast vs. actual.
+3) Expect volatility around high-impact events; widen stops or reduce size.
+        """)
