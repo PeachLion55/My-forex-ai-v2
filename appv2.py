@@ -595,35 +595,39 @@ for idx, row in st.session_state.price_alerts.iterrows():
             st.balloons()
             st.success(f"⚡ {alert}")
 
-    # Active Alerts Dashboard
-    st.subheader("📊 Active Alerts")
-    if not st.session_state.price_alerts.empty:
-        for idx, row in st.session_state.price_alerts.iterrows():
-            pair = row["Pair"]
-            target = row["Target Price"]
-            triggered = row["Triggered"]
-            current_price = live_prices.get(pair, "N/A")
-            color = "green" if triggered else "orange"
-            status = "✅ Triggered" if triggered else "⏳ Pending"
+# Active Alerts Dashboard
+st.subheader("📊 Active Alerts")
+if not st.session_state.price_alerts.empty:
+    for idx, row in st.session_state.price_alerts.iterrows():
+        pair = row["Pair"]
+        target = row["Target Price"]
+        triggered = row["Triggered"]
+        current_price = live_prices.get(pair)
 
-            cols = st.columns([3,2,1])
-            with cols[0]:
-                st.markdown(f"""
-                <div style="border-radius:12px; background-color:#1e1e2f; padding:10px; margin-bottom:5px; box-shadow:2px 2px 8px rgba(0,0,0,0.5);">
-                    <h4 style="color:#FFD700;">{pair.replace('=X','')}</h4>
-                    <p style="color:#ffffff; margin:0;">Current Price: <b>{current_price:.5f}</b></p>
-                    <p style="color:#ffffff; margin:0;">Target Price: <b>{target}</b></p>
-                    <p style="color:{color}; margin:0; font-weight:bold;">Status: {status}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            with cols[1]:
-                st.write("")  # empty for spacing
-            with cols[2]:
-                if st.button("❌ Cancel", key=f"cancel_{idx}"):
-                    st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
-                    st.experimental_rerun()  # refresh dashboard immediately
-    else:
-        st.info("No price alerts set yet. Add an alert above to get started!")
+        # Safe display for current price
+        current_price_display = f"{current_price:.5f}" if isinstance(current_price, (int, float)) else "N/A"
+
+        color = "green" if triggered else "orange"
+        status = "✅ Triggered" if triggered else "⏳ Pending"
+
+        cols = st.columns([3,2,1])
+        with cols[0]:
+            st.markdown(f"""
+            <div style="border-radius:12px; background-color:#1e1e2f; padding:10px; margin-bottom:5px; box-shadow:2px 2px 8px rgba(0,0,0,0.5);">
+                <h4 style="color:#FFD700;">{pair.replace('=X','')}</h4>
+                <p style="color:#ffffff; margin:0;">Current Price: <b>{current_price_display}</b></p>
+                <p style="color:#ffffff; margin:0;">Target Price: <b>{target}</b></p>
+                <p style="color:{color}; margin:0; font-weight:bold;">Status: {status}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with cols[1]:
+            st.write("")  # empty for spacing
+        with cols[2]:
+            if st.button("❌ Cancel", key=f"cancel_{idx}"):
+                st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
+                st.experimental_rerun()  # refresh dashboard immediately
+else:
+    st.info("No price alerts set yet. Add an alert above to get started!")
 # =========================================================
 # TAB 5: MY ACCOUNT
 # =========================================================
