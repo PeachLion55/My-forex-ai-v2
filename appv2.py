@@ -543,11 +543,10 @@ with selected_tab[3]:
             st.info("Sign in to save your trading journal to your account.")
 
 # ---------------- Price Alerts ----------------
-import yfinance as yf
 import pandas as pd
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
-import time
+from forex_python.converter import CurrencyRates
 
 with tools_subtabs[2]:
     st.header("⏰ Price Alerts")
@@ -556,9 +555,9 @@ with tools_subtabs[2]:
     # Auto-refresh every 2 seconds
     st_autorefresh(interval=2000, key="price_alert_refresh")
 
-    # List of popular Forex pairs (Yahoo Finance format)
-    forex_pairs = ["EURUSD=X", "GBPUSD=X", "USDJPY=X", "AUDUSD=X", "USDCAD=X", 
-                   "USDCHF=X", "NZDUSD=X", "EURGBP=X", "EURJPY=X"]
+    # List of popular Forex pairs
+    forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", 
+                   "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
 
     # Initialize session state for alerts
     if "price_alerts" not in st.session_state:
@@ -575,16 +574,18 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} at {price}")
 
-    # Function to get latest price for a pair
+    # Initialize CurrencyRates object
+    cr = CurrencyRates()
+
+    # Function to get live price
     def get_live_price(pair):
+        base, target = pair[:3], pair[3:]
         try:
-            df = yf.download(pair, period="1d", interval="1m", progress=False)
-            if not df.empty:
-                return df["Close"].iloc[-1]
+            return cr.get_rate(base, target)
         except:
             return None
 
-    # Fetch live prices
+    # Fetch live prices for all pairs
     live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
 
     # Check and trigger alerts
@@ -618,7 +619,7 @@ with tools_subtabs[2]:
             with cols[0]:
                 st.markdown(f"""
                 <div style="border-radius:12px; background-color:#1e1e2f; padding:10px; margin-bottom:5px; box-shadow:2px 2px 8px rgba(0,0,0,0.5);">
-                    <h4 style="color:#FFD700;">{pair.replace('=X','')}</h4>
+                    <h4 style="color:#FFD700;">{pair}</h4>
                     <p style="color:#ffffff; margin:0;">Current Price: <b>{current_price_display}</b></p>
                     <p style="color:#ffffff; margin:0;">Target Price: <b>{target}</b></p>
                     <p style="color:{color}; margin:0; font-weight:bold;">Status: {status}</p>
