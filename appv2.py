@@ -8,20 +8,16 @@ from datetime import datetime, timedelta
 import os
 import json
 import hashlib
-
 # Path to your accounts JSON file
-ACCOUNTS_FILE = "accounts.json"  # or a full path if needed
-
+ACCOUNTS_FILE = "accounts.json" # or a full path if needed
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
-
 # ----------------- SIDEBAR CONTROLS -----------------
 # Fixed settings (no sidebar controls)
-bg_opacity = 0.5     # Background FX opacity
-tv_height = 950      # TradingView chart height in px
-
+bg_opacity = 0.5 # Background FX opacity
+tv_height = 950 # TradingView chart height in px
 # ----------------- CUSTOM CSS (Dark Futuristic BG + Tabs) -----------------
 st.markdown(
     f"""
@@ -29,9 +25,9 @@ st.markdown(
 /* Futuristic dark background with animated grid */
 .stApp {{
     background:
-        radial-gradient(circle at 15%% 20%%, rgba(255,215,0,{bg_opacity*0.18}) 0%%, transparent 25%%),
-        radial-gradient(circle at 85%% 30%%, rgba(0,170,255,{bg_opacity*0.12}) 0%%, transparent 25%%),
-        linear-gradient(135deg, #0b0b0b 0%%, #0a0a0a 100%%);
+        radial-gradient(circle at 15% 20%, rgba(255,215,0,{bg_opacity*0.18}) 0%, transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(0,170,255,{bg_opacity*0.12}) 0%, transparent 25%),
+        linear-gradient(135deg, #0b0b0b 0%, #0a0a0a 100%);
 }}
 .stApp::before {{
     content: "";
@@ -39,7 +35,7 @@ st.markdown(
     inset: 0;
     background-image:
         linear-gradient(90deg, rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px),
-        linear-gradient(0deg,  rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px);
+        linear-gradient(0deg, rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px);
     background-size: 42px 42px, 42px 42px;
     animation: moveGrid 38s linear infinite;
     pointer-events: none;
@@ -47,28 +43,35 @@ st.markdown(
     opacity: 1;
 }}
 @keyframes moveGrid {{
-    0%   {{ transform: translateY(0px); }}
+    0% {{ transform: translateY(0px); }}
     100% {{ transform: translateY(42px); }}
 }}
 /* lift the app content above bg layer */
 .main, .block-container, .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg {{ position: relative; z-index: 1; }}
-
 /* Tab styling */
+div[data-baseweb="tab-list"] {{
+    gap: 8px;
+    padding-bottom: 4px;
+}}
 div[data-baseweb="tab-list"] button[aria-selected="true"] {{
     background-color: #FFD700 !important;
     color: black !important;
     font-weight: 700;
     padding: 14px 26px !important;
-    border-radius: 10px;
-    margin-right: 10px !important;
+    border-radius: 10px 10px 0 0 !important;
+    border-bottom: none !important;
 }}
 div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     background-color: #1b1b1b !important;
     color: #bbb !important;
     padding: 14px 26px !important;
-    border-radius: 10px;
-    margin-right: 10px !important;
+    border-radius: 10px 10px 0 0 !important;
     border: 1px solid #242424 !important;
+    border-bottom: none !important;
+}}
+div[data-baseweb="tab-list"] button:hover {{
+    background-color: #2a2a2a !important;
+    color: white !important;
 }}
 /* Card look for info boxes */
 .card {{
@@ -77,223 +80,51 @@ div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     border-radius: 12px;
     padding: 16px;
     box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    transition: transform 0.3s ease;
+}}
+.card:hover {{
+    transform: translateY(-4px);
+}}
+/* Improve dataframe styling */
+.dataframe th {{
+    background-color: #1f1f1f;
+    color: #FFD700;
+}}
+.dataframe td {{
+    background-color: #121212;
+    color: white;
+}}
+/* Selectbox and input styling */
+.stSelectbox, .stNumberInput, .stTextInput, .stRadio {{
+    background-color: #1b1b1b;
+    border-radius: 8px;
+    padding: 8px;
+}}
+/* Button styling */
+.stButton button {{
+    background-color: #FFD700;
+    color: black;
+    border-radius: 8px;
+    font-weight: bold;
+}}
+.stButton button:hover {{
+    background-color: #E6C200;
+}}
+/* Expander styling */
+.stExpander {{
+    border: 1px solid #242424;
+    border-radius: 8px;
+    background-color: #1b1b1b;
 }}
 </style>
 """,
     unsafe_allow_html=True,
 )
-
-import streamlit as st
-
 # =========================================================
 # NAVIGATION
 # =========================================================
 tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
 selected_tab = st.tabs(tabs)
-
-# ---------- Forex Fundamentals ----------
-
-
-    # Your existing code here
-
-# ---------- Understanding Forex Fundamentals ----------
-
-    # Your existing code here
-
-# ---------- Technical Analysis ----------
-
-    # Your existing code here
-
-import streamlit as st
-import pandas as pd
-import json, os
-
-# =========================================================
-# TAB 3: TOOLS
-# =========================================================
-with selected_tab[3]:
-    st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
-
-    # ---------------- Profit/Stop-loss Calculator ----------------
-    with tools_subtabs[0]:
-        st.header("💰 Profit / Stop-loss Calculator")
-        st.markdown("Calculate your potential profit or loss for a trade.")
-
-        currency_pair = st.selectbox(
-            "Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair"
-        )
-        account_currency = st.selectbox(
-            "Account Currency", ["USD", "EUR", "GBP", "JPY"], key="pl_account_currency"
-        )
-        position_size = st.number_input(
-            "Position Size (lots)", min_value=0.01, value=0.1, step=0.01, key="pl_position_size"
-        )
-        open_price = st.number_input("Open Price", value=1.1000, step=0.0001, key="pl_open_price")
-        close_price = st.number_input("Close Price", value=1.1050, step=0.0001, key="pl_close_price")
-        trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction")
-
-        pip_multiplier = 100 if "JPY" in currency_pair else 10000
-        pip_movement = abs(close_price - open_price) * pip_multiplier
-        exchange_rate = 1.1000
-        pip_value = (
-            (0.0001 / exchange_rate) * position_size * 100000
-            if "JPY" not in currency_pair
-            else (0.01 / exchange_rate) * position_size * 100000
-        )
-        profit_loss = pip_movement * pip_value
-
-        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
-        st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
-        st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
-
-    # ---------------- Backtesting ----------------
-    with tools_subtabs[1]:
-        st.header("📊 Backtesting")
-        st.markdown("Backtest your trading strategies here.")
-
-        # TradingView Advanced Chart with drawing tools
-        tv_widget = """
-        <div class="tradingview-widget-container">
-            <div id="tradingview_advanced_chart"></div>
-            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-            <script type="text/javascript">
-                new TradingView.widget({
-                    "width": "100%",
-                    "height": 600,
-                    "symbol": "FX:EURUSD",
-                    "interval": "D",
-                    "timezone": "Etc/UTC",
-                    "theme": "light",
-                    "style": "1",
-                    "toolbar_bg": "#f1f3f6",
-                    "withdateranges": true,
-                    "hide_side_toolbar": false,
-                    "allow_symbol_change": true,
-                    "save_image": false,
-                    "studies": [],
-                    "container_id": "tradingview_advanced_chart"
-                });
-            </script>
-        </div>
-        """
-        st.components.v1.html(tv_widget, height=620)
-
-        # ---------------- Backtesting Journal ----------------
-        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-
-        # Initialize session state journal if not exists
-        if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
-
-        # Editable journal
-        updated_journal_tools = st.data_editor(
-            data=st.session_state.tools_trade_journal.copy(),
-            num_rows="dynamic",
-            key="tools_backtesting_journal_unique"
-        )
-        st.session_state.tools_trade_journal = updated_journal_tools
-
-        # ---------------- Save / Load Buttons ----------------
-        if "logged_in_user" in st.session_state:
-            col1, col2 = st.columns([1,1])
-            with col1:
-                if st.button("💾 Save to My Account", key="save_journal_button"):
-                    username = st.session_state.logged_in_user
-                    accounts = {}
-                    if os.path.exists(ACCOUNTS_FILE):
-                        with open(ACCOUNTS_FILE, "r") as f:
-                            accounts = json.load(f)
-                    accounts.setdefault(username, {})["tools_trade_journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
-                    with open(ACCOUNTS_FILE, "w") as f:
-                        json.dump(accounts, f, indent=4)
-                    st.success("Trading journal saved to your account!")
-
-            with col2:
-                if st.button("📂 Load Journal", key="load_journal_button"):
-                    username = st.session_state.logged_in_user
-                    accounts = {}
-                    if os.path.exists(ACCOUNTS_FILE):
-                        with open(ACCOUNTS_FILE, "r") as f:
-                            accounts = json.load(f)
-                    saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
-                    if saved_journal:
-                        st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
-                        st.success("Trading journal loaded from your account!")
-                    else:
-                        st.info("No saved journal found in your account.")
-        else:
-            st.info("Sign in to save your trading journal to your account.")
-
-
-# =========================================================
-# TAB 4: MY ACCOUNT
-# =========================================================
-with selected_tab[4]:
-    st.title("👤 My Account")
-    st.subheader("Account Login / Sign Up")
-
-    ACCOUNTS_FILE = "user_accounts.json"
-    if not os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, "w") as f:
-            json.dump({}, f)
-
-    # ---------------- LOGIN ----------------
-    login_expander = st.expander("Login")
-    with login_expander:
-        username = st.text_input("Username", key="login_username")
-        password = st.text_input("Password", type="password", key="login_password")
-        if st.button("Login"):
-            with open(ACCOUNTS_FILE, "r") as f:
-                accounts = json.load(f)
-            if username in accounts and accounts[username]["password"] == password:
-                st.session_state.logged_in_user = username
-                st.success(f"Logged in as {username}")
-
-                # Automatically load journal on login
-                saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
-                journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-                if saved_journal:
-                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
-                else:
-                    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
-
-            else:
-                st.error("Invalid username or password")
-
-    # ---------------- SIGN UP ----------------
-    signup_expander = st.expander("Sign Up")
-    with signup_expander:
-        new_username = st.text_input("New Username", key="signup_username")
-        new_password = st.text_input("New Password", type="password", key="signup_password")
-        if st.button("Sign Up"):
-            with open(ACCOUNTS_FILE, "r") as f:
-                accounts = json.load(f)
-            if new_username in accounts:
-                st.error("Username already exists")
-            else:
-                accounts[new_username] = {"password": new_password}
-                with open(ACCOUNTS_FILE, "w") as f:
-                    json.dump(accounts, f, indent=4)
-                st.success(f"Account created for {new_username}")
-
-    # ---------------- ACCOUNT SETTINGS ----------------
-    if "logged_in_user" in st.session_state:
-        st.subheader("Profile Settings")
-        colA, colB = st.columns(2)
-        with colA:
-            name = st.text_input("Name", value=st.session_state.get("name",""), key="account_name")
-            base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0, key="account_base_ccy")
-        with colB:
-            email = st.text_input("Email", value=st.session_state.get("email",""), key="account_email")
-            alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True), key="account_alerts")
-
-        if st.button("Save Preferences", key="account_save_prefs"):
-            st.session_state.name = name
-            st.session_state.email = email
-            st.session_state.base_ccy = base_ccy
-            st.session_state.alerts = alerts
-            st.success("Preferences saved for this session.")
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -314,7 +145,6 @@ def detect_currency(title: str) -> str:
             if kw in t:
                 return curr
     return "Unknown"
-
 def rate_impact(polarity: float) -> str:
     if polarity > 0.5:
         return "Significantly Bullish"
@@ -326,7 +156,6 @@ def rate_impact(polarity: float) -> str:
         return "Bearish"
     else:
         return "Neutral"
-
 @st.cache_data(ttl=600, show_spinner=False)
 def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -360,7 +189,6 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             pass
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-
 # Static calendar (your provided data)
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
@@ -420,10 +248,8 @@ econ_calendar_data = [
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
-
 # Load news once for all tabs
 df_news = get_fxstreet_forex_news()
-
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
@@ -434,25 +260,24 @@ with selected_tab[0]:
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
-
     # -------- Economic Calendar (with currency highlight filters) --------
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
         st.session_state.selected_currency_1 = None
     if 'selected_currency_2' not in st.session_state:
         st.session_state.selected_currency_2 = None
-
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
-    currency_filter_1 = st.selectbox(
-        "Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1"
-    )
-    st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
-
-    currency_filter_2 = st.selectbox(
-        "Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2"
-    )
-    st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-
+    col_filter1, col_filter2 = st.columns(2)
+    with col_filter1:
+        currency_filter_1 = st.selectbox(
+            "Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1"
+        )
+        st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
+    with col_filter2:
+        currency_filter_2 = st.selectbox(
+            "Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2"
+        )
+        st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
     def highlight_currency(row):
         styles = [''] * len(row)
         if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
@@ -460,9 +285,7 @@ with selected_tab[0]:
         if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
             styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
         return styles
-
-    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True)
-
+    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=400)
     # -------- Interest rate tiles --------
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
@@ -475,13 +298,12 @@ with selected_tab[0]:
         {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
         {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
     ]
-
     boxes_per_row = 4
-    colors = ["#171447", "#471414"]
+    colors = ["#171447", "#471414", "#144714", "#474714"]
     for i in range(0, len(interest_rates), boxes_per_row):
         cols = st.columns(boxes_per_row)
         for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
-            color = colors[j % 2]
+            color = colors[j % len(colors)]
             with cols[j]:
                 st.markdown(
                     f"""
@@ -502,47 +324,40 @@ with selected_tab[0]:
                     """,
                     unsafe_allow_html=True
                 )
-
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
 with selected_tab[1]:
     st.title("📖 Understanding Forex Fundamentals")
     st.caption("Core drivers of currencies, explained simply.")
-
     with st.expander("Interest Rates & Central Banks"):
         st.write("""
 - Central banks adjust rates to control inflation and growth.
 - Higher rates tend to attract capital → stronger currency.
 - Watch: FOMC (USD), ECB (EUR), BoE (GBP), BoJ (JPY), RBA (AUD), BoC (CAD), SNB (CHF), RBNZ (NZD).
         """)
-
     with st.expander("Inflation & Growth"):
         st.write("""
 - Inflation (CPI/PPI) impacts real yields and policy expectations.
 - Growth indicators (GDP, PMIs, employment) shift risk appetite and rate paths.
         """)
-
     with st.expander("Risk Sentiment & Commodities"):
         st.write("""
 - Risk-on often lifts AUD/NZD; risk-off supports USD/JPY/CHF.
 - Oil impacts CAD; gold sometimes correlates with AUD.
         """)
-
     with st.expander("How to Use the Economic Calendar"):
         st.write("""
 1) Filter by the currency you trade.
 2) Note forecast vs. actual.
 3) Expect volatility around high-impact events; widen stops or reduce size.
         """)
-
 # =========================================================
 # TAB 3: TECHNICAL ANALYSIS
 # =========================================================
 with selected_tab[2]:
     st.title("📊 Technical Analysis")
     st.caption("Live TradingView chart + curated news for the selected pair.")
-
     # ---- Pair selector & symbol map ----
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
@@ -555,11 +370,9 @@ with selected_tab[2]:
         "EUR/GBP": "FX:EURGBP",
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
-
     # ---- TradingView Widget (only in Tab 3) ----
     watchlist = list(pairs_map.values())
     tv_symbol = pairs_map[pair]
-
     tv_html = f"""
     <div class="tradingview-widget-container" style="height:800px; width:100%">
       <div id="tradingview_chart" class="tradingview-widget-container__widget" style="height:800px; width:100%"></div>
@@ -588,15 +401,12 @@ with selected_tab[2]:
       </script>
     </div>
     """
-
     components.html(tv_html, height=850, scrolling=False)
-
     # -------- News selector --------
     st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
         base, quote = pair.split("/")
         filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
-
         try:
             filtered_df["HighProb"] = filtered_df.apply(
                 lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
@@ -605,10 +415,8 @@ with selected_tab[2]:
             )
         except Exception:
             filtered_df["HighProb"] = ""
-
         filtered_df_display = filtered_df.copy()
         filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-
         if not filtered_df_display.empty:
             selected_headline = st.selectbox(
                 "Select a headline for details",
@@ -616,7 +424,6 @@ with selected_tab[2]:
                 key="ta_headline_select"
             )
             selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
-
             st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
             st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
             st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
@@ -626,3 +433,172 @@ with selected_tab[2]:
             st.info("No pair-specific headlines found in the recent feed.")
     else:
         st.info("News feed unavailable right now.")
+# =========================================================
+# TAB 4: TOOLS
+# =========================================================
+with selected_tab[3]:
+    st.title("🛠 Tools")
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting"])
+    # ---------------- Profit/Stop-loss Calculator ----------------
+    with tools_subtabs[0]:
+        st.header("💰 Profit / Stop-loss Calculator")
+        st.markdown("Calculate your potential profit or loss for a trade.")
+        col_calc1, col_calc2 = st.columns(2)
+        with col_calc1:
+            currency_pair = st.selectbox(
+                "Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair"
+            )
+            position_size = st.number_input(
+                "Position Size (lots)", min_value=0.01, value=0.1, step=0.01, key="pl_position_size"
+            )
+            close_price = st.number_input("Close Price", value=1.1050, step=0.0001, key="pl_close_price")
+        with col_calc2:
+            account_currency = st.selectbox(
+                "Account Currency", ["USD", "EUR", "GBP", "JPY"], key="pl_account_currency"
+            )
+            open_price = st.number_input("Open Price", value=1.1000, step=0.0001, key="pl_open_price")
+            trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction")
+        pip_multiplier = 100 if "JPY" in currency_pair else 10000
+        pip_movement = abs(close_price - open_price) * pip_multiplier
+        exchange_rate = 1.1000
+        pip_value = (
+            (0.0001 / exchange_rate) * position_size * 100000
+            if "JPY" not in currency_pair
+            else (0.01 / exchange_rate) * position_size * 100000
+        )
+        profit_loss = pip_movement * pip_value
+        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
+        st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
+        st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
+    # ---------------- Backtesting ----------------
+    with tools_subtabs[1]:
+        st.header("📊 Backtesting")
+        st.markdown("Backtest your trading strategies here.")
+        # TradingView Advanced Chart with drawing tools
+        tv_widget = """
+        <div class="tradingview-widget-container">
+            <div id="tradingview_advanced_chart"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+                new TradingView.widget({
+                    "width": "100%",
+                    "height": 600,
+                    "symbol": "FX:EURUSD",
+                    "interval": "D",
+                    "timezone": "Etc/UTC",
+                    "theme": "dark",
+                    "style": "1",
+                    "toolbar_bg": "#f1f3f6",
+                    "withdateranges": true,
+                    "hide_side_toolbar": false,
+                    "allow_symbol_change": true,
+                    "save_image": false,
+                    "studies": [],
+                    "container_id": "tradingview_advanced_chart"
+                });
+            </script>
+        </div>
+        """
+        st.components.v1.html(tv_widget, height=620)
+        # ---------------- Backtesting Journal ----------------
+        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+        # Initialize session state journal if not exists
+        if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+        # Editable journal
+        updated_journal_tools = st.data_editor(
+            data=st.session_state.tools_trade_journal.copy(),
+            num_rows="dynamic",
+            key="tools_backtesting_journal_unique"
+        )
+        st.session_state.tools_trade_journal = updated_journal_tools
+        # ---------------- Save / Load Buttons ----------------
+        if "logged_in_user" in st.session_state:
+            col1, col2 = st.columns([1,1])
+            with col1:
+                if st.button("💾 Save to My Account", key="save_journal_button"):
+                    username = st.session_state.logged_in_user
+                    accounts = {}
+                    if os.path.exists(ACCOUNTS_FILE):
+                        with open(ACCOUNTS_FILE, "r") as f:
+                            accounts = json.load(f)
+                    accounts.setdefault(username, {})["tools_trade_journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
+                    with open(ACCOUNTS_FILE, "w") as f:
+                        json.dump(accounts, f, indent=4)
+                    st.success("Trading journal saved to your account!")
+            with col2:
+                if st.button("📂 Load Journal", key="load_journal_button"):
+                    username = st.session_state.logged_in_user
+                    accounts = {}
+                    if os.path.exists(ACCOUNTS_FILE):
+                        with open(ACCOUNTS_FILE, "r") as f:
+                            accounts = json.load(f)
+                    saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
+                    if saved_journal:
+                        st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+                        st.success("Trading journal loaded from your account!")
+                    else:
+                        st.info("No saved journal found in your account.")
+        else:
+            st.info("Sign in to save your trading journal to your account.")
+# =========================================================
+# TAB 5: MY ACCOUNT
+# =========================================================
+with selected_tab[4]:
+    st.title("👤 My Account")
+    st.subheader("Account Login / Sign Up")
+    ACCOUNTS_FILE = "user_accounts.json"
+    if not os.path.exists(ACCOUNTS_FILE):
+        with open(ACCOUNTS_FILE, "w") as f:
+            json.dump({}, f)
+    # ---------------- LOGIN ----------------
+    login_expander = st.expander("Login")
+    with login_expander:
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login"):
+            with open(ACCOUNTS_FILE, "r") as f:
+                accounts = json.load(f)
+            if username in accounts and accounts[username]["password"] == password:
+                st.session_state.logged_in_user = username
+                st.success(f"Logged in as {username}")
+                # Automatically load journal on login
+                saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
+                journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+                if saved_journal:
+                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+                else:
+                    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+            else:
+                st.error("Invalid username or password")
+    # ---------------- SIGN UP ----------------
+    signup_expander = st.expander("Sign Up")
+    with signup_expander:
+        new_username = st.text_input("New Username", key="signup_username")
+        new_password = st.text_input("New Password", type="password", key="signup_password")
+        if st.button("Sign Up"):
+            with open(ACCOUNTS_FILE, "r") as f:
+                accounts = json.load(f)
+            if new_username in accounts:
+                st.error("Username already exists")
+            else:
+                accounts[new_username] = {"password": new_password}
+                with open(ACCOUNTS_FILE, "w") as f:
+                    json.dump(accounts, f, indent=4)
+                st.success(f"Account created for {new_username}")
+    # ---------------- ACCOUNT SETTINGS ----------------
+    if "logged_in_user" in st.session_state:
+        st.subheader("Profile Settings")
+        colA, colB = st.columns(2)
+        with colA:
+            name = st.text_input("Name", value=st.session_state.get("name",""), key="account_name")
+            base_ccy = st.selectbox("Preferred Base Currency", ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"], index=0, key="account_base_ccy")
+        with colB:
+            email = st.text_input("Email", value=st.session_state.get("email",""), key="account_email")
+            alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True), key="account_alerts")
+        if st.button("Save Preferences", key="account_save_prefs"):
+            st.session_state.name = name
+            st.session_state.email = email
+            st.session_state.base_ccy = base_ccy
+            st.session_state.alerts = alerts
+            st.success("Preferences saved for this session.")
