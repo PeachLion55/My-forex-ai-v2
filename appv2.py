@@ -575,19 +575,24 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} at {price}")
 
-    # Function to fetch live forex price using Finnhub
-    def get_live_price(pair):
-        api_key = st.secrets["finnhub"]["api_key"]
-        from_currency, to_currency = pair.split("/")
-        url = f"https://finnhub.io/api/v1/forex/rates?base={from_currency}&token={api_key}"
-        try:
-            response = requests.get(url, timeout=10).json()
+# Function to fetch live forex price using Finnhub
+def get_live_price(pair):
+    api_key = st.secrets["finnhub"]["api_key"]
+    from_currency, to_currency = pair.split("/")
+    url = f"https://finnhub.io/api/v1/forex/rates?base={from_currency}&token={api_key}"
+    try:
+        response = requests.get(url, timeout=10).json()
+        # Check if 'quote' exists and contains the target currency
+        if "quote" in response and to_currency in response["quote"]:
             return float(response["quote"][to_currency])
-        except Exception as e:
+        else:
             return None
+    except Exception as e:
+        st.error(f"Error fetching {pair}: {e}")
+        return None
 
-    # Fetch live prices
-    live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
+# Fetch live prices
+live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
 
     # Check and trigger alerts
     triggered_alerts = []
