@@ -547,6 +547,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from streamlit_autorefresh import st_autorefresh
+import time
 
 with tools_subtabs[2]:
     st.header("⏰ Price Alerts")
@@ -555,19 +556,13 @@ with tools_subtabs[2]:
     # Auto-refresh every 2 seconds
     st_autorefresh(interval=2000, key="price_alert_refresh")
 
-    # List of popular Forex pairs (Twelve Data format)
-    forex_pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD",
-                   "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"]
+    # List of popular Forex pairs
+    forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", 
+                   "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
 
     # Initialize session state for alerts
     if "price_alerts" not in st.session_state:
         st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
-
-    # Safety check for API key
-    api_key = st.secrets.get("twelvedata_api_key", None)
-    if not api_key:
-        st.error("Twelve Data API key not found! Add it to secrets.toml or Streamlit Cloud secrets.")
-        st.stop()
 
     # Input form for new alert
     with st.form("add_alert_form"):
@@ -580,16 +575,19 @@ with tools_subtabs[2]:
         st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
         st.success(f"Alert added: {pair} at {price}")
 
-    # Function to get live price from Twelve Data
+    # Function to get live price from Alpha Vantage
     def get_live_price(pair):
-        url = f"https://api.twelvedata.com/price?symbol={pair}&apikey={api_key}"
+        api_key = st.secrets["alpha_vantage"]["api_key"]
+        from_currency = pair[:3]
+        to_currency = pair[3:]
+        url = f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={api_key}"
         try:
-            response = requests.get(url, timeout=5).json()
-            if "price" in response:
-                return float(response["price"])
+            response = requests.get(url)
+            data = response.json()
+            price = data["Realtime Currency Exchange Rate"]["5. Exchange Rate"]
+            return float(price)
         except:
             return None
-        return None
 
     # Fetch live prices
     live_prices = {pair: get_live_price(pair) for pair in forex_pairs}
