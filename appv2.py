@@ -636,7 +636,7 @@ with selected_tab[1]:
 # =========================================================
 with selected_tab[2]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Calculator", "Trading Session Tracker", "Candlestick Pattern Cheat Sheet"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Calculator", "Trading Session Tracker"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
@@ -1033,33 +1033,7 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
-    with tools_subtabs[6]:
-        st.header("📑 Candlestick Pattern Cheat Sheet")
-        st.markdown("Learn to recognize powerful reversal and continuation signals.")
-        patterns = [
-            {"name": "Hammer", "type": "Bullish", "meaning": "Potential reversal after downtrend"},
-            {"name": "Shooting Star", "type": "Bearish", "meaning": "Potential reversal after uptrend"},
-            {"name": "Engulfing", "type": "Bullish/Bearish", "meaning": "Strong reversal depending on direction"},
-            {"name": "Doji", "type": "Neutral", "meaning": "Market indecision, possible reversal"},
-        ]
-        cols = st.columns(2)
-        for i, pattern in enumerate(patterns):
-            with cols[i % 2]:
-                st.markdown(f"""
-                    <div style="
-                        background-color:#1e1e2f;
-                        border-radius:12px;
-                        padding:15px;
-                        margin-bottom:10px;
-                        box-shadow:2px 2px 8px rgba(0,0,0,0.4);
-                        color:white;
-                    ">
-                        <h3 style="margin:0; color:#FFD700;">{pattern['name']}</h3>
-                        <p style="margin:2px 0;"><b>Type:</b> {pattern['type']}</p>
-                        <p style="margin:2px 0;"><b>Meaning:</b> {pattern['meaning']}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-
+  
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
