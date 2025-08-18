@@ -1125,9 +1125,7 @@ with selected_tab[3]:
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import numpy as np
-import logging
 
 with selected_tab[4]:
     st.markdown("""
@@ -1150,8 +1148,8 @@ with selected_tab[4]:
         }
         .metrics-container {
             display: grid;
-            grid-template-columns: repeat(4, 1fr); /* Always 4 per row */
-            gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
             padding: 20px 0;
         }
         .metric-card {
@@ -1160,7 +1158,11 @@ with selected_tab[4]:
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             color: #333333;
-            background: transparent; /* Removed white background */
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
         .metric-card:hover {
             transform: translateY(-3px);
@@ -1194,14 +1196,14 @@ with selected_tab[4]:
             margin-bottom: 15px;
         }
         .upload-container {
-            background: #f5f5f5;
+            background: transparent !important;
             border-radius: 8px;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
         }
         .stFileUploader > div > div > div {
-            background-color: #ffffff !important;
+            background-color: transparent !important;
             border-radius: 8px;
             color: #333333 !important;
         }
@@ -1217,7 +1219,11 @@ with selected_tab[4]:
 
     with st.container():
         st.markdown('<div class="upload-container">', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("Choose your MT5 History CSV file", type=["csv"], help="Upload a CSV file exported from MetaTrader 5 containing your trading history.")
+        uploaded_file = st.file_uploader(
+            "Choose your MT5 History CSV file", 
+            type=["csv"], 
+            help="Upload a CSV file exported from MetaTrader 5 containing your trading history."
+        )
         st.markdown('</div>', unsafe_allow_html=True)
 
     if uploaded_file:
@@ -1232,7 +1238,7 @@ with selected_tab[4]:
                     df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                     df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-                    # Calculate metrics
+                    # Metrics calculations
                     total_trades = len(df)
                     wins = df[df["Profit"] > 0]
                     losses = df[df["Profit"] <= 0]
@@ -1243,7 +1249,6 @@ with selected_tab[4]:
                     net_profit = df["Profit"].sum()
                     biggest_win = df["Profit"].max()
                     biggest_loss = df["Profit"].min()
-                    max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
                     longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
                     longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
                     total_volume = df["Volume"].sum()
@@ -1261,13 +1266,11 @@ with selected_tab[4]:
                         ("⚡ Profit Factor", profit_factor, "positive" if profit_factor >= 1 else "negative"),
                         ("🏆 Biggest Win", f"${biggest_win:,.2f}", "positive"),
                         ("💀 Biggest Loss", f"${biggest_loss:,.2f}", "negative"),
-                        ("📉 Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
                         ("🔥 Longest Win Streak", longest_win_streak, "positive"),
                         ("❌ Longest Loss Streak", longest_loss_streak, "negative"),
                         ("⏱️ Avg Trade Duration", f"{avg_trade_duration:.2f}h", "neutral"),
                         ("📦 Total Volume", f"{total_volume:,.2f}", "neutral"),
                         ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
-                        ("📈 Largest Volume Trade", f"{largest_volume_trade:.2f}", "neutral"),
                         ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
                     ]
                     for title, value, style in metrics:
@@ -1282,12 +1285,14 @@ with selected_tab[4]:
                     # Visualizations
                     st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
                     profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
-                    fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
-                                        title="Profit by Instrument", template="plotly_white",
-                                        color_continuous_scale=px.colors.diverging.Tealrose)
+                    fig_symbol = px.bar(
+                        profit_symbol, x="Symbol", y="Profit", color="Profit",
+                        title="Profit by Instrument", template="plotly_white",
+                        color_continuous_scale=px.colors.diverging.Tealrose
+                    )
                     fig_symbol.update_layout(
-                        title_font_size=18, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
-                        font_color="#333333", xaxis_title="Instrument", yaxis_title="Profit ($)"
+                        title_font_size=18, title_x=0.5,
+                        font_color="#333333"
                     )
                     st.plotly_chart(fig_symbol, use_container_width=True)
 
@@ -1295,13 +1300,12 @@ with selected_tab[4]:
                     col1, col2 = st.columns(2)
                     with col1:
                         fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_white")
-                        fig_types.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff")
+                        fig_types.update_layout(title_font_size=16, title_x=0.5)
                         st.plotly_chart(fig_types, use_container_width=True)
                     with col2:
                         df["Weekday"] = df["Open Time"].dt.day_name()
-                        fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week",
-                                                  template="plotly_white")
-                        fig_weekday.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff")
+                        fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week", template="plotly_white")
+                        fig_weekday.update_layout(title_font_size=16, title_x=0.5)
                         st.plotly_chart(fig_weekday, use_container_width=True)
 
                     st.success("✅ MT5 Performance Dashboard Loaded Successfully!")
