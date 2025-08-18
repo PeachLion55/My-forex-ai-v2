@@ -128,7 +128,7 @@ div[data-baseweb="tab-list"] button:hover {{
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Understanding Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
+tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
 selected_tab = st.tabs(tabs)
 
 # =========================================================
@@ -357,35 +357,6 @@ with selected_tab[0]:
             </div>
             """, unsafe_allow_html=True
         )
-
-# =========================================================
-# TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
-# =========================================================
-with selected_tab[1]:
-    st.title("📖 Understanding Forex Fundamentals")
-    st.caption("Core drivers of currencies, explained simply.")
-    with st.expander("Interest Rates & Central Banks"):
-        st.write("""
-- Central banks adjust rates to control inflation and growth.
-- Higher rates tend to attract capital → stronger currency.
-- Watch: FOMC (USD), ECB (EUR), BoE (GBP), BoJ (JPY), RBA (AUD), BoC (CAD), SNB (CHF), RBNZ (NZD).
-        """)
-    with st.expander("Inflation & Growth"):
-        st.write("""
-- Inflation (CPI/PPI) impacts real yields and policy expectations.
-- Growth indicators (GDP, PMIs, employment) shift risk appetite and rate paths.
-        """)
-    with st.expander("Risk Sentiment & Commodities"):
-        st.write("""
-- Risk-on often lifts AUD/NZD; risk-off supports USD/JPY/CHF.
-- Oil impacts CAD; gold sometimes correlates with AUD.
-        """)
-    with st.expander("How to Use the Economic Calendar"):
-        st.write("""
-1) Filter by the currency you trade.
-2) Note forecast vs. actual.
-3) Expect volatility around high-impact events; widen stops or reduce size.
-        """)
 
 # =========================================================
 # TAB 3: TECHNICAL ANALYSIS
