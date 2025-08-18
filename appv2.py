@@ -504,8 +504,26 @@ if 'drawings_key' in st.session_state:
     st.session_state.drawings[pair] = content
     st.success("Drawings saved successfully!")
     del st.session_state['drawings_key']
-else:
-    st.info("Sign in to save/load drawings.")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("Save Drawings"):
+        # save script...
+        pass
+with col2:
+    if st.button("Load Drawings"):
+        # load code...
+        pass
+with col3:
+    if st.button("Refresh Account"):
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            st.session_state.drawings = user_data.get("drawings", {})
+        st.rerun()
+
 # News & Sentiment
 st.markdown("### 📰 News & Sentiment for Selected Pair")
 if not df_news.empty:
@@ -514,7 +532,7 @@ if not df_news.empty:
     try:
         filtered_df["HighProb"] = filtered_df.apply(
             lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                                 (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
             else "", axis=1
         )
     except Exception:
