@@ -295,7 +295,10 @@ with selected_tab[0]:
     forex_high_impact_events = [
         {
             "event": "Non-Farm Payrolls (NFP)",
-            "description": "Monthly change in U.S. non-farm payroll employment. Extremely influential for USD.",
+            "description": "	•	What it is:
+Monthly report on U.S. jobs excluding farming, households, and non-profits. Released by the Bureau of Labor Statistics on the first Friday of each month.
+	•	Why it matters:
+Shows economic health; impacts USD value and forex markets. Strong jobs → stronger USD; weak jobs → weaker USD.",
             "impact_positive": {"USD": "↑", "EUR/USD": "↓", "GBP/USD": "↓", "USD/JPY": "↑"},
             "impact_negative": {"USD": "↓", "EUR/USD": "↑", "GBP/USD": "↑", "USD/JPY": "↓"},
         },
