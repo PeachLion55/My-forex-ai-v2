@@ -128,7 +128,7 @@ div[data-baseweb="tab-list"] button:hover {{
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account", "MT5 Stats Dashboard']
+tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account", "MT5 Stats Dashboard"]
 selected_tab = st.tabs(tabs)
 
 # =========================================================
