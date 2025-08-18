@@ -838,22 +838,21 @@ with selected_tab[3]:
             st.success("Preferences saved for this session.")
 
 # ==================== TAB 5: MT5 STATS DASHBOARD ====================
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+
 with selected_tab[4]:
     st.markdown("## 📊 MT5 Stats Dashboard")
-    st.write("Upload your MT5 trading history CSV to view a next-level performance dashboard.")
+    st.write("Upload your MT5 trading history CSV to view a professional-grade performance dashboard.")
 
     uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
 
     if uploaded_file:
-        import pandas as pd
-        import numpy as np
-        import plotly.express as px
-        import plotly.graph_objects as go
-        from io import StringIO
-
         df = pd.read_csv(uploaded_file)
 
-        # Ensure required columns exist
         required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
@@ -863,7 +862,7 @@ with selected_tab[4]:
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # --- Advanced Performance Metrics ---
+            # --- Advanced Metrics ---
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
@@ -881,33 +880,65 @@ with selected_tab[4]:
             avg_risk_reward = (wins["Profit"].mean() / abs(losses["Profit"].mean())) if not losses.empty else np.nan
             daily_avg_profit = df.groupby(df["Close Time"].dt.date)["Profit"].sum().mean()
 
-            # --- Top 10 KPI Cards with Sparkline ---
-            st.markdown("### ⚡ Key Performance Metrics", unsafe_allow_html=True)
-            kpi_data = [
-                ("Total Trades", total_trades, None, "#0ea5e9"),
-                ("Win Rate", f"{win_rate:.2f}%", None, "#22c55e"),
-                ("Net Profit", f"${net_profit:,.2f}", None, "#facc15"),
-                ("Profit Factor", f"{profit_factor:.2f}", None, "#8b5cf6"),
-                ("Biggest Win", f"${biggest_win:,.2f}", None, "#14b8a6"),
-                ("Biggest Loss", f"${biggest_loss:,.2f}", None, "#f87171"),
-                ("Max Drawdown", f"${max_drawdown:,.2f}" if max_drawdown else "N/A", None, "#f43f5e"),
-                ("Longest Win Streak", longest_win_streak, None, "#22d3ee"),
-                ("Longest Loss Streak", longest_loss_streak, None, "#e879f9"),
-                ("Avg Trade Duration (h)", f"{avg_trade_duration:.2f}", None, "#f97316"),
+            # --- Metric Data with Icons ---
+            metrics = [
+                ("Total Trades", total_trades, "📈"),
+                ("Win Rate", f"{win_rate:.2f}%", "✅"),
+                ("Net Profit", net_profit, "💰"),
+                ("Profit Factor", profit_factor, "⚡"),
+                ("Biggest Win", biggest_win, "🏆"),
+                ("Biggest Loss", biggest_loss, "💀"),
+                ("Max Drawdown", max_drawdown if max_drawdown else 0, "📉"),
+                ("Longest Win Streak", longest_win_streak, "🔥"),
+                ("Longest Loss Streak", longest_loss_streak, "❌"),
+                ("Avg Trade Duration (h)", avg_trade_duration, "⏱️"),
             ]
 
+            # --- Function to determine color ---
+            def metric_color(value):
+                try:
+                    val = float(value)
+                    if val > 0:
+                        return "#065f46"  # dark green
+                    elif val < 0:
+                        return "#7f1d1d"  # dark red
+                    else:
+                        return "#111827"  # dark gray / neutral
+                except:
+                    return "#111827"
+
+            # --- Render KPI Cards ---
+            st.markdown("### ⚡ Key Performance Metrics")
+            # First row (5 metrics)
             cols = st.columns(5)
-            for i, (title, value, spark, color) in enumerate(kpi_data):
-                with cols[i % 5]:
+            for i, (title, value, icon) in enumerate(metrics[:5]):
+                with cols[i]:
+                    color = metric_color(value)
                     st.markdown(f"""
-                        <div style='background: linear-gradient(135deg, {color} 0%, #1e293b 100%);
-                                    padding:20px;border-radius:15px;text-align:center;color:white;box-shadow:0 4px 10px rgba(0,0,0,0.3)'>
-                            <h4>{title}</h4>
-                            <h2>{value}</h2>
-                        </div>
-                        """, unsafe_allow_html=True)
-                if i % 5 == 4:
-                    cols = st.columns(5)
+                    <div style='background-color:{color};padding:20px;border-radius:15px;
+                                text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);
+                                min-height:120px;display:flex;flex-direction:column;justify-content:center;'>
+                        <div style='font-size:28px'>{icon}</div>
+                        <h4 style='margin:5px 0'>{title}</h4>
+                        <h2 style='margin:0'>{value}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            # Second row (remaining 5 metrics, slightly lower)
+            st.markdown("<div style='margin-top:20px'></div>", unsafe_allow_html=True)
+            cols = st.columns(5)
+            for i, (title, value, icon) in enumerate(metrics[5:]):
+                with cols[i]:
+                    color = metric_color(value)
+                    st.markdown(f"""
+                    <div style='background-color:{color};padding:20px;border-radius:15px;
+                                text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);
+                                min-height:120px;display:flex;flex-direction:column;justify-content:center;'>
+                        <div style='font-size:28px'>{icon}</div>
+                        <h4 style='margin:5px 0'>{title}</h4>
+                        <h2 style='margin:0'>{value}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -943,7 +974,7 @@ with selected_tab[4]:
             fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
             st.plotly_chart(fig_pnl, use_container_width=True)
 
-            st.success("✅ MT5 Next-Level Stats Dashboard Loaded Successfully!")
+            st.success("✅ MT5 Advanced Stats Dashboard Loaded Successfully!")
 
     else:
         st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
