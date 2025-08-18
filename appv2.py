@@ -15,7 +15,6 @@ import numpy as np
 import sqlite3
 import pytz
 import logging
-import io
 
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
@@ -40,13 +39,6 @@ except Exception as e:
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
-# Hide Streamlit footer and menu
-st.markdown("""
-    <style>
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
 # ----------------- CUSTOM CSS -----------------
 bg_opacity = 0.5
 st.markdown(
@@ -297,7 +289,7 @@ journal_cols = [
     "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
     "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
     "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
-    "Emotions", "Strategy Name", "Confidence Level", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
+    "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
     "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
 ]
 journal_dtypes = {
@@ -316,8 +308,6 @@ journal_dtypes = {
     "Alerts": str,
     "Concerns": str,
     "Emotions": str,
-    "Strategy Name": str,
-    "Confidence Level": float,
     "Confluence Score 1-7": float,
     "Outcome / R:R Realised": str,
     "Notes/Journal": str,
@@ -718,8 +708,6 @@ with selected_tab[1]:
         "Alerts": st.column_config.TextColumn("Alerts"),
         "Concerns": st.column_config.TextColumn("Concerns"),
         "Emotions": st.column_config.TextColumn("Emotions"),
-        "Strategy Name": st.column_config.TextColumn("Strategy Name"),
-        "Confidence Level": st.column_config.NumberColumn("Confidence Level", min_value=1, max_value=10, format="%d"),
         "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
         "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
         "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
@@ -731,9 +719,12 @@ with selected_tab[1]:
 
     # Prepare transposed journal for display
     if st.session_state.tools_trade_journal.empty:
+        # Initialize with one trade column if empty
         transposed_journal = pd.DataFrame(index=journal_cols, columns=["Trade 1"]).astype(object)
     else:
+        # Transpose the journal: fields as rows, trades as columns
         transposed_journal = st.session_state.tools_trade_journal.transpose()
+        # Rename columns to "Trade 1", "Trade 2", etc.
         transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
 
     # Button to add new trade column
