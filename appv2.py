@@ -837,14 +837,14 @@ with selected_tab[3]:
             st.session_state.alerts = alerts
             st.success("Preferences saved for this session.")
 
-# ==================== TAB 6: MT5 STATS DASHBOARD ====================
+# ==================== TAB 5: MT5 STATS DASHBOARD ====================
 with main_tabs[4]:
-    st.markdown("MT5 Stats Dashboard")
+    st.markdown("## 📊 MT5 Stats Dashboard")
     st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
 
     uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
 
-    if uploaded_file is not None:
+    if uploaded_file:
         import pandas as pd
         import numpy as np
         import plotly.express as px
@@ -852,22 +852,21 @@ with main_tabs[4]:
 
         df = pd.read_csv(uploaded_file)
 
-        # Ensure column names exist
+        # Ensure required columns exist
         required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
         missing_cols = [col for col in required_cols if col not in df.columns]
-
         if missing_cols:
             st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
         else:
-            # Convert times
+            # Convert time columns
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # Performance metrics
+            # Basic performance metrics
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
-            win_rate = (len(wins) / total_trades * 100) if total_trades > 0 else 0
+            win_rate = (len(wins)/total_trades*100) if total_trades else 0
             avg_win = wins["Profit"].mean() if not wins.empty else 0
             avg_loss = losses["Profit"].mean() if not losses.empty else 0
             profit_factor = (wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf
@@ -875,49 +874,52 @@ with main_tabs[4]:
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
+            # Longest win/loss streaks
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
 
-            # --- KPI Cards Layout ---
-            st.markdown("### 📈 Key Performance Metrics")
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            kpi1.metric("Total Trades", total_trades)
-            kpi2.metric("Win Rate", f"{win_rate:.2f}%")
-            kpi3.metric("Net Profit", f"${net_profit:,.2f}")
-            kpi4.metric("Profit Factor", f"{profit_factor:.2f}")
+            # --- KPI Cards ---
+            st.markdown("### ⚡ Key Performance Metrics")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Trades", total_trades)
+            c2.metric("Win Rate", f"{win_rate:.2f}%")
+            c3.metric("Net Profit", f"${net_profit:,.2f}")
+            c4.metric("Profit Factor", f"{profit_factor:.2f}")
 
-            kpi5, kpi6, kpi7, kpi8 = st.columns(4)
-            kpi5.metric("Biggest Win", f"${biggest_win:,.2f}")
-            kpi6.metric("Biggest Loss", f"${biggest_loss:,.2f}")
-            kpi7.metric("Max Drawdown", f"${max_drawdown:,.2f}" if max_drawdown else "N/A")
-            kpi8.metric("Avg Win / Loss", f"${avg_win:,.2f} / ${avg_loss:,.2f}")
+            c5, c6, c7, c8 = st.columns(4)
+            c5.metric("Biggest Win", f"${biggest_win:,.2f}")
+            c6.metric("Biggest Loss", f"${biggest_loss:,.2f}")
+            c7.metric("Max Drawdown", f"${max_drawdown:,.2f}" if max_drawdown else "N/A")
+            c8.metric("Avg Win / Loss", f"${avg_win:,.2f} / ${avg_loss:,.2f}")
 
-            kpi9, kpi10 = st.columns(2)
-            kpi9.metric("Longest Win Streak", longest_win_streak)
-            kpi10.metric("Longest Loss Streak", longest_loss_streak)
+            c9, c10 = st.columns(2)
+            c9.metric("Longest Win Streak", longest_win_streak)
+            c10.metric("Longest Loss Streak", longest_loss_streak)
 
             st.markdown("---")
 
-            # --- Balance Curve ---
-            st.markdown("### 💵 Balance Curve")
-            fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve")
+            # --- Balance / Equity Curve ---
+            st.markdown("### 💵 Balance / Equity Curve")
+            fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
             st.plotly_chart(fig_balance, use_container_width=True)
 
             # --- Profit by Symbol ---
             st.markdown("### 📊 Profit by Symbol")
             profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
-            fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit", title="Profit by Instrument")
+            fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
+                                title="Profit by Instrument", template="plotly_dark")
             st.plotly_chart(fig_symbol, use_container_width=True)
 
             # --- Trade Distribution ---
             st.markdown("### 🔎 Trade Distribution")
             col1, col2 = st.columns(2)
             with col1:
-                fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution")
+                fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_dark")
                 st.plotly_chart(fig_types, use_container_width=True)
             with col2:
                 df["Weekday"] = df["Open Time"].dt.day_name()
-                fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week")
+                fig_weekday = px.histogram(df, x="Weekday", color="Type",
+                                           title="Trades by Day of Week", template="plotly_dark")
                 st.plotly_chart(fig_weekday, use_container_width=True)
 
             # --- Cumulative PnL ---
@@ -925,7 +927,10 @@ with main_tabs[4]:
             df["Cumulative PnL"] = df["Profit"].cumsum()
             fig_pnl = go.Figure()
             fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
+            fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
             st.plotly_chart(fig_pnl, use_container_width=True)
 
+            st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
+
     else:
-        st.info("👆 Please upload your MT5 trading history CSV file to view the dashboard.")
+        st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
