@@ -847,8 +847,6 @@ with selected_tab[4]:
     if uploaded_file:
         import pandas as pd
         import numpy as np
-        import plotly.graph_objects as go
-        import plotly.express as px
 
         df = pd.read_csv(uploaded_file)
 
@@ -884,46 +882,78 @@ with selected_tab[4]:
             negative_trades = len(df[df["Profit"] < 0])
             profit_std = df["Profit"].std()
 
-            # --- KPI Indicators with Plotly ---
+            # --- Build metrics list ---
             metrics = [
-                {"title": "Total Trades", "value": total_trades, "color": "black", "suffix": "", "icon": "📊"},
-                {"title": "Win Rate", "value": win_rate, "color": "green" if win_rate>50 else "red", "suffix": "%", "icon": "✅"},
-                {"title": "Net Profit", "value": net_profit, "color": "green" if net_profit>0 else "red", "suffix": "$", "icon": "💰"},
-                {"title": "Profit Factor", "value": profit_factor, "color": "green" if profit_factor>1 else "red", "suffix": "", "icon": "⚡"},
-                {"title": "Biggest Win", "value": biggest_win, "color": "green", "suffix": "$", "icon": "🏆"},
-                {"title": "Biggest Loss", "value": biggest_loss, "color": "red", "suffix": "$", "icon": "💀"},
-                {"title": "Max Drawdown", "value": max_drawdown, "color": "red", "suffix": "$", "icon": "📉"},
-                {"title": "Longest Win Streak", "value": longest_win_streak, "color": "green", "suffix": "", "icon": "🔥"},
-                {"title": "Longest Loss Streak", "value": longest_loss_streak, "color": "red", "suffix": "", "icon": "❌"},
-                {"title": "Avg Trade Duration", "value": avg_trade_duration, "color": "black", "suffix": "h", "icon": "⏱️"},
+                {"title": "Total Trades", "value": total_trades, "color": "neutral", "icon": "📊"},
+                {"title": "Win Rate", "value": f"{win_rate:.2f}%", "color": "green" if win_rate>50 else "red", "icon": "✅"},
+                {"title": "Net Profit", "value": f"${net_profit:,.2f}", "color": "green" if net_profit>0 else "red", "icon": "💰"},
+                {"title": "Profit Factor", "value": f"{profit_factor}", "color": "green" if profit_factor>1 else "red", "icon": "⚡"},
+                {"title": "Biggest Win", "value": f"${biggest_win:,.2f}", "color": "green", "icon": "🏆"},
+                {"title": "Biggest Loss", "value": f"${biggest_loss:,.2f}", "color": "red", "icon": "💀"},
+                {"title": "Max Drawdown", "value": f"${max_drawdown:,.2f}" if max_drawdown else "N/A", "color": "red", "icon": "📉"},
+                {"title": "Longest Win Streak", "value": longest_win_streak, "color": "green", "icon": "🔥"},
+                {"title": "Longest Loss Streak", "value": longest_loss_streak, "color": "red", "icon": "❌"},
+                {"title": "Avg Trade Duration", "value": f"{avg_trade_duration:.2f}h", "color": "neutral", "icon": "⏱️"}
             ]
 
-            fig = go.Figure()
+            # --- HTML & CSS ---
+            html_content = """
+            <style>
+                .metrics-container {
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: space-between;
+                    gap: 15px;
+                }
+                .metric-box {
+                    flex: 1 1 calc(20% - 15px);
+                    background: #1e1e1e;
+                    padding: 20px;
+                    border-radius: 10px;
+                    color: white;
+                    text-align: center;
+                    font-family: 'Arial', sans-serif;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                    transition: transform 0.2s, box-shadow 0.2s;
+                    min-width: 150px;
+                    max-width: 200px;
+                }
+                .metric-box:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+                }
+                .metric-title {
+                    font-size: 16px;
+                    margin-bottom: 10px;
+                    opacity: 0.8;
+                }
+                .metric-value {
+                    font-size: 26px;
+                    font-weight: bold;
+                }
+                .green { color: #00b894; }
+                .red { color: #d63031; }
+                .neutral { color: #ffffff; }
+            </style>
+            <div class="metrics-container">
+            """
 
-            # Position metrics in 2 rows of 5 columns
-            for i, m in enumerate(metrics):
-                row = 0 if i < 5 else 1
-                col = i % 5
-                fig.add_trace(go.Indicator(
-                    mode="number+delta",
-                    value=m["value"] if not m["suffix"] else m["value"],
-                    title={"text": f"{m['icon']}<br>{m['title']}"},
-                    number={"prefix": m["suffix"] if m["suffix"]=="$" else "", "suffix": m["suffix"] if m["suffix"] not in ["$",""] else "", "font": {"color": m["color"], "size": 28}},
-                    domain={'x': [col*0.18, col*0.18 + 0.18], 'y': [0.5 if row else 0.5, 1 if row else 0.95]}
-                ))
+            for m in metrics:
+                html_content += f"""
+                <div class="metric-box">
+                    <div class="metric-title">{m['icon']} {m['title']}</div>
+                    <div class="metric-value {m['color']}">{m['value']}</div>
+                </div>
+                """
 
-            fig.update_layout(
-                grid={'rows': 2, 'columns': 5, 'pattern': "independent"},
-                template='plotly_dark',
-                margin=dict(l=20, r=20, t=50, b=20),
-                height=400
-            )
+            html_content += "</div>"
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.markdown(html_content, unsafe_allow_html=True)
 
             st.markdown("---")
 
             # --- Balance / Equity Curve ---
+            import plotly.express as px
             st.markdown("### 💵 Balance / Equity Curve")
             fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
             st.plotly_chart(fig_balance, use_container_width=True)
@@ -950,6 +980,7 @@ with selected_tab[4]:
             # --- Cumulative PnL ---
             st.markdown("### 📈 Cumulative Profit & Loss")
             df["Cumulative PnL"] = df["Profit"].cumsum()
+            import plotly.graph_objects as go
             fig_pnl = go.Figure()
             fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
             fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
