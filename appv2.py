@@ -128,7 +128,7 @@ div[data-baseweb="tab-list"] button:hover {{
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account"]
+tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account", "MT5 Stats Dashboard']
 selected_tab = st.tabs(tabs)
 
 # =========================================================
@@ -836,3 +836,133 @@ with selected_tab[3]:
             st.session_state.base_ccy = base_ccy
             st.session_state.alerts = alerts
             st.success("Preferences saved for this session.")
+
+            # ---------------- MT5 STATS DASHBOARD ----------------
+import streamlit as st
+import MetaTrader5 as mt5
+import pandas as pd
+import plotly.express as px
+import datetime as dt
+import numpy as np
+
+# ---------------- Sidebar Login ----------------
+st.sidebar.title("🔑 MT5 Login")
+mt5_account = st.sidebar.text_input("Account Number", type="default")
+mt5_password = st.sidebar.text_input("Password", type="password")
+mt5_server = st.sidebar.text_input("Server (e.g. Broker-ServerName)", type="default")
+login_btn = st.sidebar.button("Login to MT5")
+
+if "mt5_logged_in" not in st.session_state:
+    st.session_state.mt5_logged_in = False
+
+if login_btn:
+    if mt5.initialize():
+        authorized = mt5.login(int(mt5_account), password=mt5_password, server=mt5_server)
+        if authorized:
+            st.session_state.mt5_logged_in = True
+            st.success("✅ Successfully connected to MT5")
+        else:
+            st.error("❌ Login failed. Check credentials & server.")
+    else:
+        st.error("❌ MT5 Initialization failed.")
+
+# ---------------- Dashboard ----------------
+if st.session_state.mt5_logged_in:
+
+   with selected_tab[4]:
+    st.title("📊 MT5 Performance Dashboard")
+    st.markdown("An interactive dashboard to analyze your **trading performance** in real time.")
+
+    # -------- Account Info --------
+    account_info = mt5.account_info()._asdict()
+    balance = account_info["balance"]
+    equity = account_info["equity"]
+    margin = account_info["margin"]
+    free_margin = account_info["margin_free"]
+    leverage = account_info["leverage"]
+
+    st.subheader("💰 Account Overview")
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    kpi1.metric("Balance", f"${balance:,.2f}")
+    kpi2.metric("Equity", f"${equity:,.2f}")
+    kpi3.metric("Margin", f"${margin:,.2f}")
+    kpi4.metric("Free Margin", f"${free_margin:,.2f}")
+    kpi5.metric("Leverage", f"{leverage}x")
+
+    # -------- Trading History --------
+    from_date = dt.datetime.now() - dt.timedelta(days=365)
+    to_date = dt.datetime.now()
+    deals = mt5.history_deals_get(from_date, to_date)
+
+    if deals:
+        df = pd.DataFrame(list(deals), columns=deals[0]._asdict().keys())
+        closed_trades = df[df["entry"] == 1]  # closed trades only
+
+        if not closed_trades.empty:
+            profits = closed_trades["profit"].astype(float)
+            wins = profits[profits > 0]
+            losses = profits[profits < 0]
+
+            # -------- Performance Stats --------
+            total_trades = len(profits)
+            win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0
+            biggest_win = wins.max() if not wins.empty else 0
+            biggest_loss = losses.min() if not losses.empty else 0
+            profit_factor = abs(wins.sum() / losses.sum()) if not losses.empty else float("inf")
+            avg_win = wins.mean() if not wins.empty else 0
+            avg_loss = losses.mean() if not losses.empty else 0
+
+            # Risk-adjusted metrics
+            returns = profits.values
+            sharpe_ratio = (returns.mean() / returns.std()) if returns.std() != 0 else 0
+            max_drawdown = (closed_trades["cum_profit"].cummax() - closed_trades["cum_profit"]).max() if "cum_profit" in closed_trades else 0
+            recovery_factor = (profits.sum() / max_drawdown) if max_drawdown != 0 else 0
+
+            # Longest streaks
+            streaks = (profits > 0).astype(int)
+            win_streak = streaks.groupby((streaks != streaks.shift()).cumsum()).cumsum().max()
+            lose_streak = ((profits < 0).astype(int)).groupby(((profits < 0).astype(int) != (profits < 0).astype(int).shift()).cumsum()).cumsum().max()
+
+            st.subheader("📈 Performance Metrics")
+            stats1, stats2, stats3, stats4 = st.columns(4)
+            stats1.metric("Win Rate", f"{win_rate:.2f}%")
+            stats2.metric("Biggest Win", f"${biggest_win:,.2f}")
+            stats3.metric("Biggest Loss", f"${biggest_loss:,.2f}")
+            stats4.metric("Profit Factor", f"{profit_factor:.2f}")
+
+            stats5, stats6, stats7, stats8 = st.columns(4)
+            stats5.metric("Avg Win", f"${avg_win:,.2f}")
+            stats6.metric("Avg Loss", f"${avg_loss:,.2f}")
+            stats7.metric("Sharpe Ratio", f"{sharpe_ratio:.2f}")
+            stats8.metric("Recovery Factor", f"{recovery_factor:.2f}")
+
+            stats9, stats10 = st.columns(2)
+            stats9.metric("Longest Win Streak", f"{win_streak}")
+            stats10.metric("Longest Loss Streak", f"{lose_streak}")
+
+            # -------- Cumulative Profit Curve --------
+            closed_trades["cum_profit"] = profits.cumsum()
+            fig = px.line(closed_trades, x="time", y="cum_profit",
+                          title="📈 Cumulative Profit Over Time", template="plotly_dark")
+            st.plotly_chart(fig, use_container_width=True)
+
+            # -------- Wins vs Losses Pie --------
+            pie_data = pd.DataFrame({"Result": ["Wins", "Losses"], "Count": [len(wins), len(losses)]})
+            pie_chart = px.pie(pie_data, values="Count", names="Result", title="🏆 Win vs Loss Ratio")
+            st.plotly_chart(pie_chart, use_container_width=True)
+
+            # -------- Monthly Profit Bar --------
+            closed_trades["month"] = pd.to_datetime(closed_trades["time"]).dt.to_period("M")
+            monthly_profit = closed_trades.groupby("month")["profit"].sum().reset_index()
+            fig_bar = px.bar(monthly_profit, x="month", y="profit", title="📅 Monthly Profit",
+                             labels={"month": "Month", "profit": "Profit"}, template="plotly_dark")
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+            # -------- Trade History Table --------
+            st.subheader("📜 Recent Trades")
+            st.dataframe(closed_trades[["ticket", "symbol", "volume", "profit", "time"]].tail(20))
+
+        else:
+            st.warning("⚠️ No closed trades found in history.")
+    else:
+        st.warning("⚠️ No trading history available.")
