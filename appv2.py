@@ -636,9 +636,9 @@ with selected_tab[1]:
 # =========================================================
 with selected_tab[2]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Calculator", "Trading Session Tracker"])
+    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker"])
     with tools_subtabs[0]:
-        st.header("💰 Profit / Stop-loss Calculator")
+        st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
