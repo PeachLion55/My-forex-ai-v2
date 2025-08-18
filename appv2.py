@@ -1,6 +1,5 @@
 # ===================== IMPORTS =====================
-import streamlit as st
-import pandas as pd
+import streamst.successimport pandas as pd
 import feedparser
 from textblob import TextBlob
 import streamlit.components.v1 as components
@@ -286,11 +285,7 @@ with selected_tab[0]:
             styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
         return styles
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=400)
-# ---------- Forex Fundamentals Section ----------
-with tools_subtabs[0]:  # Assuming index 0 is Forex Fundamentals
-    st.header("📈 Forex Fundamentals")
-
-    # -------- Major Central Bank Interest Rates --------
+    # -------- Interest rate tiles --------
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
         {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
@@ -311,79 +306,23 @@ with tools_subtabs[0]:  # Assuming index 0 is Forex Fundamentals
             with cols[j]:
                 st.markdown(
                     f"""
-                    <div style="
-                        background-color:{color};
-                        border-radius:12px;
-                        padding:15px;
-                        text-align:center;
-                        color:white;
-                        box-shadow: 2px 2px 12px rgba(0,0,0,0.3);
-                        margin-bottom:10px;
-                    ">
-                        <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
-                        <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
-                        <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
-                        <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
+                    <div class="card">
+                        <div style="
+                            background-color:{color};
+                            border-radius:10px;
+                            padding:15px;
+                            text-align:center;
+                            color:white;
+                        ">
+                            <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
+                            <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
+                            <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
+                            <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
+                        </div>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
-
-    # -------- Major High-Impact Forex Events --------
-    st.markdown("### 📊 Major High-Impact Forex Events")
-
-    forex_high_impact_events = [
-        {
-            "event": "Non-Farm Payrolls (NFP)",
-            "description": "Measures the change in the number of employed people in the U.S., excluding farm workers. One of the most influential indicators for the USD.",
-            "impact_positive": {"USD": "↑", "EUR/USD": "↓", "GBP/USD": "↓", "USD/JPY": "↑"},
-            "impact_negative": {"USD": "↓", "EUR/USD": "↑", "GBP/USD": "↑", "USD/JPY": "↓"}
-        },
-        {
-            "event": "Consumer Price Index (CPI)",
-            "description": "Measures changes in the price level of a basket of consumer goods and services. Key indicator of inflation.",
-            "impact_positive": {"USD": "↑", "EUR/USD": "↓", "GBP/USD": "↓", "USD/JPY": "↑"},
-            "impact_negative": {"USD": "↓", "EUR/USD": "↑", "GBP/USD": "↑", "USD/JPY": "↓"}
-        },
-        {
-            "event": "Interest Rate Decision",
-            "description": "The official interest rate set by the central bank. Signals monetary policy direction.",
-            "impact_positive": {"Currency": "↑", "Major Pairs": "Currency goes up if rate hike"},
-            "impact_negative": {"Currency": "↓", "Major Pairs": "Currency goes down if rate cut"}
-        },
-        # Add more events here with similar structure
-    ]
-
-    # Display events in visually appealing cards
-    for ev in forex_high_impact_events:
-        positive_impact = "<br>".join([f"<b>{cur}:</b> {val}" for cur, val in ev["impact_positive"].items()])
-        negative_impact = "<br>".join([f"<b>{cur}:</b> {val}" for cur, val in ev["impact_negative"].items()])
-        
-        st.markdown(f"""
-            <div style="
-                border-radius:12px;
-                padding:15px;
-                margin-bottom:20px;
-                background-color:#1e1e2f;
-                color:white;
-                box-shadow: 3px 3px 10px rgba(0,0,0,0.4);
-            ">
-                <h4 style="color:#FFD700;">{ev['event']}</h4>
-                <p>{ev['description']}</p>
-                <div style="display:flex; gap:20px;">
-                    <div style="flex:1; background-color:#144714; padding:10px; border-radius:10px;">
-                        <h5 style="color:#ffffff;">Positive Impact</h5>
-                        <p style="margin:0;">{positive_impact}</p>
-                    </div>
-                    <div style="flex:1; background-color:#471414; padding:10px; border-radius:10px;">
-                        <h5 style="color:#ffffff;">Negative Impact</h5>
-                        <p style="margin:0;">{negative_impact}</p>
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
 # =========================================================
 # TAB 2: UNDERSTANDING FOREX FUNDAMENTALS
 # =========================================================
