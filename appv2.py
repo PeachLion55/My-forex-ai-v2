@@ -1168,6 +1168,7 @@ with selected_tab[4]:
             justify-content: center;
             align-items: center;
             color: white;
+            min-height: 120px;
         }
         .metric-card:hover {
             transform: translateY(-3px);
@@ -1177,10 +1178,10 @@ with selected_tab[4]:
             font-size: 16px;
             font-weight: 600;
             color: #FFD700;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
         .metric-value {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
         }
         .positive .metric-value {
@@ -1257,8 +1258,7 @@ with selected_tab[4]:
                     largest_volume_trade = df["Volume"].max()
                     profit_per_trade = net_profit / total_trades if total_trades else 0
                     avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
-                    # Display metrics
-                    st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
+                    # Display metrics in three rows of four
                     metrics = [
                         ("📊 Total Trades", total_trades, "neutral"),
                         ("✅ Win Rate", f"{win_rate:.2f}%", "positive" if win_rate >= 50 else "negative"),
@@ -1273,14 +1273,18 @@ with selected_tab[4]:
                         ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
                         ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
                     ]
-                    for title, value, style in metrics:
-                        st.markdown(f"""
-                            <div class="metric-card {style}">
-                                <div class="metric-title">{title}</div>
-                                <div class="metric-value">{value}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # Split metrics into three rows of four
+                    for row in range(3):
+                        st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
+                        row_metrics = metrics[row * 4:(row + 1) * 4]
+                        for title, value, style in row_metrics:
+                            st.markdown(f"""
+                                <div class="metric-card {style}">
+                                    <div class="metric-title">{title}</div>
+                                    <div class="metric-value">{value}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
                     # Visualizations
                     st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
                     profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
