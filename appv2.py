@@ -1135,77 +1135,78 @@ with selected_tab[4]:
         .title-container {
             text-align: center;
             padding: 20px 0;
-            background: linear-gradient(90deg, #1a1a3d, #2a2a5e);
-            border-radius: 10px;
+            border-bottom: 2px solid #e0e0e0;
             margin-bottom: 20px;
         }
         .title {
             font-size: 28px;
             font-weight: bold;
-            color: #ffffff;
+            color: #333333;
             margin-bottom: 10px;
         }
         .subtitle {
             font-size: 16px;
-            color: #b0b0d0;
+            color: #666666;
         }
         .metrics-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
             padding: 20px 0;
         }
         .metric-card {
-            background: linear-gradient(135deg, #2a2a5e, #1a1a3d);
-            border-radius: 12px;
-            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 15px;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            color: #ffffff;
+            color: #333333;
         }
         .metric-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         .metric-title {
             font-size: 14px;
             font-weight: 500;
-            color: #b0b0d0;
-            margin-bottom: 10px;
+            color: #666666;
+            margin-bottom: 8px;
         }
         .metric-value {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
-            color: #ffffff;
+            color: #333333;
         }
-        .positive {
-            background: linear-gradient(135deg, #1a3c34, #2a6f5e);
+        .positive .metric-value {
+            color: #2e7d32;
         }
-        .negative {
-            background: linear-gradient(135deg, #3c1a1a, #6f2a2a);
+        .negative .metric-value {
+            color: #d32f2f;
         }
-        .neutral {
-            background: linear-gradient(135deg, #2a2a5e, #1a1a3d);
+        .neutral .metric-value {
+           marginalia
+
+            color: #333333;
         }
         .section-title {
             font-size: 20px;
             font-weight: bold;
-            color: #ffffff;
+            color: #333333;
             margin-top: 30px;
             margin-bottom: 15px;
         }
         .upload-container {
-            background: #1a1a3d;
-            border-radius: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
         }
         .stFileUploader > div > div > div {
-            background-color: #2a2a5e !important;
+            background-color: #ffffff !important;
             border-radius: 8px;
-            color: #ffffff !important;
+            color: #333333 !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -1286,35 +1287,35 @@ with selected_tab[4]:
                     # Visualizations
                     st.markdown('<div class="section-title">💵 Balance / Equity Curve</div>', unsafe_allow_html=True)
                     fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve Over Time",
-                                         template="plotly_dark")
+                                         template="plotly_white")
                     fig_balance.update_layout(
-                        title_font_size=18, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d",
-                        font_color="#ffffff", xaxis_title="Date", yaxis_title="Balance ($)"
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+                        font_color="#333333", xaxis_title="Date", yaxis_title="Balance ($)"
                     )
                     st.plotly_chart(fig_balance, use_container_width=True)
 
                     st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
                     profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
                     fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
-                                        title="Profit by Instrument", template="plotly_dark",
+                                        title="Profit by Instrument", template="plotly_white",
                                         color_continuous_scale=px.colors.diverging.Tealrose)
                     fig_symbol.update_layout(
-                        title_font_size=18, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d",
-                        font_color="#ffffff", xaxis_title="Instrument", yaxis_title="Profit ($)"
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+                        font_color="#333333", xaxis_title="Instrument", yaxis_title="Profit ($)"
                     )
                     st.plotly_chart(fig_symbol, use_container_width=True)
 
                     st.markdown('<div class="section-title">🔎 Trade Distribution</div>', unsafe_allow_html=True)
                     col1, col2 = st.columns(2)
                     with col1:
-                        fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_dark")
-                        fig_types.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d")
+                        fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_white")
+                        fig_types.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff")
                         st.plotly_chart(fig_types, use_container_width=True)
                     with col2:
                         df["Weekday"] = df["Open Time"].dt.day_name()
                         fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week",
-                                                  template="plotly_dark")
-                        fig_weekday.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d")
+                                                  template="plotly_white")
+                        fig_weekday.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff")
                         st.plotly_chart(fig_weekday, use_container_width=True)
 
                     st.markdown('<div class="section-title">📈 Cumulative Profit & Loss</div>', unsafe_allow_html=True)
@@ -1322,9 +1323,9 @@ with selected_tab[4]:
                     fig_pnl = go.Figure()
                     fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
                     fig_pnl.update_layout(
-                        template="plotly_dark", title="Cumulative Profit & Loss Over Time",
-                        title_font_size=18, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d",
-                        font_color="#ffffff", xaxis_title="Date", yaxis_title="Cumulative PnL ($)"
+                        template="plotly_white", title="Cumulative Profit & Loss Over Time",
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+                        font_color="#333333", xaxis_title="Date", yaxis_title="Cumulative PnL ($)"
                     )
                     st.plotly_chart(fig_pnl, use_container_width=True)
 
