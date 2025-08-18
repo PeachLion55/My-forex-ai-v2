@@ -100,9 +100,9 @@ div[data-baseweb="tab-list"] button:hover {{
     color: #fff !important;
     transform: translateY(-2px);
 }}
-/* Button styling (smaller size, smaller font, 80% opacity gradient) */
+/* Button styling (smaller size, smaller font, 90% opacity gradient) */
 .stButton button {{
-    background: linear-gradient(45deg, rgba(255,215,0,0.8), rgba(255,165,0,0.8)) !important;
+    background: linear-gradient(45deg, rgba(255,215,0,0.9), rgba(255,165,0,0.9)) !important;
     color: #000 !important;
     font-weight: 600;
     padding: 8px 16px !important;
@@ -118,13 +118,13 @@ div[data-baseweb="tab-list"] button:hover {{
     justify-content: center;
 }}
 .stButton button:hover {{
-    background: linear-gradient(45deg, rgba(230,194,0,0.8), rgba(255,140,0,0.8)) !important;
+    background: linear-gradient(45deg, rgba(230,194,0,0.9), rgba(255,140,0,0.9)) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
-/* Form submit button styling (same as other buttons, 80% opacity gradient) */
+/* Form submit button styling (same as other buttons, 90% opacity gradient) */
 .stFormSubmitButton button {{
-    background: linear-gradient(45deg, rgba(255,215,0,0.8), rgba(255,165,0,0.8)) !important;
+    background: linear-gradient(45deg, rgba(255,215,0,0.9), rgba(255,165,0,0.9)) !important;
     color: #000 !important;
     font-weight: 600;
     padding: 8px 16px !important;
@@ -140,7 +140,7 @@ div[data-baseweb="tab-list"] button:hover {{
     justify-content: center;
 }}
 .stFormSubmitButton button:hover {{
-    background: linear-gradient(45deg, rgba(230,194,0,0.8), rgba(255,140,0,0.8)) !important;
+    background: linear-gradient(45deg, rgba(230,194,0,0.9), rgba(255,140,0,0.9)) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
