@@ -101,7 +101,7 @@ div[data-baseweb="tab-list"] button:hover {{
     color: #fff !important;
     transform: translateY(-2px);
 }}
-/* Button styling (smaller size, smaller font, 40% opacity gradient) */
+/* Button styling (smaller size, smaller font, 60% opacity gradient) */
 .stButton button {{
     background: linear-gradient(45deg, rgba(255,215,0,0.4), rgba(255,165,0,0.4)) !important;
     color: #000 !important;
@@ -123,7 +123,7 @@ div[data-baseweb="tab-list"] button:hover {{
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
-/* Form submit button styling (same as other buttons, 40% opacity gradient) */
+/* Form submit button styling (same as other buttons, 60% opacity gradient) */
 .stFormSubmitButton button {{
     background: linear-gradient(45deg, rgba(255,215,0,0.4), rgba(255,165,0,0.4)) !important;
     color: #000 !important;
