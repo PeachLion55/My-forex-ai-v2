@@ -788,35 +788,35 @@ with selected_tab[1]:
                 except Exception as e:
                     st.error(f"Failed to save journal: {str(e)}")
                     logging.error(f"Error saving journal for {username}: {str(e)}")
-        with col2:
-            if st.button("📂 Load Journal", key="bt_load_journal_button"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Loading journal for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        saved_journal = user_data.get("tools_trade_journal", [])
-                        if saved_journal:
-                            loaded_df = pd.DataFrame(saved_journal)
-                            for col in journal_cols:
-                                if col not not in loaded_df.columns:
-                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                            st.session_state.tools_trade_journal = loaded_df
-                            st.session_state.temp_journal = None
-                            st.success("Trading journal loaded from your account!")
-                            logging.info(f"Journal loaded for {username}")
-                        else:
-                            st.info("No saved journal found in your account.")
-                            logging.info(f"No journal found for {username}")
-                    else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load journal: {str(e)}")
-                    logging.error(f"Error loading journal for {username}: {str(e)}")
+with col2:
+    if st.button("📂 Load Journal", key="bt_load_journal_button"):
+        username = st.session_state.logged_in_user
+        logging.info(f"Loading journal for user {username}")
+        try:
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result:
+                user_data = json.loads(result[0])
+                saved_journal = user_data.get("tools_trade_journal", [])
+                if saved_journal:
+                    loaded_df = pd.DataFrame(saved_journal)
+                    for col in journal_cols:
+                        if col not in loaded_df.columns:
+                            loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                    loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                    st.session_state.tools_trade_journal = loaded_df
+                    st.session_state.temp_journal = None
+                    st.success("Trading journal loaded from your account!")
+                    logging.info(f"Journal loaded for {username}")
+                else:
+                    st.info("No saved journal found in your account.")
+                    logging.info(f"No journal found for {username}")
+            else:
+                st.error("Failed to load user data.")
+                logging.error(f"No user data found for {username}")
+        except Exception as e:
+            st.error(f"Failed to load journal: {str(e)}")
+            logging.error(f"Error loading journal for {username}: {str(e)}")
     # News & Sentiment
     st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
