@@ -883,13 +883,10 @@ with selected_tab[4]:
 
             # --- Function to determine text color ---
             def metric_color(title, value):
-                """Assign color based on metric type and value."""
                 try:
                     val = float(value)
-                    # Force red for risk metrics
                     if title in ["Max Drawdown", "Longest Loss Streak"]:
-                        return "#ff4c4c"
-                    # Profit Factor coloring
+                        return "#ff4c4c"  # Always red
                     if title == "Profit Factor":
                         if val > 1:
                             return "lightgreen"
@@ -910,14 +907,14 @@ with selected_tab[4]:
             metrics = [
                 ("Total Trades", total_trades, "📈"),
                 ("Win Rate", f"{win_rate:.2f}%", "✅"),
-                ("Net Profit", net_profit, "💰"),
+                ("Net Profit", f"${net_profit:,.2f}", "💰"),
                 ("Profit Factor", round(profit_factor,2), "⚡"),
-                ("Biggest Win", biggest_win, "🏆"),
-                ("Biggest Loss", biggest_loss, "💀"),
-                ("Max Drawdown", max_drawdown, "📉"),
+                ("Biggest Win", f"${biggest_win:,.2f}", "🏆"),
+                ("Biggest Loss", f"${biggest_loss:,.2f}", "💀"),
+                ("Max Drawdown", f"${max_drawdown:,.2f}", "📉"),
                 ("Longest Win Streak", longest_win_streak, "🔥"),
                 ("Longest Loss Streak", longest_loss_streak, "❌"),
-                ("Avg Trade Duration (h)", avg_trade_duration, "⏱️")
+                ("Avg Trade Duration (h)", f"{avg_trade_duration:.2f}", "⏱️")
             ]
 
             # --- Display Metrics in Two Rows ---
