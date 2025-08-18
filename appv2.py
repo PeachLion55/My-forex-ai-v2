@@ -86,6 +86,7 @@ div[data-baseweb="tab-list"] button[aria-selected="true"] {{
     padding: 12px 24px !important;
     border-radius: 8px !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    font-size: 16px;
 }}
 div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     background: #2a2a2a !important;
@@ -93,13 +94,14 @@ div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     padding: 12px 24px !important;
     border-radius: 8px !important;
     border: 1px solid #3a3a3a !important;
+    font-size: 16px;
 }}
 div[data-baseweb="tab-list"] button:hover {{
     background: #3a3a3a !important;
     color: #fff !important;
     transform: translateY(-2px);
 }}
-/* Consistent button styling matching tabs */
+/* Button styling to match tabs */
 .stButton button {{
     background: linear-gradient(45deg, #FFD700, #FFA500) !important;
     color: #000 !important;
@@ -109,6 +111,12 @@ div[data-baseweb="tab-list"] button:hover {{
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     border: none !important;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }}
 .stButton button:hover {{
     background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
@@ -150,18 +158,39 @@ div[data-baseweb="tab-list"] button:hover {{
 }}
 /* small utility */
 .small-muted {{ color:#9e9e9e; font-size:0.9rem; }}
-/* Fix for data editor input persistence */
+/* Enhanced data editor input styling */
 .stDataFrame .stTextInput input, .stDataFrame .stSelectbox select, .stDataFrame .stNumberInput input, .stDataFrame .stDateInput input {{
     background-color: #1b1b1b;
     color: white;
     border: 1px solid #3a3a3a;
     border-radius: 4px;
-    padding: 4px;
+    padding: 6px;
+    font-size: 14px;
+    transition: all 0.2s ease;
 }}
 .stDataFrame .stTextInput input:focus, .stDataFrame .stSelectbox select:focus, .stDataFrame .stNumberInput input:focus, .stDataFrame .stDateInput input:focus {{
     background-color: #2a2a2a;
     border-color: #FFD700;
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
     outline: none;
+}}
+/* Ensure form submit button matches other buttons */
+.stFormSubmitButton button {{
+    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
+    color: #000 !important;
+    font-weight: 600;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    border: none !important;
+    font-size: 16px;
+    line-height: 1.5;
+    min-height: 40px;
+}}
+.stFormSubmitButton button:hover {{
+    background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }}
 </style>
 """,
@@ -297,6 +326,10 @@ else:
             current_journal[col] = pd.Series(dtype=journal_dtypes[col])
     # Reorder columns and apply dtypes
     st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+
+# Initialize temporary journal for form
+if "temp_journal" not in st.session_state:
+    st.session_state.temp_journal = None
 
 # =========================================================
 # NAVIGATION
@@ -652,7 +685,7 @@ with selected_tab[1]:
     else:
         st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
-# Backtesting Journal
+    # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
     # Configure column settings for data editor
     column_config = {
@@ -692,16 +725,14 @@ with selected_tab[1]:
 
     # Button to add new trade column
     if st.button("➕ Add New Trade", key="bt_add_trade_button"):
-        # Determine the next trade number
         current_trades = transposed_journal.columns.tolist()
         next_trade_num = len(current_trades) + 1
         new_trade = f"Trade {next_trade_num}"
-        # Add new column with NaN values
         transposed_journal[new_trade] = pd.Series(index=journal_cols, dtype=object)
-        # Update session state to reflect new column
         updated_journal = transposed_journal.transpose().reset_index(drop=True)
         updated_journal.columns = journal_cols
         st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
+        st.session_state.temp_journal = None
         st.rerun()
 
     # Dynamically configure columns for trades
@@ -709,46 +740,29 @@ with selected_tab[1]:
     for col in transposed_journal.columns:
         transposed_column_config[col] = column_config
 
-    # Custom CSS to stabilize data editor inputs
-    st.markdown(
-        """
-        <style>
-        .stDataFrame .stTextInput input, .stDataFrame .stSelectbox select, .stDataFrame .stNumberInput input, .stDataFrame .stDateInput input {
-            background-color: #1b1b1b;
-            color: white;
-            border: 1px solid #3a3a3a;
-            border-radius: 4px;
-            padding: 4px;
-        }
-        .stDataFrame .stTextInput input:focus, .stDataFrame .stSelectbox select:focus, .stDataFrame .stNumberInput input:focus, .stDataFrame .stDateInput input:focus {
-            background-color: #2a2a2a;
-            border-color: #FFD700;
-            outline: none;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Display transposed journal
-    updated_journal_tools = st.data_editor(
-        data=transposed_journal.copy(),
-        num_rows="dynamic",
-        column_config=transposed_column_config,
-        key="bt_backtesting_journal_static",
-        use_container_width=True,
-        height=800  # Set height to display all 22 fields
-    )
-
-    # Convert back to original format and apply dtypes
-    if not updated_journal_tools.empty:
-        # Transpose back to original format (trades as rows)
-        updated_journal_tools = updated_journal_tools.transpose()
-        updated_journal_tools.columns = journal_cols
-        updated_journal_tools = updated_journal_tools.reset_index(drop=True)
-        st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
-    else:
-        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+    # Use form to stabilize data editor
+    with st.form(key="bt_journal_form"):
+        updated_journal_tools = st.data_editor(
+            data=transposed_journal.copy(),
+            num_rows="dynamic",
+            column_config=transposed_column_config,
+            key="bt_backtesting_journal_static",
+            use_container_width=True,
+            height=800
+        )
+        submit_button = st.form_submit_button("Submit Journal Changes")
+        if submit_button:
+            if not updated_journal_tools.empty:
+                updated_journal_tools = updated_journal_tools.transpose()
+                updated_journal_tools.columns = journal_cols
+                updated_journal_tools = updated_journal_tools.reset_index(drop=True)
+                st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
+                st.session_state.temp_journal = None
+                st.success("Journal changes submitted successfully!")
+            else:
+                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                st.session_state.temp_journal = None
+            st.rerun()
 
     if "logged_in_user" in st.session_state:
         col1, col2 = st.columns([1, 1])
@@ -781,12 +795,12 @@ with selected_tab[1]:
                         saved_journal = user_data.get("tools_trade_journal", [])
                         if saved_journal:
                             loaded_df = pd.DataFrame(saved_journal)
-                            # Ensure loaded journal matches new structure
                             for col in journal_cols:
                                 if col not in loaded_df.columns:
                                     loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
                             loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
                             st.session_state.tools_trade_journal = loaded_df
+                            st.session_state.temp_journal = None
                             st.success("Trading journal loaded from your account!")
                             logging.info(f"Journal loaded for {username}")
                         else:
@@ -798,6 +812,38 @@ with selected_tab[1]:
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
+    # News & Sentiment
+    st.markdown("### 📰 News & Sentiment for Selected Pair")
+    if not df_news.empty:
+        base, quote = pair.split("/")
+        filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
+        try:
+            filtered_df["HighProb"] = filtered_df.apply(
+                lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
+                                    (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                else "", axis=1
+            )
+        except Exception as e:
+            filtered_df["HighProb"] = ""
+            logging.error(f"Error processing news high probability: {str(e)}")
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+        if not filtered_df_display.empty:
+            selected_headline = st.selectbox(
+                "Select a headline for details",
+                filtered_df_display["HeadlineDisplay"].tolist(),
+                key="bt_headline_select"
+            )
+            selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
+            st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
+            st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
+            st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
+            with st.expander("Summary"):
+                st.write(selected_row["Summary"])
+        else:
+            st.info("No pair-specific headlines found in the recent feed.")
+    else:
+        st.info("News feed unavailable right now.")
 
 # =========================================================
 # TAB 3: TOOLS
@@ -1016,6 +1062,7 @@ with selected_tab[3]:
                     st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
                 else:
                     st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                st.session_state.temp_journal = None
                 st.success(f"Logged in as {username}")
                 logging.info(f"Login successful for {username}")
             else:
