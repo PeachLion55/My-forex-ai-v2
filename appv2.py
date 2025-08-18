@@ -847,8 +847,8 @@ with selected_tab[4]:
     if uploaded_file:
         import pandas as pd
         import numpy as np
-        import plotly.express as px
         import plotly.graph_objects as go
+        import plotly.express as px
 
         df = pd.read_csv(uploaded_file)
 
@@ -858,11 +858,10 @@ with selected_tab[4]:
         if missing_cols:
             st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
         else:
-            # Convert time columns
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # --- Basic Metrics ---
+            # --- Metrics ---
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
@@ -878,46 +877,49 @@ with selected_tab[4]:
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
             avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()  # hours
 
-            # Additional metrics example
+            # Additional metrics
             total_volume = df["Volume"].sum()
             avg_profit_per_trade = df["Profit"].mean()
             positive_trades = len(df[df["Profit"] > 0])
             negative_trades = len(df[df["Profit"] < 0])
             profit_std = df["Profit"].std()
 
-            # --- Prepare Metrics ---
+            # --- KPI Indicators with Plotly ---
             metrics = [
-                {"title": "Total Trades", "value": total_trades, "color": "black", "icon": "📊"},
-                {"title": "Win Rate", "value": f"{win_rate:.2f}%", "color": "green" if win_rate>50 else "red", "icon": "✅"},
-                {"title": "Net Profit", "value": f"${net_profit:,.2f}", "color": "green" if net_profit>0 else "red", "icon": "💰"},
-                {"title": "Profit Factor", "value": profit_factor, "color": "green" if profit_factor>1 else "red", "icon": "⚡"},
-                {"title": "Biggest Win", "value": f"${biggest_win:,.2f}", "color": "green", "icon": "🏆"},
-                {"title": "Biggest Loss", "value": f"${biggest_loss:,.2f}", "color": "red", "icon": "💀"},
-                {"title": "Max Drawdown", "value": f"${max_drawdown:,.2f}" if max_drawdown else "N/A", "color": "red", "icon": "📉"},
-                {"title": "Longest Win Streak", "value": longest_win_streak, "color": "green", "icon": "🔥"},
-                {"title": "Longest Loss Streak", "value": longest_loss_streak, "color": "red", "icon": "❌"},
-                {"title": "Avg Trade Duration (h)", "value": f"{avg_trade_duration:.2f}", "color": "black", "icon": "⏱️"},
+                {"title": "Total Trades", "value": total_trades, "color": "black", "suffix": "", "icon": "📊"},
+                {"title": "Win Rate", "value": win_rate, "color": "green" if win_rate>50 else "red", "suffix": "%", "icon": "✅"},
+                {"title": "Net Profit", "value": net_profit, "color": "green" if net_profit>0 else "red", "suffix": "$", "icon": "💰"},
+                {"title": "Profit Factor", "value": profit_factor, "color": "green" if profit_factor>1 else "red", "suffix": "", "icon": "⚡"},
+                {"title": "Biggest Win", "value": biggest_win, "color": "green", "suffix": "$", "icon": "🏆"},
+                {"title": "Biggest Loss", "value": biggest_loss, "color": "red", "suffix": "$", "icon": "💀"},
+                {"title": "Max Drawdown", "value": max_drawdown, "color": "red", "suffix": "$", "icon": "📉"},
+                {"title": "Longest Win Streak", "value": longest_win_streak, "color": "green", "suffix": "", "icon": "🔥"},
+                {"title": "Longest Loss Streak", "value": longest_loss_streak, "color": "red", "suffix": "", "icon": "❌"},
+                {"title": "Avg Trade Duration", "value": avg_trade_duration, "color": "black", "suffix": "h", "icon": "⏱️"},
             ]
 
-            # --- Render Metrics with HTML/CSS ---
-            st.markdown("<style>"
-                        ".metric-container { display: flex; flex-wrap: wrap; justify-content: space-between; }"
-                        ".metric-card { flex: 0 0 18%; background-color: #1e1e1e; color: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }"
-                        ".metric-value { font-size: 24px; font-weight: bold; margin-top: 10px; }"
-                        ".metric-title { font-size: 14px; color: #aaa; margin-top: 5px; }"
-                        "</style>", unsafe_allow_html=True)
+            fig = go.Figure()
 
-            metric_html = '<div class="metric-container">'
-            for m in metrics:
-                metric_html += f'''
-                <div class="metric-card" style="border-top: 4px solid {m["color"]};">
-                    <div class="metric-icon">{m["icon"]}</div>
-                    <div class="metric-value" style="color:{m["color"]}">{m["value"]}</div>
-                    <div class="metric-title">{m["title"]}</div>
-                </div>
-                '''
-            metric_html += '</div>'
-            st.markdown(metric_html, unsafe_allow_html=True)
+            # Position metrics in 2 rows of 5 columns
+            for i, m in enumerate(metrics):
+                row = 0 if i < 5 else 1
+                col = i % 5
+                fig.add_trace(go.Indicator(
+                    mode="number+delta",
+                    value=m["value"] if not m["suffix"] else m["value"],
+                    title={"text": f"{m['icon']}<br>{m['title']}"},
+                    number={"prefix": m["suffix"] if m["suffix"]=="$" else "", "suffix": m["suffix"] if m["suffix"] not in ["$",""] else "", "font": {"color": m["color"], "size": 28}},
+                    domain={'x': [col*0.18, col*0.18 + 0.18], 'y': [0.5 if row else 0.5, 1 if row else 0.95]}
+                ))
+
+            fig.update_layout(
+                grid={'rows': 2, 'columns': 5, 'pattern': "independent"},
+                template='plotly_dark',
+                margin=dict(l=20, r=20, t=50, b=20),
+                height=400
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("---")
 
