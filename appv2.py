@@ -129,7 +129,7 @@ div[data-baseweb="tab-list"] button:hover {{
 # NAVIGATION
 # =========================================================
 tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account", "MT5 Stats Dashboard"]
-main_tabs = st.tabs(tabs)
+selected_tab = st.tabs(tabs)
 
 # =========================================================
 # HELPERS / DATA (existing functions preserved)
@@ -838,7 +838,7 @@ with selected_tab[3]:
             st.success("Preferences saved for this session.")
 
 # ==================== TAB 5: MT5 STATS DASHBOARD ====================
-with main_tabs[4]:
+with selected_tabs[4]:
     st.markdown("## 📊 MT5 Stats Dashboard")
     st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
 
