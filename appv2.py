@@ -71,7 +71,7 @@ st.markdown(
 }}
 /* Content above bg */
 .main, .block-container, .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg {{ position: relative; z-index: 1; }}
-/* Enhanced tab styling without black background */
+/* Enhanced tab styling */
 div[data-baseweb="tab-list"] {{
     gap: 12px;
     padding-bottom: 8px;
@@ -98,6 +98,22 @@ div[data-baseweb="tab-list"] button:hover {{
     background: #3a3a3a !important;
     color: #fff !important;
     transform: translateY(-2px);
+}}
+/* Consistent button styling matching tabs */
+.stButton button {{
+    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
+    color: #000 !important;
+    font-weight: 600;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    border: none !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}}
+.stButton button:hover {{
+    background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }}
 /* Original Card look */
 .card {{
@@ -126,16 +142,6 @@ div[data-baseweb="tab-list"] button:hover {{
     border-radius: 8px;
     padding: 8px;
 }}
-/* Original Button styling */
-.stButton button {{
-    background-color: #FFD700;
-    color: black;
-    border-radius: 8px;
-    font-weight: bold;
-}}
-.stButton button:hover {{
-    background-color: #E6C200;
-}}
 /* Original Expander styling */
 .stExpander {{
     border: 1px solid #242424;
@@ -144,6 +150,18 @@ div[data-baseweb="tab-list"] button:hover {{
 }}
 /* small utility */
 .small-muted {{ color:#9e9e9e; font-size:0.9rem; }}
+/* Fix for data editor input persistence */
+.stDataFrame .stTextInput input {{
+    background-color: #1b1b1b;
+    color: white;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    padding: 4px;
+}}
+.stDataFrame .stTextInput input:focus {{
+    background-color: #2a2a2a;
+    border-color: #FFD700;
+}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -589,13 +607,46 @@ with selected_tab[1]:
         logging.info("User not logged in, save/load drawings disabled")
     # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
-    journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+    journal_cols = [
+        "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
+        "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
+        "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
+        "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
+        "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
+    ]
     if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
         st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+    # Configure column settings for data editor
+    column_config = {
+        "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+        "Symbol": st.column_config.TextColumn("Symbol"),
+        "Weekly Bias": st.column_config.SelectboxColumn("Weekly Bias", options=["Bullish", "Bearish", "Neutral"]),
+        "Daily Bias": st.column_config.SelectboxColumn("Daily Bias", options=["Bullish", "Bearish", "Neutral"]),
+        "4H Structure": st.column_config.TextColumn("4H Structure"),
+        "1H Structure": st.column_config.TextColumn("1H Structure"),
+        "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
+        "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
+        "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
+        "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
+        "Planned R:R": st.column_config.TextColumn("Planned R:R"),
+        "News Filter": st.column_config.TextColumn("News Filter"),
+        "Alerts": st.column_config.TextColumn("Alerts"),
+        "Concerns": st.column_config.TextColumn("Concerns"),
+        "Emotions": st.column_config.TextColumn("Emotions"),
+        "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7),
+        "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
+        "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
+        "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
+        "Stop Loss Price": st.column_config.NumberColumn("Stop Loss Price", format="%.5f"),
+        "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
+        "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
+    }
     updated_journal_tools = st.data_editor(
         data=st.session_state.tools_trade_journal.copy(),
         num_rows="dynamic",
-        key="bt_backtesting_journal_unique"
+        column_config=column_config,
+        key=f"bt_backtesting_journal_{pair}",
+        use_container_width=True
     )
     st.session_state.tools_trade_journal = updated_journal_tools
     if "logged_in_user" in st.session_state:
@@ -628,7 +679,7 @@ with selected_tab[1]:
                         user_data = json.loads(result[0])
                         saved_journal = user_data.get("tools_trade_journal", [])
                         if saved_journal:
-                            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal)
+                            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
                             st.success("Trading journal loaded from your account!")
                             logging.info(f"Journal loaded for {username}")
                         else:
@@ -672,12 +723,13 @@ with selected_tab[1]:
             st.info("No pair-specific headlines found in the recent feed.")
     else:
         st.info("News feed unavailable right now.")
+
 # =========================================================
 # TAB 3: TOOLS
 # =========================================================
 with selected_tab[2]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker"])
+    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
@@ -703,221 +755,6 @@ with selected_tab[2]:
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
     with tools_subtabs[1]:
-        st.header("📊 Backtesting")
-        st.markdown("Backtest your trading strategies here.")
-        pair = "EURUSD"
-        tv_symbol = "FX:EURUSD"
-        if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
-            username = st.session_state.logged_in_user
-            logging.info(f"Loading drawings for user {username}, pair {pair} (Backtesting)")
-            try:
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                if result:
-                    user_data = json.loads(result[0])
-                    st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
-                    logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-                else:
-                    logging.warning(f"No data found for user {username}")
-            except Exception as e:
-                logging.error(f"Error loading drawings for {username}: {str(e)}")
-                st.error(f"Failed to load drawings: {str(e)}")
-        initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-        tv_widget = f"""
-        <div class="tradingview-widget-container" style="height:780px; width:100%">
-            <div id="tradingview_advanced_chart" style="height:100%;"></div>
-            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-            <script type="text/javascript">
-            console.log("Initializing TradingView widget for Backtesting");
-            try {{
-              const widget = new TradingView.widget({{
-                "autosize": true,
-                "symbol": "{tv_symbol}",
-                "interval": "D",
-                "timezone": "Etc/UTC",
-                "theme": "dark",
-                "style": "1",
-                "toolbar_bg": "#f1f3f6",
-                "withdateranges": true,
-                "hide_side_toolbar": false,
-                "allow_symbol_change": true,
-                "save_image": false,
-                "studies": [],
-                "container_id": "tradingview_advanced_chart"
-              }});
-              widget.onChartReady(() => {{
-                console.log("Chart ready for Backtesting");
-                const chart = widget.activeChart();
-                window.chart = chart;
-                const initialContent = {initial_content};
-                if (Object.keys(initialContent).length > 0) {{
-                  console.log("Loading initial content:", initialContent);
-                  chart.setContent(initialContent);
-                }} else {{
-                  console.log("No initial content to load for Backtesting");
-                }}
-              }});
-            }} catch (error) {{
-              console.error("Error initializing TradingView widget:", error);
-            }}
-            </script>
-        </div>
-        """
-        components.html(tv_widget, height=820, scrolling=False)
-        if "logged_in_user" in st.session_state:
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                if st.button("Save Drawings", key="back_save_drawings"):
-                    logging.info("Save Drawings button clicked for Backtesting")
-                    save_script = """
-                    <script>
-                    try {
-                      console.log("Attempting to save drawings for Backtesting");
-                      window.parent.chart.getContent((content) => {
-                        console.log("Drawing content received:", content);
-                        window.parent.postMessage({
-                          type: 'streamlit:setComponentValue',
-                          value: content,
-                          dataType: 'json',
-                          key: 'back_drawings_key'
-                        }, '*');
-                      });
-                    } catch (error) {
-                      console.error("Error saving drawings:", error);
-                    }
-                    </script>
-                    """
-                    components.html(save_script, height=0)
-                    logging.info("Triggered save script for Backtesting")
-                    st.session_state["back_save_trigger"] = True
-            with col2:
-                if st.button("Load Drawings", key="back_load_drawings"):
-                    username = st.session_state.logged_in_user
-                    logging.info(f"Load Drawings button clicked for user {username}, Backtesting")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        if result:
-                            user_data = json.loads(result[0])
-                            content = user_data.get("drawings", {}).get(pair, {})
-                            if content:
-                                load_script = f"""
-                                <script>
-                                console.log("Loading drawings for Backtesting:", {json.dumps(content)});
-                                window.parent.chart.setContent({json.dumps(content)});
-                                </script>
-                                """
-                                components.html(load_script, height=0)
-                                st.success("Drawings loaded successfully!")
-                                logging.info(f"Successfully loaded drawings for Backtesting")
-                            else:
-                                st.info("No saved drawings for this pair.")
-                                logging.info(f"No saved drawings found for Backtesting")
-                        else:
-                            st.error("Failed to load user data.")
-                            logging.error(f"No user data found for {username}")
-                    except Exception as e:
-                        st.error(f"Failed to load drawings: {str(e)}")
-                        logging.error(f"Error loading drawings for {username}: {str(e)}")
-            with col3:
-                if st.button("Refresh Account", key="back_refresh_account"):
-                    username = st.session_state.logged_in_user
-                    logging.info(f"Refresh Account button clicked for user {username} (Backtesting)")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        if result:
-                            user_data = json.loads(result[0])
-                            st.session_state.drawings = user_data.get("drawings", {})
-                            st.success("Account synced successfully!")
-                            logging.info(f"Account synced for {username}: {st.session_state.drawings}")
-                        else:
-                            st.error("Failed to sync account.")
-                            logging.error(f"No user data found for {username}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to sync account: {str(e)}")
-                        logging.error(f"Error syncing account for {username}: {str(e)}")
-            # Check for saved drawings from postMessage
-            if 'back_drawings_key' in st.session_state and st.session_state.get("back_save_trigger", False):
-                content = st.session_state['back_drawings_key']
-                logging.info(f"Received drawing content for Backtesting: {content}")
-                if content and isinstance(content, dict) and content:
-                    username = st.session_state.logged_in_user
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        user_data = json.loads(result[0]) if result else {}
-                        user_data.setdefault("drawings", {})[pair] = content
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                        conn.commit()
-                        st.session_state.drawings[pair] = content
-                        st.success(f"Drawings for {pair} saved successfully!")
-                        logging.info(f"Drawings saved to database for Backtesting: {content}")
-                    except Exception as e:
-                        st.error(f"Failed to save drawings: {str(e)}")
-                        logging.error(f"Database error saving drawings for Backtesting: {str(e)}")
-                    finally:
-                        del st.session_state['back_drawings_key']
-                        del st.session_state["back_save_trigger"]
-                else:
-                    st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-                    logging.warning(f"No valid drawing content received for Backtesting: {content}")
-        else:
-            st.info("Sign in via the My Account tab to save/load drawings.")
-            logging.info("User not logged in, save/load drawings disabled (Backtesting)")
-        # Backtesting Journal
-        journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-        if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
-        updated_journal_tools = st.data_editor(
-            data=st.session_state.tools_trade_journal.copy(),
-            num_rows="dynamic",
-            key="tools_backtesting_journal_unique"
-        )
-        st.session_state.tools_trade_journal = updated_journal_tools
-        if "logged_in_user" in st.session_state:
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button("💾 Save to My Account", key="save_journal_button"):
-                    username = st.session_state.logged_in_user
-                    journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
-                    logging.info(f"Saving journal for user {username}")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        user_data = json.loads(result[0]) if result else {}
-                        user_data["tools_trade_journal"] = journal_data
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                        conn.commit()
-                        st.success("Trading journal saved to your account!")
-                        logging.info(f"Journal saved for {username}")
-                    except Exception as e:
-                        st.error(f"Failed to save journal: {str(e)}")
-                        logging.error(f"Error saving journal for {username}: {str(e)}")
-            with col2:
-                if st.button("📂 Load Journal", key="load_journal_button"):
-                    username = st.session_state.logged_in_user
-                    logging.info(f"Loading journal for user {username}")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        if result:
-                            user_data = json.loads(result[0])
-                            saved_journal = user_data.get("tools_trade_journal", [])
-                            if saved_journal:
-                                st.session_state.tools_trade_journal = pd.DataFrame(saved_journal)
-                                st.success("Trading journal loaded from your account!")
-                                logging.info(f"Journal loaded for {username}")
-                            else:
-                                st.info("No saved journal found in your account.")
-                                logging.info(f"No journal found for {username}")
-                    except Exception as e:
-                        st.error(f"Failed to load journal: {str(e)}")
-                        logging.error(f"Error loading journal for {username}: {str(e)}")
-        else:
-            st.info("Sign in to save your trading journal to your account.")
-    with tools_subtabs[2]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
         forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
@@ -1008,9 +845,9 @@ with selected_tab[2]:
                         logging.info(f"Cancelled alert at index {idx}")
         else:
             st.info("No price alerts set. Add one above to start monitoring prices.")
-    with tools_subtabs[3]:
+    with tools_subtabs[2]:
         st.header("📊 Currency Correlation Heatmap")
-        st.markdown("Understand how forex pairs move relative to each other. ")
+        st.markdown("Understand how forex pairs move relative to each other.")
         pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
         data = np.array([
             [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
@@ -1027,9 +864,9 @@ with selected_tab[2]:
                         color_continuous_scale="RdBu",
                         title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
-    with tools_subtabs[4]:
+    with tools_subtabs[3]:
         st.header("🛡️ Risk Management Calculator")
-        st.markdown("Proper position sizing keeps your account safe. ")
+        st.markdown("Proper position sizing keeps your account safe.")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
@@ -1044,7 +881,7 @@ with selected_tab[2]:
             lot_size = risk_amount / (stop_loss_pips * pip_value)
             st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
             logging.info(f"Calculated lot size: {lot_size}")
-    with tools_subtabs[5]:
+    with tools_subtabs[4]:
         st.header("🕒 Forex Market Sessions")
         st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
         sessions = {
@@ -1095,7 +932,13 @@ with selected_tab[3]:
                 st.session_state.logged_in_user = username
                 user_data = json.loads(result[1]) if result[1] else {}
                 st.session_state.drawings = user_data.get("drawings", {})
-                journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+                journal_cols = [
+                    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
+                    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
+                    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
+                    "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
+                    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
+                ]
                 saved_journal = user_data.get("tools_trade_journal", [])
                 st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
                 st.success(f"Logged in as {username}")
