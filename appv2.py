@@ -1,4 +1,3 @@
-# ===================== IMPORTS =====================
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -16,17 +15,9 @@ import numpy as np
 import sqlite3
 import pytz
 import logging
-# Unused dependencies (for potential future use)
-# import newspaper3k
-# import transformers
-# import torch
-# import beautifulsoup4
-# import selenium
-# import yfinance
-# import forex_python
 
 # Set up logging
-logging.basicConfig(filename='debug.log', level=logging.DEBUG, 
+logging.basicConfig(filename='debug.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Path to SQLite DB
@@ -245,7 +236,7 @@ if "drawings" not in st.session_state:
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Technical Analysis", "Tools", "My Account", "MT5 Stats Dashboard"]
+tabs = ["Forex Fundamentals", "Backtesting", "Tools", "My Account", "MT5 Stats Dashboard"]
 selected_tab = st.tabs(tabs)
 
 # =========================================================
@@ -257,7 +248,7 @@ with selected_tab[0]:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
-        st.info("See the **Technical Analysis** tab for live charts + detailed news.")
+        st.info("See the **Backtesting** tab for live charts + detailed news.")
     # Economic Calendar
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
@@ -417,11 +408,11 @@ with selected_tab[0]:
         )
 
 # =========================================================
-# TAB 2: TECHNICAL ANALYSIS
+# TAB 2: BACKTESTING
 # =========================================================
 with selected_tab[1]:
-    st.title("📊 Technical Analysis")
-    st.caption("Live TradingView chart + curated news for the selected pair.")
+    st.title("📊 Backtesting")
+    st.caption("Live TradingView chart for backtesting + curated news for the selected pair.")
     # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
@@ -467,7 +458,6 @@ with selected_tab[1]:
           "timezone": "Etc/UTC",
           "theme": "dark",
           "style": "1",
-          "locale": "en",
           "hide_top_toolbar": false,
           "hide_side_toolbar": false,
           "allow_symbol_change": true,
@@ -497,7 +487,7 @@ with selected_tab[1]:
     if "logged_in_user" in st.session_state:
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("Save Drawings", key="ta_save_drawings"):
+            if st.button("Save Drawings", key="bt_save_drawings"):
                 logging.info(f"Save Drawings button clicked for pair {pair}")
                 save_script = f"""
                 <script>
@@ -509,7 +499,7 @@ with selected_tab[1]:
                       type: 'streamlit:setComponentValue',
                       value: content,
                       dataType: 'json',
-                      key: 'ta_drawings_key_{pair}'
+                      key: 'bt_drawings_key_{pair}'
                     }}, '*');
                   }});
                 }} catch (error) {{
@@ -519,10 +509,9 @@ with selected_tab[1]:
                 """
                 components.html(save_script, height=0)
                 logging.info(f"Triggered save script for {pair}")
-                # Delay rerun to ensure postMessage is processed
-                st.session_state[f"ta_save_trigger_{pair}"] = True
+                st.session_state[f"bt_save_trigger_{pair}"] = True
         with col2:
-            if st.button("Load Drawings", key="ta_load_drawings"):
+            if st.button("Load Drawings", key="bt_load_drawings"):
                 username = st.session_state.logged_in_user
                 logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
                 try:
@@ -551,7 +540,7 @@ with selected_tab[1]:
                     st.error(f"Failed to load drawings: {str(e)}")
                     logging.error(f"Error loading drawings for {username}: {str(e)}")
         with col3:
-            if st.button("Refresh Account", key="ta_refresh_account"):
+            if st.button("Refresh Account", key="bt_refresh_account"):
                 username = st.session_state.logged_in_user
                 logging.info(f"Refresh Account button clicked for user {username}")
                 try:
@@ -570,8 +559,8 @@ with selected_tab[1]:
                     st.error(f"Failed to sync account: {str(e)}")
                     logging.error(f"Error syncing account for {username}: {str(e)}")
         # Check for saved drawings from postMessage
-        drawings_key = f"ta_drawings_key_{pair}"
-        if drawings_key in st.session_state and st.session_state.get(f"ta_save_trigger_{pair}", False):
+        drawings_key = f"bt_drawings_key_{pair}"
+        if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
             content = st.session_state[drawings_key]
             logging.info(f"Received drawing content for {pair}: {content}")
             if content and isinstance(content, dict) and content:
@@ -591,7 +580,7 @@ with selected_tab[1]:
                     logging.error(f"Database error saving drawings for {pair}: {str(e)}")
                 finally:
                     del st.session_state[drawings_key]
-                    del st.session_state[f"ta_save_trigger_{pair}"]
+                    del st.session_state[f"bt_save_trigger_{pair}"]
             else:
                 st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
                 logging.warning(f"No valid drawing content received for {pair}: {content}")
@@ -618,7 +607,7 @@ with selected_tab[1]:
             selected_headline = st.selectbox(
                 "Select a headline for details",
                 filtered_df_display["HeadlineDisplay"].tolist(),
-                key="ta_headline_select"
+                key="bt_headline_select"
             )
             selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
             st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
@@ -896,7 +885,6 @@ with selected_tab[2]:
             logging.info(f"Alert added: {pair} at {price}")
         st.subheader("Your Alerts")
         st.dataframe(st.session_state.price_alerts, use_container_width=True, height=220)
-        # Isolate autorefresh to avoid interfering with drawings
         if st.session_state.get("price_alert_refresh", False):
             st_autorefresh(interval=5000, key="price_alert_autorefresh")
         active_pairs = st.session_state.price_alerts["Pair"].unique().tolist()
@@ -1033,56 +1021,56 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
-  
+
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
 with selected_tab[3]:
     st.title("👤 My Account")
-    st.subheader("Account Login / Sign Up")
+    st.markdown("""
+    Welcome to your personal account dashboard. Manage your login credentials, customize your preferences, and access your saved trading data. Sign in to save your chart drawings and trading journal, or sign up to create a new account.
+    """)
     # LOGIN
-    login_expander = st.expander("Login")
-    with login_expander:
-        username = st.text_input("Username", key="login_username")
-        password = st.text_input("Password", type="password", key="login_password")
-        if st.button("Login"):
-            logging.info(f"Login attempt for user {username}")
-            try:
-                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                if result and result[0] == password:
-                    st.session_state.logged_in_user = username
-                    user_data = json.loads(result[1]) if result[1] else {}
-                    st.session_state.drawings = user_data.get("drawings", {})
-                    journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-                    saved_journal = user_data.get("tools_trade_journal", [])
-                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
-                    st.success(f"Logged in as {username}")
-                    logging.info(f"Login successful for {username}")
-                else:
-                    st.error("Invalid username or password")
-                    logging.warning(f"Login failed for {username}: Invalid credentials")
-            except Exception as e:
-                st.error(f"Login error: {str(e)}")
-                logging.error(f"Login error for {username}: {str(e)}")
+    st.subheader("Login")
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
+    if st.button("Login"):
+        logging.info(f"Login attempt for user {username}")
+        try:
+            c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result and result[0] == password:
+                st.session_state.logged_in_user = username
+                user_data = json.loads(result[1]) if result[1] else {}
+                st.session_state.drawings = user_data.get("drawings", {})
+                journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+                saved_journal = user_data.get("tools_trade_journal", [])
+                st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
+                st.success(f"Logged in as {username}")
+                logging.info(f"Login successful for {username}")
+            else:
+                st.error("Invalid username or password")
+                logging.warning(f"Login failed for {username}: Invalid credentials")
+        except Exception as e:
+            st.error(f"Login error: {str(e)}")
+            logging.error(f"Login error for {username}: {str(e)}")
     # SIGN UP
-    signup_expander = st.expander("Sign Up")
-    with signup_expander:
-        new_username = st.text_input("New Username", key="signup_username")
-        new_password = st.text_input("New Password", type="password", key="signup_password")
-        if st.button("Sign Up"):
-            logging.info(f"Sign up attempt for user {new_username}")
-            try:
-                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, new_password, json.dumps({})))
-                conn.commit()
-                st.success(f"Account created for {new_username}")
-                logging.info(f"Account created for {new_username}")
-            except sqlite3.IntegrityError:
-                st.error("Username already exists")
-                logging.warning(f"Sign up failed for {new_username}: Username exists")
-            except Exception as e:
-                st.error(f"Sign up error: {str(e)}")
-                logging.error(f"Sign up error for {new_username}: {str(e)}")
+    st.subheader("Sign Up")
+    new_username = st.text_input("New Username", key="signup_username")
+    new_password = st.text_input("New Password", type="password", key="signup_password")
+    if st.button("Sign Up"):
+        logging.info(f"Sign up attempt for user {new_username}")
+        try:
+            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, new_password, json.dumps({})))
+            conn.commit()
+            st.success(f"Account created for {new_username}")
+            logging.info(f"Account created for {new_username}")
+        except sqlite3.IntegrityError:
+            st.error("Username already exists")
+            logging.warning(f"Sign up failed for {new_username}: Username exists")
+        except Exception as e:
+            st.error(f"Sign up error: {str(e)}")
+            logging.error(f"Sign up error for {new_username}: {str(e)}")
     # ACCOUNT SETTINGS
     if "logged_in_user" in st.session_state:
         st.subheader("Profile Settings")
@@ -1122,11 +1110,6 @@ with selected_tab[3]:
 # =========================================================
 # TAB 5: MT5 STATS DASHBOARD
 # =========================================================
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import numpy as np
-
 with selected_tab[4]:
     st.markdown("""
         <style>
@@ -1137,14 +1120,14 @@ with selected_tab[4]:
             margin-bottom: 20px;
         }
         .title {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: bold;
-            color: #333333;
+            color: #FFFFFF;
             margin-bottom: 10px;
         }
         .subtitle {
             font-size: 16px;
-            color: #666666;
+            color: #FFFFFF;
         }
         .metrics-container {
             display: grid;
@@ -1209,23 +1192,20 @@ with selected_tab[4]:
         }
         </style>
     """, unsafe_allow_html=True)
-
     st.markdown("""
         <div class="title-container">
             <div class="title">📊 MT5 Performance Dashboard</div>
             <div class="subtitle">Upload your MT5 trading history CSV to analyze your trading performance</div>
         </div>
     """, unsafe_allow_html=True)
-
     with st.container():
         st.markdown('<div class="upload-container">', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
-            "Choose your MT5 History CSV file", 
-            type=["csv"], 
+            "Choose your MT5 History CSV file",
+            type=["csv"],
             help="Upload a CSV file exported from MetaTrader 5 containing your trading history."
         )
         st.markdown('</div>', unsafe_allow_html=True)
-
     if uploaded_file:
         with st.spinner("Processing your trading data..."):
             try:
@@ -1237,7 +1217,6 @@ with selected_tab[4]:
                 else:
                     df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                     df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-
                     # Metrics calculations
                     total_trades = len(df)
                     wins = df[df["Profit"] > 0]
@@ -1256,7 +1235,6 @@ with selected_tab[4]:
                     largest_volume_trade = df["Volume"].max()
                     profit_per_trade = net_profit / total_trades if total_trades else 0
                     avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
-
                     # Display metrics
                     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
                     metrics = [
@@ -1281,7 +1259,6 @@ with selected_tab[4]:
                             </div>
                         """, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-
                     # Visualizations
                     st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
                     profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
@@ -1295,7 +1272,6 @@ with selected_tab[4]:
                         font_color="#333333"
                     )
                     st.plotly_chart(fig_symbol, use_container_width=True)
-
                     st.markdown('<div class="section-title">🔎 Trade Distribution</div>', unsafe_allow_html=True)
                     col1, col2 = st.columns(2)
                     with col1:
@@ -1307,7 +1283,6 @@ with selected_tab[4]:
                         fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week", template="plotly_white")
                         fig_weekday.update_layout(title_font_size=16, title_x=0.5)
                         st.plotly_chart(fig_weekday, use_container_width=True)
-
                     st.success("✅ MT5 Performance Dashboard Loaded Successfully!")
             except Exception as e:
                 st.error(f"Error processing CSV: {str(e)}.")
