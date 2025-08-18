@@ -151,16 +151,17 @@ div[data-baseweb="tab-list"] button:hover {{
 /* small utility */
 .small-muted {{ color:#9e9e9e; font-size:0.9rem; }}
 /* Fix for data editor input persistence */
-.stDataFrame .stTextInput input {{
+.stDataFrame .stTextInput input, .stDataFrame .stSelectbox select, .stDataFrame .stNumberInput input, .stDataFrame .stDateInput input {{
     background-color: #1b1b1b;
     color: white;
     border: 1px solid #3a3a3a;
     border-radius: 4px;
     padding: 4px;
 }}
-.stDataFrame .stTextInput input:focus {{
+.stDataFrame .stTextInput input:focus, .stDataFrame .stSelectbox select:focus, .stDataFrame .stNumberInput input:focus, .stDataFrame .stDateInput input:focus {{
     background-color: #2a2a2a;
     border-color: #FFD700;
+    outline: none;
 }}
 </style>
 """,
@@ -250,6 +251,52 @@ df_news = get_fxstreet_forex_news()
 if "drawings" not in st.session_state:
     st.session_state.drawings = {}
     logging.info("Initialized st.session_state.drawings")
+
+# Define journal columns and dtypes
+journal_cols = [
+    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
+    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
+    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
+    "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
+    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
+]
+journal_dtypes = {
+    "Date": "datetime64[ns]",
+    "Symbol": str,
+    "Weekly Bias": str,
+    "Daily Bias": str,
+    "4H Structure": str,
+    "1H Structure": str,
+    "Positive Correlated Pair & Bias": str,
+    "Potential Entry Points": str,
+    "5min/15min Setup?": str,
+    "Entry Conditions": str,
+    "Planned R:R": str,
+    "News Filter": str,
+    "Alerts": str,
+    "Concerns": str,
+    "Emotions": str,
+    "Confluence Score 1-7": float,
+    "Outcome / R:R Realised": str,
+    "Notes/Journal": str,
+    "Entry Price": float,
+    "Stop Loss Price": float,
+    "Take Profit Price": float,
+    "Lots": float
+}
+
+# Initialize trading journal with proper dtypes
+if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
+    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+else:
+    # Ensure existing journal matches new structure
+    current_journal = st.session_state.tools_trade_journal
+    missing_cols = [col for col in journal_cols if col not in current_journal.columns]
+    if missing_cols:
+        for col in missing_cols:
+            current_journal[col] = pd.Series(dtype=journal_dtypes[col])
+    # Reorder columns and apply dtypes
+    st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
 
 # =========================================================
 # NAVIGATION
@@ -607,15 +654,6 @@ with selected_tab[1]:
         logging.info("User not logged in, save/load drawings disabled")
     # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
-    journal_cols = [
-        "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
-        "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
-        "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
-        "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
-        "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
-    ]
-    if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
     # Configure column settings for data editor
     column_config = {
         "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
@@ -633,7 +671,7 @@ with selected_tab[1]:
         "Alerts": st.column_config.TextColumn("Alerts"),
         "Concerns": st.column_config.TextColumn("Concerns"),
         "Emotions": st.column_config.TextColumn("Emotions"),
-        "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7),
+        "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
         "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
         "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
         "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
@@ -645,10 +683,10 @@ with selected_tab[1]:
         data=st.session_state.tools_trade_journal.copy(),
         num_rows="dynamic",
         column_config=column_config,
-        key=f"bt_backtesting_journal_{pair}",
+        key="bt_backtesting_journal",
         use_container_width=True
     )
-    st.session_state.tools_trade_journal = updated_journal_tools
+    st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
     if "logged_in_user" in st.session_state:
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -679,7 +717,13 @@ with selected_tab[1]:
                         user_data = json.loads(result[0])
                         saved_journal = user_data.get("tools_trade_journal", [])
                         if saved_journal:
-                            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
+                            loaded_df = pd.DataFrame(saved_journal)
+                            # Ensure loaded journal matches new structure
+                            for col in journal_cols:
+                                if col not in loaded_df.columns:
+                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                            loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                            st.session_state.tools_trade_journal = loaded_df
                             st.success("Trading journal loaded from your account!")
                             logging.info(f"Journal loaded for {username}")
                         else:
@@ -932,15 +976,15 @@ with selected_tab[3]:
                 st.session_state.logged_in_user = username
                 user_data = json.loads(result[1]) if result[1] else {}
                 st.session_state.drawings = user_data.get("drawings", {})
-                journal_cols = [
-                    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
-                    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
-                    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
-                    "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
-                    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
-                ]
                 saved_journal = user_data.get("tools_trade_journal", [])
-                st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
+                if saved_journal:
+                    loaded_df = pd.DataFrame(saved_journal)
+                    for col in journal_cols:
+                        if col not in loaded_df.columns:
+                            loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                    st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                else:
+                    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
                 st.success(f"Logged in as {username}")
                 logging.info(f"Login successful for {username}")
             else:
