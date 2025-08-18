@@ -14,3 +14,4 @@ pytz
 yfinance
 streamlit-autorefresh
 forex-python
+streamst
