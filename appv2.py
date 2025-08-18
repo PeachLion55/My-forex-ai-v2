@@ -101,27 +101,49 @@ div[data-baseweb="tab-list"] button:hover {{
     color: #fff !important;
     transform: translateY(-2px);
 }}
-/* Button styling to match tabs */
+/* Button styling (smaller size, smaller font) */
 .stButton button {{
     background: linear-gradient(45deg, #FFD700, #FFA500) !important;
     color: #000 !important;
     font-weight: 600;
-    padding: 12px 24px !important;
-    border-radius: 8px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.3);
     border: none !important;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    font-size: 16px;
-    line-height: 1.5;
-    min-height: 40px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }}
 .stButton button:hover {{
     background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}}
+/* Form submit button styling (same as other buttons) */
+.stFormSubmitButton button {{
+    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
+    color: #000 !important;
+    font-weight: 600;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+    border: none !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-size: 14px;
+    line-height: 1.4;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}}
+.stFormSubmitButton button:hover {{
+    background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
 /* Original Card look */
 .card {{
@@ -173,24 +195,6 @@ div[data-baseweb="tab-list"] button:hover {{
     border-color: #FFD700;
     box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
     outline: none;
-}}
-/* Ensure form submit button matches other buttons */
-.stFormSubmitButton button {{
-    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
-    color: #000 !important;
-    font-weight: 600;
-    padding: 12px 24px !important;
-    border-radius: 8px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    border: none !important;
-    font-size: 16px;
-    line-height: 1.5;
-    min-height: 40px;
-}}
-.stFormSubmitButton button:hover {{
-    background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }}
 </style>
 """,
@@ -521,6 +525,7 @@ with selected_tab[1]:
         "NZD/USD": "OANDA:NZDUSD",
         "USD/CAD": "CMCMARKETS:USDCAD",
         "EUR/GBP": "FX:EURGBP",
+        "EUR/JPY": "FX:EURJPY",
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
@@ -796,7 +801,7 @@ with selected_tab[1]:
                         if saved_journal:
                             loaded_df = pd.DataFrame(saved_journal)
                             for col in journal_cols:
-                                if col not in loaded_df.columns:
+                                if col not not in loaded_df.columns:
                                     loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
                             loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
                             st.session_state.tools_trade_journal = loaded_df
