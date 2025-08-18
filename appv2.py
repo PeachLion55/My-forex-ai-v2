@@ -1089,17 +1089,6 @@ with selected_tab[4]:
     else:
         st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.") 
 
-To implement the custom component for TradingView Charting Library (to enable saving drawings):
-1. Create a folder `tradingview_component` in your app directory.
-2. In `tradingview_component/__init__.py`:
-```python
-import streamlit.components.v1 as components
-import os
-
-_component_func = components.declare_component(
-    "tradingview_chart",
-    path=os.path.dirname(__file__)
-)
 
 def tradingview_chart(symbol, key=None):
     component_value = _component_func(symbol=symbol, key=key)
