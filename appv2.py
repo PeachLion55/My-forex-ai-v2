@@ -101,9 +101,9 @@ div[data-baseweb="tab-list"] button:hover {{
     color: #fff !important;
     transform: translateY(-2px);
 }}
-/* Button styling (smaller size, smaller font) */
+/* Button styling (smaller size, smaller font, 40% opacity gradient) */
 .stButton button {{
-    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
+    background: linear-gradient(45deg, rgba(255,215,0,0.4), rgba(255,165,0,0.4)) !important;
     color: #000 !important;
     font-weight: 600;
     padding: 8px 16px !important;
@@ -119,13 +119,13 @@ div[data-baseweb="tab-list"] button:hover {{
     justify-content: center;
 }}
 .stButton button:hover {{
-    background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
+    background: linear-gradient(45deg, rgba(230,194,0,0.4), rgba(255,140,0,0.4)) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
-/* Form submit button styling (same as other buttons) */
+/* Form submit button styling (same as other buttons, 40% opacity gradient) */
 .stFormSubmitButton button {{
-    background: linear-gradient(45deg, #FFD700, #FFA500) !important;
+    background: linear-gradient(45deg, rgba(255,215,0,0.4), rgba(255,165,0,0.4)) !important;
     color: #000 !important;
     font-weight: 600;
     padding: 8px 16px !important;
@@ -141,7 +141,7 @@ div[data-baseweb="tab-list"] button:hover {{
     justify-content: center;
 }}
 .stFormSubmitButton button:hover {{
-    background: linear-gradient(45deg, #E6C200, #FF8C00) !important;
+    background: linear-gradient(45deg, rgba(230,194,0,0.4), rgba(255,140,0,0.4)) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
@@ -788,35 +788,35 @@ with selected_tab[1]:
                 except Exception as e:
                     st.error(f"Failed to save journal: {str(e)}")
                     logging.error(f"Error saving journal for {username}: {str(e)}")
-with col2:
-    if st.button("📂 Load Journal", key="bt_load_journal_button"):
-        username = st.session_state.logged_in_user
-        logging.info(f"Loading journal for user {username}")
-        try:
-            c.execute("SELECT data FROM users WHERE username = ?", (username,))
-            result = c.fetchone()
-            if result:
-                user_data = json.loads(result[0])
-                saved_journal = user_data.get("tools_trade_journal", [])
-                if saved_journal:
-                    loaded_df = pd.DataFrame(saved_journal)
-                    for col in journal_cols:
-                        if col not in loaded_df.columns:
-                            loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                    loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                    st.session_state.tools_trade_journal = loaded_df
-                    st.session_state.temp_journal = None
-                    st.success("Trading journal loaded from your account!")
-                    logging.info(f"Journal loaded for {username}")
-                else:
-                    st.info("No saved journal found in your account.")
-                    logging.info(f"No journal found for {username}")
-            else:
-                st.error("Failed to load user data.")
-                logging.error(f"No user data found for {username}")
-        except Exception as e:
-            st.error(f"Failed to load journal: {str(e)}")
-            logging.error(f"Error loading journal for {username}: {str(e)}")
+        with col2:
+            if st.button("📂 Load Journal", key="bt_load_journal_button"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Loading journal for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        saved_journal = user_data.get("tools_trade_journal", [])
+                        if saved_journal:
+                            loaded_df = pd.DataFrame(saved_journal)
+                            for col in journal_cols:
+                                if col not in loaded_df.columns:
+                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                            loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                            st.session_state.tools_trade_journal = loaded_df
+                            st.session_state.temp_journal = None
+                            st.success("Trading journal loaded from your account!")
+                            logging.info(f"Journal loaded for {username}")
+                        else:
+                            st.info("No saved journal found in your account.")
+                            logging.info(f"No journal found for {username}")
+                    else:
+                        st.error("Failed to load user data.")
+                        logging.error(f"No user data found for {username}")
+                except Exception as e:
+                    st.error(f"Failed to load journal: {str(e)}")
+                    logging.error(f"Error loading journal for {username}: {str(e)}")
     # News & Sentiment
     st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
