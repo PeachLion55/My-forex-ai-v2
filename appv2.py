@@ -852,15 +852,17 @@ with selected_tab[4]:
 
         df = pd.read_csv(uploaded_file)
 
+        # Ensure required columns exist
         required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
         else:
+            # Convert time columns
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # --- Calculate Metrics ---
+            # Basic performance metrics
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
@@ -872,30 +874,30 @@ with selected_tab[4]:
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
+            # Longest win/loss streaks
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
-            avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean() if not df.empty else 0
+            
+            # Additional metrics
             total_volume = df["Volume"].sum()
             avg_volume = df["Volume"].mean()
             largest_volume_trade = df["Volume"].max()
             profit_per_trade = net_profit / total_trades if total_trades else 0
+            avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds()/3600).mean()
 
-            # --- CSS & HTML for Rectangular Vertical Metrics ---
+            # --- Metric Boxes with HTML/CSS ---
             st.markdown(f"""
             <style>
             .metrics-container {{
-                display: flex;
-                flex-wrap: wrap;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
                 gap: 20px;
-                justify-content: flex-start;
+                justify-items: center;
+                align-items: start;
             }}
             .metric-box {{
-                background: #1a1a1a;
                 padding: 25px 15px;
                 border-radius: 10px;
-                flex: 1 1 180px;
-                min-width: 180px;
-                max-width: 220px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -903,6 +905,7 @@ with selected_tab[4]:
                 text-align: center;
                 box-shadow: 0 4px 10px rgba(0,0,0,0.5);
                 transition: transform 0.2s, box-shadow 0.2s;
+                color: #ffffff;
             }}
             .metric-box:hover {{
                 transform: translateY(-5px);
@@ -910,33 +913,33 @@ with selected_tab[4]:
             }}
             .metric-title {{
                 font-size: 14px;
-                opacity: 0.7;
+                opacity: 0.8;
                 margin-bottom: 12px;
             }}
             .metric-value {{
                 font-size: 24px;
                 font-weight: bold;
             }}
-            .green {{ color: #0F2A0E; }}
-            .red {{ color: #2B110F; }}
-            .neutral {{ color: #ffffff; }}
+            .neutral {{ background: rgba(255,255,255,0.3); }}
+            .green {{ background: rgba(15,42,14,0.7); }}
+            .red {{ background: rgba(43,17,15,0.7); }}
             </style>
 
             <div class="metrics-container">
-                <div class="metric-box"><div class="metric-title">📊 Total Trades</div><div class="metric-value neutral">{total_trades}</div></div>
-                <div class="metric-box"><div class="metric-title">✅ Win Rate</div><div class="metric-value {'green' if win_rate>=50 else 'red'}">{win_rate:.2f}%</div></div>
-                <div class="metric-box"><div class="metric-title">💰 Net Profit</div><div class="metric-value {'green' if net_profit>=0 else 'red'}">${net_profit:,.2f}</div></div>
-                <div class="metric-box"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value {'green' if profit_factor>=1 else 'red'}">{profit_factor}</div></div>
-                <div class="metric-box"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value green">${biggest_win:,.2f}</div></div>
-                <div class="metric-box"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value red">${biggest_loss:,.2f}</div></div>
-                <div class="metric-box"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value red">${max_drawdown:,.2f}</div></div>
-                <div class="metric-box"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value green">{longest_win_streak}</div></div>
-                <div class="metric-box"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value red">{longest_loss_streak}</div></div>
-                <div class="metric-box"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value neutral">{avg_trade_duration:.2f}h</div></div>
-                <div class="metric-box"><div class="metric-title">📦 Total Volume</div><div class="metric-value green">{total_volume}</div></div>
-                <div class="metric-box"><div class="metric-title">📊 Avg Volume</div><div class="metric-value neutral">{avg_volume:.2f}</div></div>
-                <div class="metric-box"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value green">{largest_volume_trade}</div></div>
-                <div class="metric-box"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value {'green' if profit_per_trade>=0 else 'red'}">{profit_per_trade:.2f}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">📊 Total Trades</div><div class="metric-value">{total_trades}</div></div>
+                <div class="metric-box {'green' if win_rate>=50 else 'red'}"><div class="metric-title">✅ Win Rate</div><div class="metric-value">{win_rate:.2f}%</div></div>
+                <div class="metric-box {'green' if net_profit>=0 else 'red'}"><div class="metric-title">💰 Net Profit</div><div class="metric-value">${net_profit:,.2f}</div></div>
+                <div class="metric-box {'green' if profit_factor>=1 else 'red'}"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value">{profit_factor}</div></div>
+                <div class="metric-box green"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value">${biggest_win:,.2f}</div></div>
+                <div class="metric-box red"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value">${biggest_loss:,.2f}</div></div>
+                <div class="metric-box red"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value">${max_drawdown:,.2f}</div></div>
+                <div class="metric-box green"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value">{longest_win_streak}</div></div>
+                <div class="metric-box red"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value">{longest_loss_streak}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value">{avg_trade_duration:.2f}h</div></div>
+                <div class="metric-box green"><div class="metric-title">📦 Total Volume</div><div class="metric-value">{total_volume}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">📊 Avg Volume</div><div class="metric-value">{avg_volume:.2f}</div></div>
+                <div class="metric-box green"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value">{largest_volume_trade}</div></div>
+                <div class="metric-box {'green' if profit_per_trade>=0 else 'red'}"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value">{profit_per_trade:.2f}</div></div>
             </div>
             """, unsafe_allow_html=True)
 
