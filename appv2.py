@@ -1,3 +1,5 @@
+```python
+# ===================== IMPORTS =====================
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -13,151 +15,128 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import datetime as dt
-import uuid
+import sqlite3
 
-# Path to accounts JSON file
-ACCOUNTS_FILE = "user_accounts.json"
+# Path to SQLite DB
+DB_FILE = "users.db"
+
+# Connect to SQLite
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS users
+             (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
+conn.commit()
 
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
-# ----------------- ENHANCED CUSTOM CSS -----------------
+# ----------------- CUSTOM CSS (Original BG + New Tabs) -----------------
+bg_opacity = 0.5
 st.markdown(
-    """
+    f"""
 <style>
-/* Modern dark futuristic background */
-.stApp {
-    background: linear-gradient(135deg, #0a0a0a 0%, #1c2526 100%);
-    color: #e0e0e0;
-    font-family: 'Inter', sans-serif;
-}
-
-/* Animated background overlay */
-.stApp::before {
+/* Futuristic dark background with animated grid */
+.stApp {{
+    background:
+        radial-gradient(circle at 15% 20%, rgba(255,215,0,{bg_opacity*0.18}) 0%, transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(0,170,255,{bg_opacity*0.12}) 0%, transparent 25%),
+        linear-gradient(135deg, #0b0b0b 0%, #0a0a0a 100%);
+}}
+.stApp::before {{
     content: "";
     position: fixed;
     inset: 0;
-    background-image: 
-        radial-gradient(circle at 20% 30%, rgba(255,215,0,0.1) 0%, transparent 30%),
-        radial-gradient(circle at 80% 20%, rgba(0,170,255,0.1) 0%, transparent 30%);
-    background-size: 200% 200%;
-    animation: gradientFlow 20s ease infinite;
+    background-image:
+        linear-gradient(90deg, rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255,255,255,{bg_opacity*0.05}) 1px, transparent 1px);
+    background-size: 42px 42px, 42px 42px;
+    animation: moveGrid 38s linear infinite;
     pointer-events: none;
     z-index: 0;
-}
-
-@keyframes gradientFlow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-/* Content above background */
-.main, .block-container, .stTabs, .stMarkdown {
-    position: relative;
-    z-index: 1;
-}
-
+    opacity: 1;
+}}
+@keyframes moveGrid {{
+    0% {{ transform: translateY(0px); }}
+    100% {{ transform: translateY(42px); }}
+}}
+/* Content above bg */
+.main, .block-container, .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg {{ position: relative; z-index: 1; }}
 /* Enhanced tab styling */
-div[data-baseweb="tab-list"] {
+div[data-baseweb="tab-list"] {{
     gap: 12px;
     padding-bottom: 8px;
     background: rgba(0,0,0,0.3);
     border-radius: 12px;
     padding: 8px;
-}
-
-div[data-baseweb="tab-list"] button[aria-selected="true"] {
+}}
+div[data-baseweb="tab-list"] button[aria-selected="true"] {{
     background: linear-gradient(45deg, #FFD700, #FFA500) !important;
     color: #000 !important;
     font-weight: 600;
     padding: 12px 24px !important;
     border-radius: 8px !important;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-
-div[data-baseweb="tab-list"] button[aria-selected="false"] {
+}}
+div[data-baseweb="tab-list"] button[aria-selected="false"] {{
     background: #2a2a2a !important;
     color: #ccc !important;
     padding: 12px 24px !important;
     border-radius: 8px !important;
     border: 1px solid #3a3a3a !important;
-}
-
-div[data-baseweb="tab-list"] button:hover {
+}}
+div[data-baseweb="tab-list"] button:hover {{
     background: #3a3a3a !important;
     color: #fff !important;
     transform: translateY(-2px);
-}
-
-/* Card styling */
-.card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+}}
+/* Original Card look */
+.card {{
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.07);
     border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    transition: all 0.3s ease;
-}
-
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
-}
-
-/* Dataframe styling */
-.dataframe th {
-    background: #1a1a1a;
+    padding: 16px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    transition: transform 0.3s ease;
+}}
+.card:hover {{
+    transform: translateY(-4px);
+}}
+/* Original dataframe styling */
+.dataframe th {{
+    background-color: #1f1f1f;
     color: #FFD700;
-    font-weight: 600;
-}
-
-.dataframe td {
-    background: #121212;
-    color: #e0e0e0;
-}
-
-/* Input and button styling */
-.stSelectbox, .stNumberInput, .stTextInput, .stRadio {
-    background: #1e1e1e;
+}}
+.dataframe td {{
+    background-color: #121212;
+    color: white;
+}}
+/* Original Selectbox and input styling */
+.stSelectbox, .stNumberInput, .stTextInput, .stRadio {{
+    background-color: #1b1b1b;
     border-radius: 8px;
-    padding: 10px;
-    border: 1px solid #3a3a3a;
-}
-
-.stButton button {
-    background: linear-gradient(45deg, #FFD700, #FFA500);
-    color: #000;
+    padding: 8px;
+}}
+/* Original Button styling */
+.stButton button {{
+    background-color: #FFD700;
+    color: black;
     border-radius: 8px;
-    font-weight: 600;
-    padding: 10px 20px;
-    transition: all 0.3s ease;
-}
-
-.stButton button:hover {
-    background: linear-gradient(45deg, #FFA500, #FF8C00);
-    transform: translateY(-2px);
-}
-
-/* Expander styling */
-.stExpander {
-    border: 1px solid #3a3a3a;
-    border-radius: 12px;
-    background: #1e1e1e;
-}
-
-/* Utility classes */
-.small-muted { color: #888; font-size: 0.85rem; }
-.section-title { 
-    color: #FFD700; 
-    font-size: 1.8rem; 
-    margin-bottom: 1rem;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-}
+    font-weight: bold;
+}}
+.stButton button:hover {{
+    background-color: #E6C200;
+}}
+/* Original Expander styling */
+.stExpander {{
+    border: 1px solid #242424;
+    border-radius: 8px;
+    background-color: #1b1b1b;
+}}
+/* small utility */
+.small-muted {{ color:#9e9e9e; font-size:0.9rem; }}
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 """,
     unsafe_allow_html=True,
 )
@@ -231,33 +210,12 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
 
-# Static calendar data
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
-
-# Save drawings to user account
-def save_drawings_to_account(username, pair, drawings):
-    if not username:
-        return
-    accounts = {}
-    if os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, "r") as f:
-            accounts = json.load(f)
-    accounts.setdefault(username, {})["drawings"] = accounts.get(username, {}).get("drawings", {})
-    accounts[username]["drawings"][pair] = drawings
-    with open(ACCOUNTS_FILE, "w") as f:
-        json.dump(accounts, f, indent=4)
-
-def load_drawings_from_account(username, pair):
-    if not username or not os.path.exists(ACCOUNTS_FILE):
-        return None
-    with open(ACCOUNTS_FILE, "r") as f:
-        accounts = json.load(f)
-    return accounts.get(username, {}).get("drawings", {}).get(pair, None)
 
 # =========================================================
 # NAVIGATION
@@ -271,11 +229,10 @@ selected_tab = st.tabs(tabs)
 with selected_tab[0]:
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.markdown('<h1 class="section-title">📅 Forex Fundamentals</h1>', unsafe_allow_html=True)
+        st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
         st.info("See the **Technical Analysis** tab for live charts + detailed news.")
-
     # Economic Calendar
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
@@ -290,17 +247,14 @@ with selected_tab[0]:
     with col_filter2:
         currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
         st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-
     def highlight_currency(row):
         styles = [''] * len(row)
         if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
-            styles = ['background-color: #2a2a6a; color: white' for col in row.index]
+            styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
         if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
-            styles = ['background-color: #6a2a2a; color: white' for col in row.index]
+            styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
         return styles
-
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-
     # Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
@@ -314,7 +268,7 @@ with selected_tab[0]:
         {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
     ]
     boxes_per_row = 4
-    colors = ["#2a2a6a", "#6a2a2a", "#2a6a2a", "#6a6a2a"]
+    colors = ["#171447", "#471414", "#144714", "#474714"]
     for i in range(0, len(interest_rates), boxes_per_row):
         cols = st.columns(boxes_per_row)
         for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
@@ -324,23 +278,23 @@ with selected_tab[0]:
                     f"""
                     <div class="card">
                         <div style="
-                            background: {color};
-                            border-radius: 10px;
-                            padding: 20px;
-                            text-align: center;
-                            color: white;
+                            background-color:{color};
+                            border-radius:10px;
+                            padding:15px;
+                            text-align:center;
+                            color:white;
                         ">
-                            <h3 style="margin: 0 0 8px 0;">{rate['Currency']}</h3>
-                            <p style="margin: 4px 0;"><b>Current:</b> {rate['Current']}</p>
-                            <p style="margin: 4px 0;"><b>Previous:</b> {rate['Previous']}</p>
-                            <p style="margin: 4px 0;"><b>Changed:</b> {rate['Changed']}</p>
+                            <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
+                            <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
+                            <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
+                            <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
                         </div>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-
-    # Major High-Impact Events (Moved to Forex Fundamentals tab only)
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    # Major High-Impact Events
     st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
         {
@@ -412,18 +366,25 @@ with selected_tab[0]:
         negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
         st.markdown(
             f"""
-            <div class="card">
-                <h4 style="color:#FFD700; margin:0 0 8px 0;">{ev['event']}</h4>
-                <p style="margin:6px 0;"><b>What it is:</b> {ev['description']}</p>
+            <div style="
+                border-radius:12px;
+                padding:15px;
+                margin-bottom:18px;
+                background-color:#12121a;
+                color:white;
+                box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+            ">
+                <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
+                <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
                 <p style="margin:6px 0 12px 0;"><b>Why it matters:</b> {ev['why_it_matters']}</p>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                    <div style="background:#1a2f1a; padding:12px; border-radius:8px;">
-                        <h5 style="margin:0 0 8px 0; color:#b7f2b7;">Positive Impact</h5>
-                        <div style="font-size:0.9rem;">{positive_impact}</div>
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1; background-color:#0f2b0f; padding:12px; border-radius:10px;">
+                        <h5 style="margin:0 0 8px 0; color:#b7f2b7;">Positive →</h5>
+                        <div style="font-size:0.95rem;">{positive_impact}</div>
                     </div>
-                    <div style="background:#2f1a1a; padding:12px; border-radius:8px;">
-                        <h5 style="margin:0 0 8px 0; color:#f6b3b3;">Negative Impact</h5>
-                        <div style="font-size:0.9rem;">{negative_impact}</div>
+                    <div style="flex:1; background-color:#2b0f0f; padding:12px; border-radius:10px;">
+                        <h5 style="margin:0 0 8px 0; color:#f6b3b3;">Negative →</h5>
+                        <div style="font-size:0.95rem;">{negative_impact}</div>
                     </div>
                 </div>
             </div>
@@ -434,10 +395,8 @@ with selected_tab[0]:
 # TAB 2: TECHNICAL ANALYSIS
 # =========================================================
 with selected_tab[1]:
-    st.markdown('<h1 class="section-title">📊 Technical Analysis</h1>', unsafe_allow_html=True)
-    st.caption("Live TradingView chart with saved drawings and curated news.")
-
-    # Pair selector
+    st.title("📊 Technical Analysis")
+    st.caption("Live TradingView chart + curated news for the selected pair.")
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
         "USD/JPY": "FX:USDJPY",
@@ -447,72 +406,59 @@ with selected_tab[1]:
         "NZD/USD": "OANDA:NZDUSD",
         "USD/CAD": "CMCMARKETS:USDCAD",
         "EUR/GBP": "FX:EURGBP",
-        "EUR/JPY": "FX:EURJPY",
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
-
-    # Load saved drawings
-    saved_drawings = load_drawings_from_account(st.session_state.get("logged_in_user"), pair) if "logged_in_user" in st.session_state else None
-
-    # TradingView widget with drawing persistence
+    user = st.session_state.get('logged_in_user', 'anonymous')
     tv_html = f"""
-    <div class="tradingview-widget-container card" style="height:800px; width:100%">
-        <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-        <script type="text/javascript">
-        const widget = new TradingView.widget({{
-            "autosize": true,
-            "symbol": "{tv_symbol}",
-            "interval": "D",
-            "timezone": "Etc/UTC",
-            "theme": "dark",
-            "style": "1",
-            "locale": "en",
-            "hide_top_toolbar": false,
-            "hide_side_toolbar": false,
-            "allow_symbol_change": true,
-            "save_image": true,
-            "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}",
-            "client_id": "forex_dashboard",
-            "user_id": "{st.session_state.get('logged_in_user', 'anonymous')}",
-            "charts_storage_url": "https://saveload.tradingview.com",
-            "charts_storage_api_version": "1.1",
-            "onready": function() {{
-                const chart = widget.activeChart();
-                chart.onDataLoaded().subscribe(null, () => {{
-                    {"chart.setSerializedChart(" + json.dumps(saved_drawings) + ")" if saved_drawings else ""}
-                }});
-                chart.onChartStateChanged().subscribe(null, (state) => {{
-                    if (state === "saved") {{
-                        const drawings = chart.getSerializedChart();
-                        fetch('/save-drawings', {{
-                            method: 'POST',
-                            headers: {{ 'Content-Type': 'application/json' }},
-                            body: JSON.stringify({{
-                                username: "{st.session_state.get('logged_in_user', '')}",
-                                pair: "{pair}",
-                                drawings: drawings
-                            }})
-                        }});
-                    }}
-                }});
-            }}
-        }});
-        </script>
+    <div class="tradingview-widget-container" style="height:780px; width:100%">
+      <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
     </div>
+    <button id="save_drawings_btn" style="margin-top:10px; background-color: #FFD700; color: black; border-radius: 8px; font-weight: bold; padding: 8px 16px;">Save Drawings</button>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+    const widget = new TradingView.widget({{
+      "autosize": true,
+      "symbol": "{tv_symbol}",
+      "interval": "D",
+      "timezone": "Etc/UTC",
+      "theme": "dark",
+      "style": "1",
+      "locale": "en",
+      "hide_top_toolbar": false,
+      "hide_side_toolbar": false,
+      "allow_symbol_change": true,
+      "save_image": true,
+      "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
+    }});
+    widget.onChartReady(() => {{
+      const chart = widget.activeChart();
+      const user = "{user}";
+      const pair = "{pair}";
+      const key = `drawings_${{user}}_${{pair}}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {{
+        chart.setContent(JSON.parse(saved));
+      }}
+      document.getElementById('save_drawings_btn').addEventListener('click', () => {{
+        chart.getContent((content) => {{
+          localStorage.setItem(key, JSON.stringify(content));
+          alert('Drawings saved!');
+        }});
+      }});
+    }});
+    </script>
     """
-    components.html(tv_html, height=820, scrolling=False)
-
+    components.html(tv_html, height=850, scrolling=False)
     # News & Sentiment
-    st.markdown("### 📰 News & Sentiment")
+    st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
         base, quote = pair.split("/")
         filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
         try:
             filtered_df["HighProb"] = filtered_df.apply(
                 lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                    (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                                     (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
                 else "", axis=1
             )
         except Exception:
@@ -528,25 +474,23 @@ with selected_tab[1]:
             selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
             st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
             st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
-            st.write(f"**Currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
+            st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
             with st.expander("Summary"):
                 st.write(selected_row["Summary"])
         else:
-            st.info("No pair-specific headlines found.")
+            st.info("No pair-specific headlines found in the recent feed.")
     else:
-        st.info("News feed unavailable.")
+        st.info("News feed unavailable right now.")
 
 # =========================================================
 # TAB 3: TOOLS
 # =========================================================
 with selected_tab[2]:
-    st.markdown('<h1 class="section-title">🛠 Tools</h1>', unsafe_allow_html=True)
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price Alerts", "Correlation Heatmap", "Risk Calculator", "Session Tracker", "Candlestick Patterns"])
-
-    # Profit/Stop-loss Calculator
+    st.title("🛠 Tools")
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Calculator", "Trading Session Tracker", "Candlestick Pattern Cheat Sheet"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Stop-loss Calculator")
-        st.markdown("Calculate potential profit or loss for a trade.")
+        st.markdown("Calculate your potential profit or loss for a trade.")
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
             currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
@@ -565,16 +509,14 @@ with selected_tab[2]:
             else (0.01 / exchange_rate) * position_size * 100000
         )
         profit_loss = pip_movement * pip_value
-        st.markdown(f"**Pip Movement**: {pip_movement:.2f} pips")
-        st.markdown(f"**Pip Value**: {pip_value:.2f} {account_currency}")
-        st.markdown(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
-
-    # Backtesting
+        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
+        st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
+        st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
     with tools_subtabs[1]:
         st.header("📊 Backtesting")
-        st.markdown("Test your trading strategies with historical data.")
+        st.markdown("Backtest your trading strategies here.")
         tv_widget = """
-        <div class="card">
+        <div class="tradingview-widget-container">
             <div id="tradingview_advanced_chart"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
             <script type="text/javascript">
@@ -597,7 +539,7 @@ with selected_tab[2]:
             </script>
         </div>
         """
-        st.components.v1.html(tv_widget, height=620)
+        components.html(tv_widget, height=620)
         journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
         if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
@@ -610,36 +552,34 @@ with selected_tab[2]:
         if "logged_in_user" in st.session_state:
             col1, col2 = st.columns([1, 1])
             with col1:
-                if st.button("💾 Save Journal", key="save_journal_button"):
+                if st.button("💾 Save to My Account", key="save_journal_button"):
                     username = st.session_state.logged_in_user
-                    accounts = {}
-                    if os.path.exists(ACCOUNTS_FILE):
-                        with open(ACCOUNTS_FILE, "r") as f:
-                            accounts = json.load(f)
-                    accounts.setdefault(username, {})["tools_trade_journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
-                    with open(ACCOUNTS_FILE, "w") as f:
-                        json.dump(accounts, f, indent=4)
-                    st.success("Trading journal saved!")
+                    journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["tools_trade_journal"] = journal_data
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Trading journal saved to your account!")
             with col2:
                 if st.button("📂 Load Journal", key="load_journal_button"):
                     username = st.session_state.logged_in_user
-                    accounts = {}
-                    if os.path.exists(ACCOUNTS_FILE):
-                        with open(ACCOUNTS_FILE, "r") as f:
-                            accounts = json.load(f)
-                    saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
-                    if saved_journal:
-                        st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
-                        st.success("Trading journal loaded!")
-                    else:
-                        st.info("No saved journal found.")
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        saved_journal = user_data.get("tools_trade_journal", [])
+                        if saved_journal:
+                            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal)
+                            st.success("Trading journal loaded from your account!")
+                        else:
+                            st.info("No saved journal found in your account.")
         else:
-            st.info("Sign in to save your trading journal.")
-
-    # Price Alerts
+            st.info("Sign in to save your trading journal to your account.")
     with tools_subtabs[2]:
         st.header("⏰ Price Alerts")
-        st.markdown("Set price alerts for forex pairs.")
+        st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
         forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
         if "price_alerts" not in st.session_state:
             st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
@@ -697,10 +637,16 @@ with selected_tab[2]:
                 with cols[0]:
                     st.markdown(
                         f"""
-                        <div class="card">
+                        <div style="
+                            border-radius:10px;
+                            padding:12px;
+                            margin-bottom:10px;
+                            background: linear-gradient(180deg,#0f1720, #0b0f14);
+                            border:1px solid rgba(255,255,255,0.03);
+                        ">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <strong style="font-size:1.1rem;">{pair}</strong>
-                                <span style="color:{color}; font-weight:600;">{status}</span>
+                                <strong style="font-size:1.05rem;">{pair}</strong>
+                                <span style="color:{color}; font-weight:700;">{status}</span>
                             </div>
                             <div style="margin-top:8px;">
                                 <small class="small-muted">Current:</small> <b>{current_price_display}</b> &nbsp;&nbsp;
@@ -713,14 +659,12 @@ with selected_tab[2]:
                 with cols[1]:
                     if st.button("❌ Cancel", key=f"cancel_{idx}"):
                         st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
-                        st.experimental_rerun()
+                        st.rerun()
         else:
-            st.info("No price alerts set.")
-
-    # Currency Correlation Heatmap
+            st.info("No price alerts set. Add one above to start monitoring prices.")
     with tools_subtabs[3]:
         st.header("📊 Currency Correlation Heatmap")
-        st.markdown("Understand how forex pairs move relative to each other.")
+        st.markdown("Understand how forex pairs move relative to each other. ")
         pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
         data = np.array([
             [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
@@ -737,11 +681,9 @@ with selected_tab[2]:
                         color_continuous_scale="RdBu",
                         title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
-
-    # Risk Management Calculator
     with tools_subtabs[4]:
         st.header("🛡️ Risk Management Calculator")
-        st.markdown("Calculate optimal position size.")
+        st.markdown("Proper position sizing keeps your account safe. ")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
@@ -755,11 +697,9 @@ with selected_tab[2]:
             risk_amount = balance * (risk_percent / 100)
             lot_size = risk_amount / (stop_loss_pips * pip_value)
             st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
-
-    # Trading Session Tracker
     with tools_subtabs[5]:
         st.header("🕒 Forex Market Sessions")
-        st.markdown("Track active trading sessions.")
+        st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
         sessions = {
             "Sydney": (22, 7),
             "Tokyo": (0, 9),
@@ -770,28 +710,25 @@ with selected_tab[2]:
         cols = st.columns(len(sessions))
         for i, (session, (start, end)) in enumerate(sessions.items()):
             active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
-            color = "#2a6a2a" if active else "#2a2a6a"
+            color = "#144714" if active else "#171447"
             with cols[i]:
                 st.markdown(f"""
-                    <div class="card">
-                        <div style="
-                            background-color:{color};
-                            border-radius:10px;
-                            padding:15px;
-                            text-align:center;
-                            color:white;
-                        ">
-                            <h3 style="margin:0;">{session}</h3>
-                            <p style="margin:4px 0;">{start}:00 - {end}:00 UTC</p>
-                            <b>{'ACTIVE' if active else 'Closed'}</b>
-                        </div>
+                    <div style="
+                        background-color:{color};
+                        border-radius:10px;
+                        padding:15px;
+                        text-align:center;
+                        color:white;
+                        box-shadow:2px 2px 8px rgba(0,0,0,0.5);
+                    ">
+                        <h3 style="margin:0;">{session}</h3>
+                        <p style="margin:0;">{start}:00 - {end}:00 UTC</p>
+                        <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
-
-    # Candlestick Pattern Cheat Sheet
     with tools_subtabs[6]:
         st.header("📑 Candlestick Pattern Cheat Sheet")
-        st.markdown("Recognize key reversal and continuation patterns.")
+        st.markdown("Learn to recognize powerful reversal and continuation signals.")
         patterns = [
             {"name": "Hammer", "type": "Bullish", "meaning": "Potential reversal after downtrend"},
             {"name": "Shooting Star", "type": "Bearish", "meaning": "Potential reversal after uptrend"},
@@ -802,10 +739,17 @@ with selected_tab[2]:
         for i, pattern in enumerate(patterns):
             with cols[i % 2]:
                 st.markdown(f"""
-                    <div class="card">
+                    <div style="
+                        background-color:#1e1e2f;
+                        border-radius:12px;
+                        padding:15px;
+                        margin-bottom:10px;
+                        box-shadow:2px 2px 8px rgba(0,0,0,0.4);
+                        color:white;
+                    ">
                         <h3 style="margin:0; color:#FFD700;">{pattern['name']}</h3>
-                        <p style="margin:4px 0;"><b>Type:</b> {pattern['type']}</p>
-                        <p style="margin:4px 0;"><b>Meaning:</b> {pattern['meaning']}</p>
+                        <p style="margin:2px 0;"><b>Type:</b> {pattern['type']}</p>
+                        <p style="margin:2px 0;"><b>Meaning:</b> {pattern['meaning']}</p>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -813,47 +757,38 @@ with selected_tab[2]:
 # TAB 4: MY ACCOUNT
 # =========================================================
 with selected_tab[3]:
-    st.markdown('<h1 class="section-title">👤 My Account</h1>', unsafe_allow_html=True)
+    st.title("👤 My Account")
     st.subheader("Account Login / Sign Up")
-    if not os.path.exists(ACCOUNTS_FILE):
-        with open(ACCOUNTS_FILE, "w") as f:
-            json.dump({}, f)
-    
-    # Login
-    with st.expander("Login"):
+    # LOGIN
+    login_expander = st.expander("Login")
+    with login_expander:
         username = st.text_input("Username", key="login_username")
         password = st.text_input("Password", type="password", key="login_password")
         if st.button("Login"):
-            with open(ACCOUNTS_FILE, "r") as f:
-                accounts = json.load(f)
-            if username in accounts and accounts[username]["password"] == password:
+            c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result and result[0] == password:
                 st.session_state.logged_in_user = username
-                st.success(f"Logged in as {username}")
-                saved_journal = accounts.get(username, {}).get("tools_trade_journal", [])
+                user_data = json.loads(result[1]) if result[1] else {}
                 journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-                if saved_journal:
-                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols)
-                else:
-                    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+                saved_journal = user_data.get("tools_trade_journal", [])
+                st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
+                st.success(f"Logged in as {username}")
             else:
                 st.error("Invalid username or password")
-
-    # Sign Up
-    with st.expander("Sign Up"):
+    # SIGN UP
+    signup_expander = st.expander("Sign Up")
+    with signup_expander:
         new_username = st.text_input("New Username", key="signup_username")
         new_password = st.text_input("New Password", type="password", key="signup_password")
         if st.button("Sign Up"):
-            with open(ACCOUNTS_FILE, "r") as f:
-                accounts = json.load(f)
-            if new_username in accounts:
-                st.error("Username already exists")
-            else:
-                accounts[new_username] = {"password": new_password}
-                with open(ACCOUNTS_FILE, "w") as f:
-                    json.dump(accounts, f, indent=4)
+            try:
+                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, new_password, json.dumps({})))
+                conn.commit()
                 st.success(f"Account created for {new_username}")
-
-    # Account Settings
+            except sqlite3.IntegrityError:
+                st.error("Username already exists")
+    # ACCOUNT SETTINGS
     if "logged_in_user" in st.session_state:
         st.subheader("Profile Settings")
         colA, colB = st.columns(2)
@@ -864,6 +799,19 @@ with selected_tab[3]:
             email = st.text_input("Email", value=st.session_state.get("email", ""), key="account_email")
             alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True), key="account_alerts")
         if st.button("Save Preferences", key="account_save_prefs"):
+            username = st.session_state.logged_in_user
+            prefs = {
+                "name": name,
+                "email": email,
+                "base_ccy": base_ccy,
+                "alerts": alerts
+            }
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            user_data = json.loads(result[0]) if result else {}
+            user_data["preferences"] = prefs
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+            conn.commit()
             st.session_state.name = name
             st.session_state.email = email
             st.session_state.base_ccy = base_ccy
@@ -874,8 +822,8 @@ with selected_tab[3]:
 # TAB 5: MT5 STATS DASHBOARD
 # =========================================================
 with selected_tab[4]:
-    st.markdown('<h1 class="section-title">📊 MT5 Stats Dashboard</h1>', unsafe_allow_html=True)
-    st.write("Upload your MT5 trading history CSV.")
+    st.markdown("## 📊 MT5 Stats Dashboard")
+    st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
     uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
@@ -897,39 +845,77 @@ with selected_tab[4]:
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
-            longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
-            longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
+            longest_win_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] > 0) if k), default=0)
+            longest_loss_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] < 0) if k), default=0)
             total_volume = df["Volume"].sum()
             avg_volume = df["Volume"].mean()
             largest_volume_trade = df["Volume"].max()
             profit_per_trade = net_profit / total_trades if total_trades else 0
             avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds()/3600).mean()
-
             st.markdown(f"""
-                <div class="metrics-container">
-                    <div class="metric-box neutral"><div class="metric-title">📊 Total Trades</div><div class="metric-value">{total_trades}</div></div>
-                    <div class="metric-box {'green' if win_rate>=50 else 'red'}"><div class="metric-title">✅ Win Rate</div><div class="metric-value">{win_rate:.2f}%</div></div>
-                    <div class="metric-box {'green' if net_profit>=0 else 'red'}"><div class="metric-title">💰 Net Profit</div><div class="metric-value">${net_profit:,.2f}</div></div>
-                    <div class="metric-box {'green' if profit_factor>=1 else 'red'}"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value">{profit_factor}</div></div>
-                    <div class="metric-box green"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value">${biggest_win:,.2f}</div></div>
-                    <div class="metric-box red"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value">${biggest_loss:,.2f}</div></div>
-                    <div class="metric-box red"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value">${max_drawdown:,.2f}</div></div>
-                    <div class="metric-box green"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value">{longest_win_streak}</div></div>
-                    <div class="metric-box red"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value">{longest_loss_streak}</div></div>
-                    <div class="metric-box neutral"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value">{avg_trade_duration:.2f}h</div></div>
-                </div>
+            <style>
+            .metrics-container {{
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 20px;
+                justify-items: center;
+                align-items: start;
+            }}
+            .metric-box {{
+                padding: 25px 15px;
+                border-radius: 10px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+                transition: transform 0.2s, box-shadow 0.2s;
+                color: #ffffff;
+            }}
+            .metric-box:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            }}
+            .metric-title {{
+                font-size: 14px;
+                opacity: 0.8;
+                margin-bottom: 12px;
+            }}
+            .metric-value {{
+                font-size: 24px;
+                font-weight: bold;
+            }}
+            .neutral {{ background: rgba(255,255,255,0.3); }}
+            .green {{ background: rgba(15,42,14,0.7); }}
+            .red {{ background: rgba(43,17,15,0.7); }}
+            </style>
+            <div class="metrics-container">
+                <div class="metric-box neutral"><div class="metric-title">📊 Total Trades</div><div class="metric-value">{total_trades}</div></div>
+                <div class="metric-box {'green' if win_rate>=50 else 'red'}"><div class="metric-title">✅ Win Rate</div><div class="metric-value">{win_rate:.2f}%</div></div>
+                <div class="metric-box {'green' if net_profit>=0 else 'red'}"><div class="metric-title">💰 Net Profit</div><div class="metric-value">${net_profit:,.2f}</div></div>
+                <div class="metric-box {'green' if profit_factor>=1 else 'red'}"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value">{profit_factor}</div></div>
+                <div class="metric-box green"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value">${biggest_win:,.2f}</div></div>
+                <div class="metric-box red"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value">${biggest_loss:,.2f}</div></div>
+                <div class="metric-box red"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value">${max_drawdown:,.2f}</div></div>
+                <div class="metric-box green"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value">{longest_win_streak}</div></div>
+                <div class="metric-box red"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value">{longest_loss_streak}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value">{avg_trade_duration:.2f}h</div></div>
+                <div class="metric-box green"><div class="metric-title">📦 Total Volume</div><div class="metric-value">{total_volume}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">📊 Avg Volume</div><div class="metric-value">{avg_volume:.2f}</div></div>
+                <div class="metric-box green"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value">{largest_volume_trade}</div></div>
+                <div class="metric-box {'green' if profit_per_trade>=0 else 'red'}"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value">{profit_per_trade:.2f}</div></div>
+            </div>
             """, unsafe_allow_html=True)
-            
+            st.markdown("---")
             st.markdown("### 💵 Balance / Equity Curve")
             fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
             st.plotly_chart(fig_balance, use_container_width=True)
-
             st.markdown("### 📊 Profit by Symbol")
             profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
             fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
-                              title="Profit by Instrument", template="plotly_dark")
+                                title="Profit by Instrument", template="plotly_dark")
             st.plotly_chart(fig_symbol, use_container_width=True)
-
             st.markdown("### 🔎 Trade Distribution")
             col1, col2 = st.columns(2)
             with col1:
@@ -938,9 +924,8 @@ with selected_tab[4]:
             with col2:
                 df["Weekday"] = df["Open Time"].dt.day_name()
                 fig_weekday = px.histogram(df, x="Weekday", color="Type",
-                                         title="Trades by Day of Week", template="plotly_dark")
+                                           title="Trades by Day of Week", template="plotly_dark")
                 st.plotly_chart(fig_weekday, use_container_width=True)
-
             st.markdown("### 📈 Cumulative Profit & Loss")
             df["Cumulative PnL"] = df["Profit"].cumsum()
             fig_pnl = go.Figure()
@@ -949,4 +934,5 @@ with selected_tab[4]:
             st.plotly_chart(fig_pnl, use_container_width=True)
             st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
     else:
-        st.info("👆 Please upload your MT5 trading history CSV.")
+        st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
+```
