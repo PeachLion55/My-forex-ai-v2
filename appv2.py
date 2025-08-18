@@ -862,73 +862,62 @@ with selected_tab[4]:
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # Basic performance metrics
+            # --- Basic Metrics ---
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
             win_rate = (len(wins)/total_trades*100) if total_trades else 0
             avg_win = wins["Profit"].mean() if not wins.empty else 0
             avg_loss = losses["Profit"].mean() if not losses.empty else 0
-            profit_factor = (wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf
+            profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
             net_profit = df["Profit"].sum()
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
-            max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else 0
-            # Longest win/loss streaks
+            max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
-            # Avg trade duration (hours)
-            df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds()/3600
-            avg_trade_duration = df["Trade Duration"].mean()
+            avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()  # hours
 
-            # --- Function to determine text color ---
-            def metric_color(title, value):
-                try:
-                    val = float(value)
-                    if title in ["Max Drawdown", "Longest Loss Streak"]:
-                        return "#ff4c4c"  # Always red
-                    if title == "Profit Factor":
-                        if val > 1:
-                            return "lightgreen"
-                        elif val == 1:
-                            return "yellow"
-                        else:
-                            return "#ff4c4c"
-                    elif val > 0:
-                        return "lightgreen"
-                    elif val < 0:
-                        return "#ff4c4c"
-                    else:
-                        return "white"
-                except:
-                    return "white"
+            # Additional metrics example
+            total_volume = df["Volume"].sum()
+            avg_profit_per_trade = df["Profit"].mean()
+            positive_trades = len(df[df["Profit"] > 0])
+            negative_trades = len(df[df["Profit"] < 0])
+            profit_std = df["Profit"].std()
 
-            # --- Metric Data with Icons ---
+            # --- Prepare Metrics ---
             metrics = [
-                ("Total Trades", total_trades, "📈"),
-                ("Win Rate", f"{win_rate:.2f}%", "✅"),
-                ("Net Profit", f"${net_profit:,.2f}", "💰"),
-                ("Profit Factor", round(profit_factor,2), "⚡"),
-                ("Biggest Win", f"${biggest_win:,.2f}", "🏆"),
-                ("Biggest Loss", f"${biggest_loss:,.2f}", "💀"),
-                ("Max Drawdown", f"${max_drawdown:,.2f}", "📉"),
-                ("Longest Win Streak", longest_win_streak, "🔥"),
-                ("Longest Loss Streak", longest_loss_streak, "❌"),
-                ("Avg Trade Duration (h)", f"{avg_trade_duration:.2f}", "⏱️")
+                {"title": "Total Trades", "value": total_trades, "color": "black", "icon": "📊"},
+                {"title": "Win Rate", "value": f"{win_rate:.2f}%", "color": "green" if win_rate>50 else "red", "icon": "✅"},
+                {"title": "Net Profit", "value": f"${net_profit:,.2f}", "color": "green" if net_profit>0 else "red", "icon": "💰"},
+                {"title": "Profit Factor", "value": profit_factor, "color": "green" if profit_factor>1 else "red", "icon": "⚡"},
+                {"title": "Biggest Win", "value": f"${biggest_win:,.2f}", "color": "green", "icon": "🏆"},
+                {"title": "Biggest Loss", "value": f"${biggest_loss:,.2f}", "color": "red", "icon": "💀"},
+                {"title": "Max Drawdown", "value": f"${max_drawdown:,.2f}" if max_drawdown else "N/A", "color": "red", "icon": "📉"},
+                {"title": "Longest Win Streak", "value": longest_win_streak, "color": "green", "icon": "🔥"},
+                {"title": "Longest Loss Streak", "value": longest_loss_streak, "color": "red", "icon": "❌"},
+                {"title": "Avg Trade Duration (h)", "value": f"{avg_trade_duration:.2f}", "color": "black", "icon": "⏱️"},
             ]
 
-            # --- Display Metrics in Two Rows ---
-            st.markdown("### ⚡ Key Performance Metrics")
-            first_row = st.columns(5)
-            second_row = st.columns(5)
+            # --- Render Metrics with HTML/CSS ---
+            st.markdown("<style>"
+                        ".metric-container { display: flex; flex-wrap: wrap; justify-content: space-between; }"
+                        ".metric-card { flex: 0 0 18%; background-color: #1e1e1e; color: white; border-radius: 10px; padding: 20px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }"
+                        ".metric-value { font-size: 24px; font-weight: bold; margin-top: 10px; }"
+                        ".metric-title { font-size: 14px; color: #aaa; margin-top: 5px; }"
+                        "</style>", unsafe_allow_html=True)
 
-            for i, (title, value, icon) in enumerate(metrics):
-                color = metric_color(title, value)
-                text = f"{icon} **{title}:** {value}"
-                if i < 5:
-                    first_row[i].markdown(f"<p style='color:{color}; font-size:18px'>{text}</p>", unsafe_allow_html=True)
-                else:
-                    second_row[i-5].markdown(f"<p style='color:{color}; font-size:18px'>{text}</p>", unsafe_allow_html=True)
+            metric_html = '<div class="metric-container">'
+            for m in metrics:
+                metric_html += f'''
+                <div class="metric-card" style="border-top: 4px solid {m["color"]};">
+                    <div class="metric-icon">{m["icon"]}</div>
+                    <div class="metric-value" style="color:{m["color"]}">{m["value"]}</div>
+                    <div class="metric-title">{m["title"]}</div>
+                </div>
+                '''
+            metric_html += '</div>'
+            st.markdown(metric_html, unsafe_allow_html=True)
 
             st.markdown("---")
 
