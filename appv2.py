@@ -894,51 +894,36 @@ with selected_tab[4]:
                 ("Avg Trade Duration (h)", avg_trade_duration, "⏱️"),
             ]
 
-            # --- Function to determine color ---
+            # --- Function to determine text color ---
             def metric_color(value):
                 try:
                     val = float(value)
                     if val > 0:
-                        return "#065f46"  # dark green
+                        return "lightgreen"
                     elif val < 0:
-                        return "#7f1d1d"  # dark red
+                        return "#ff4c4c"
                     else:
-                        return "#111827"  # dark gray / neutral
+                        return "white"
                 except:
-                    return "#111827"
+                    return "white"
 
-            # --- Render KPI Cards ---
             st.markdown("### ⚡ Key Performance Metrics")
             # First row (5 metrics)
             cols = st.columns(5)
             for i, (title, value, icon) in enumerate(metrics[:5]):
                 with cols[i]:
-                    color = metric_color(value)
-                    st.markdown(f"""
-                    <div style='background-color:{color};padding:20px;border-radius:15px;
-                                text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);
-                                min-height:120px;display:flex;flex-direction:column;justify-content:center;'>
-                        <div style='font-size:28px'>{icon}</div>
-                        <h4 style='margin:5px 0'>{title}</h4>
-                        <h2 style='margin:0'>{value}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:center; color:{metric_color(value)}'>"
+                                f"<h3>{icon} {value}</h3>"
+                                f"<p style='margin:0; opacity:0.7'>{title}</p></div>", unsafe_allow_html=True)
 
             # Second row (remaining 5 metrics, slightly lower)
-            st.markdown("<div style='margin-top:20px'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:15px'></div>", unsafe_allow_html=True)
             cols = st.columns(5)
             for i, (title, value, icon) in enumerate(metrics[5:]):
                 with cols[i]:
-                    color = metric_color(value)
-                    st.markdown(f"""
-                    <div style='background-color:{color};padding:20px;border-radius:15px;
-                                text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.3);
-                                min-height:120px;display:flex;flex-direction:column;justify-content:center;'>
-                        <div style='font-size:28px'>{icon}</div>
-                        <h4 style='margin:5px 0'>{title}</h4>
-                        <h2 style='margin:0'>{value}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align:center; color:{metric_color(value)}'>"
+                                f"<h3>{icon} {value}</h3>"
+                                f"<p style='margin:0; opacity:0.7'>{title}</p></div>", unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -974,7 +959,7 @@ with selected_tab[4]:
             fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
             st.plotly_chart(fig_pnl, use_container_width=True)
 
-            st.success("✅ MT5 Advanced Stats Dashboard Loaded Successfully!")
+            st.success("✅ MT5 Professional Stats Dashboard Loaded Successfully!")
 
     else:
         st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
