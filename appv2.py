@@ -652,7 +652,7 @@ with selected_tab[1]:
     else:
         st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
-    # Backtesting Journal
+# Backtesting Journal
     st.markdown("### 📝 Trading Journal")
     # Configure column settings for data editor
     column_config = {
@@ -690,19 +690,52 @@ with selected_tab[1]:
         # Rename columns to "Trade 1", "Trade 2", etc.
         transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
 
+    # Button to add new trade column
+    if st.button("➕ Add New Trade", key="bt_add_trade_button"):
+        # Determine the next trade number
+        current_trades = transposed_journal.columns.tolist()
+        next_trade_num = len(current_trades) + 1
+        new_trade = f"Trade {next_trade_num}"
+        # Add new column with NaN values
+        transposed_journal[new_trade] = pd.Series(index=journal_cols, dtype=object)
+        # Update session state to reflect new column
+        updated_journal = transposed_journal.transpose().reset_index(drop=True)
+        updated_journal.columns = journal_cols
+        st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
+        st.rerun()
+
     # Dynamically configure columns for trades
     transposed_column_config = {}
     for col in transposed_journal.columns:
-        transposed_column_config[col] = {}
-        for field in transposed_journal.index:
-            transposed_column_config[col][field] = column_config[field]
+        transposed_column_config[col] = column_config
+
+    # Custom CSS to stabilize data editor inputs
+    st.markdown(
+        """
+        <style>
+        .stDataFrame .stTextInput input, .stDataFrame .stSelectbox select, .stDataFrame .stNumberInput input, .stDataFrame .stDateInput input {
+            background-color: #1b1b1b;
+            color: white;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .stDataFrame .stTextInput input:focus, .stDataFrame .stSelectbox select:focus, .stDataFrame .stNumberInput input:focus, .stDataFrame .stDateInput input:focus {
+            background-color: #2a2a2a;
+            border-color: #FFD700;
+            outline: none;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Display transposed journal
     updated_journal_tools = st.data_editor(
-        data=transposed_journal,
+        data=transposed_journal.copy(),
         num_rows="dynamic",
         column_config=transposed_column_config,
-        key="bt_backtesting_journal",
+        key="bt_backtesting_journal_static",
         use_container_width=True,
         height=800  # Set height to display all 22 fields
     )
@@ -765,38 +798,6 @@ with selected_tab[1]:
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
-    # News & Sentiment
-    st.markdown("### 📰 News & Sentiment for Selected Pair")
-    if not df_news.empty:
-        base, quote = pair.split("/")
-        filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
-        try:
-            filtered_df["HighProb"] = filtered_df.apply(
-                lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                    (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
-                else "", axis=1
-            )
-        except Exception as e:
-            filtered_df["HighProb"] = ""
-            logging.error(f"Error processing news high probability: {str(e)}")
-        filtered_df_display = filtered_df.copy()
-        filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-        if not filtered_df_display.empty:
-            selected_headline = st.selectbox(
-                "Select a headline for details",
-                filtered_df_display["HeadlineDisplay"].tolist(),
-                key="bt_headline_select"
-            )
-            selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
-            st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
-            st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
-            st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
-            with st.expander("Summary"):
-                st.write(selected_row["Summary"])
-        else:
-            st.info("No pair-specific headlines found in the recent feed.")
-    else:
-        st.info("News feed unavailable right now.")
 
 # =========================================================
 # TAB 3: TOOLS
