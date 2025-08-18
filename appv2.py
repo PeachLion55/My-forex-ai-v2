@@ -847,6 +847,8 @@ with selected_tab[4]:
     if uploaded_file:
         import pandas as pd
         import numpy as np
+        import plotly.express as px
+        import plotly.graph_objects as go
 
         df = pd.read_csv(uploaded_file)
 
@@ -856,10 +858,11 @@ with selected_tab[4]:
         if missing_cols:
             st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
         else:
+            # Convert time columns
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # --- Metrics ---
+            # Basic performance metrics
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
@@ -871,89 +874,78 @@ with selected_tab[4]:
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
+            # Longest win/loss streaks
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
-            avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()  # hours
 
             # Additional metrics
+            avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean() if not df.empty else 0
             total_volume = df["Volume"].sum()
-            avg_profit_per_trade = df["Profit"].mean()
-            positive_trades = len(df[df["Profit"] > 0])
-            negative_trades = len(df[df["Profit"] < 0])
-            profit_std = df["Profit"].std()
+            avg_volume = df["Volume"].mean()
+            largest_volume_trade = df["Volume"].max()
+            profit_per_trade = net_profit / total_trades if total_trades else 0
 
-            # --- Build metrics list ---
-            metrics = [
-                {"title": "Total Trades", "value": total_trades, "color": "neutral", "icon": "📊"},
-                {"title": "Win Rate", "value": f"{win_rate:.2f}%", "color": "green" if win_rate>50 else "red", "icon": "✅"},
-                {"title": "Net Profit", "value": f"${net_profit:,.2f}", "color": "green" if net_profit>0 else "red", "icon": "💰"},
-                {"title": "Profit Factor", "value": f"{profit_factor}", "color": "green" if profit_factor>1 else "red", "icon": "⚡"},
-                {"title": "Biggest Win", "value": f"${biggest_win:,.2f}", "color": "green", "icon": "🏆"},
-                {"title": "Biggest Loss", "value": f"${biggest_loss:,.2f}", "color": "red", "icon": "💀"},
-                {"title": "Max Drawdown", "value": f"${max_drawdown:,.2f}" if max_drawdown else "N/A", "color": "red", "icon": "📉"},
-                {"title": "Longest Win Streak", "value": longest_win_streak, "color": "green", "icon": "🔥"},
-                {"title": "Longest Loss Streak", "value": longest_loss_streak, "color": "red", "icon": "❌"},
-                {"title": "Avg Trade Duration", "value": f"{avg_trade_duration:.2f}h", "color": "neutral", "icon": "⏱️"}
-            ]
-
-            # --- HTML & CSS ---
-            html_content = """
+            # --- CSS & HTML for Metrics ---
+            st.markdown(f"""
             <style>
-                .metrics-container {
-                    display: flex;
-                    flex-wrap: wrap;
-                    justify-content: space-between;
-                    gap: 15px;
-                }
-                .metric-box {
-                    flex: 1 1 calc(20% - 15px);
-                    background: #1e1e1e;
-                    padding: 20px;
-                    border-radius: 10px;
-                    color: white;
-                    text-align: center;
-                    font-family: 'Arial', sans-serif;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-                    transition: transform 0.2s, box-shadow 0.2s;
-                    min-width: 150px;
-                    max-width: 200px;
-                }
-                .metric-box:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-                }
-                .metric-title {
-                    font-size: 16px;
-                    margin-bottom: 10px;
-                    opacity: 0.8;
-                }
-                .metric-value {
-                    font-size: 26px;
-                    font-weight: bold;
-                }
-                .green { color: #00b894; }
-                .red { color: #d63031; }
-                .neutral { color: #ffffff; }
+            .metrics-container {{
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                gap: 15px;
+            }}
+            .metric-box {{
+                flex: 1 1 calc(20% - 15px);
+                background: #1e1e1e;
+                padding: 20px;
+                border-radius: 10px;
+                color: white;
+                text-align: center;
+                font-family: 'Arial', sans-serif;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                transition: transform 0.2s, box-shadow 0.2s;
+                min-width: 150px;
+                max-width: 200px;
+            }}
+            .metric-box:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            }}
+            .metric-title {{
+                font-size: 16px;
+                margin-bottom: 10px;
+                opacity: 0.8;
+            }}
+            .metric-value {{
+                font-size: 26px;
+                font-weight: bold;
+            }}
+            .green {{ color: #00b894; }}
+            .red {{ color: #d63031; }}
+            .neutral {{ color: #ffffff; }}
             </style>
+
             <div class="metrics-container">
-            """
-
-            for m in metrics:
-                html_content += f"""
-                <div class="metric-box">
-                    <div class="metric-title">{m['icon']} {m['title']}</div>
-                    <div class="metric-value {m['color']}">{m['value']}</div>
-                </div>
-                """
-
-            html_content += "</div>"
-
-            st.markdown(html_content, unsafe_allow_html=True)
+                <div class="metric-box"><div class="metric-title">📊 Total Trades</div><div class="metric-value neutral">{total_trades}</div></div>
+                <div class="metric-box"><div class="metric-title">✅ Win Rate</div><div class="metric-value {'green' if win_rate>=50 else 'red'}">{win_rate:.2f}%</div></div>
+                <div class="metric-box"><div class="metric-title">💰 Net Profit</div><div class="metric-value {'green' if net_profit>=0 else 'red'}">${net_profit:,.2f}</div></div>
+                <div class="metric-box"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value {'green' if profit_factor>=1 else 'red'}">{profit_factor}</div></div>
+                <div class="metric-box"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value green">${biggest_win:,.2f}</div></div>
+                <div class="metric-box"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value red">${biggest_loss:,.2f}</div></div>
+                <div class="metric-box"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value red">${max_drawdown:,.2f}</div></div>
+                <div class="metric-box"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value green">{longest_win_streak}</div></div>
+                <div class="metric-box"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value red">{longest_loss_streak}</div></div>
+                <div class="metric-box"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value neutral">{avg_trade_duration:.2f}h</div></div>
+                <div class="metric-box"><div class="metric-title">📦 Total Volume</div><div class="metric-value green">{total_volume}</div></div>
+                <div class="metric-box"><div class="metric-title">📊 Avg Volume</div><div class="metric-value neutral">{avg_volume:.2f}</div></div>
+                <div class="metric-box"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value green">{largest_volume_trade}</div></div>
+                <div class="metric-box"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value {'green' if profit_per_trade>=0 else 'red'}">{profit_per_trade:.2f}</div></div>
+            </div>
+            """, unsafe_allow_html=True)
 
             st.markdown("---")
 
             # --- Balance / Equity Curve ---
-            import plotly.express as px
             st.markdown("### 💵 Balance / Equity Curve")
             fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
             st.plotly_chart(fig_balance, use_container_width=True)
@@ -980,7 +972,6 @@ with selected_tab[4]:
             # --- Cumulative PnL ---
             st.markdown("### 📈 Cumulative Profit & Loss")
             df["Cumulative PnL"] = df["Profit"].cumsum()
-            import plotly.graph_objects as go
             fig_pnl = go.Figure()
             fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
             fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
