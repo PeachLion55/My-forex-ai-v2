@@ -4,7 +4,7 @@ import pandas as pd
 import feedparser
 from textblob import TextBlob
 import streamlit.components.v1 as components
-import datetime as dt
+from datetime import datetime, timedelta
 import os
 import json
 import hashlib
@@ -13,9 +13,9 @@ from streamlit_autorefresh import st_autorefresh
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+import datetime as dt
 import sqlite3
 import pytz
-import logging
 # Unused dependencies (for potential future use)
 # import newspaper3k
 # import transformers
@@ -25,24 +25,15 @@ import logging
 # import yfinance
 # import forex_python
 
-# Set up logging
-logging.basicConfig(filename='debug.log', level=logging.DEBUG, 
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-
 # Path to SQLite DB
 DB_FILE = "users.db"
 
-# Connect to SQLite with error handling
-try:
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
-    conn.commit()
-    logging.info("SQLite database initialized successfully")
-except Exception as e:
-    logging.error(f"Failed to initialize SQLite database: {str(e)}")
-    st.error(f"Database initialization failed: {str(e)}")
+# Connect to SQLite
+conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS users
+             (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
+conn.commit()
 
 # =========================================================
 # PAGE CONFIG
@@ -196,9 +187,7 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
     try:
         feed = feedparser.parse(RSS_URL)
-        logging.info("Successfully parsed FXStreet RSS feed")
-    except Exception as e:
-        logging.error(f"Failed to parse FXStreet RSS feed: {str(e)}")
+    except Exception:
         return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
     rows = []
     for entry in getattr(feed, "entries", []):
@@ -224,9 +213,8 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
             cutoff = pd.Timestamp.utcnow().normalize() - pd.Timedelta(days=3)
             df = df[df["Date"] >= cutoff]
-            logging.info("News dataframe processed successfully")
-        except Exception as e:
-            logging.error(f"Failed to process news dataframe: {str(e)}")
+        except Exception:
+            pass
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
 
@@ -236,11 +224,6 @@ econ_calendar_data = [
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
-
-# Initialize drawings in session_state
-if "drawings" not in st.session_state:
-    st.session_state.drawings = {}
-    logging.info("Initialized st.session_state.drawings")
 
 # =========================================================
 # NAVIGATION
@@ -438,57 +421,40 @@ with selected_tab[1]:
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
         username = st.session_state.logged_in_user
-        logging.info(f"Loading drawings for user {username}, pair {pair}")
-        try:
-            c.execute("SELECT data FROM users WHERE username = ?", (username,))
-            result = c.fetchone()
-            if result:
-                user_data = json.loads(result[0])
-                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
-                logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-            else:
-                logging.warning(f"No data found for user {username}")
-        except Exception as e:
-            logging.error(f"Error loading drawings for {username}: {str(e)}")
-            st.error(f"Failed to load drawings: {str(e)}")
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-    # TradingView widget with debug
+    # TradingView widget
     tv_html = f"""
     <div class="tradingview-widget-container" style="height:780px; width:100%">
       <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
       <script type="text/javascript">
-      console.log("Initializing TradingView widget for {tv_symbol}");
-      try {{
-        const widget = new TradingView.widget({{
-          "autosize": true,
-          "symbol": "{tv_symbol}",
-          "interval": "D",
-          "timezone": "Etc/UTC",
-          "theme": "dark",
-          "style": "1",
-          "locale": "en",
-          "hide_top_toolbar": false,
-          "hide_side_toolbar": false,
-          "allow_symbol_change": true,
-          "save_image": true,
-          "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
-        }});
-        widget.onChartReady(() => {{
-          console.log("Chart ready for {tv_symbol}");
-          const chart = widget.activeChart();
-          window.chart = chart;
-          const initialContent = {initial_content};
-          if (Object.keys(initialContent).length > 0) {{
-            console.log("Loading initial content:", initialContent);
-            chart.setContent(initialContent);
-          }} else {{
-            console.log("No initial content to load for {tv_symbol}");
-          }}
-        }});
-      }} catch (error) {{
-        console.error("Error initializing TradingView widget:", error);
-      }}
+      const widget = new TradingView.widget({{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "hide_top_toolbar": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "save_image": true,
+        "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
+      }});
+      widget.onChartReady(() => {{
+        const chart = widget.activeChart();
+        window.chart = chart;
+        const initialContent = {initial_content};
+        if (Object.keys(initialContent).length > 0) {{
+          chart.setContent(initialContent);
+        }}
+      }});
       </script>
     </div>
     """
@@ -498,106 +464,64 @@ with selected_tab[1]:
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
             if st.button("Save Drawings", key="ta_save_drawings"):
-                logging.info(f"Save Drawings button clicked for pair {pair}")
                 save_script = f"""
                 <script>
-                try {{
-                  console.log("Attempting to save drawings for {pair}");
-                  window.parent.chart.getContent((content) => {{
-                    console.log("Drawing content received:", content);
-                    window.parent.postMessage({{
-                      type: 'streamlit:setComponentValue',
-                      value: content,
-                      dataType: 'json',
-                      key: 'ta_drawings_key_{pair}'
-                    }}, '*');
-                  }});
-                }} catch (error) {{
-                  console.error("Error saving drawings:", error);
-                }}
+                window.parent.chart.getContent((content) => {{
+                  window.parent.postMessage({{
+                    type: 'streamlit:setComponentValue',
+                    value: content,
+                    dataType: 'json',
+                    key: 'ta_drawings_key_{pair}'
+                  }}, '*');
+                }});
                 </script>
                 """
                 components.html(save_script, height=0)
-                logging.info(f"Triggered save script for {pair}")
-                # Delay rerun to ensure postMessage is processed
-                st.session_state[f"ta_save_trigger_{pair}"] = True
+                st.rerun()
         with col2:
             if st.button("Load Drawings", key="ta_load_drawings"):
                 username = st.session_state.logged_in_user
-                logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        content = user_data.get("drawings", {}).get(pair, {})
-                        if content:
-                            load_script = f"""
-                            <script>
-                            console.log("Loading drawings for {pair}:", {json.dumps(content)});
-                            window.parent.chart.setContent({json.dumps(content)});
-                            </script>
-                            """
-                            components.html(load_script, height=0)
-                            st.success("Drawings loaded successfully!")
-                            logging.info(f"Successfully loaded drawings for {pair}")
-                        else:
-                            st.info("No saved drawings for this pair.")
-                            logging.info(f"No saved drawings found for {pair}")
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result:
+                    user_data = json.loads(result[0])
+                    content = user_data.get("drawings", {}).get(pair, {})
+                    if content:
+                        load_script = f"""
+                        <script>
+                        window.parent.chart.setContent({json.dumps(content)});
+                        </script>
+                        """
+                        components.html(load_script, height=0)
+                        st.success("Drawings loaded successfully!")
                     else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load drawings: {str(e)}")
-                    logging.error(f"Error loading drawings for {username}: {str(e)}")
+                        st.info("No saved drawings for this pair.")
         with col3:
             if st.button("Refresh Account", key="ta_refresh_account"):
                 username = st.session_state.logged_in_user
-                logging.info(f"Refresh Account button clicked for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        st.session_state.drawings = user_data.get("drawings", {})
-                        st.success("Account synced successfully!")
-                        logging.info(f"Account synced for {username}: {st.session_state.drawings}")
-                    else:
-                        st.error("Failed to sync account.")
-                        logging.error(f"No user data found for {username}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to sync account: {str(e)}")
-                    logging.error(f"Error syncing account for {username}: {str(e)}")
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result:
+                    user_data = json.loads(result[0])
+                    st.session_state.drawings = user_data.get("drawings", {})
+                    st.success("Account synced successfully!")
+                st.rerun()
         # Check for saved drawings from postMessage
         drawings_key = f"ta_drawings_key_{pair}"
-        if drawings_key in st.session_state and st.session_state.get(f"ta_save_trigger_{pair}", False):
+        if drawings_key in st.session_state:
             content = st.session_state[drawings_key]
-            logging.info(f"Received drawing content for {pair}: {content}")
-            if content and isinstance(content, dict) and content:
-                username = st.session_state.logged_in_user
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
-                    user_data.setdefault("drawings", {})[pair] = content
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                    conn.commit()
-                    st.session_state.drawings[pair] = content
-                    st.success(f"Drawings for {pair} saved successfully!")
-                    logging.info(f"Drawings saved to database for {pair}: {content}")
-                except Exception as e:
-                    st.error(f"Failed to save drawings: {str(e)}")
-                    logging.error(f"Database error saving drawings for {pair}: {str(e)}")
-                finally:
-                    del st.session_state[drawings_key]
-                    del st.session_state[f"ta_save_trigger_{pair}"]
-            else:
-                st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-                logging.warning(f"No valid drawing content received for {pair}: {content}")
+            username = st.session_state.logged_in_user
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            user_data = json.loads(result[0]) if result else {}
+            user_data.setdefault("drawings", {})[pair] = content
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+            conn.commit()
+            st.session_state.drawings[pair] = content
+            st.success("Drawings saved successfully!")
+            del st.session_state[drawings_key]
     else:
-        st.info("Sign in via the My Account tab to save/load drawings.")
-        logging.info("User not logged in, save/load drawings disabled")
+        st.info("Sign in to save/load drawings.")
     # News & Sentiment
     st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
@@ -609,9 +533,8 @@ with selected_tab[1]:
                                     (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
                 else "", axis=1
             )
-        except Exception as e:
+        except Exception:
             filtered_df["HighProb"] = ""
-            logging.error(f"Error processing news high probability: {str(e)}")
         filtered_df_display = filtered_df.copy()
         filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
         if not filtered_df_display.empty:
@@ -636,9 +559,9 @@ with selected_tab[1]:
 # =========================================================
 with selected_tab[2]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Calculator", "Trading Session Tracker", "Candlestick Pattern Cheat Sheet"])
     with tools_subtabs[0]:
-        st.header("💰 Profit / Loss Calculator")
+        st.header("💰 Profit / Stop-loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
@@ -668,57 +591,40 @@ with selected_tab[2]:
         tv_symbol = "FX:EURUSD"
         if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
             username = st.session_state.logged_in_user
-            logging.info(f"Loading drawings for user {username}, pair {pair} (Backtesting)")
-            try:
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                if result:
-                    user_data = json.loads(result[0])
-                    st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
-                    logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-                else:
-                    logging.warning(f"No data found for user {username}")
-            except Exception as e:
-                logging.error(f"Error loading drawings for {username}: {str(e)}")
-                st.error(f"Failed to load drawings: {str(e)}")
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result:
+                user_data = json.loads(result[0])
+                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
         initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
         tv_widget = f"""
         <div class="tradingview-widget-container" style="height:780px; width:100%">
             <div id="tradingview_advanced_chart" style="height:100%;"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
             <script type="text/javascript">
-            console.log("Initializing TradingView widget for Backtesting");
-            try {{
-              const widget = new TradingView.widget({{
-                "autosize": true,
-                "symbol": "{tv_symbol}",
-                "interval": "D",
-                "timezone": "Etc/UTC",
-                "theme": "dark",
-                "style": "1",
-                "toolbar_bg": "#f1f3f6",
-                "withdateranges": true,
-                "hide_side_toolbar": false,
-                "allow_symbol_change": true,
-                "save_image": false,
-                "studies": [],
-                "container_id": "tradingview_advanced_chart"
-              }});
-              widget.onChartReady(() => {{
-                console.log("Chart ready for Backtesting");
+            const widget = new TradingView.widget({{
+              "autosize": true,
+              "symbol": "{tv_symbol}",
+              "interval": "D",
+              "timezone": "Etc/UTC",
+              "theme": "dark",
+              "style": "1",
+              "toolbar_bg": "#f1f3f6",
+              "withdateranges": true,
+              "hide_side_toolbar": false,
+              "allow_symbol_change": true,
+              "save_image": false,
+              "studies": [],
+              "container_id": "tradingview_advanced_chart"
+            }});
+            widget.onChartReady(() => {{
                 const chart = widget.activeChart();
                 window.chart = chart;
                 const initialContent = {initial_content};
                 if (Object.keys(initialContent).length > 0) {{
-                  console.log("Loading initial content:", initialContent);
                   chart.setContent(initialContent);
-                }} else {{
-                  console.log("No initial content to load for Backtesting");
                 }}
-              }});
-            }} catch (error) {{
-              console.error("Error initializing TradingView widget:", error);
-            }}
+            }});
             </script>
         </div>
         """
@@ -727,104 +633,64 @@ with selected_tab[2]:
             col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
                 if st.button("Save Drawings", key="back_save_drawings"):
-                    logging.info("Save Drawings button clicked for Backtesting")
-                    save_script = """
+                    save_script = f"""
                     <script>
-                    try {
-                      console.log("Attempting to save drawings for Backtesting");
-                      window.parent.chart.getContent((content) => {
-                        console.log("Drawing content received:", content);
-                        window.parent.postMessage({
-                          type: 'streamlit:setComponentValue',
-                          value: content,
-                          dataType: 'json',
-                          key: 'back_drawings_key'
-                        }, '*');
-                      });
-                    } catch (error) {
-                      console.error("Error saving drawings:", error);
-                    }
+                    window.parent.chart.getContent((content) => {{
+                      window.parent.postMessage({{
+                        type: 'streamlit:setComponentValue',
+                        value: content,
+                        dataType: 'json',
+                        key: 'back_drawings_key_{pair}'
+                      }}, '*');
+                    }});
                     </script>
                     """
                     components.html(save_script, height=0)
-                    logging.info("Triggered save script for Backtesting")
-                    st.session_state["back_save_trigger"] = True
+                    st.rerun()
             with col2:
                 if st.button("Load Drawings", key="back_load_drawings"):
                     username = st.session_state.logged_in_user
-                    logging.info(f"Load Drawings button clicked for user {username}, Backtesting")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        if result:
-                            user_data = json.loads(result[0])
-                            content = user_data.get("drawings", {}).get(pair, {})
-                            if content:
-                                load_script = f"""
-                                <script>
-                                console.log("Loading drawings for Backtesting:", {json.dumps(content)});
-                                window.parent.chart.setContent({json.dumps(content)});
-                                </script>
-                                """
-                                components.html(load_script, height=0)
-                                st.success("Drawings loaded successfully!")
-                                logging.info(f"Successfully loaded drawings for Backtesting")
-                            else:
-                                st.info("No saved drawings for this pair.")
-                                logging.info(f"No saved drawings found for Backtesting")
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        content = user_data.get("drawings", {}).get(pair, {})
+                        if content:
+                            load_script = f"""
+                            <script>
+                            window.parent.chart.setContent({json.dumps(content)});
+                            </script>
+                            """
+                            components.html(load_script, height=0)
+                            st.success("Drawings loaded successfully!")
                         else:
-                            st.error("Failed to load user data.")
-                            logging.error(f"No user data found for {username}")
-                    except Exception as e:
-                        st.error(f"Failed to load drawings: {str(e)}")
-                        logging.error(f"Error loading drawings for {username}: {str(e)}")
+                            st.info("No saved drawings for this pair.")
             with col3:
                 if st.button("Refresh Account", key="back_refresh_account"):
                     username = st.session_state.logged_in_user
-                    logging.info(f"Refresh Account button clicked for user {username} (Backtesting)")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        if result:
-                            user_data = json.loads(result[0])
-                            st.session_state.drawings = user_data.get("drawings", {})
-                            st.success("Account synced successfully!")
-                            logging.info(f"Account synced for {username}: {st.session_state.drawings}")
-                        else:
-                            st.error("Failed to sync account.")
-                            logging.error(f"No user data found for {username}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to sync account: {str(e)}")
-                        logging.error(f"Error syncing account for {username}: {str(e)}")
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        st.session_state.drawings = user_data.get("drawings", {})
+                        st.success("Account synced successfully!")
+                    st.rerun()
             # Check for saved drawings from postMessage
-            if 'back_drawings_key' in st.session_state and st.session_state.get("back_save_trigger", False):
-                content = st.session_state['back_drawings_key']
-                logging.info(f"Received drawing content for Backtesting: {content}")
-                if content and isinstance(content, dict) and content:
-                    username = st.session_state.logged_in_user
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        user_data = json.loads(result[0]) if result else {}
-                        user_data.setdefault("drawings", {})[pair] = content
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                        conn.commit()
-                        st.session_state.drawings[pair] = content
-                        st.success(f"Drawings for {pair} saved successfully!")
-                        logging.info(f"Drawings saved to database for Backtesting: {content}")
-                    except Exception as e:
-                        st.error(f"Failed to save drawings: {str(e)}")
-                        logging.error(f"Database error saving drawings for Backtesting: {str(e)}")
-                    finally:
-                        del st.session_state['back_drawings_key']
-                        del st.session_state["back_save_trigger"]
-                else:
-                    st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-                    logging.warning(f"No valid drawing content received for Backtesting: {content}")
+            drawings_key = f"back_drawings_key_{pair}"
+            if drawings_key in st.session_state:
+                content = st.session_state[drawings_key]
+                username = st.session_state.logged_in_user
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                user_data = json.loads(result[0]) if result else {}
+                user_data.setdefault("drawings", {})[pair] = content
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                conn.commit()
+                st.session_state.drawings[pair] = content
+                st.success("Drawings saved successfully!")
+                del st.session_state[drawings_key]
         else:
-            st.info("Sign in via the My Account tab to save/load drawings.")
-            logging.info("User not logged in, save/load drawings disabled (Backtesting)")
+            st.info("Sign in to save/load drawings.")
         # Backtesting Journal
         journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
         if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
@@ -841,39 +707,26 @@ with selected_tab[2]:
                 if st.button("💾 Save to My Account", key="save_journal_button"):
                     username = st.session_state.logged_in_user
                     journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
-                    logging.info(f"Saving journal for user {username}")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        user_data = json.loads(result[0]) if result else {}
-                        user_data["tools_trade_journal"] = journal_data
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                        conn.commit()
-                        st.success("Trading journal saved to your account!")
-                        logging.info(f"Journal saved for {username}")
-                    except Exception as e:
-                        st.error(f"Failed to save journal: {str(e)}")
-                        logging.error(f"Error saving journal for {username}: {str(e)}")
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["tools_trade_journal"] = journal_data
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Trading journal saved to your account!")
             with col2:
                 if st.button("📂 Load Journal", key="load_journal_button"):
                     username = st.session_state.logged_in_user
-                    logging.info(f"Loading journal for user {username}")
-                    try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        if result:
-                            user_data = json.loads(result[0])
-                            saved_journal = user_data.get("tools_trade_journal", [])
-                            if saved_journal:
-                                st.session_state.tools_trade_journal = pd.DataFrame(saved_journal)
-                                st.success("Trading journal loaded from your account!")
-                                logging.info(f"Journal loaded for {username}")
-                            else:
-                                st.info("No saved journal found in your account.")
-                                logging.info(f"No journal found for {username}")
-                    except Exception as e:
-                        st.error(f"Failed to load journal: {str(e)}")
-                        logging.error(f"Error loading journal for {username}: {str(e)}")
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        saved_journal = user_data.get("tools_trade_journal", [])
+                        if saved_journal:
+                            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal)
+                            st.success("Trading journal loaded from your account!")
+                        else:
+                            st.info("No saved journal found in your account.")
         else:
             st.info("Sign in to save your trading journal to your account.")
     with tools_subtabs[2]:
@@ -893,12 +746,9 @@ with selected_tab[2]:
             new_alert = {"Pair": pair, "Target Price": price, "Triggered": False}
             st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
             st.success(f"Alert added: {pair} at {price}")
-            logging.info(f"Alert added: {pair} at {price}")
         st.subheader("Your Alerts")
         st.dataframe(st.session_state.price_alerts, use_container_width=True, height=220)
-        # Isolate autorefresh to avoid interfering with drawings
-        if st.session_state.get("price_alert_refresh", False):
-            st_autorefresh(interval=5000, key="price_alert_autorefresh")
+        st_autorefresh(interval=5000, key="price_alert_autorefresh")
         active_pairs = st.session_state.price_alerts["Pair"].unique().tolist()
         live_prices = {}
         for p in active_pairs:
@@ -910,10 +760,8 @@ with selected_tab[2]:
                 data = r.json()
                 price_val = data.get("rates", {}).get(quote)
                 live_prices[p] = float(price_val) if price_val is not None else None
-                logging.info(f"Fetched price for {p}: {live_prices[p]}")
-            except Exception as e:
+            except Exception:
                 live_prices[p] = None
-                logging.error(f"Error fetching price for {p}: {str(e)}")
         triggered_alerts = []
         for idx, row in st.session_state.price_alerts.iterrows():
             pair = row["Pair"]
@@ -923,7 +771,6 @@ with selected_tab[2]:
                 if not row["Triggered"] and abs(current_price - target) < (0.0005 if "JPY" not in pair else 0.01):
                     st.session_state.price_alerts.at[idx, "Triggered"] = True
                     triggered_alerts.append((idx, f"{pair} reached {target} (Current: {current_price:.5f})"))
-                    logging.info(f"Alert triggered: {pair} at {target}")
         if triggered_alerts:
             for idx, alert_msg in triggered_alerts:
                 st.balloons()
@@ -965,7 +812,6 @@ with selected_tab[2]:
                     if st.button("❌ Cancel", key=f"cancel_{idx}"):
                         st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
                         st.rerun()
-                        logging.info(f"Cancelled alert at index {idx}")
         else:
             st.info("No price alerts set. Add one above to start monitoring prices.")
     with tools_subtabs[3]:
@@ -1003,7 +849,6 @@ with selected_tab[2]:
             risk_amount = balance * (risk_percent / 100)
             lot_size = risk_amount / (stop_loss_pips * pip_value)
             st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
-            logging.info(f"Calculated lot size: {lot_size}")
     with tools_subtabs[5]:
         st.header("🕒 Forex Market Sessions")
         st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
@@ -1013,7 +858,7 @@ with selected_tab[2]:
             "London": (8, 17),
             "New York": (13, 22),
         }
-        now_utc = dt.datetime.now(pytz.UTC).hour
+        now_utc = dt.datetime.utcnow().hour
         cols = st.columns(len(sessions))
         for i, (session, (start, end)) in enumerate(sessions.items()):
             active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
@@ -1033,7 +878,33 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
-  
+    with tools_subtabs[6]:
+        st.header("📑 Candlestick Pattern Cheat Sheet")
+        st.markdown("Learn to recognize powerful reversal and continuation signals.")
+        patterns = [
+            {"name": "Hammer", "type": "Bullish", "meaning": "Potential reversal after downtrend"},
+            {"name": "Shooting Star", "type": "Bearish", "meaning": "Potential reversal after uptrend"},
+            {"name": "Engulfing", "type": "Bullish/Bearish", "meaning": "Strong reversal depending on direction"},
+            {"name": "Doji", "type": "Neutral", "meaning": "Market indecision, possible reversal"},
+        ]
+        cols = st.columns(2)
+        for i, pattern in enumerate(patterns):
+            with cols[i % 2]:
+                st.markdown(f"""
+                    <div style="
+                        background-color:#1e1e2f;
+                        border-radius:12px;
+                        padding:15px;
+                        margin-bottom:10px;
+                        box-shadow:2px 2px 8px rgba(0,0,0,0.4);
+                        color:white;
+                    ">
+                        <h3 style="margin:0; color:#FFD700;">{pattern['name']}</h3>
+                        <p style="margin:2px 0;"><b>Type:</b> {pattern['type']}</p>
+                        <p style="margin:2px 0;"><b>Meaning:</b> {pattern['meaning']}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
@@ -1046,43 +917,30 @@ with selected_tab[3]:
         username = st.text_input("Username", key="login_username")
         password = st.text_input("Password", type="password", key="login_password")
         if st.button("Login"):
-            logging.info(f"Login attempt for user {username}")
-            try:
-                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                if result and result[0] == password:
-                    st.session_state.logged_in_user = username
-                    user_data = json.loads(result[1]) if result[1] else {}
-                    st.session_state.drawings = user_data.get("drawings", {})
-                    journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
-                    saved_journal = user_data.get("tools_trade_journal", [])
-                    st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
-                    st.success(f"Logged in as {username}")
-                    logging.info(f"Login successful for {username}")
-                else:
-                    st.error("Invalid username or password")
-                    logging.warning(f"Login failed for {username}: Invalid credentials")
-            except Exception as e:
-                st.error(f"Login error: {str(e)}")
-                logging.error(f"Login error for {username}: {str(e)}")
+            c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result and result[0] == password:
+                st.session_state.logged_in_user = username
+                user_data = json.loads(result[1]) if result[1] else {}
+                st.session_state.drawings = user_data.get("drawings", {})
+                journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+                saved_journal = user_data.get("tools_trade_journal", [])
+                st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
+                st.success(f"Logged in as {username}")
+            else:
+                st.error("Invalid username or password")
     # SIGN UP
     signup_expander = st.expander("Sign Up")
     with signup_expander:
         new_username = st.text_input("New Username", key="signup_username")
         new_password = st.text_input("New Password", type="password", key="signup_password")
         if st.button("Sign Up"):
-            logging.info(f"Sign up attempt for user {new_username}")
             try:
                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, new_password, json.dumps({})))
                 conn.commit()
                 st.success(f"Account created for {new_username}")
-                logging.info(f"Account created for {new_username}")
             except sqlite3.IntegrityError:
                 st.error("Username already exists")
-                logging.warning(f"Sign up failed for {new_username}: Username exists")
-            except Exception as e:
-                st.error(f"Sign up error: {str(e)}")
-                logging.error(f"Sign up error for {new_username}: {str(e)}")
     # ACCOUNT SETTINGS
     if "logged_in_user" in st.session_state:
         st.subheader("Profile Settings")
@@ -1095,29 +953,23 @@ with selected_tab[3]:
             alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True), key="account_alerts")
         if st.button("Save Preferences", key="account_save_prefs"):
             username = st.session_state.logged_in_user
-            logging.info(f"Saving preferences for user {username}")
-            try:
-                prefs = {
-                    "name": name,
-                    "email": email,
-                    "base_ccy": base_ccy,
-                    "alerts": alerts
-                }
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data["preferences"] = prefs
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.session_state.name = name
-                st.session_state.email = email
-                st.session_state.base_ccy = base_ccy
-                st.session_state.alerts = alerts
-                st.success("Preferences saved.")
-                logging.info(f"Preferences saved for {username}")
-            except Exception as e:
-                st.error(f"Failed to save preferences: {str(e)}")
-                logging.error(f"Error saving preferences for {username}: {str(e)}")
+            prefs = {
+                "name": name,
+                "email": email,
+                "base_ccy": base_ccy,
+                "alerts": alerts
+            }
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            user_data = json.loads(result[0]) if result else {}
+            user_data["preferences"] = prefs
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+            conn.commit()
+            st.session_state.name = name
+            st.session_state.email = email
+            st.session_state.base_ccy = base_ccy
+            st.session_state.alerts = alerts
+            st.success("Preferences saved.")
 
 # =========================================================
 # TAB 5: MT5 STATS DASHBOARD
@@ -1127,119 +979,128 @@ with selected_tab[4]:
     st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
     uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
     if uploaded_file:
-        try:
-            df = pd.read_csv(uploaded_file)
-            logging.info("MT5 CSV uploaded successfully")
-            required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
-                logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
-            else:
-                df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
-                df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-                total_trades = len(df)
-                wins = df[df["Profit"] > 0]
-                losses = df[df["Profit"] <= 0]
-                win_rate = (len(wins)/total_trades*100) if total_trades else 0
-                avg_win = wins["Profit"].mean() if not wins.empty else 0
-                avg_loss = losses["Profit"].mean() if not losses.empty else 0
-                profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
-                net_profit = df["Profit"].sum()
-                biggest_win = df["Profit"].max()
-                biggest_loss = df["Profit"].min()
-                max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
-                longest_win_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] > 0) if k), default=0)
-                longest_loss_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] < 0) if k), default=0)
-                total_volume = df["Volume"].sum()
-                avg_volume = df["Volume"].mean()
-                largest_volume_trade = df["Volume"].max()
-                profit_per_trade = net_profit / total_trades if total_trades else 0
-                avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds()/3600).mean()
-                st.markdown(f"""
-                <style>
-                .metrics-container {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                    gap: 20px;
-                    justify-items: center;
-                    align-items: start;
-                }}
-                .metric-box {{
-                    padding: 25px 15px;
-                    border-radius: 10px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    text-align: center;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-                    transition: transform 0.2s, box-shadow 0.2s;
-                    color: #ffffff;
-                }}
-                .metric-box:hover {{
-                    transform: translateY(-5px);
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-                }}
-                .metric-title {{
-                    font-size: 14px;
-                    opacity: 0.8;
-                    margin-bottom: 12px;
-                }}
-                .metric-value {{
-                    font-size: 24px;
-                    font-weight: bold;
-                }}
-                .neutral {{ background: rgba(255,255,255,0.3); }}
-                .green {{ background: rgba(15,42,14,0.7); }}
-                .red {{ background: rgba(43,17,15,0.7); }}
-                </style>
-                <div class="metrics-container">
-                    <div class="metric-box neutral"><div class="metric-title">📊 Total Trades</div><div class="metric-value">{total_trades}</div></div>
-                    <div class="metric-box {'green' if win_rate>=50 else 'red'}"><div class="metric-title">✅ Win Rate</div><div class="metric-value">{win_rate:.2f}%</div></div>
-                    <div class="metric-box {'green' if net_profit>=0 else 'red'}"><div class="metric-title">💰 Net Profit</div><div class="metric-value">${net_profit:,.2f}</div></div>
-                    <div class="metric-box {'green' if profit_factor>=1 else 'red'}"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value">{profit_factor}</div></div>
-                    <div class="metric-box green"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value">${biggest_win:,.2f}</div></div>
-                    <div class="metric-box red"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value">${biggest_loss:,.2f}</div></div>
-                    <div class="metric-box red"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value">${max_drawdown:,.2f}</div></div>
-                    <div class="metric-box green"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value">{longest_win_streak}</div></div>
-                    <div class="metric-box red"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value">{longest_loss_streak}</div></div>
-                    <div class="metric-box neutral"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value">{avg_trade_duration:.2f}h</div></div>
-                    <div class="metric-box green"><div class="metric-title">📦 Total Volume</div><div class="metric-value">{total_volume}</div></div>
-                    <div class="metric-box neutral"><div class="metric-title">📊 Avg Volume</div><div class="metric-value">{avg_volume:.2f}</div></div>
-                    <div class="metric-box green"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value">{largest_volume_trade}</div></div>
-                    <div class="metric-box {'green' if profit_per_trade>=0 else 'red'}"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value">{profit_per_trade:.2f}</div></div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown("---")
-                st.markdown("### 💵 Balance / Equity Curve")
-                fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
-                st.plotly_chart(fig_balance, use_container_width=True)
-                st.markdown("### 📊 Profit by Symbol")
-                profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
-                fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
-                                    title="Profit by Instrument", template="plotly_dark")
-                st.plotly_chart(fig_symbol, use_container_width=True)
-                st.markdown("### 🔎 Trade Distribution")
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_dark")
-                    st.plotly_chart(fig_types, use_container_width=True)
-                with col2:
-                    df["Weekday"] = df["Open Time"].dt.day_name()
-                    fig_weekday = px.histogram(df, x="Weekday", color="Type",
-                                               title="Trades by Day of Week", template="plotly_dark")
-                    st.plotly_chart(fig_weekday, use_container_width=True)
-                st.markdown("### 📈 Cumulative Profit & Loss")
-                df["Cumulative PnL"] = df["Profit"].cumsum()
-                fig_pnl = go.Figure()
-                fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
-                fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
-                st.plotly_chart(fig_pnl, use_container_width=True)
-                st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
-                logging.info("MT5 Stats Dashboard loaded successfully")
-        except Exception as e:
-            st.error(f"Error processing CSV: {str(e)}")
-            logging.error(f"Error processing MT5 CSV: {str(e)}")
+        df = pd.read_csv(uploaded_file)
+        required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
+        else:
+            df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+            df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+            total_trades = len(df)
+            wins = df[df["Profit"] > 0]
+            losses = df[df["Profit"] <= 0]
+            win_rate = (len(wins)/total_trades*100) if total_trades else 0
+            avg_win = wins["Profit"].mean() if not wins.empty else 0
+            avg_loss = losses["Profit"].mean() if not losses.empty else 0
+            profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
+            net_profit = df["Profit"].sum()
+            biggest_win = df["Profit"].max()
+            biggest_loss = df["Profit"].min()
+            max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
+            longest_win_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] > 0) if k), default=0)
+            longest_loss_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] < 0) if k), default=0)
+            total_volume = df["Volume"].sum()
+            avg_volume = df["Volume"].mean()
+            largest_volume_trade = df["Volume"].max()
+            profit_per_trade = net_profit / total_trades if total_trades else 0
+            avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds()/3600).mean()
+            st.markdown(f"""
+            <style>
+            .metrics-container {{
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 20px;
+                justify-items: center;
+                align-items: start;
+            }}
+            .metric-box {{
+                padding: 25px 15px;
+                border-radius: 10px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+                transition: transform 0.2s, box-shadow 0.2s;
+                color: #ffffff;
+            }}
+            .metric-box:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+            }}
+            .metric-title {{
+                font-size: 14px;
+                opacity: 0.8;
+                margin-bottom: 12px;
+            }}
+            .metric-value {{
+                font-size: 24px;
+                font-weight: bold;
+            }}
+            .neutral {{ background: rgba(255,255,255,0.3); }}
+            .green {{ background: rgba(15,42,14,0.7); }}
+            .red {{ background: rgba(43,17,15,0.7); }}
+            </style>
+            <div class="metrics-container">
+                <div class="metric-box neutral"><div class="metric-title">📊 Total Trades</div><div class="metric-value">{total_trades}</div></div>
+                <div class="metric-box {'green' if win_rate>=50 else 'red'}"><div class="metric-title">✅ Win Rate</div><div class="metric-value">{win_rate:.2f}%</div></div>
+                <div class="metric-box {'green' if net_profit>=0 else 'red'}"><div class="metric-title">💰 Net Profit</div><div class="metric-value">${net_profit:,.2f}</div></div>
+                <div class="metric-box {'green' if profit_factor>=1 else 'red'}"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value">{profit_factor}</div></div>
+                <div class="metric-box green"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value">${biggest_win:,.2f}</div></div>
+                <div class="metric-box red"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value">${biggest_loss:,.2f}</div></div>
+                <div class="metric-box red"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value">${max_drawdown:,.2f}</div></div>
+                <div class="metric-box green"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value">{longest_win_streak}</div></div>
+                <div class="metric-box red"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value">{longest_loss_streak}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value">{avg_trade_duration:.2f}h</div></div>
+                <div class="metric-box green"><div class="metric-title">📦 Total Volume</div><div class="metric-value">{total_volume}</div></div>
+                <div class="metric-box neutral"><div class="metric-title">📊 Avg Volume</div><div class="metric-value">{avg_volume:.2f}</div></div>
+                <div class="metric-box green"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value">{largest_volume_trade}</div></div>
+                <div class="metric-box {'green' if profit_per_trade>=0 else 'red'}"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value">{profit_per_trade:.2f}</div></div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("### 💵 Balance / Equity Curve")
+            fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
+            st.plotly_chart(fig_balance, use_container_width=True)
+            st.markdown("### 📊 Profit by Symbol")
+            profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+            fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
+                                title="Profit by Instrument", template="plotly_dark")
+            st.plotly_chart(fig_symbol, use_container_width=True)
+            st.markdown("### 🔎 Trade Distribution")
+            col1, col2 = st.columns(2)
+            with col1:
+                fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_dark")
+                st.plotly_chart(fig_types, use_container_width=True)
+            with col2:
+                df["Weekday"] = df["Open Time"].dt.day_name()
+                fig_weekday = px.histogram(df, x="Weekday", color="Type",
+                                           title="Trades by Day of Week", template="plotly_dark")
+                st.plotly_chart(fig_weekday, use_container_width=True)
+            st.markdown("### 📈 Cumulative Profit & Loss")
+            df["Cumulative PnL"] = df["Profit"].cumsum()
+            fig_pnl = go.Figure()
+            fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
+            fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
+            st.plotly_chart(fig_pnl, use_container_width=True)
+            st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
     else:
-        st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
+        st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.") 
+
+To implement the custom component for TradingView Charting Library (to enable saving drawings):
+1. Create a folder `tradingview_component` in your app directory.
+2. In `tradingview_component/__init__.py`:
+```python
+import streamlit.components.v1 as components
+import os
+
+_component_func = components.declare_component(
+    "tradingview_chart",
+    path=os.path.dirname(__file__)
+)
+
+def tradingview_chart(symbol, key=None):
+    component_value = _component_func(symbol=symbol, key=key)
+    return component_value
