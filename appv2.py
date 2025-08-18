@@ -412,7 +412,7 @@ with selected_tab[0]:
 # =========================================================
 with selected_tab[1]:
     st.title("📊 Backtesting")
-    st.caption("Live TradingView chart for backtesting + curated news for the selected pair.")
+    st.caption("Live TradingView chart for backtesting, curated news, and trading journal for the selected pair.")
     # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
@@ -585,8 +585,61 @@ with selected_tab[1]:
                 st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
                 logging.warning(f"No valid drawing content received for {pair}: {content}")
     else:
-        st.info("Sign in via the My Account tab to save/load drawings.")
+        st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
+    # Backtesting Journal
+    st.markdown("### 📝 Trading Journal")
+    journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
+    if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+    updated_journal_tools = st.data_editor(
+        data=st.session_state.tools_trade_journal.copy(),
+        num_rows="dynamic",
+        key="bt_backtesting_journal_unique"
+    )
+    st.session_state.tools_trade_journal = updated_journal_tools
+    if "logged_in_user" in st.session_state:
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("💾 Save to My Account", key="bt_save_journal_button"):
+                username = st.session_state.logged_in_user
+                journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
+                logging.info(f"Saving journal for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["tools_trade_journal"] = journal_data
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Trading journal saved to your account!")
+                    logging.info(f"Journal saved for {username}")
+                except Exception as e:
+                    st.error(f"Failed to save journal: {str(e)}")
+                    logging.error(f"Error saving journal for {username}: {str(e)}")
+        with col2:
+            if st.button("📂 Load Journal", key="bt_load_journal_button"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Loading journal for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        saved_journal = user_data.get("tools_trade_journal", [])
+                        if saved_journal:
+                            st.session_state.tools_trade_journal = pd.DataFrame(saved_journal)
+                            st.success("Trading journal loaded from your account!")
+                            logging.info(f"Journal loaded for {username}")
+                        else:
+                            st.info("No saved journal found in your account.")
+                            logging.info(f"No journal found for {username}")
+                    else:
+                        st.error("Failed to load user data.")
+                        logging.error(f"No user data found for {username}")
+                except Exception as e:
+                    st.error(f"Failed to load journal: {str(e)}")
+                    logging.error(f"Error loading journal for {username}: {str(e)}")
     # News & Sentiment
     st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
@@ -619,7 +672,6 @@ with selected_tab[1]:
             st.info("No pair-specific headlines found in the recent feed.")
     else:
         st.info("News feed unavailable right now.")
-
 # =========================================================
 # TAB 3: TOOLS
 # =========================================================
