@@ -839,7 +839,7 @@ with selected_tab[3]:
 
 # ==================== TAB 6: MT5 STATS DASHBOARD ====================
 with main_tabs[4]:
-    st.markdown("## 📊 MT5 Stats Dashboard")
+    st.markdown("MT5 Stats Dashboard")
     st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
 
     uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
