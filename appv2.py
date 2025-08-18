@@ -934,4 +934,3 @@ with selected_tab[4]:
             st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
     else:
         st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
-```
