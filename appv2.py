@@ -840,7 +840,7 @@ with selected_tab[3]:
 # ==================== TAB 5: MT5 STATS DASHBOARD ====================
 with selected_tab[4]:
     st.markdown("## 📊 MT5 Stats Dashboard")
-    st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
+    st.write("Upload your MT5 trading history CSV to view a next-level performance dashboard.")
 
     uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
 
@@ -849,6 +849,7 @@ with selected_tab[4]:
         import numpy as np
         import plotly.express as px
         import plotly.graph_objects as go
+        from io import StringIO
 
         df = pd.read_csv(uploaded_file)
 
@@ -862,7 +863,7 @@ with selected_tab[4]:
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # Basic performance metrics
+            # --- Advanced Performance Metrics ---
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
@@ -876,55 +877,37 @@ with selected_tab[4]:
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
+            avg_trade_duration = (df["Close Time"] - df["Open Time"]).mean().total_seconds()/3600 if not df.empty else 0
+            avg_risk_reward = (wins["Profit"].mean() / abs(losses["Profit"].mean())) if not losses.empty else np.nan
+            daily_avg_profit = df.groupby(df["Close Time"].dt.date)["Profit"].sum().mean()
 
-            # --- Enhanced KPI Cards ---
+            # --- Top 10 KPI Cards with Sparkline ---
             st.markdown("### ⚡ Key Performance Metrics", unsafe_allow_html=True)
-            kpi_cols = st.columns(5)
+            kpi_data = [
+                ("Total Trades", total_trades, None, "#0ea5e9"),
+                ("Win Rate", f"{win_rate:.2f}%", None, "#22c55e"),
+                ("Net Profit", f"${net_profit:,.2f}", None, "#facc15"),
+                ("Profit Factor", f"{profit_factor:.2f}", None, "#8b5cf6"),
+                ("Biggest Win", f"${biggest_win:,.2f}", None, "#14b8a6"),
+                ("Biggest Loss", f"${biggest_loss:,.2f}", None, "#f87171"),
+                ("Max Drawdown", f"${max_drawdown:,.2f}" if max_drawdown else "N/A", None, "#f43f5e"),
+                ("Longest Win Streak", longest_win_streak, None, "#22d3ee"),
+                ("Longest Loss Streak", longest_loss_streak, None, "#e879f9"),
+                ("Avg Trade Duration (h)", f"{avg_trade_duration:.2f}", None, "#f97316"),
+            ]
 
-            with kpi_cols[0]:
-                st.markdown(f"""
-                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
-                        <h4>Total Trades</h4>
-                        <h2>{total_trades}</h2>
-                        <span style='color:#34d399'>&#9650; {len(wins)} Wins</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with kpi_cols[1]:
-                st.markdown(f"""
-                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
-                        <h4>Win Rate</h4>
-                        <h2>{win_rate:.2f}%</h2>
-                        <span style='color:#34d399'>&#9650; {len(wins)} Trades Won</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with kpi_cols[2]:
-                st.markdown(f"""
-                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
-                        <h4>Net Profit</h4>
-                        <h2>${net_profit:,.2f}</h2>
-                        <span style='color:#34d399'>{'▲' if net_profit>=0 else '▼'}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with kpi_cols[3]:
-                st.markdown(f"""
-                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
-                        <h4>Profit Factor</h4>
-                        <h2>{profit_factor:.2f}</h2>
-                        <span style='color:#34d399'>High Efficiency</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with kpi_cols[4]:
-                st.markdown(f"""
-                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
-                        <h4>Max Drawdown</h4>
-                        <h2>${max_drawdown:,.2f}</h2>
-                        <span style='color:#f87171'>Risk</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+            cols = st.columns(5)
+            for i, (title, value, spark, color) in enumerate(kpi_data):
+                with cols[i % 5]:
+                    st.markdown(f"""
+                        <div style='background: linear-gradient(135deg, {color} 0%, #1e293b 100%);
+                                    padding:20px;border-radius:15px;text-align:center;color:white;box-shadow:0 4px 10px rgba(0,0,0,0.3)'>
+                            <h4>{title}</h4>
+                            <h2>{value}</h2>
+                        </div>
+                        """, unsafe_allow_html=True)
+                if i % 5 == 4:
+                    cols = st.columns(5)
 
             st.markdown("---")
 
@@ -960,7 +943,7 @@ with selected_tab[4]:
             fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
             st.plotly_chart(fig_pnl, use_container_width=True)
 
-            st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
+            st.success("✅ MT5 Next-Level Stats Dashboard Loaded Successfully!")
 
     else:
         st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
