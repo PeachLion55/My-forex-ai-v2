@@ -454,27 +454,27 @@ with selected_tab[1]:
     </div>
     """
     components.html(tv_html, height=820, scrolling=False)
-    # Save and Load buttons
+    # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("Save Drawings"):
-                save_script = """
+            if st.button("Save Drawings", key="ta_save_drawings"):
+                save_script = f"""
                 <script>
                 window.parent.chart.getContent((content) => {{
                   window.parent.postMessage({{
                     type: 'streamlit:setComponentValue',
                     value: content,
                     dataType: 'json',
-                    key: 'drawings_key'
+                    key: 'ta_drawings_key_{pair}'
                   }}, '*');
                 }});
                 </script>
                 """
                 components.html(save_script, height=0)
-                st.rerun()  # Rerun to check session_state
+                st.rerun()
         with col2:
-            if st.button("Load Drawings"):
+            if st.button("Load Drawings", key="ta_load_drawings"):
                 username = st.session_state.logged_in_user
                 c.execute("SELECT data FROM users WHERE username = ?", (username,))
                 result = c.fetchone()
@@ -488,73 +488,66 @@ with selected_tab[1]:
                         </script>
                         """
                         components.html(load_script, height=0)
-                        st.success("Drawings loaded!")
+                        st.success("Drawings loaded successfully!")
                     else:
-                        st.info("No saved drawings.")
-# Check for saved drawings from postMessage
-if 'drawings_key' in st.session_state:
-    content = st.session_state['drawings_key']
-    username = st.session_state.logged_in_user
-    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-    result = c.fetchone()
-    user_data = json.loads(result[0]) if result else {}
-    user_data.setdefault("drawings", {})[pair] = content
-    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-    conn.commit()
-    st.session_state.drawings[pair] = content
-    st.success("Drawings saved successfully!")
-    del st.session_state['drawings_key']
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("Save Drawings"):
-        # save script...
-        pass
-with col2:
-    if st.button("Load Drawings"):
-        # load code...
-        pass
-with col3:
-    if st.button("Refresh Account"):
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
-            st.session_state.drawings = user_data.get("drawings", {})
-        st.rerun()
-
-# News & Sentiment
-st.markdown("### 📰 News & Sentiment for Selected Pair")
-if not df_news.empty:
-    base, quote = pair.split("/")
-    filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
-    try:
-        filtered_df["HighProb"] = filtered_df.apply(
-            lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                 (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
-            else "", axis=1
-        )
-    except Exception:
-        filtered_df["HighProb"] = ""
-    filtered_df_display = filtered_df.copy()
-    filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-    if not filtered_df_display.empty:
-        selected_headline = st.selectbox(
-            "Select a headline for details",
-            filtered_df_display["HeadlineDisplay"].tolist(),
-            key="ta_headline_select"
-        )
-        selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
-        st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
-        st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
-        st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
-        with st.expander("Summary"):
-            st.write(selected_row["Summary"])
+                        st.info("No saved drawings for this pair.")
+        with col3:
+            if st.button("Refresh Account", key="ta_refresh_account"):
+                username = st.session_state.logged_in_user
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result:
+                    user_data = json.loads(result[0])
+                    st.session_state.drawings = user_data.get("drawings", {})
+                    st.success("Account synced successfully!")
+                st.rerun()
+        # Check for saved drawings from postMessage
+        drawings_key = f"ta_drawings_key_{pair}"
+        if drawings_key in st.session_state:
+            content = st.session_state[drawings_key]
+            username = st.session_state.logged_in_user
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            user_data = json.loads(result[0]) if result else {}
+            user_data.setdefault("drawings", {})[pair] = content
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+            conn.commit()
+            st.session_state.drawings[pair] = content
+            st.success("Drawings saved successfully!")
+            del st.session_state[drawings_key]
     else:
-        st.info("No pair-specific headlines found in the recent feed.")
-else:
-    st.info("News feed unavailable right now.")
+        st.info("Sign in via the My Account tab to save/load drawings.")
+    # News & Sentiment
+    st.markdown("### 📰 News & Sentiment for Selected Pair")
+    if not df_news.empty:
+        base, quote = pair.split("/")
+        filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
+        try:
+            filtered_df["HighProb"] = filtered_df.apply(
+                lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
+                                    (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                else "", axis=1
+            )
+        except Exception:
+            filtered_df["HighProb"] = ""
+        filtered_df_display = filtered_df.copy()
+        filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+        if not filtered_df_display.empty:
+            selected_headline = st.selectbox(
+                "Select a headline for details",
+                filtered_df_display["HeadlineDisplay"].tolist(),
+                key="ta_headline_select"
+            )
+            selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
+            st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
+            st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
+            st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
+            with st.expander("Summary"):
+                st.write(selected_row["Summary"])
+        else:
+            st.info("No pair-specific headlines found in the recent feed.")
+    else:
+        st.info("News feed unavailable right now.")
 
 # =========================================================
 # TAB 3: TOOLS
@@ -600,13 +593,12 @@ with selected_tab[2]:
                 st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
         initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
         tv_widget = f"""
-        <div class="tradingview-widget-container">
-            <div id="tradingview_advanced_chart" style="height:600px;"></div>
+        <div class="tradingview-widget-container" style="height:780px; width:100%">
+            <div id="tradingview_advanced_chart" style="height:100%;"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
             <script type="text/javascript">
             const widget = new TradingView.widget({{
-              "width": "100%",
-              "height": "100%",
+              "autosize": true,
               "symbol": "{tv_symbol}",
               "interval": "D",
               "timezone": "Etc/UTC",
@@ -631,11 +623,11 @@ with selected_tab[2]:
             </script>
         </div>
         """
-        components.html(tv_widget, height=620)
+        components.html(tv_widget, height=820, scrolling=False)
         if "logged_in_user" in st.session_state:
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
-                if st.button("Save Drawings", key="back_save"):
+                if st.button("Save Drawings", key="back_save_drawings"):
                     save_script = """
                     <script>
                     window.parent.chart.getContent((content) => {{
@@ -651,7 +643,7 @@ with selected_tab[2]:
                     components.html(save_script, height=0)
                     st.rerun()
             with col2:
-                if st.button("Load Drawings", key="back_load"):
+                if st.button("Load Drawings", key="back_load_drawings"):
                     username = st.session_state.logged_in_user
                     c.execute("SELECT data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
@@ -665,9 +657,20 @@ with selected_tab[2]:
                             </script>
                             """
                             components.html(load_script, height=0)
-                            st.success("Drawings loaded!")
+                            st.success("Drawings loaded successfully!")
                         else:
-                            st.info("No saved drawings.")
+                            st.info("No saved drawings for this pair.")
+            with col3:
+                if st.button("Refresh Account", key="back_refresh_account"):
+                    username = st.session_state.logged_in_user
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        st.session_state.drawings = user_data.get("drawings", {})
+                        st.success("Account synced successfully!")
+                    st.rerun()
+            # Check for saved drawings from postMessage
             if 'back_drawings_key' in st.session_state:
                 content = st.session_state['back_drawings_key']
                 username = st.session_state.logged_in_user
@@ -681,7 +684,7 @@ with selected_tab[2]:
                 st.success("Drawings saved successfully!")
                 del st.session_state['back_drawings_key']
         else:
-            st.info("Sign in to save/load drawings.")
+            st.info("Sign in via the My Account tab to save/load drawings.")
         # Backtesting Journal
         journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
         if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
