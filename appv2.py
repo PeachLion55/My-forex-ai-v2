@@ -1122,124 +1122,216 @@ with selected_tab[3]:
 # =========================================================
 # TAB 5: MT5 STATS DASHBOARD
 # =========================================================
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
+import logging
+
 with selected_tab[4]:
-    st.markdown("## 📊 MT5 Stats Dashboard")
-    st.write("Upload your MT5 trading history CSV to view a detailed performance dashboard.")
-    uploaded_file = st.file_uploader("Upload MT5 History CSV", type=["csv"])
+    st.markdown("""
+        <style>
+        .title-container {
+            text-align: center;
+            padding: 20px 0;
+            background: linear-gradient(90deg, #1a1a3d, #2a2a5e);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #b0b0d0;
+        }
+        .metrics-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px 0;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #2a2a5e, #1a1a3d);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            color: #ffffff;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        }
+        .metric-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #b0b0d0;
+            margin-bottom: 10px;
+        }
+        .metric-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        .positive {
+            background: linear-gradient(135deg, #1a3c34, #2a6f5e);
+        }
+        .negative {
+            background: linear-gradient(135deg, #3c1a1a, #6f2a2a);
+        }
+        .neutral {
+            background: linear-gradient(135deg, #2a2a5e, #1a1a3d);
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .upload-container {
+            background: #1a1a3d;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .stFileUploader > div > div > div {
+            background-color: #2a2a5e !important;
+            border-radius: 8px;
+            color: #ffffff !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+        <div class="title-container">
+            <div class="title">📊 MT5 Performance Dashboard</div>
+            <div class="subtitle">Upload your MT5 trading history CSV to analyze your trading performance</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    with st.container():
+        st.markdown('<div class="upload-container">', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Choose your MT5 History CSV file", type=["csv"], help="Upload a CSV file exported from MetaTrader 5 containing your trading history.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
     if uploaded_file:
-        try:
-            df = pd.read_csv(uploaded_file)
-            logging.info("MT5 CSV uploaded successfully")
-            required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
-                logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
-            else:
-                df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
-                df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-                total_trades = len(df)
-                wins = df[df["Profit"] > 0]
-                losses = df[df["Profit"] <= 0]
-                win_rate = (len(wins)/total_trades*100) if total_trades else 0
-                avg_win = wins["Profit"].mean() if not wins.empty else 0
-                avg_loss = losses["Profit"].mean() if not losses.empty else 0
-                profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
-                net_profit = df["Profit"].sum()
-                biggest_win = df["Profit"].max()
-                biggest_loss = df["Profit"].min()
-                max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
-                longest_win_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] > 0) if k), default=0)
-                longest_loss_streak = max((len(list(g)) for k,g in df.groupby(df["Profit"] < 0) if k), default=0)
-                total_volume = df["Volume"].sum()
-                avg_volume = df["Volume"].mean()
-                largest_volume_trade = df["Volume"].max()
-                profit_per_trade = net_profit / total_trades if total_trades else 0
-                avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds()/3600).mean()
-                st.markdown(f"""
-                <style>
-                .metrics-container {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                    gap: 20px;
-                    justify-items: center;
-                    align-items: start;
-                }}
-                .metric-box {{
-                    padding: 25px 15px;
-                    border-radius: 10px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    text-align: center;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-                    transition: transform 0.2s, box-shadow 0.2s;
-                    color: #ffffff;
-                }}
-                .metric-box:hover {{
-                    transform: translateY(-5px);
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-                }}
-                .metric-title {{
-                    font-size: 14px;
-                    opacity: 0.8;
-                    margin-bottom: 12px;
-                }}
-                .metric-value {{
-                    font-size: 24px;
-                    font-weight: bold;
-                }}
-                .neutral {{ background: rgba(255,255,255,0.3); }}
-                .green {{ background: rgba(15,42,14,0.7); }}
-                .red {{ background: rgba(43,17,15,0.7); }}
-                </style>
-                <div class="metrics-container">
-                    <div class="metric-box neutral"><div class="metric-title">📊 Total Trades</div><div class="metric-value">{total_trades}</div></div>
-                    <div class="metric-box {'green' if win_rate>=50 else 'red'}"><div class="metric-title">✅ Win Rate</div><div class="metric-value">{win_rate:.2f}%</div></div>
-                    <div class="metric-box {'green' if net_profit>=0 else 'red'}"><div class="metric-title">💰 Net Profit</div><div class="metric-value">${net_profit:,.2f}</div></div>
-                    <div class="metric-box {'green' if profit_factor>=1 else 'red'}"><div class="metric-title">⚡ Profit Factor</div><div class="metric-value">{profit_factor}</div></div>
-                    <div class="metric-box green"><div class="metric-title">🏆 Biggest Win</div><div class="metric-value">${biggest_win:,.2f}</div></div>
-                    <div class="metric-box red"><div class="metric-title">💀 Biggest Loss</div><div class="metric-value">${biggest_loss:,.2f}</div></div>
-                    <div class="metric-box red"><div class="metric-title">📉 Max Drawdown</div><div class="metric-value">${max_drawdown:,.2f}</div></div>
-                    <div class="metric-box green"><div class="metric-title">🔥 Longest Win Streak</div><div class="metric-value">{longest_win_streak}</div></div>
-                    <div class="metric-box red"><div class="metric-title">❌ Longest Loss Streak</div><div class="metric-value">{longest_loss_streak}</div></div>
-                    <div class="metric-box neutral"><div class="metric-title">⏱️ Avg Trade Duration</div><div class="metric-value">{avg_trade_duration:.2f}h</div></div>
-                    <div class="metric-box green"><div class="metric-title">📦 Total Volume</div><div class="metric-value">{total_volume}</div></div>
-                    <div class="metric-box neutral"><div class="metric-title">📊 Avg Volume</div><div class="metric-value">{avg_volume:.2f}</div></div>
-                    <div class="metric-box green"><div class="metric-title">📈 Largest Volume Trade</div><div class="metric-value">{largest_volume_trade}</div></div>
-                    <div class="metric-box {'green' if profit_per_trade>=0 else 'red'}"><div class="metric-title">💵 Profit / Trade</div><div class="metric-value">{profit_per_trade:.2f}</div></div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown("---")
-                st.markdown("### 💵 Balance / Equity Curve")
-                fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve", template="plotly_dark")
-                st.plotly_chart(fig_balance, use_container_width=True)
-                st.markdown("### 📊 Profit by Symbol")
-                profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
-                fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
-                                    title="Profit by Instrument", template="plotly_dark")
-                st.plotly_chart(fig_symbol, use_container_width=True)
-                st.markdown("### 🔎 Trade Distribution")
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_dark")
-                    st.plotly_chart(fig_types, use_container_width=True)
-                with col2:
-                    df["Weekday"] = df["Open Time"].dt.day_name()
-                    fig_weekday = px.histogram(df, x="Weekday", color="Type",
-                                               title="Trades by Day of Week", template="plotly_dark")
-                    st.plotly_chart(fig_weekday, use_container_width=True)
-                st.markdown("### 📈 Cumulative Profit & Loss")
-                df["Cumulative PnL"] = df["Profit"].cumsum()
-                fig_pnl = go.Figure()
-                fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
-                fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
-                st.plotly_chart(fig_pnl, use_container_width=True)
-                st.success("✅ MT5 Stats Dashboard Loaded Successfully!")
-                logging.info("MT5 Stats Dashboard loaded successfully")
-        except Exception as e:
-            st.error(f"Error processing CSV: {str(e)}")
-            logging.error(f"Error processing MT5 CSV: {str(e)}")
+        with st.spinner("Processing your trading data..."):
+            try:
+                df = pd.read_csv(uploaded_file)
+                logging.info("MT5 CSV uploaded successfully")
+                required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
+                missing_cols = [col for col in required_cols if col not in df.columns]
+                if missing_cols:
+                    st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}. Please ensure your CSV includes all necessary columns.")
+                    logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
+                else:
+                    df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+                    df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                    
+                    # Calculate metrics
+                    total_trades = len(df)
+                    wins = df[df["Profit"] > 0]
+                    losses = df[df["Profit"] <= 0]
+                    win_rate = (len(wins) / total_trades * 100) if total_trades else 0
+                    avg_win = wins["Profit"].mean() if not wins.empty else 0
+                    avg_loss = losses["Profit"].mean() if not losses.empty else 0
+                    profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
+                    net_profit = df["Profit"].sum()
+                    biggest_win = df["Profit"].max()
+                    biggest_loss = df["Profit"].min()
+                    max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
+                    longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
+                    longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+                    total_volume = df["Volume"].sum()
+                    avg_volume = df["Volume"].mean()
+                    largest_volume_trade = df["Volume"].max()
+                    profit_per_trade = net_profit / total_trades if total_trades else 0
+                    avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
+
+                    # Display metrics
+                    st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
+                    metrics = [
+                        ("📊 Total Trades", total_trades, "neutral"),
+                        ("✅ Win Rate", f"{win_rate:.2f}%", "positive" if win_rate >= 50 else "negative"),
+                        ("💰 Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
+                        ("⚡ Profit Factor", profit_factor, "positive" if profit_factor >= 1 else "negative"),
+                        ("🏆 Biggest Win", f"${biggest_win:,.2f}", "positive"),
+                        ("💀 Biggest Loss", f"${biggest_loss:,.2f}", "negative"),
+                        ("📉 Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
+                        ("🔥 Longest Win Streak", longest_win_streak, "positive"),
+                        ("❌ Longest Loss Streak", longest_loss_streak, "negative"),
+                        ("⏱️ Avg Trade Duration", f"{avg_trade_duration:.2f}h", "neutral"),
+                        ("📦 Total Volume", f"{total_volume:,.2f}", "neutral"),
+                        ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
+                        ("📈 Largest Volume Trade", f"{largest_volume_trade:,.2f}", "neutral"),
+                        ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
+                    ]
+                    for title, value, style in metrics:
+                        st.markdown(f"""
+                            <div class="metric-card {style}">
+                                <div class="metric-title">{title}</div>
+                                <div class="metric-value">{value}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Visualizations
+                    st.markdown('<div class="section-title">💵 Balance / Equity Curve</div>', unsafe_allow_html=True)
+                    fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve Over Time",
+                                         template="plotly_dark")
+                    fig_balance.update_layout(
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d",
+                        font_color="#ffffff", xaxis_title="Date", yaxis_title="Balance ($)"
+                    )
+                    st.plotly_chart(fig_balance, use_container_width=True)
+
+                    st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
+                    profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+                    fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
+                                        title="Profit by Instrument", template="plotly_dark",
+                                        color_continuous_scale=px.colors.diverging.Tealrose)
+                    fig_symbol.update_layout(
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d",
+                        font_color="#ffffff", xaxis_title="Instrument", yaxis_title="Profit ($)"
+                    )
+                    st.plotly_chart(fig_symbol, use_container_width=True)
+
+                    st.markdown('<div class="section-title">🔎 Trade Distribution</div>', unsafe_allow_html=True)
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_dark")
+                        fig_types.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d")
+                        st.plotly_chart(fig_types, use_container_width=True)
+                    with col2:
+                        df["Weekday"] = df["Open Time"].dt.day_name()
+                        fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week",
+                                                  template="plotly_dark")
+                        fig_weekday.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d")
+                        st.plotly_chart(fig_weekday, use_container_width=True)
+
+                    st.markdown('<div class="section-title">📈 Cumulative Profit & Loss</div>', unsafe_allow_html=True)
+                    df["Cumulative PnL"] = df["Profit"].cumsum()
+                    fig_pnl = go.Figure()
+                    fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
+                    fig_pnl.update_layout(
+                        template="plotly_dark", title="Cumulative Profit & Loss Over Time",
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#1a1a3d", paper_bgcolor="#1a1a3d",
+                        font_color="#ffffff", xaxis_title="Date", yaxis_title="Cumulative PnL ($)"
+                    )
+                    st.plotly_chart(fig_pnl, use_container_width=True)
+
+                    st.success("✅ MT5 Performance Dashboard Loaded Successfully!")
+                    logging.info("MT5 Stats Dashboard loaded successfully")
+            except Exception as e:
+                st.error(f"Error processing CSV: {str(e)}. Please check the file format and try again.")
+                logging.error(f"Error processing MT5 CSV: {str(e)}")
     else:
-        st.info("👆 Please upload your MT5 trading history CSV to view the dashboard.")
+        st.info("👆 Upload your MT5 trading history CSV to explore your performance metrics.")
