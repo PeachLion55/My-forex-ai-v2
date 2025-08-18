@@ -13,4 +13,3 @@ pytz
 yfinance
 streamlit-autorefresh
 forex-python
-sqlite3
