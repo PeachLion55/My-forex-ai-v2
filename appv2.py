@@ -874,27 +874,57 @@ with selected_tab[4]:
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
-            # Longest win/loss streaks
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
 
-            # --- KPI Cards ---
-            st.markdown("### ⚡ Key Performance Metrics")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total Trades", total_trades)
-            c2.metric("Win Rate", f"{win_rate:.2f}%")
-            c3.metric("Net Profit", f"${net_profit:,.2f}")
-            c4.metric("Profit Factor", f"{profit_factor:.2f}")
+            # --- Enhanced KPI Cards ---
+            st.markdown("### ⚡ Key Performance Metrics", unsafe_allow_html=True)
+            kpi_cols = st.columns(5)
 
-            c5, c6, c7, c8 = st.columns(4)
-            c5.metric("Biggest Win", f"${biggest_win:,.2f}")
-            c6.metric("Biggest Loss", f"${biggest_loss:,.2f}")
-            c7.metric("Max Drawdown", f"${max_drawdown:,.2f}" if max_drawdown else "N/A")
-            c8.metric("Avg Win / Loss", f"${avg_win:,.2f} / ${avg_loss:,.2f}")
+            with kpi_cols[0]:
+                st.markdown(f"""
+                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
+                        <h4>Total Trades</h4>
+                        <h2>{total_trades}</h2>
+                        <span style='color:#34d399'>&#9650; {len(wins)} Wins</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            c9, c10 = st.columns(2)
-            c9.metric("Longest Win Streak", longest_win_streak)
-            c10.metric("Longest Loss Streak", longest_loss_streak)
+            with kpi_cols[1]:
+                st.markdown(f"""
+                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
+                        <h4>Win Rate</h4>
+                        <h2>{win_rate:.2f}%</h2>
+                        <span style='color:#34d399'>&#9650; {len(wins)} Trades Won</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with kpi_cols[2]:
+                st.markdown(f"""
+                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
+                        <h4>Net Profit</h4>
+                        <h2>${net_profit:,.2f}</h2>
+                        <span style='color:#34d399'>{'▲' if net_profit>=0 else '▼'}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with kpi_cols[3]:
+                st.markdown(f"""
+                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
+                        <h4>Profit Factor</h4>
+                        <h2>{profit_factor:.2f}</h2>
+                        <span style='color:#34d399'>High Efficiency</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with kpi_cols[4]:
+                st.markdown(f"""
+                    <div style='background-color:#1f2937;padding:20px;border-radius:15px;text-align:center;color:white'>
+                        <h4>Max Drawdown</h4>
+                        <h2>${max_drawdown:,.2f}</h2>
+                        <span style='color:#f87171'>Risk</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
             st.markdown("---")
 
@@ -926,7 +956,7 @@ with selected_tab[4]:
             st.markdown("### 📈 Cumulative Profit & Loss")
             df["Cumulative PnL"] = df["Profit"].cumsum()
             fig_pnl = go.Figure()
-            fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
+            fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines+markers", name="Cumulative PnL"))
             fig_pnl.update_layout(template="plotly_dark", title="Cumulative PnL Over Time")
             st.plotly_chart(fig_pnl, use_container_width=True)
 
