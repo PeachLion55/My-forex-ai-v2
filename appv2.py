@@ -1150,18 +1150,17 @@ with selected_tab[4]:
         }
         .metrics-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(4, 1fr); /* Always 4 per row */
             gap: 10px;
             padding: 20px 0;
         }
         .metric-card {
-            background: #ffffff;
             border-radius: 8px;
             padding: 15px;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             color: #333333;
+            background: transparent; /* Removed white background */
         }
         .metric-card:hover {
             transform: translateY(-3px);
@@ -1216,26 +1215,23 @@ with selected_tab[4]:
         </div>
     """, unsafe_allow_html=True)
 
-    uploaded_file = st.file_uploader(
-        "Choose your MT5 History CSV file",
-        type=["csv"],
-        help="Upload a CSV file exported from MetaTrader 5 containing your trading history."
-    )
+    with st.container():
+        st.markdown('<div class="upload-container">', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Choose your MT5 History CSV file", type=["csv"], help="Upload a CSV file exported from MetaTrader 5 containing your trading history.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if uploaded_file:
         with st.spinner("Processing your trading data..."):
             try:
                 df = pd.read_csv(uploaded_file)
-                logging.info("MT5 CSV uploaded successfully")
                 required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
                 missing_cols = [col for col in required_cols if col not in df.columns]
                 if missing_cols:
-                    st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}")
-                    logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
+                    st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}.")
                 else:
                     df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                     df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-                    
+
                     # Calculate metrics
                     total_trades = len(df)
                     wins = df[df["Profit"] > 0]
@@ -1283,46 +1279,33 @@ with selected_tab[4]:
                         """, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                    # Balance Curve
-                    st.markdown('<div class="section-title">💵 Balance / Equity Curve</div>', unsafe_allow_html=True)
-                    fig_balance = px.line(df, x="Close Time", y="Balance", title="Equity / Balance Curve Over Time",
-                                         template="plotly_white")
-                    fig_balance.update_layout(title_font_size=18, title_x=0.5)
-                    st.plotly_chart(fig_balance, use_container_width=True)
-
-                    # Profit by Symbol
+                    # Visualizations
                     st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
                     profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
                     fig_symbol = px.bar(profit_symbol, x="Symbol", y="Profit", color="Profit",
-                                        color_continuous_scale=px.colors.diverging.Tealrose,
-                                        template="plotly_white")
-                    fig_symbol.update_layout(title_font_size=18, title_x=0.5)
+                                        title="Profit by Instrument", template="plotly_white",
+                                        color_continuous_scale=px.colors.diverging.Tealrose)
+                    fig_symbol.update_layout(
+                        title_font_size=18, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
+                        font_color="#333333", xaxis_title="Instrument", yaxis_title="Profit ($)"
+                    )
                     st.plotly_chart(fig_symbol, use_container_width=True)
 
-                    # Trade Distribution
                     st.markdown('<div class="section-title">🔎 Trade Distribution</div>', unsafe_allow_html=True)
                     col1, col2 = st.columns(2)
                     with col1:
                         fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_white")
+                        fig_types.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff")
                         st.plotly_chart(fig_types, use_container_width=True)
                     with col2:
                         df["Weekday"] = df["Open Time"].dt.day_name()
                         fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week",
                                                   template="plotly_white")
+                        fig_weekday.update_layout(title_font_size=16, title_x=0.5, plot_bgcolor="#ffffff", paper_bgcolor="#ffffff")
                         st.plotly_chart(fig_weekday, use_container_width=True)
-
-                    # Cumulative PnL
-                    st.markdown('<div class="section-title">📈 Cumulative Profit & Loss</div>', unsafe_allow_html=True)
-                    df["Cumulative PnL"] = df["Profit"].cumsum()
-                    fig_pnl = go.Figure()
-                    fig_pnl.add_trace(go.Scatter(x=df["Close Time"], y=df["Cumulative PnL"], mode="lines", name="Cumulative PnL"))
-                    fig_pnl.update_layout(template="plotly_white", title="Cumulative Profit & Loss Over Time",
-                                          title_font_size=18, title_x=0.5)
-                    st.plotly_chart(fig_pnl, use_container_width=True)
 
                     st.success("✅ MT5 Performance Dashboard Loaded Successfully!")
             except Exception as e:
-                st.error(f"Error processing CSV: {str(e)}")
-                logging.error(f"Error processing MT5 CSV: {str(e)}")
+                st.error(f"Error processing CSV: {str(e)}.")
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore your performance metrics.")
