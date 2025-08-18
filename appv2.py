@@ -1153,63 +1153,64 @@ with selected_tab[4]:
         .metrics-container {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            padding: 20px 0;
+            gap: 20px;
+            padding: 30px 0;
         }
         .metric-card {
             border-radius: 8px;
-            padding: 15px;
+            padding: 20px;
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            color: #333333;
-            background: transparent;
+            background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+            border: 1px solid #3a3a3a;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            color: white;
         }
         .metric-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
         .metric-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: #666666;
-            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #FFD700;
+            margin-bottom: 10px;
         }
         .metric-value {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
-            color: #333333;
         }
         .positive .metric-value {
-            color: #2e7d32;
+            color: #00ff00;
         }
         .negative .metric-value {
-            color: #d32f2f;
+            color: #ff0000;
         }
         .neutral .metric-value {
-            color: #333333;
+            color: white;
         }
         .section-title {
             font-size: 20px;
             font-weight: bold;
-            color: #333333;
+            color: white;
             margin-top: 30px;
             margin-bottom: 15px;
         }
         .upload-container {
-            background: transparent !important;
+            background: #1a1a1a !important;
             border-radius: 8px;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
+            border: 1px solid #3a3a3a;
         }
         .stFileUploader > div > div > div {
             background-color: transparent !important;
             border-radius: 8px;
-            color: #333333 !important;
+            color: #ffffff !important;
         }
         </style>
     """, unsafe_allow_html=True)
