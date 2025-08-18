@@ -852,17 +852,15 @@ with selected_tab[4]:
 
         df = pd.read_csv(uploaded_file)
 
-        # Ensure required columns exist
         required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             st.error(f"CSV is missing required columns: {', '.join(missing_cols)}")
         else:
-            # Convert time columns
             df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
             df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
 
-            # Basic performance metrics
+            # --- Calculate Metrics ---
             total_trades = len(df)
             wins = df[df["Profit"] > 0]
             losses = df[df["Profit"] <= 0]
@@ -874,54 +872,53 @@ with selected_tab[4]:
             biggest_win = df["Profit"].max()
             biggest_loss = df["Profit"].min()
             max_drawdown = df["Balance"].max() - df["Balance"].min() if "Balance" in df else None
-            # Longest win/loss streaks
             longest_win_streak = max((len(list(g)) for k,g in df["Profit"].gt(0).groupby(df["Profit"].gt(0)) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k,g in df["Profit"].lt(0).groupby(df["Profit"].lt(0)) if k), default=0)
-
-            # Additional metrics
             avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean() if not df.empty else 0
             total_volume = df["Volume"].sum()
             avg_volume = df["Volume"].mean()
             largest_volume_trade = df["Volume"].max()
             profit_per_trade = net_profit / total_trades if total_trades else 0
 
-            # --- CSS & HTML for Metrics ---
+            # --- CSS & HTML for Rectangular Vertical Metrics ---
             st.markdown(f"""
             <style>
             .metrics-container {{
                 display: flex;
                 flex-wrap: wrap;
-                justify-content: space-between;
-                gap: 15px;
+                gap: 20px;
+                justify-content: flex-start;
             }}
             .metric-box {{
-                flex: 1 1 calc(20% - 15px);
-                background: #1e1e1e;
-                padding: 20px;
+                background: #1a1a1a;
+                padding: 25px 15px;
                 border-radius: 10px;
-                color: white;
+                flex: 1 1 180px;
+                min-width: 180px;
+                max-width: 220px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
                 text-align: center;
-                font-family: 'Arial', sans-serif;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
                 transition: transform 0.2s, box-shadow 0.2s;
-                min-width: 150px;
-                max-width: 200px;
             }}
             .metric-box:hover {{
                 transform: translateY(-5px);
-                box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+                box-shadow: 0 8px 20px rgba(0,0,0,0.6);
             }}
             .metric-title {{
-                font-size: 16px;
-                margin-bottom: 10px;
-                opacity: 0.8;
+                font-size: 14px;
+                opacity: 0.7;
+                margin-bottom: 12px;
             }}
             .metric-value {{
-                font-size: 26px;
+                font-size: 24px;
                 font-weight: bold;
             }}
-            .green {{ color: #00b894; }}
-            .red {{ color: #d63031; }}
+            .green {{ color: #0F2A0E; }}
+            .red {{ color: #2B110F; }}
             .neutral {{ color: #ffffff; }}
             </style>
 
