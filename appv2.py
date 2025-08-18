@@ -679,14 +679,44 @@ with selected_tab[1]:
         "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
         "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
     }
+
+    # Prepare transposed journal for display
+    if st.session_state.tools_trade_journal.empty:
+        # Initialize with one trade column if empty
+        transposed_journal = pd.DataFrame(index=journal_cols, columns=["Trade 1"]).astype(object)
+    else:
+        # Transpose the journal: fields as rows, trades as columns
+        transposed_journal = st.session_state.tools_trade_journal.transpose()
+        # Rename columns to "Trade 1", "Trade 2", etc.
+        transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
+
+    # Dynamically configure columns for trades
+    transposed_column_config = {}
+    for col in transposed_journal.columns:
+        transposed_column_config[col] = {}
+        for field in transposed_journal.index:
+            transposed_column_config[col][field] = column_config[field]
+
+    # Display transposed journal
     updated_journal_tools = st.data_editor(
-        data=st.session_state.tools_trade_journal.copy(),
+        data=transposed_journal,
         num_rows="dynamic",
-        column_config=column_config,
+        column_config=transposed_column_config,
         key="bt_backtesting_journal",
-        use_container_width=True
+        use_container_width=True,
+        height=800  # Set height to display all 22 fields
     )
-    st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
+
+    # Convert back to original format and apply dtypes
+    if not updated_journal_tools.empty:
+        # Transpose back to original format (trades as rows)
+        updated_journal_tools = updated_journal_tools.transpose()
+        updated_journal_tools.columns = journal_cols
+        updated_journal_tools = updated_journal_tools.reset_index(drop=True)
+        st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
+    else:
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+
     if "logged_in_user" in st.session_state:
         col1, col2 = st.columns([1, 1])
         with col1:
