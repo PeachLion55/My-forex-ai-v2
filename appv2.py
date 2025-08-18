@@ -240,7 +240,7 @@ with selected_tab[0]:
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
         st.session_state.selected_currency_1 = None
-    if 'selected_currency_2' in st.session_state:
+    if 'selected_currency_2' not in st.session_state:  # Fixed typo from 'in' to 'not in'
         st.session_state.selected_currency_2 = None
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
@@ -491,6 +491,8 @@ with selected_tab[1]:
                         st.success("Drawings loaded successfully!")
                     else:
                         st.info("No saved drawings for this pair.")
+                else:
+                    st.error("Failed to load user data.")
         with col3:
             if st.button("Refresh Account", key="ta_refresh_account"):
                 username = st.session_state.logged_in_user
@@ -500,21 +502,29 @@ with selected_tab[1]:
                     user_data = json.loads(result[0])
                     st.session_state.drawings = user_data.get("drawings", {})
                     st.success("Account synced successfully!")
+                else:
+                    st.error("Failed to sync account.")
                 st.rerun()
         # Check for saved drawings from postMessage
         drawings_key = f"ta_drawings_key_{pair}"
         if drawings_key in st.session_state:
             content = st.session_state[drawings_key]
-            username = st.session_state.logged_in_user
-            c.execute("SELECT data FROM users WHERE username = ?", (username,))
-            result = c.fetchone()
-            user_data = json.loads(result[0]) if result else {}
-            user_data.setdefault("drawings", {})[pair] = content
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-            conn.commit()
-            st.session_state.drawings[pair] = content
-            st.success("Drawings saved successfully!")
-            del st.session_state[drawings_key]
+            if content:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data.setdefault("drawings", {})[pair] = content
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.session_state.drawings[pair] = content
+                    st.success(f"Drawings for {pair} saved successfully!")
+                except Exception as e:
+                    st.error(f"Failed to save drawings: {str(e)}")
+                del st.session_state[drawings_key]
+            else:
+                st.warning("No drawing content received from chart. Ensure you have drawn on the chart.")
     else:
         st.info("Sign in via the My Account tab to save/load drawings.")
     # News & Sentiment
@@ -660,6 +670,8 @@ with selected_tab[2]:
                             st.success("Drawings loaded successfully!")
                         else:
                             st.info("No saved drawings for this pair.")
+                    else:
+                        st.error("Failed to load user data.")
             with col3:
                 if st.button("Refresh Account", key="back_refresh_account"):
                     username = st.session_state.logged_in_user
@@ -669,20 +681,28 @@ with selected_tab[2]:
                         user_data = json.loads(result[0])
                         st.session_state.drawings = user_data.get("drawings", {})
                         st.success("Account synced successfully!")
+                    else:
+                        st.error("Failed to sync account.")
                     st.rerun()
             # Check for saved drawings from postMessage
             if 'back_drawings_key' in st.session_state:
                 content = st.session_state['back_drawings_key']
-                username = st.session_state.logged_in_user
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data.setdefault("drawings", {})[pair] = content
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.session_state.drawings[pair] = content
-                st.success("Drawings saved successfully!")
-                del st.session_state['back_drawings_key']
+                if content:
+                    username = st.session_state.logged_in_user
+                    try:
+                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                        result = c.fetchone()
+                        user_data = json.loads(result[0]) if result else {}
+                        user_data.setdefault("drawings", {})[pair] = content
+                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                        conn.commit()
+                        st.session_state.drawings[pair] = content
+                        st.success(f"Drawings for {pair} saved successfully!")
+                    except Exception as e:
+                        st.error(f"Failed to save drawings: {str(e)}")
+                    del st.session_state['back_drawings_key']
+                else:
+                    st.warning("No drawing content received from chart. Ensure you have drawn on the chart.")
         else:
             st.info("Sign in via the My Account tab to save/load drawings.")
         # Backtesting Journal
