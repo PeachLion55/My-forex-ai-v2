@@ -31,7 +31,7 @@ conn.commit()
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
-# ----------------- CUSTOM CSS (Original BG + New Tabs) -----------------
+# ----------------- CUSTOM CSS (Original BG + New Tabs without background) -----------------
 bg_opacity = 0.5
 st.markdown(
     f"""
@@ -62,11 +62,11 @@ st.markdown(
 }}
 /* Content above bg */
 .main, .block-container, .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg {{ position: relative; z-index: 1; }}
-/* Enhanced tab styling */
+/* Enhanced tab styling without black background */
 div[data-baseweb="tab-list"] {{
     gap: 12px;
     padding-bottom: 8px;
-    background: rgba(0,0,0,0.3);
+    background: transparent;
     border-radius: 12px;
     padding: 8px;
 }}
@@ -216,6 +216,10 @@ econ_calendar_data = [
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
+# Initialize drawings in session_state
+if "drawings" not in st.session_state:
+    st.session_state.drawings = {}
+
 # =========================================================
 # NAVIGATION
 # =========================================================
@@ -236,7 +240,7 @@ with selected_tab[0]:
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
         st.session_state.selected_currency_1 = None
-    if 'selected_currency_2' not in st.session_state:
+    if 'selected_currency_2' in st.session_state:
         st.session_state.selected_currency_2 = None
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
@@ -396,6 +400,7 @@ with selected_tab[0]:
 with selected_tab[1]:
     st.title("📊 Technical Analysis")
     st.caption("Live TradingView chart + curated news for the selected pair.")
+    # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
         "USD/JPY": "FX:USDJPY",
@@ -408,47 +413,99 @@ with selected_tab[1]:
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
-    user = st.session_state.get('logged_in_user', 'anonymous')
+    # Load initial drawings if available
+    if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
+    initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
+    # TradingView widget
     tv_html = f"""
     <div class="tradingview-widget-container" style="height:780px; width:100%">
       <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
-    </div>
-    <button id="save_drawings_btn" style="margin-top:10px; background-color: #FFD700; color: black; border-radius: 8px; font-weight: bold; padding: 8px 16px;">Save Drawings</button>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    const widget = new TradingView.widget({{
-      "autosize": true,
-      "symbol": "{tv_symbol}",
-      "interval": "D",
-      "timezone": "Etc/UTC",
-      "theme": "dark",
-      "style": "1",
-      "locale": "en",
-      "hide_top_toolbar": false,
-      "hide_side_toolbar": false,
-      "allow_symbol_change": true,
-      "save_image": true,
-      "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
-    }});
-    widget.onChartReady(() => {{
-      const chart = widget.activeChart();
-      const user = "{user}";
-      const pair = "{pair}";
-      const key = `drawings_${{user}}_${{pair}}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {{
-        chart.setContent(JSON.parse(saved));
-      }}
-      document.getElementById('save_drawings_btn').addEventListener('click', () => {{
-        chart.getContent((content) => {{
-          localStorage.setItem(key, JSON.stringify(content));
-          alert('Drawings saved!');
-        }});
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      const widget = new TradingView.widget({{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "hide_top_toolbar": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "save_image": true,
+        "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
       }});
-    }});
-    </script>
+      widget.onChartReady(() => {{
+        const chart = widget.activeChart();
+        window.chart = chart;
+        const initialContent = {initial_content};
+        if (Object.keys(initialContent).length > 0) {{
+          chart.setContent(initialContent);
+        }}
+      }});
+      </script>
+    </div>
     """
-    components.html(tv_html, height=850, scrolling=False)
+    components.html(tv_html, height=820, scrolling=False)
+    # Save and Load buttons
+    if "logged_in_user" in st.session_state:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Save Drawings"):
+                save_script = """
+                <script>
+                window.parent.chart.getContent((content) => {{
+                  window.parent.postMessage({{
+                    type: 'streamlit:setComponentValue',
+                    value: content,
+                    dataType: 'json',
+                    key: 'drawings_key'
+                  }}, '*');
+                }});
+                </script>
+                """
+                components.html(save_script, height=0)
+                st.rerun()  # Rerun to check session_state
+        with col2:
+            if st.button("Load Drawings"):
+                username = st.session_state.logged_in_user
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result:
+                    user_data = json.loads(result[0])
+                    content = user_data.get("drawings", {}).get(pair, {})
+                    if content:
+                        load_script = f"""
+                        <script>
+                        window.parent.chart.setContent({json.dumps(content)});
+                        </script>
+                        """
+                        components.html(load_script, height=0)
+                        st.success("Drawings loaded!")
+                    else:
+                        st.info("No saved drawings.")
+        # Check for saved drawings from postMessage
+        if 'drawings_key' in st.session_state:
+            content = st.session_state['drawings_key']
+            username = st.session_state.logged_in_user
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetch one()
+            user_data = json.loads(result[0]) if result else {}
+            user_data.setdefault("drawings", {})[pair] = content
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+            conn.commit()
+            st.session_state.drawings[pair] = content
+            st.success("Drawings saved successfully!")
+            del st.session_state['drawings_key']
+    else:
+        st.info("Sign in to save/load drawings.")
     # News & Sentiment
     st.markdown("### 📰 News & Sentiment for Selected Pair")
     if not df_news.empty:
@@ -514,31 +571,100 @@ with selected_tab[2]:
     with tools_subtabs[1]:
         st.header("📊 Backtesting")
         st.markdown("Backtest your trading strategies here.")
-        tv_widget = """
+        pair = "EURUSD"
+        tv_symbol = "FX:EURUSD"
+        if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
+            username = st.session_state.logged_in_user
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result:
+                user_data = json.loads(result[0])
+                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
+        initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
+        tv_widget = f"""
         <div class="tradingview-widget-container">
-            <div id="tradingview_advanced_chart"></div>
+            <div id="tradingview_advanced_chart" style="height:600px;"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
             <script type="text/javascript">
-                new TradingView.widget({
-                    "width": "100%",
-                    "height": 600,
-                    "symbol": "FX:EURUSD",
-                    "interval": "D",
-                    "timezone": "Etc/UTC",
-                    "theme": "dark",
-                    "style": "1",
-                    "toolbar_bg": "#f1f3f6",
-                    "withdateranges": true,
-                    "hide_side_toolbar": false,
-                    "allow_symbol_change": true,
-                    "save_image": false,
-                    "studies": [],
-                    "container_id": "tradingview_advanced_chart"
-                });
+            const widget = new TradingView.widget({{
+              "width": "100%",
+              "height": "100%",
+              "symbol": "{tv_symbol}",
+              "interval": "D",
+              "timezone": "Etc/UTC",
+              "theme": "dark",
+              "style": "1",
+              "toolbar_bg": "#f1f3f6",
+              "withdateranges": true,
+              "hide_side_toolbar": false,
+              "allow_symbol_change": true,
+              "save_image": false,
+              "studies": [],
+              "container_id": "tradingview_advanced_chart"
+            }});
+            widget.onChartReady(() => {{
+                const chart = widget.activeChart();
+                window.chart = chart;
+                const initialContent = {initial_content};
+                if (Object.keys(initialContent).length > 0) {{
+                  chart.setContent(initialContent);
+                }}
+            }});
             </script>
         </div>
         """
         components.html(tv_widget, height=620)
+        if "logged_in_user" in st.session_state:
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Save Drawings", key="back_save"):
+                    save_script = """
+                    <script>
+                    window.parent.chart.getContent((content) => {{
+                      window.parent.postMessage({{
+                        type: 'streamlit:setComponentValue',
+                        value: content,
+                        dataType: 'json',
+                        key: 'back_drawings_key'
+                      }}, '*');
+                    }});
+                    </script>
+                    """
+                    components.html(save_script, height=0)
+                    st.rerun()
+            with col2:
+                if st.button("Load Drawings", key="back_load"):
+                    username = st.session_state.logged_in_user
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        content = user_data.get("drawings", {}).get(pair, {})
+                        if content:
+                            load_script = f"""
+                            <script>
+                            window.parent.chart.setContent({json.dumps(content)});
+                            </script>
+                            """
+                            components.html(load_script, height=0)
+                            st.success("Drawings loaded!")
+                        else:
+                            st.info("No saved drawings.")
+            if 'back_drawings_key' in st.session_state:
+                content = st.session_state['back_drawings_key']
+                username = st.session_state.logged_in_user
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                user_data = json.loads(result[0]) if result else {}
+                user_data.setdefault("drawings", {})[pair] = content
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                conn.commit()
+                st.session_state.drawings[pair] = content
+                st.success("Drawings saved successfully!")
+                del st.session_state['back_drawings_key']
+        else:
+            st.info("Sign in to save/load drawings.")
+        # Backtesting Journal
         journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
         if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
@@ -769,6 +895,7 @@ with selected_tab[3]:
             if result and result[0] == password:
                 st.session_state.logged_in_user = username
                 user_data = json.loads(result[1]) if result[1] else {}
+                st.session_state.drawings = user_data.get("drawings", {})
                 journal_cols = ["Date", "Symbol", "Direction", "Entry", "Exit", "Lots", "Notes"]
                 saved_journal = user_data.get("tools_trade_journal", [])
                 st.session_state.tools_trade_journal = pd.DataFrame(saved_journal, columns=journal_cols) if saved_journal else pd.DataFrame(columns=journal_cols)
