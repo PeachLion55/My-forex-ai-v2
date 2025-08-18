@@ -471,7 +471,7 @@ with selected_tab[2]:
 # =========================================================
 with selected_tab[3]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts"])
+    tools_subtabs = st.tabs(["Profit/Stop-loss Calculator", "Backtesting", "Price alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Economic Session Clock", "Candlestick Pattern Cheat Sheet"])
 
     # Profit/Stop-loss Calculator
     with tools_subtabs[0]:
@@ -676,6 +676,127 @@ with selected_tab[3]:
                         st.experimental_rerun()
         else:
             st.info("No price alerts set. Add one above to start monitoring prices.")
+
+# ---------------- TOOLS: NEW SUBTABS ----------------
+import pandas as pd
+import numpy as np
+import datetime as dt
+
+# ----------- Tool 3: Currency Correlation Heatmap -----------
+with tools_subtabs[3]:
+    st.header("📊 Currency Correlation Heatmap")
+    st.markdown("Understand how forex pairs move relative to each other. "
+                "Positive correlation means pairs move in the same direction, "
+                "while negative correlation means they move opposite.")
+
+    # Example static correlation values (could be replaced with real data later)
+    pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
+    data = np.array([
+        [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
+        [0.87, 1.00, -0.65, 0.74, -0.58, -0.62],
+        [-0.72, -0.65, 1.00, -0.55, 0.69, 0.71],
+        [0.68, 0.74, -0.55, 1.00, -0.61, -0.59],
+        [-0.55, -0.58, 0.69, -0.61, 1.00, 0.88],
+        [-0.60, -0.62, 0.71, -0.59, 0.88, 1.00],
+    ])
+    corr_df = pd.DataFrame(data, columns=pairs, index=pairs)
+
+    import plotly.express as px
+    fig = px.imshow(corr_df,
+                    text_auto=True,
+                    aspect="auto",
+                    color_continuous_scale="RdBu",
+                    title="Forex Pair Correlation Heatmap")
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# ----------- Tool 4: Risk Management Calculator -----------
+with tools_subtabs[4]:
+    st.header("🛡️ Risk Management Calculator")
+    st.markdown("Proper position sizing keeps your account safe. "
+                "Use this calculator to determine your lot size.")
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
+    with col2:
+        risk_percent = st.number_input("Risk per Trade (%)", min_value=0.1, max_value=10.0, value=1.0)
+    with col3:
+        stop_loss_pips = st.number_input("Stop Loss (pips)", min_value=1.0, value=20.0)
+    with col4:
+        pip_value = st.number_input("Pip Value per Lot ($)", min_value=0.01, value=10.0)
+
+    if st.button("Calculate Lot Size"):
+        risk_amount = balance * (risk_percent / 100)
+        lot_size = risk_amount / (stop_loss_pips * pip_value)
+        st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
+
+
+# ----------- Tool 5: Economic Session Clock -----------
+with tools_subtabs[5]:
+    st.header("🕒 Forex Market Sessions")
+    st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
+
+    # Session times (UTC)
+    sessions = {
+        "Sydney": (22, 7),
+        "Tokyo": (0, 9),
+        "London": (8, 17),
+        "New York": (13, 22),
+    }
+
+    now_utc = dt.datetime.utcnow().hour
+    cols = st.columns(len(sessions))
+
+    for i, (session, (start, end)) in enumerate(sessions.items()):
+        active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
+        color = "#144714" if active else "#171447"
+        with cols[i]:
+            st.markdown(f"""
+                <div style="
+                    background-color:{color};
+                    border-radius:10px;
+                    padding:15px;
+                    text-align:center;
+                    color:white;
+                    box-shadow:2px 2px 8px rgba(0,0,0,0.5);
+                ">
+                    <h3 style="margin:0;">{session}</h3>
+                    <p style="margin:0;">{start}:00 - {end}:00 UTC</p>
+                    <b>{'ACTIVE' if active else 'Closed'}</b>
+                </div>
+            """, unsafe_allow_html=True)
+
+
+# ----------- Tool 6: Candlestick Pattern Cheat Sheet -----------
+with tools_subtabs[6]:
+    st.header("📑 Candlestick Pattern Cheat Sheet")
+    st.markdown("Learn to recognize powerful reversal and continuation signals.")
+
+    patterns = [
+        {"name": "Hammer", "type": "Bullish", "meaning": "Potential reversal after downtrend"},
+        {"name": "Shooting Star", "type": "Bearish", "meaning": "Potential reversal after uptrend"},
+        {"name": "Engulfing", "type": "Bullish/Bearish", "meaning": "Strong reversal depending on direction"},
+        {"name": "Doji", "type": "Neutral", "meaning": "Market indecision, possible reversal"},
+    ]
+
+    cols = st.columns(2)
+    for i, pattern in enumerate(patterns):
+        with cols[i % 2]:
+            st.markdown(f"""
+                <div style="
+                    background-color:#1e1e2f;
+                    border-radius:12px;
+                    padding:15px;
+                    margin-bottom:10px;
+                    box-shadow:2px 2px 8px rgba(0,0,0,0.4);
+                    color:white;
+                ">
+                    <h3 style="margin:0; color:#FFD700;">{pattern['name']}</h3>
+                    <p style="margin:2px 0;"><b>Type:</b> {pattern['type']}</p>
+                    <p style="margin:2px 0;"><b>Meaning:</b> {pattern['meaning']}</p>
+                </div>
+            """, unsafe_allow_html=True)
 
 # =========================================================
 # TAB 5: MY ACCOUNT
