@@ -461,7 +461,8 @@ def highlight_currency(row):
 # Display the economic calendar
 st.markdown("### 🗓️ Upcoming Economic Events")
 st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-    # Interest rate tiles
+    
+# Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
         {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
