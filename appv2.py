@@ -412,7 +412,7 @@ if "temp_journal" not in st.session_state:
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Tools", "Psychology", "Manage Srategy", "My Account", "Community Trade Ideas"]
+tabs = ["Forex Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Tools", "Psychology", "Manage My Srategy", "My Account", "Community Trade Ideas"]
 selected_tab = st.tabs(tabs)
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
@@ -1500,10 +1500,10 @@ with selected_tab[4]:
     except Exception:
         logging.error(f"Error in badges for Psychology tab: {str(e)}")
 # =========================================================
-# TAB 6: MANAGE STRATEGY
+# TAB 6: MANAGE MY STRATEGY
 # =========================================================
 with selected_tab[5]:
-    st.title("📘 Manage Strategy")
+    st.title("📘 Manage My Strategy")
     user_id = st.session_state.get("logged_in_user", "guest")
     pdir = os.path.join(_ta_user_dir(user_id), "playbooks")
     os.makedirs(pdir, exist_ok=True)
