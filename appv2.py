@@ -448,7 +448,8 @@ def highlight_currency(row):
         styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
     return styles
 st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-    # Interest rate tiles
+   
+# Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
         {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
