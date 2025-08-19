@@ -412,7 +412,7 @@ if "temp_journal" not in st.session_state:
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Backtesting", "MT5 Stats Dashboard", "Tools", "Psychology", "Playbook Builder", "My Account", "Community Trade Ideas"]
+tabs = ["Forex Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Tools", "Psychology", "Playbook Builder", "My Account", "Community Trade Ideas"]
 selected_tab = st.tabs(tabs)
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
