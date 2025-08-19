@@ -413,11 +413,11 @@ if "temp_journal" not in st.session_state:
 # NAVIGATION
 # =========================================================
 tabs = ["Forex Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Tools", "Psychology", "Manage My Strategy", "My Account", "Community Trade Ideas"]
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(tabs)
+selected_tab = st.tabs(tabs)
 # =========================================================
-# PAGE CONTENT
+# TAB 1: FOREX FUNDAMENTALS
 # =========================================================
-if page == "Forex Fundamentals":
+with selected_tab[0]:
     col1, col2 = st.columns([3, 1])
     with col1:
         st.title("📅 Forex Fundamentals")
@@ -448,20 +448,15 @@ if page == "Forex Fundamentals":
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
     # Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
-    st.markdown("""
-    Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. 
-    Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities.
-    Below are current rates, with details on recent changes, next meeting dates, and market expectations.
-    """)
     interest_rates = [
-        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024", "Next Meeting": "2025-09-18", "Expectation": "Possible cut if inflation cools further. Fed watching labor data closely."},
-        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025", "Next Meeting": "2025-09-19", "Expectation": "BOE may hold steady amid persistent UK inflation pressures."},
-        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025", "Next Meeting": "2025-09-12", "Expectation": "ECB likely to pause cuts as eurozone growth stabilizes."},
-        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025", "Next Meeting": "2025-09-20", "Expectation": "BOJ gradual hikes if yen weakness persists."},
-        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025", "Next Meeting": "2025-09-24", "Expectation": "RBA monitoring commodity prices; potential hold."},
-        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025", "Next Meeting": "2025-09-04", "Expectation": "BOC data-dependent; oil prices key factor."},
-        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025", "Next Meeting": "2025-10-09", "Expectation": "RBNZ easing cycle may continue if dairy prices fall."},
-        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025", "Next Meeting": "2025-09-26", "Expectation": "SNB intervening on franc strength; rates likely steady."},
+        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
+        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
+        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
+        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
+        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
+        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
+        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
+        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
     ]
     boxes_per_row = 4
     colors = ["#171447", "#471414", "#144714", "#474714"]
@@ -484,8 +479,6 @@ if page == "Forex Fundamentals":
                             <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
                             <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
                             <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
-                            <p style="margin: 2px 0;"><b>Next Meeting:</b> {rate['Next Meeting']}</p>
-                            <p style="margin: 2px 0;"><b>Expectation:</b> {rate['Expectation']}</p>
                         </div>
                     </div>
                     """,
@@ -588,7 +581,10 @@ if page == "Forex Fundamentals":
             </div>
             """, unsafe_allow_html=True
         )
-elif page == "Backtesting":
+# =========================================================
+# TAB 2: BACKTESTING
+# =========================================================
+with selected_tab[1]:
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
     # Pair selector & symbol map
@@ -888,7 +884,42 @@ elif page == "Backtesting":
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
-elif page == "MT5 Performance Dashboard":
+    # News & Sentiment
+    #st.markdown("### 📰 News & Sentiment for Selected Pair")
+    #if not df_news.empty:
+        #base, quote = pair.split("/")
+        #filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
+        #try:
+            #filtered_df["HighProb"] = filtered_df.apply(
+                #lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
+                                    #(pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                #else "", axis=1
+            #)
+        #except Exception as e:
+            #filtered_df["HighProb"] = ""
+            #logging.error(f"Error processing news high probability: {str(e)}")
+        #filtered_df_display = filtered_df.copy()
+        #filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+        #if not filtered_df_display.empty:
+            #selected_headline = st.selectbox(
+                #"Select a headline for details",
+                #filtered_df_display["HeadlineDisplay"].tolist(),
+                #key="bt_headline_select"
+            #)
+            #selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
+            #st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
+            #st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
+            #st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
+            #with st.expander("Summary"):
+                #st.write(selected_row["Summary"])
+        #else:
+            #st.info("No pair-specific headlines found in the recent feed.")
+    #else:
+        #st.info("News feed unavailable right now.")
+# =========================================================
+# TAB 3: MT5 STATS DASHBOARD
+# =========================================================
+with selected_tab[2]:
     st.markdown("""
         <style>
         .title-container {
@@ -1131,13 +1162,15 @@ elif page == "MT5 Performance Dashboard":
         _ta_show_badges(df)
     except Exception:
         pass
-elif page == "Tools":
+# =========================================================
+# TAB 4: TOOLS
+# =========================================================
+with selected_tab[3]:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner", "Pre-Trade Checklist"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
-        st.write('---')
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
             currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
@@ -1162,7 +1195,6 @@ elif page == "Tools":
     with tools_subtabs[1]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
-        st.write('---')
         forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
         if "price_alerts" not in st.session_state:
             st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
@@ -1254,7 +1286,6 @@ elif page == "Tools":
     with tools_subtabs[2]:
         st.header("📊 Currency Correlation Heatmap")
         st.markdown("Understand how forex pairs move relative to each other.")
-        st.write('---')
         pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
         data = np.array([
             [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
@@ -1273,11 +1304,7 @@ elif page == "Tools":
         st.plotly_chart(fig, use_container_width=True)
     with tools_subtabs[3]:
         st.header("🛡️ Risk Management Calculator")
-        st.markdown("""
-        Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. 
-        It helps prevent large losses, preserves capital, and allows you to stay in the game during drawdowns. 
-        Always risk no more than 1-2% per trade, use stop losses, and calculate position sizes based on your account size and risk tolerance.
-        """)
+        st.markdown("Proper position sizing keeps your account safe.")
         st.write('---')
         # 📊 Lot Size Calculator
         st.subheader('📊 Lot Size Calculator')
@@ -1324,12 +1351,7 @@ elif page == "Tools":
         st.plotly_chart(fig, use_container_width=True)
     with tools_subtabs[4]:
         st.header("🕒 Forex Market Sessions")
-        st.markdown("""
-        Stay aware of active trading sessions to trade when volatility is highest. 
-        Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. 
-        Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. 
-        Track your performance per session to identify your edge.
-        """)
+        st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
         st.write('---')
         st.subheader('📊 Session Statistics')
         # Use explicit check for empty dataframe
@@ -1380,7 +1402,6 @@ elif page == "Tools":
                 """, unsafe_allow_html=True)
     with tools_subtabs[5]:
         st.subheader("📉 Drawdown Recovery Planner")
-        st.write('---')
         dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
         winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
         avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1)
@@ -1410,7 +1431,6 @@ elif page == "Tools":
             pass
     with tools_subtabs[6]:
         st.subheader("✅ Pre-Trade Checklist")
-        st.write('---')
         user_id = st.session_state.get("logged_in_user", "guest")
         checklist_path = os.path.join(_ta_user_dir(user_id), "pretrade_checklist.json")
         current = _ta_load_json(checklist_path, {"criteria": [{"enabled": True, "text": "Trend Direction in favor"}, {"enabled": True, "text": "Confluence present"}, {"enabled": True, "text": "RR ≥ 1:2"}]})
@@ -1434,15 +1454,11 @@ elif page == "Tools":
             _ta_show_badges(df)
         except Exception:
             pass
-elif page == "Psychology":
+# =========================================================
+# TAB 5: PSYCHOLOGY
+# =========================================================
+with selected_tab[4]:
     st.title("🧠 Psychology")
-    st.markdown("""
-    Trading psychology is vital for success. Emotions like fear and greed can lead to poor decisions. 
-    Maintain discipline with a trading plan, manage risk, and log emotions to identify patterns. 
-    Common biases: overconfidence (trading too large), confirmation bias (ignoring contrary signals), 
-    revenge trading (chasing losses). Tips: Take breaks, meditate, review journals regularly, 
-    focus on process over profits. Consistent mindset leads to consistent results.
-    """)
     mt5_df = st.session_state.get("mt5_df", pd.DataFrame())
     df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
     if df.empty or "emotions" not in df.columns or df["emotions"].isna().all():
@@ -1483,7 +1499,10 @@ elif page == "Psychology":
         _ta_show_badges(df)
     except Exception:
         logging.error(f"Error in badges for Psychology tab: {str(e)}")
-elif page == "Manage My Strategy":
+# =========================================================
+# TAB 6: MANAGE MY STRATEGY
+# =========================================================
+with selected_tab[5]:
     st.title("📘 Manage My Strategy")
     user_id = st.session_state.get("logged_in_user", "guest")
     pdir = os.path.join(_ta_user_dir(user_id), "playbooks")
@@ -1494,7 +1513,6 @@ elif page == "Manage My Strategy":
         tags = st.text_input("Tags (comma separated)")
         description = st.text_area("Description / Notes", height=150)
         rules = st.text_area("Entry/Exit Rules", height=130)
-        confluences = st.text_area("Profitable Confluences", height=130)
         uploads = st.file_uploader("Attach screenshots (optional)", type=["png","jpg","jpeg","webp"], accept_multiple_files=True)
         if st.button("Save Playbook", disabled=(not name)):
             pb_id = _ta_hash()
@@ -1506,7 +1524,7 @@ elif page == "Manage My Strategy":
                 with open(out, "wb") as wf:
                     wf.write(f.read())
                 images.append(os.path.join(pb_id, f.name))
-            meta = {"id": pb_id, "name": name, "tags": [t.strip() for t in tags.split(",") if t.strip()], "description": description, "rules": rules, "confluences": confluences, "images": images, "created_at": time.time(), "updated_at": time.time()}
+            meta = {"id": pb_id, "name": name, "tags": [t.strip() for t in tags.split(",") if t.strip()], "description": description, "rules": rules, "images": images, "created_at": time.time(), "updated_at": time.time()}
             _ta_save_json(os.path.join(pb_dir, "meta.json"), meta)
             st.success("Playbook saved.")
     else:
@@ -1524,9 +1542,7 @@ elif page == "Manage My Strategy":
             st.caption(", ".join(pb.get("tags",[])))
             st.write(pb.get("description",""))
             st.write("**Rules**")
-            st.markdown(pb.get("rules",""))
-            st.write("**Profitable Confluences**")
-            st.markdown(pb.get("confluences",""))
+            st.code(pb.get("rules",""))
             img_cols = st.columns(3)
             for i, img_rel in enumerate(pb.get("images", [])):
                 img_path = os.path.join(pdir, img_rel)
@@ -1536,11 +1552,9 @@ elif page == "Manage My Strategy":
             st.subheader("Edit")
             new_desc = st.text_area("Description", pb.get("description",""))
             new_rules = st.text_area("Rules", pb.get("rules",""))
-            new_confluences = st.text_area("Profitable Confluences", pb.get("confluences",""))
             if st.button("Save Changes"):
                 pb["description"] = new_desc
                 pb["rules"] = new_rules
-                pb["confluences"] = new_confluences
                 pb["updated_at"] = time.time()
                 _ta_save_json(os.path.join(pdir, pb["id"], "meta.json"), pb)
                 st.success("Updated.")
@@ -1549,8 +1563,12 @@ elif page == "Manage My Strategy":
         _ta_show_badges(df)
     except Exception:
         pass
-elif page == "My Account":
+# =========================================================
+# TAB 7: MY ACCOUNT
+# =========================================================
+with selected_tab[6]:
     st.title("👤 My Account")
+
     st.markdown("""
     Welcome to your personal dashboard! Signing in unlocks the full power of your trading toolkit:
     - **Save your charts and drawings**
@@ -1559,8 +1577,10 @@ elif page == "My Account":
     - **Track your performance over time**
     - **Receive insights and notifications**
     """)
+
     # Create sub-tabs for Sign In / Sign Up
     account_tab = st.tabs(["Sign In", "Sign Up"])
+
     # ------------------ SIGN IN ------------------
     with account_tab[0]:
         st.subheader("Sign In to Your Account")
@@ -1593,6 +1613,7 @@ elif page == "My Account":
             except Exception as e:
                 st.error(f"Login error: {str(e)}")
                 logging.error(f"Login error for {login_username}: {str(e)}")
+
     # ------------------ SIGN UP ------------------
     with account_tab[1]:
         st.subheader("Create a New Account")
@@ -1614,14 +1635,11 @@ elif page == "My Account":
             except Exception as e:
                 st.error(f"Sign up error: {str(e)}")
                 logging.error(f"Sign up error for {signup_username}: {str(e)}")
+
     # ------------------ ACCOUNT SETTINGS ------------------
     if "logged_in_user" in st.session_state:
         st.markdown("---")
         st.subheader("Profile Settings & Preferences")
-        st.markdown("""
-        Customize your experience. Set your personal details, trading preferences, 
-        notification settings, and more. This helps tailor the dashboard to your needs.
-        """)
         col1, col2 = st.columns(2)
         with col1:
             name = st.text_input("Full Name", value=st.session_state.get("name", ""), key="account_name")
@@ -1631,19 +1649,12 @@ elif page == "My Account":
                 index=0,
                 key="account_base_ccy"
             )
-            experience_level = st.selectbox("Trading Experience Level", ["Beginner", "Intermediate", "Advanced", "Expert"], key="account_experience")
         with col2:
             email = st.text_input("Email", value=st.session_state.get("email", ""), key="account_email")
             alerts = st.checkbox(
                 "Email me before high-impact events",
                 value=st.session_state.get("alerts", True),
                 key="account_alerts"
-            )
-            newsletter = st.checkbox(
-                "Sign up for weekly fundamentals newsletter",
-                value=st.session_state.get("newsletter", False),
-                key="account_newsletter",
-                help="Extremely helpful for someone who doesn’t know much about fundamentals and their meaning or impact. Covers all key events, explanations, and potential market impacts."
             )
         if st.button("Save Preferences", key="account_save_prefs"):
             username = st.session_state.logged_in_user
@@ -1653,9 +1664,7 @@ elif page == "My Account":
                     "name": name,
                     "email": email,
                     "base_ccy": base_ccy,
-                    "experience_level": experience_level,
-                    "alerts": alerts,
-                    "newsletter": newsletter
+                    "alerts": alerts
                 }
                 c.execute("SELECT data FROM users WHERE username = ?", (username,))
                 result = c.fetchone()
@@ -1666,15 +1675,16 @@ elif page == "My Account":
                 st.session_state.name = name
                 st.session_state.email = email
                 st.session_state.base_ccy = base_ccy
-                st.session_state.experience_level = experience_level
                 st.session_state.alerts = alerts
-                st.session_state.newsletter = newsletter
                 st.success("✅ Preferences saved successfully.")
                 logging.info(f"Preferences saved for {username}")
             except Exception as e:
                 st.error(f"Failed to save preferences: {str(e)}")
                 logging.error(f"Error saving preferences for {username}: {str(e)}")
-elif page == "Community Trade Ideas":
+# =========================================================
+# TAB 8: COMMUNITY TRADE IDEAS
+# =========================================================
+with selected_tab[7]:
     st.title("🖼️ Community Trade Ideas")
     user_id = st.session_state.get("logged_in_user", "guest")
     udir = _ta_user_dir(user_id)
