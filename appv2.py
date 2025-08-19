@@ -1348,7 +1348,7 @@ with tab3:
 # =========================================================
 with tab4:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner", "Pre-Trade Checklist", "Daily/Weekly Rituals"])
+    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner", "Pre-Trade Checklist", "Pre-Market Checklist"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
@@ -1652,7 +1652,7 @@ with tab4:
         else:
             st.warning(f"⚠ Complete all {len(checklist_items)} checklist items before trading.")
     with tools_subtabs[7]:
-        st.header("📅 Daily/Weekly Rituals")
+        st.header("📅 Pre-Market Checklist")
         st.markdown("""
         Build consistent habits with pre-market checklists and end-of-day reflections. 
         These rituals help maintain discipline and continuous improvement.
