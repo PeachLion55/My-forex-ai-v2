@@ -1085,35 +1085,35 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
-    with tools_subtabs[5]:
-        st.subheader("📉 Drawdown Recovery Planner")
-        dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
-        winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
-        avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1) / 100.0
-        risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
-        needed_gain = _ta_percent_gain_to_recover(dd_pct)
-        st.metric("Gain Required to Break Even", _ta_human_pct(needed_gain))
-        E_R = winrate * avg_r - (1 - winrate) * 1.0
-        g = risk_pct * E_R
-        if g <= 0:
-            st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
-        else:
-            n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
-            st.metric("Approx. Trades Needed", f"{n}")
-        horizon = 100
-        equity = [1.0]
-        for i in range(horizon):
-            equity.append(equity[-1] * (1 + g))
-        proj = pd.DataFrame({"trade": list(range(horizon + 1)), "equity": equity})
-        target = 1 + needed_gain
-        fig = px.line(proj, x="trade", y="equity", title="Projected Equity Under Expected Return")
-        fig.add_hline(y=target, line_dash="dot", annotation_text="Break-even target")
-        st.plotly_chart(fig, use_container_width=True)
-        try:
-            df = globals().get("trades_df") or globals().get("journal_df")
-            _ta_show_badges(df)
-        except Exception:
-            pass
+with tools_subtabs[5]:
+    st.subheader("📉 Drawdown Recovery Planner")
+    dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
+    winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
+    avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1) / 100.0
+    risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
+    needed_gain = _ta_percent_gain_to_recover(dd_pct)
+    st.metric("Gain Required to Break Even", _ta_human_pct(needed_gain))
+    E_R = winrate * avg_r - (1 - winrate) * 1.0
+    g = risk_pct * E_R
+    if g <= 0:
+        st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
+    else:
+        n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
+        st.metric("Approx. Trades Needed", f"{n}")
+    horizon = 100
+    equity = [1.0]
+    for i in range(horizon):
+        equity.append(equity[-1] * (1 + g))
+    proj = pd.DataFrame({"trade": list(range(horizon + 1)), "equity": equity})
+    target = 1 + needed_gain
+    fig = px.line(proj, x="trade", y="equity", title="Projected Equity Under Expected Return")
+    fig.add_hline(y=target, line_dash="dot", annotation_text="Break-even target")
+    st.plotly_chart(fig, use_container_width=True)
+    try:
+        df = globals().get("trades_df") or globals().get("journal_df")
+        _ta_show_badges(df)
+    except Exception:
+        pass
     with tools_subtabs[6]:
         st.subheader("✅ Pre-Trade Checklist")
         user_id = st.session_state.get("logged_in_user", "guest")
