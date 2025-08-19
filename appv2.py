@@ -413,7 +413,7 @@ if "temp_journal" not in st.session_state:
 # NAVIGATION
 # =========================================================
 tabs = ["Forex Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Tools", "Psychology", "Manage My Strategy", "My Account", "Community Trade Ideas"]
-page = st.tabs("Dashboard", tabs)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(tabs)
 # =========================================================
 # PAGE CONTENT
 # =========================================================
