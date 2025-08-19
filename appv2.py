@@ -1103,20 +1103,26 @@ with tools_subtabs[5]:
 
     E_R = winrate * avg_r - (1 - winrate) * 1.0
     g = risk_pct * E_R
+
     if g <= 0:
         st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
-        else:
-            n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
-            st.metric("Approx. Trades Needed", f"{n}")
+    else:
+        n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
+        st.metric("Approx. Trades Needed", f"{n}")
+
+        # Project equity over horizon
         horizon = 100
         equity = [1.0]
         for i in range(horizon):
             equity.append(equity[-1] * (1 + g))
         proj = pd.DataFrame({"trade": list(range(horizon + 1)), "equity": equity})
         target = 1 + needed_gain
+
         fig = px.line(proj, x="trade", y="equity", title="Projected Equity Under Expected Return")
         fig.add_hline(y=target, line_dash="dot", annotation_text="Break-even target")
         st.plotly_chart(fig, use_container_width=True)
+
+        # Show badges if available
         try:
             df = globals().get("trades_df") or globals().get("journal_df")
             _ta_show_badges(df)
