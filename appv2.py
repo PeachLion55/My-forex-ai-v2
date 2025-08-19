@@ -482,14 +482,14 @@ with tab1:
     Below are current rates, with details on recent changes, next meeting dates, and market expectations.
     """)
     interest_rates = [
-        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024", "Next Meeting": "2025-09-18", "Expectation": "Possible cut if inflation cools further. Fed watching labor data closely."},
-        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025", "Next Meeting": "2025-09-19", "Expectation": "BOE may hold steady amid persistent UK inflation pressures."},
-        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025", "Next Meeting": "2025-09-12", "Expectation": "ECB likely to pause cuts as eurozone growth stabilizes."},
-        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025", "Next Meeting": "2025-09-20", "Expectation": "BOJ gradual hikes if yen weakness persists."},
-        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025", "Next Meeting": "2025-09-24", "Expectation": "RBA monitoring commodity prices; potential hold."},
-        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025", "Next Meeting": "2025-09-04", "Expectation": "BOC data-dependent; oil prices key factor."},
-        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025", "Next Meeting": "2025-10-09", "Expectation": "RBNZ easing cycle may continue if dairy prices fall."},
-        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025", "Next Meeting": "2025-09-26", "Expectation": "SNB intervening on franc strength; rates likely steady."},
+        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024", "Next Meeting": "2025-09-18"},
+        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025", "Next Meeting": "2025-09-19"},
+        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025", "Next Meeting": "2025-09-12"},
+        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025", "Next Meeting": "2025-09-20"},
+        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025", "Next Meeting": "2025-09-24"},
+        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025", "Next Meeting": "2025-09-04"},
+        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025", "Next Meeting": "2025-10-09"},
+        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025", "Next Meeting": "2025-09-26"},
     ]
     boxes_per_row = 4
     colors = ["#171447", "#471414", "#144714", "#474714"]
@@ -513,7 +513,6 @@ with tab1:
                             <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
                             <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
                             <p style="margin: 2px 0;"><b>Next Meeting:</b> {rate['Next Meeting']}</p>
-                            <p style="margin: 2px 0;"><b>Expectation:</b> {rate['Expectation']}</p>
                         </div>
                     </div>
                     """,
