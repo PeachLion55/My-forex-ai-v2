@@ -424,28 +424,77 @@ with selected_tab[0]:
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
         st.info("See the **Backtesting** tab for live charts + detailed news.")
-    # Economic Calendar
-    st.markdown("### 🗓️ Upcoming Economic Events")
-    if 'selected_currency_1' not in st.session_state:
-        st.session_state.selected_currency_1 = None
-    if 'selected_currency_2' not in st.session_state:
-        st.session_state.selected_currency_2 = None
-    uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
-    col_filter1, col_filter2 = st.columns(2)
-    with col_filter1:
-        currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1")
-        st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
-    with col_filter2:
-        currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
-        st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-    def highlight_currency(row):
-        styles = [''] * len(row)
-        if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
-            styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
-        if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
-            styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
-        return styles
-    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
+import pandas as pd
+import streamlit as st
+
+# Economic Calendar data
+econ_data = [
+    ["Tue Aug 19", "1:30pm", "CAD", "High", "Median CPI y/y", "", "3.10%", "3.10%"],
+    ["Tue Aug 19", "1:30pm", "CAD", "High", "Trimmed CPI y/y", "", "3.00%", "3.00%"],
+    ["Tue Aug 19", "1:30pm", "CAD", "Medium", "Common CPI y/y", "", "2.70%", "2.60%"],
+    ["Wed Aug 20", "2:00am", "CNY", "Medium", "1-y Loan Prime Rate", "", "3.00%", "3.00%"],
+    ["Wed Aug 20", "2:00am", "CNY", "Medium", "5-y Loan Prime Rate", "", "3.50%", "3.50%"],
+    ["Wed Aug 20", "3:00am", "NZD", "High", "Official Cash Rate", "", "3.00%", "3.25%"],
+    ["Wed Aug 20", "3:00am", "NZD", "High", "RBNZ Monetary Policy Statement", "", "", ""],
+    ["Wed Aug 20", "4:00am", "NZD", "High", "RBNZ Rate Statement", "", "", ""],
+    ["Wed Aug 20", "4:00am", "NZD", "High", "RBNZ Press Conference", "", "", ""],
+    ["Wed Aug 20", "7:00am", "GBP", "High", "CPI y/y", "", "3.70%", "3.60%"],
+    ["Wed Aug 20", "4:00pm", "USD", "Medium", "FOMC Member Waller Speaks", "", "", ""],
+    ["Thu Aug 21", "7:00pm", "USD", "High", "FOMC Meeting Minutes", "", "", ""],
+    ["Thu Aug 21", "8:15am", "EUR", "Medium", "French Flash Manufacturing PMI", "", "48.5", "48.2"],
+    ["Thu Aug 21", "8:30am", "EUR", "High", "French Flash Services PMI", "", "48.6", "48.3"],
+    ["Thu Aug 21", "8:30am", "EUR", "High", "German Flash Manufacturing PMI", "", "48.8", "49.1"],
+    ["Thu Aug 21", "8:30am", "EUR", "High", "German Flash Services PMI", "", "50.5", "50.6"],
+    ["Thu Aug 21", "9:00am", "EUR", "Medium", "Flash Manufacturing PMI", "", "49.6", "49.8"],
+    ["Thu Aug 21", "9:00am", "EUR", "Medium", "Flash Services PMI", "", "50.8", "51"],
+    ["Thu Aug 21", "9:30am", "GBP", "Medium", "Flash Manufacturing PMI", "", "48.2", "48"],
+    ["Thu Aug 21", "9:30am", "GBP", "High", "Flash Services PMI", "", "51.9", "51.8"],
+    ["Thu Aug 21", "1:30pm", "USD", "High", "Unemployment Claims", "", "227K", "224K"],
+    ["Thu Aug 21", "1:30pm", "USD", "Medium", "Philly Fed Manufacturing Index", "", "5.9", "15.9"],
+    ["Thu Aug 21", "2:45pm", "USD", "High", "Flash Manufacturing PMI", "", "49.9", "49.4"],
+    ["Thu Aug 21", "2:45pm", "USD", "High", "Flash Services PMI", "", "53.3", "53.7"],
+    ["Thu Aug 21", "3:00pm", "USD", "High", "Existing Home Sales", "", "3.92M", "3.93M"],
+    ["Fri Aug 22", "Day 1", "All", "Medium", "Jackson Hole Symposium", "", "", ""],
+    ["Fri Aug 22", "7:00am", "GBP", "Medium", "Retail Sales m/m", "", "0.50%", "0.90%"],
+    ["Fri Aug 22", "1:30pm", "CAD", "Medium", "Core Retail Sales m/m", "", "0.80%", "-0.20%"],
+    ["Fri Aug 22", "1:30pm", "CAD", "Medium", "Retail Sales m/m", "", "1.00%", "-1.10%"],
+    ["Fri Aug 22", "3:00pm", "USD", "Medium", "Fed Chair Powell Speaks", "", "", ""],
+    ["Sat Aug 23", "Day 2", "All", "High", "Jackson Hole Symposium", "", "", ""],
+    ["Sun Aug 24", "Day 3", "All", "Medium", "Jackson Hole Symposium", "", "", ""],
+    ["Sun Aug 24", "5:25pm", "EUR", "Medium", "ECB President Lagarde Speaks", "", "", ""],
+    ["Sun Aug 24", "5:25pm", "GBP", "High", "BOE Gov Bailey Speaks", "", "", ""],
+    ["Sun Aug 24", "11:45am", "NZD", "Medium", "Retail Sales q/q", "", "", ""]
+]
+
+econ_df = pd.DataFrame(econ_data, columns=["Date", "Time", "Currency", "Impact", "Event", "Actual", "Forecast", "Previous"])
+
+# Economic Calendar display
+st.markdown("### 🗓️ Upcoming Economic Events")
+
+if 'selected_currency_1' not in st.session_state:
+    st.session_state.selected_currency_1 = None
+if 'selected_currency_2' not in st.session_state:
+    st.session_state.selected_currency_2 = None
+
+uniq_ccy = sorted(econ_df["Currency"].unique())
+
+col_filter1, col_filter2 = st.columns(2)
+with col_filter1:
+    currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + list(uniq_ccy), key="cal_curr_1")
+    st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
+with col_filter2:
+    currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + list(uniq_ccy), key="cal_curr_2")
+    st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
+
+def highlight_currency(row):
+    styles = [''] * len(row)
+    if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
+        styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+    if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
+        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+    return styles
+
+st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
     # Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
