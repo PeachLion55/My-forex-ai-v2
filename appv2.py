@@ -1426,4 +1426,4 @@ with col_main:
             E_R = winrate * avg_r - (1 - winrate) * 1.0
             exp_growth = (1 + risk_pct * E_R) ** trades
             st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
-            alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1
+            alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1)
