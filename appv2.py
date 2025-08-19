@@ -1335,52 +1335,65 @@ with selected_tab[4]:
             help="Upload a CSV file exported from MetaTrader 5 containing your trading history."
         )
         st.markdown('</div>', unsafe_allow_html=True)
-    if uploaded_file:
-        with st.spinner("Processing your trading data..."):
-            try:
-                df = pd.read_csv(uploaded_file)
-                required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                if missing_cols:
-                    st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}.")
-                else:
-                    df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
-                    df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-                    # Metrics calculations
-                    total_trades = len(df)
-                    wins = df[df["Profit"] > 0]
-                    losses = df[df["Profit"] <= 0]
-                    win_rate = (len(wins) / total_trades * 100) if total_trades else 0
-                    avg_win = wins["Profit"].mean() if not wins.empty else 0
-                    avg_loss = losses["Profit"].mean() if not losses.empty else 0
-                    profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
-                    net_profit = df["Profit"].sum()
-                    biggest_win = df["Profit"].max()
-                    biggest_loss = df["Profit"].min()
-                    longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
-                    longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
-                    total_volume = df["Volume"].sum()
-                    avg_volume = df["Volume"].mean()
-                    largest_volume_trade = df["Volume"].max()
-                    profit_per_trade = net_profit / total_trades if total_trades else 0
-                    avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
-                    # Metrics list
-                    metrics = [
-                        ("📊 Total Trades", total_trades, "neutral"),
-                        ("✅ Win Rate", f"{win_rate:.2f}%", "positive" if win_rate >= 50 else "negative"),
-                        ("💰 Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
-                        ("⚡ Profit Factor", profit_factor, "positive" if profit_factor >= 1 else "negative"),
-                        ("🏆 Biggest Win", f"${biggest_win:,.2f}", "positive"),
-                        ("💀 Biggest Loss", f"${biggest_loss:,.2f}", "negative"),
-                        ("🔥 Longest Win Streak", longest_win_streak, "positive"),
-                        ("❌ Longest Loss Streak", longest_loss_streak, "negative"),
-                        ("⏱️ Avg Trade Duration", f"{avg_trade_duration:.2f}h", "neutral"),
-                        ("📦 Total Volume", f"{total_volume:,.2f}", "neutral"),
-                        ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
-                        ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
-                    ]
-# Display metrics in three rows of four
-for row in range(3):
-    row_metrics = metrics[row * 4:(row + 1) * 4]
-    cols = st.columns(4)
-    for i, (title, value, style) in enumerate(row_metrics):
+if uploaded_file:
+    with st.spinner("Processing your trading data..."):
+        try:
+            df = pd.read_csv(uploaded_file)
+            required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}.")
+            else:
+                df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+                df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                # Metrics calculations
+                total_trades = len(df)
+                wins = df[df["Profit"] > 0]
+                losses = df[df["Profit"] <= 0]
+                win_rate = (len(wins) / total_trades * 100) if total_trades else 0
+                avg_win = wins["Profit"].mean() if not wins.empty else 0
+                avg_loss = losses["Profit"].mean() if not losses.empty else 0
+                profit_factor = round((wins["Profit"].sum() / abs(losses["Profit"].sum())) if not losses.empty else np.inf, 2)
+                net_profit = df["Profit"].sum()
+                biggest_win = df["Profit"].max()
+                biggest_loss = df["Profit"].min()
+                longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
+                longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+                total_volume = df["Volume"].sum()
+                avg_volume = df["Volume"].mean()
+                largest_volume_trade = df["Volume"].max()
+                profit_per_trade = net_profit / total_trades if total_trades else 0
+                avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
+                # Metrics list
+                metrics = [
+                    ("📊 Total Trades", total_trades, "neutral"),
+                    ("✅ Win Rate", f"{win_rate:.2f}%", "positive" if win_rate >= 50 else "negative"),
+                    ("💰 Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
+                    ("⚡ Profit Factor", profit_factor, "positive" if profit_factor >= 1 else "negative"),
+                    ("🏆 Biggest Win", f"${biggest_win:,.2f}", "positive"),
+                    ("💀 Biggest Loss", f"${biggest_loss:,.2f}", "negative"),
+                    ("🔥 Longest Win Streak", longest_win_streak, "positive"),
+                    ("❌ Longest Loss Streak", longest_loss_streak, "negative"),
+                    ("⏱️ Avg Trade Duration", f"{avg_trade_duration:.2f}h", "neutral"),
+                    ("📦 Total Volume", f"{total_volume:,.2f}", "neutral"),
+                    ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
+                    ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
+                ]
+                # Display metrics in three rows of four
+                for row in range(3):
+                    row_metrics = metrics[row * 4:(row + 1) * 4]
+                    cols = st.columns(4)
+                    for i, (title, value, style) in enumerate(row_metrics):
+                        with cols[i]:
+                            st.markdown(
+                                f"""
+                                <div class="metric-card {style}">
+                                    <div class="metric-title">{title}</div>
+                                    <div class="metric-value">{value}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+        except Exception as e:
+            st.error(f"Error processing CSV file: {str(e)}")
+            logging.error(f"Error processing CSV: {str(e)}")
