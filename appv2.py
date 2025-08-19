@@ -989,7 +989,7 @@ with selected_tab[2]:
                         color_continuous_scale="RdBu",
                         title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
-    with tools_subtabs[3]:
+  with tools_subtabs[3]:
     st.header("🛡️ Risk Management Calculator")
     st.markdown("Proper position sizing keeps your account safe.")
     st.write('---')
