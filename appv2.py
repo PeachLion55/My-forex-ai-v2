@@ -424,72 +424,68 @@ with selected_tab[0]:
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
         st.info("See the **Backtesting** tab for live charts + detailed news.")
-# Economic Calendar
-import pandas as pd
-econ_df = pd.read_csv("fx news.csv")
-st.markdown("### 🗓️ Upcoming Economic Events")
-if 'selected_currency_1' not in st.session_state:
-    st.session_state.selected_currency_1 = None
-if 'selected_currency_2' not in st.session_state:
-    st.session_state.selected_currency_2 = None
-uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
-col_filter1, col_filter2 = st.columns(2)
-with col_filter1:
-    currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1")
-    st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
-with col_filter2:
-    currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
-    st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-def highlight_currency(row):
-    styles = [''] * len(row)
-    if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
-        styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
-    if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
-        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
-    return styles
-st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-   
-# Interest rate tiles
-st.markdown("### 💹 Major Central Bank Interest Rates")
-interest_rates = [
-    {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
-    {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
-    {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
-    {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
-    {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
-    {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
-    {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
-    {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
-]
-boxes_per_row = 4
-colors = ["#171447", "#471414", "#144714", "#474714"]
-for i in range(0, len(interest_rates), boxes_per_row):
-    cols = st.columns(boxes_per_row)
-    for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
-        color = colors[j % len(colors)]
-        with cols[j]:
-            st.markdown(
-                f"""
-                <div class="card">
-                    <div style="
-                        background-color:{color};
-                        border-radius:10px;
-                        padding:15px;
-                        text-align:center;
-                        color:white;
-                    ">
-                        <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
-                        <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
-                        <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
-                        <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
+    # Economic Calendar
+    st.markdown("### 🗓️ Upcoming Economic Events")
+    if 'selected_currency_1' not in st.session_state:
+        st.session_state.selected_currency_1 = None
+    if 'selected_currency_2' not in st.session_state:
+        st.session_state.selected_currency_2 = None
+    uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
+    col_filter1, col_filter2 = st.columns(2)
+    with col_filter1:
+        currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1")
+        st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
+    with col_filter2:
+        currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
+        st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
+    def highlight_currency(row):
+        styles = [''] * len(row)
+        if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
+            styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+        if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
+            styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+        return styles
+    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
+    # Interest rate tiles
+    st.markdown("### 💹 Major Central Bank Interest Rates")
+    interest_rates = [
+        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
+        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
+        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
+        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
+        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
+        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
+        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
+        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
+    ]
+    boxes_per_row = 4
+    colors = ["#171447", "#471414", "#144714", "#474714"]
+    for i in range(0, len(interest_rates), boxes_per_row):
+        cols = st.columns(boxes_per_row)
+        for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+            color = colors[j % len(colors)]
+            with cols[j]:
+                st.markdown(
+                    f"""
+                    <div class="card">
+                        <div style="
+                            background-color:{color};
+                            border-radius:10px;
+                            padding:15px;
+                            text-align:center;
+                            color:white;
+                        ">
+                            <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
+                            <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
+                            <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
+                            <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
+                        </div>
                     </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    
-# Major High-Impact Events
+                    """,
+                    unsafe_allow_html=True
+                )
+    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    # Major High-Impact Events
     st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
         {
