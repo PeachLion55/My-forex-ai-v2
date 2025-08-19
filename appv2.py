@@ -885,37 +885,37 @@ with selected_tab[1]:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
     # News & Sentiment
-    st.markdown("### 📰 News & Sentiment for Selected Pair")
-    if not df_news.empty:
-        base, quote = pair.split("/")
-        filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
-        try:
-            filtered_df["HighProb"] = filtered_df.apply(
-                lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                    (pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
-                else "", axis=1
-            )
-        except Exception as e:
-            filtered_df["HighProb"] = ""
-            logging.error(f"Error processing news high probability: {str(e)}")
-        filtered_df_display = filtered_df.copy()
-        filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-        if not filtered_df_display.empty:
-            selected_headline = st.selectbox(
-                "Select a headline for details",
-                filtered_df_display["HeadlineDisplay"].tolist(),
-                key="bt_headline_select"
-            )
-            selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
-            st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
-            st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
-            st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
-            with st.expander("Summary"):
-                st.write(selected_row["Summary"])
-        else:
-            st.info("No pair-specific headlines found in the recent feed.")
-    else:
-        st.info("News feed unavailable right now.")
+    #st.markdown("### 📰 News & Sentiment for Selected Pair")
+    #if not df_news.empty:
+        #base, quote = pair.split("/")
+        #filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
+        #try:
+            #filtered_df["HighProb"] = filtered_df.apply(
+                #lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
+                                    #(pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
+                #else "", axis=1
+            #)
+        #except Exception as e:
+            #filtered_df["HighProb"] = ""
+            #logging.error(f"Error processing news high probability: {str(e)}")
+        #filtered_df_display = filtered_df.copy()
+        #filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
+        #if not filtered_df_display.empty:
+            #selected_headline = st.selectbox(
+                #"Select a headline for details",
+                #filtered_df_display["HeadlineDisplay"].tolist(),
+                #key="bt_headline_select"
+            #)
+            #selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
+            #st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
+            #st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
+            #st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
+            #with st.expander("Summary"):
+                #st.write(selected_row["Summary"])
+        #else:
+            #st.info("No pair-specific headlines found in the recent feed.")
+    #else:
+        #st.info("News feed unavailable right now.")
 # =========================================================
 # TAB 3: MT5 STATS DASHBOARD
 # =========================================================
