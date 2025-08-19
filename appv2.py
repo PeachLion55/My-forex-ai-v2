@@ -723,40 +723,43 @@ with tab1:
 with tab2:
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
-# Pair selector & symbol map (28 major & minor pairs)
-pairs_map = {
-    # Majors
-    "EUR/USD": "FX:EURUSD",
-    "USD/JPY": "FX:USDJPY",
-    "GBP/USD": "FX:GBPUSD",
-    "USD/CHF": "OANDA:USDCHF",
-    "AUD/USD": "FX:AUDUSD",
-    "NZD/USD": "OANDA:NZDUSD",
-    "USD/CAD": "CMCMARKETS:USDCAD",
-    
-    # Crosses / Minors
-    "EUR/GBP": "FX:EURGBP",
-    "EUR/JPY": "FX:EURJPY",
-    "GBP/JPY": "FX:GBPJPY",
-    "AUD/JPY": "FX:AUDJPY",
-    "AUD/NZD": "FX:AUDNZD",
-    "AUD/CAD": "FX:AUDCAD",
-    "AUD/CHF": "FX:AUDCHF",
-    "CAD/JPY": "FX:CADJPY",
-    "CHF/JPY": "FX:CHFJPY",
-    "EUR/AUD": "FX:EURAUD",
-    "EUR/CAD": "FX:EURCAD",
-    "EUR/CHF": "FX:EURCHF",
-    "GBP/AUD": "FX:GBPAUD",
-    "GBP/CAD": "FX:GBPCAD",
-    "GBP/CHF": "FX:GBPCHF",
-    "NZD/JPY": "FX:NZDJPY",
-    "NZD/CAD": "FX:NZDCAD",
-    "NZD/CHF": "FX:NZDCHF",
-    "CAD/CHF": "FX:CADCHF",
-}
+
+    # Pair selector & symbol map (28 major & minor pairs)
+    pairs_map = {
+        # Majors
+        "EUR/USD": "FX:EURUSD",
+        "USD/JPY": "FX:USDJPY",
+        "GBP/USD": "FX:GBPUSD",
+        "USD/CHF": "OANDA:USDCHF",
+        "AUD/USD": "FX:AUDUSD",
+        "NZD/USD": "OANDA:NZDUSD",
+        "USD/CAD": "CMCMARKETS:USDCAD",
+        
+        # Crosses / Minors
+        "EUR/GBP": "FX:EURGBP",
+        "EUR/JPY": "FX:EURJPY",
+        "GBP/JPY": "FX:GBPJPY",
+        "AUD/JPY": "FX:AUDJPY",
+        "AUD/NZD": "FX:AUDNZD",
+        "AUD/CAD": "FX:AUDCAD",
+        "AUD/CHF": "FX:AUDCHF",
+        "CAD/JPY": "FX:CADJPY",
+        "CHF/JPY": "FX:CHFJPY",
+        "EUR/AUD": "FX:EURAUD",
+        "EUR/CAD": "FX:EURCAD",
+        "EUR/CHF": "FX:EURCHF",
+        "GBP/AUD": "FX:GBPAUD",
+        "GBP/CAD": "FX:GBPCAD",
+        "GBP/CHF": "FX:GBPCHF",
+        "NZD/JPY": "FX:NZDJPY",
+        "NZD/CAD": "FX:NZDCAD",
+        "NZD/CHF": "FX:NZDCHF",
+        "CAD/CHF": "FX:CADCHF",
+    }
+
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
+
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
         username = st.session_state.logged_in_user
@@ -773,6 +776,7 @@ pairs_map = {
         except Exception as e:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
+
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
     # TradingView widget
     tv_html = f"""
