@@ -495,141 +495,147 @@ def highlight_currency(row):
     return styles
 
 st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-    # Interest rate tiles
-    st.markdown("### 💹 Major Central Bank Interest Rates")
-    interest_rates = [
-        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
-        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
-        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
-        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
-        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
-        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
-        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
-        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
-    ]
-    boxes_per_row = 4
-    colors = ["#171447", "#471414", "#144714", "#474714"]
-    for i in range(0, len(interest_rates), boxes_per_row):
-        cols = st.columns(boxes_per_row)
-        for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
-            color = colors[j % len(colors)]
-            with cols[j]:
-                st.markdown(
-                    f"""
-                    <div class="card">
-                        <div style="
-                            background-color:{color};
-                            border-radius:10px;
-                            padding:15px;
-                            text-align:center;
-                            color:white;
-                        ">
-                            <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
-                            <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
-                            <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
-                            <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    # Major High-Impact Events
-    st.markdown("### 📊 Major High-Impact Forex Events")
-    forex_high_impact_events = [
-        {
-            "event": "Non-Farm Payrolls (NFP)",
-            "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
-            "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
-            "impact_positive": {
-                "USD": "↑ Stronger USD due to strong labor market",
-                "EUR/USD": "↓ EUR weakens vs USD",
-                "GBP/USD": "↓ GBP weakens vs USD",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ AUD weakens vs USD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "USD": "↓ Weaker USD due to weak labor market",
-                "EUR/USD": "↑ EUR strengthens vs USD",
-                "GBP/USD": "↑ GBP strengthens vs USD",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ AUD strengthens vs USD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
-        },
-        {
-            "event": "Consumer Price Index (CPI)",
-            "description": "Measures changes in consumer prices; gauges inflation.",
-            "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ Higher rates likely → currency strengthens",
-                "EUR/USD": "↓ Currency strengthens vs EUR",
-                "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ Currency strengthens vs AUD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ Lower inflation → dovish → currency weakens",
-                "EUR/USD": "↑ Currency weakens vs EUR",
-                "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ Currency weakens vs AUD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
-        },
-        {
-            "event": "Interest Rate Decision",
-            "description": "Central bank sets the official interest rate.",
-            "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ if hike or hawkish guidance → strengthens vs majors",
-                "EUR/USD": "↓ Currency strengthens vs EUR",
-                "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ Currency strengthens vs AUD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ if cut or dovish guidance → weakens vs majors",
-                "EUR/USD": "↑ Currency weakens vs EUR",
-                "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ Currency weakens vs AUD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
-        },
-    ]
-    for ev in forex_high_impact_events:
-        positive_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_positive"].items()])
-        negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
-        st.markdown(
-            f"""
-            <div style="
-                border-radius:12px;
-                padding:15px;
-                margin-bottom:18px;
-                background-color:#12121a;
-                color:white;
-                box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
-            ">
-                <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
-                <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
-                <p style="margin:6px 0 12px 0;"><b>Why it matters:</b> {ev['why_it_matters']}</p>
-                <div style="display:flex; gap:12px;">
-                    <div style="flex:1; background-color:#0f2b0f; padding:12px; border-radius:10px;">
-                        <h5 style="margin:0 0 8px 0; color:#b7f2b7;">Positive →</h5>
-                        <div style="font-size:0.95rem;">{positive_impact}</div>
-                    </div>
-                    <div style="flex:1; background-color:#2b0f0f; padding:12px; border-radius:10px;">
-                        <h5 style="margin:0 0 8px 0; color:#f6b3b3;">Negative →</h5>
-                        <div style="font-size:0.95rem;">{negative_impact}</div>
+# Interest rate tiles
+st.markdown("### 💹 Major Central Bank Interest Rates")
+interest_rates = [
+    {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
+    {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
+    {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
+    {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
+    {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
+    {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
+    {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
+    {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
+]
+
+boxes_per_row = 4
+colors = ["#171447", "#471414", "#144714", "#474714"]
+
+for i in range(0, len(interest_rates), boxes_per_row):
+    cols = st.columns(boxes_per_row)
+    for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+        color = colors[j % len(colors)]
+        with cols[j]:
+            st.markdown(
+                f"""
+                <div class="card">
+                    <div style="
+                        background-color:{color};
+                        border-radius:10px;
+                        padding:15px;
+                        text-align:center;
+                        color:white;
+                    ">
+                        <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
+                        <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
+                        <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
+                        <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
                     </div>
                 </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+
+# Major High-Impact Events
+st.markdown("### 📊 Major High-Impact Forex Events")
+forex_high_impact_events = [
+    {
+        "event": "Non-Farm Payrolls (NFP)",
+        "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
+        "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
+        "impact_positive": {
+            "USD": "↑ Stronger USD due to strong labor market",
+            "EUR/USD": "↓ EUR weakens vs USD",
+            "GBP/USD": "↓ GBP weakens vs USD",
+            "USD/JPY": "↑ USD strengthens vs JPY",
+            "AUD/USD": "↓ AUD weakens vs USD",
+            "USD/CAD": "↑ USD strengthens vs CAD"
+        },
+        "impact_negative": {
+            "USD": "↓ Weaker USD due to weak labor market",
+            "EUR/USD": "↑ EUR strengthens vs USD",
+            "GBP/USD": "↑ GBP strengthens vs USD",
+            "USD/JPY": "↓ USD weakens vs JPY",
+            "AUD/USD": "↑ AUD strengthens vs USD",
+            "USD/CAD": "↓ USD weakens vs CAD"
+        },
+    },
+    {
+        "event": "Consumer Price Index (CPI)",
+        "description": "Measures changes in consumer prices; gauges inflation.",
+        "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
+        "impact_positive": {
+            "Currency": "↑ Higher rates likely → currency strengthens",
+            "EUR/USD": "↓ Currency strengthens vs EUR",
+            "GBP/USD": "↓ Currency strengthens vs GBP",
+            "USD/JPY": "↑ USD strengthens vs JPY",
+            "AUD/USD": "↓ Currency strengthens vs AUD",
+            "USD/CAD": "↑ USD strengthens vs CAD"
+        },
+        "impact_negative": {
+            "Currency": "↓ Lower inflation → dovish → currency weakens",
+            "EUR/USD": "↑ Currency weakens vs EUR",
+            "GBP/USD": "↑ Currency weakens vs GBP",
+            "USD/JPY": "↓ USD weakens vs JPY",
+            "AUD/USD": "↑ Currency weakens vs AUD",
+            "USD/CAD": "↓ USD weakens vs CAD"
+        },
+    },
+    {
+        "event": "Interest Rate Decision",
+        "description": "Central bank sets the official interest rate.",
+        "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
+        "impact_positive": {
+            "Currency": "↑ if hike or hawkish guidance → strengthens vs majors",
+            "EUR/USD": "↓ Currency strengthens vs EUR",
+            "GBP/USD": "↓ Currency strengthens vs GBP",
+            "USD/JPY": "↑ USD strengthens vs JPY",
+            "AUD/USD": "↓ Currency strengthens vs AUD",
+            "USD/CAD": "↑ USD strengthens vs CAD"
+        },
+        "impact_negative": {
+            "Currency": "↓ if cut or dovish guidance → weakens vs majors",
+            "EUR/USD": "↑ Currency weakens vs EUR",
+            "GBP/USD": "↑ Currency weakens vs GBP",
+            "USD/JPY": "↓ USD weakens vs JPY",
+            "AUD/USD": "↑ Currency weakens vs AUD",
+            "USD/CAD": "↓ USD weakens vs CAD"
+        },
+    },
+]
+
+for ev in forex_high_impact_events:
+    positive_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_positive"].items()])
+    negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
+    st.markdown(
+        f"""
+        <div style="
+            border-radius:12px;
+            padding:15px;
+            margin-bottom:18px;
+            background-color:#12121a;
+            color:white;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+        ">
+            <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
+            <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
+            <p style="margin:6px 0 12px 0;"><b>Why it matters:</b> {ev['why_it_matters']}</p>
+            <div style="display:flex; gap:12px;">
+                <div style="flex:1; background-color:#0f2b0f; padding:12px; border-radius:10px;">
+                    <h5 style="margin:0 0 8px 0; color:#b7f2b7;">Positive →</h5>
+                    <div style="font-size:0.95rem;">{positive_impact}</div>
+                </div>
+                <div style="flex:1; background-color:#2b0f0f; padding:12px; border-radius:10px;">
+                    <h5 style="margin:0 0 8px 0; color:#f6b3b3;">Negative →</h5>
+                    <div style="font-size:0.95rem;">{negative_impact}</div>
+                </div>
             </div>
-            """, unsafe_allow_html=True
-        )
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 # =========================================================
 # TAB 2: BACKTESTING
 # =========================================================
