@@ -21,8 +21,13 @@ import glob
 import time
 
 # Set up logging
-logging.basicBasicConfig(filename='debug.log', level=logging.DEBUG,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+import logging
+
+logging.basicConfig(
+    filename='debug.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # Path to SQLite DB
 DB_FILE = "users.db"
