@@ -19,25 +19,20 @@ import math
 import uuid
 import glob
 import time
-
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
-
 # === TA_PRO HELPERS START ===
 def _ta_safe_lower(s):
     return str(s).strip().lower().replace(" ", "_")
-
 def _ta_human_pct(x, nd=1):
     if pd.isna(x):
         return "—"
     return f"{x*100:.{nd}f}%"
-
 def _ta_human_num(x, nd=2):
     if pd.isna(x):
         return "—"
     return f"{x:.{nd}f}"
-
 def _ta_user_dir(user_id="guest"):
     root = os.path.join(os.path.dirname(__file__), "user_data")
     os.makedirs(root, exist_ok=True)
@@ -46,29 +41,24 @@ def _ta_user_dir(user_id="guest"):
     os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
     os.makedirs(os.path.join(d, "playbooks"), exist_ok=True)
     return d
-
 def _ta_load_json(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return default
-
 def _ta_save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
-def _ta_hash(): 
+def _ta_hash():
     return uuid.uuid4().hex[:12]
-
 def _ta_percent_gain_to_recover(drawdown_pct):
-    if drawdown_pct <= 0: 
+    if drawdown_pct <= 0:
         return 0.0
     if drawdown_pct >= 0.99:
         return float("inf")
     return drawdown_pct / (1 - drawdown_pct)
-
 def _ta_expectancy_by_group(df, group_cols):
     g = df.dropna(subset=["r"]).groupby(group_cols)
     res = g["r"].agg(
@@ -79,26 +69,23 @@ def _ta_expectancy_by_group(df, group_cols):
         expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
     ).reset_index()
     return res
-
 def _ta_profit_factor(df):
-    if "pnl" not in df.columns: 
+    if "pnl" not in df.columns:
         return np.nan
     gp = df.loc[df["pnl"]>0, "pnl"].sum()
     gl = -df.loc[df["pnl"]<0, "pnl"].sum()
     if gl == 0:
         return np.nan if gp == 0 else float("inf")
     return gp / gl
-
 def _ta_daily_pnl(df):
     if "datetime" in df.columns and "pnl" in df.columns:
         tmp = df.dropna(subset=["datetime"]).copy()
         tmp["date"] = pd.to_datetime(tmp["datetime"]).dt.date
         return tmp.groupby("date", as_index=False)["pnl"].sum()
     return pd.DataFrame(columns=["date","pnl"])
-
 def _ta_compute_streaks(df):
     d = _ta_daily_pnl(df)
-    if d.empty: 
+    if d.empty:
         return {"current": 0, "best": 0}
     streak = 0
     best = 0
@@ -109,7 +96,6 @@ def _ta_compute_streaks(df):
         else:
             streak = 0
     return {"current": streak, "best": best}
-
 def _ta_show_badges(df):
     with st.expander("🏅 Gamification: Streaks & Badges", expanded=False):
         streaks = _ta_compute_streaks(df) if df is not None else {"current":0,"best":0}
@@ -120,10 +106,8 @@ def _ta_show_badges(df):
             emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
             st.caption(f"🧠 Emotion-logged trades: {emo_logged}")
 # === TA_PRO HELPERS END ===
-
 # Path to SQLite DB
 DB_FILE = "users.db"
-
 # Connect to SQLite with error handling
 try:
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
@@ -135,7 +119,6 @@ try:
 except Exception as e:
     logging.error(f"Failed to initialize SQLite database: {str(e)}")
     st.error(f"Database initialization failed: {str(e)}")
-
 # =========================================================
 # PAGE CONFIG
 # =========================================================
@@ -300,7 +283,6 @@ div[data-baseweb="tab-list"] button:hover {{
 """,
     unsafe_allow_html=True,
 )
-
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -321,7 +303,6 @@ def detect_currency(title: str) -> str:
             if kw in t:
                 return curr
     return "Unknown"
-
 def rate_impact(polarity: float) -> str:
     if polarity > 0.5:
         return "Significantly Bullish"
@@ -333,7 +314,6 @@ def rate_impact(polarity: float) -> str:
         return "Bearish"
     else:
         return "Neutral"
-
 @st.cache_data(ttl=600, show_spinner=False)
 def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -372,19 +352,16 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             logging.error(f"Failed to process news dataframe: {str(e)}")
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
-
 # Initialize drawings in session_state
 if "drawings" not in st.session_state:
     st.session_state.drawings = {}
     logging.info("Initialized st.session_state.drawings")
-
 # Define journal columns and dtypes
 journal_cols = [
     "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
@@ -417,7 +394,6 @@ journal_dtypes = {
     "Take Profit Price": float,
     "Lots": float
 }
-
 # Initialize trading journal with proper dtypes
 if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
     st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
@@ -430,17 +406,14 @@ else:
             current_journal[col] = pd.Series(dtype=journal_dtypes[col])
     # Reorder columns and apply dtypes
     st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
-
 # Initialize temporary journal for form
 if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
-
 # =========================================================
 # NAVIGATION
 # =========================================================
 tabs = ["Forex Fundamentals", "Backtesting", "Tools", "My Account", "MT5 Stats Dashboard", "Community Trade Ideas", "Psychology", "Playbook Builder"]
 selected_tab = st.tabs(tabs)
-
 # =========================================================
 # TAB 1: FOREX FUNDAMENTALS
 # =========================================================
@@ -608,7 +581,6 @@ with selected_tab[0]:
             </div>
             """, unsafe_allow_html=True
         )
-
 # =========================================================
 # TAB 2: BACKTESTING
 # =========================================================
@@ -817,7 +789,6 @@ with selected_tab[1]:
         "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
         "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
     }
-
     # Prepare transposed journal for display
     if st.session_state.tools_trade_journal.empty:
         # Initialize with one trade column if empty
@@ -827,7 +798,6 @@ with selected_tab[1]:
         transposed_journal = st.session_state.tools_trade_journal.transpose()
         # Rename columns to "Trade 1", "Trade 2", etc.
         transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
-
     # Button to add new trade column
     if st.button("➕ Add New Trade", key="bt_add_trade_button"):
         current_trades = transposed_journal.columns.tolist()
@@ -839,12 +809,10 @@ with selected_tab[1]:
         st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
         st.session_state.temp_journal = None
         st.rerun()
-
     # Dynamically configure columns for trades
     transposed_column_config = {}
     for col in transposed_journal.columns:
         transposed_column_config[col] = column_config
-
     # Use form to stabilize data editor
     with st.form(key="bt_journal_form"):
         updated_journal_tools = st.data_editor(
@@ -868,7 +836,6 @@ with selected_tab[1]:
                 st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
                 st.session_state.temp_journal = None
             st.rerun()
-
     if "logged_in_user" in st.session_state:
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -949,7 +916,6 @@ with selected_tab[1]:
             st.info("No pair-specific headlines found in the recent feed.")
     else:
         st.info("News feed unavailable right now.")
-
 # =========================================================
 # TAB 3: TOOLS
 # =========================================================
@@ -977,7 +943,7 @@ with selected_tab[2]:
             else (0.01 / exchange_rate) * position_size * 100000
         )
         profit_loss = pip_movement * pip_value
-        st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
+        st.write(f"****Pip Movement**: {pip_movement:.2f} pips")
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
     with tools_subtabs[1]:
@@ -1094,34 +1060,8 @@ with selected_tab[2]:
         st.header("🛡️ Risk Management Calculator")
         st.markdown("Proper position sizing keeps your account safe.")
         st.write('---')
-        # 🔄 What-If Analyzer
-        st.subheader('🔄 What-If Analyzer')
-        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
-        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
-        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
-        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
-        trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
-        E_R = winrate * avg_r - (1 - winrate) * 1.0
-        exp_growth = (1 + risk_pct * E_R) ** trades
-        st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
-        alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
-        alt_growth = (1 + alt_risk * E_R) ** trades
-        st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
-        # 📈 Equity Projection
-        sim = pd.DataFrame({
-            'trade': list(range(trades + 1)),
-            'equity_base': base_equity * (1 + risk_pct * E_R) ** np.arange(trades + 1),
-            'equity_alt': base_equity * (1 + alt_risk * E_R) ** np.arange(trades + 1),
-        })
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines',
-                                 name=f'Risk {risk_pct*100:.1f}%'))
-        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines',
-                                 name=f'What-If {alt_risk*100:.1f}%'))
-        fig.update_layout(title='Equity Projection – Base vs What-If',
-                          xaxis_title='Trade #', yaxis_title='Equity')
-        st.plotly_chart(fig, use_container_width=True)
         # 📊 Lot Size Calculator
+        st.subheader('📊 Lot Size Calculator')
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
@@ -1136,67 +1076,20 @@ with selected_tab[2]:
             lot_size = risk_amount / (stop_loss_pips * pip_value)
             st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
             logging.info(f"Calculated lot size: {lot_size}")
-    with tools_subtabs[4]:
-        st.header("🕒 Forex Market Sessions")
-        st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
-        st.write('---')
-        st.subheader('📊 Session Statistics')
-        df = globals().get('trades_df') or globals().get('journal_df')
-        if df is not None and 'session' in df.columns:
-            by_sess = df.groupby(['session']).agg(
-                trades=('r','count') if 'r' in df.columns else ('session','count'),
-                winrate=('r', lambda s: (s>0).mean()) if 'r' in df.columns else ('session','count'),
-                avg_r=('r','mean') if 'r' in df.columns else ('session','count')
-            ).reset_index()
-            st.dataframe(by_sess, use_container_width=True)
-            if 'r' in df.columns:
-                st.plotly_chart(px.bar(by_sess, x='session', y='avg_r', title='Average R by Session'), use_container_width=True)
-                if 'symbol' in df.columns:
-                    sess_symbol = df.groupby(['session','symbol']).agg(expectancy=('r', lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0))).reset_index()
-                    st.plotly_chart(px.density_heatmap(sess_symbol, x='session', y='symbol', z='expectancy', title='Expectancy Heatmap'), use_container_width=True)
-        else:
-            st.info("Upload data with a 'session' column to see your session stats.")
-        sessions = {
-            "Sydney": (22, 7),
-            "Tokyo": (0, 9),
-            "London": (8, 17),
-            "New York": (13, 22),
-        }
-        now_utc = dt.datetime.now(pytz.UTC).hour
-        cols = st.columns(len(sessions))
-        for i, (session, (start, end)) in enumerate(sessions.items()):
-            active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
-            color = "#144714" if active else "#171447"
-            with cols[i]:
-                st.markdown(f"""
-                    <div style="
-                        background-color:{color};
-                        border-radius:10px;
-                        padding:15px;
-                        text-align:center;
-                        color:white;
-                        box-shadow:2px 2px 8px rgba(0,0,0,0.5);
-                    ">
-                        <h3 style="margin:0;">{session}</h3>
-                        <p style="margin:0;">{start}:00 - {end}:00 UTC</p>
-                        <b>{'ACTIVE' if active else 'Closed'}</b>
-                    </div>
-                """, unsafe_allow_html=True)
-    with tools_subtabs[5]:
-        st.subheader("📉 Drawdown Recovery Planner")
-        dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
-        winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
-        avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1)
-        risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
-        needed_gain = _ta_percent_gain_to_recover(dd_pct)
-        st.metric("Gain Required to Break Even", _ta_human_pct(needed_gain))
+        # 🔄 What-If Analyzer
+        st.subheader('🔄 What-If Analyzer')
+        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
+        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
+        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
+        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
+        trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
         E_R = winrate * avg_r - (1 - winrate) * 1.0
-        g = risk_pct * E_R
-        if g <= 0:
-            st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
-        else:
-            n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
-            st.metric("Approx. Trades Needed", f"{n}")
+        exp_growth = (1 + risk_pct * E_R) ** trades
+        st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
+        alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
+        alt_growth = (1 + alt_risk * E_R) ** trades
+        st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
+        # 📈 Equity Projection
         horizon = 100
         equity = [1.0]
         for i in range(horizon):
@@ -1207,7 +1100,7 @@ with selected_tab[2]:
         fig.add_hline(y=target, line_dash="dot", annotation_text="Break-even target")
         st.plotly_chart(fig, use_container_width=True)
         try:
-            df = globals().get("trades_df") or globals().get("journal_df")
+            df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
             _ta_show_badges(df)
         except Exception:
             pass
@@ -1232,11 +1125,10 @@ with selected_tab[2]:
         all_ok = all(status.values()) if enabled else True
         st.button("Proceed to Log Trade", disabled=not all_ok)
         try:
-            df = globals().get("trades_df") or globals().get("journal_df")
+            df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
             _ta_show_badges(df)
         except Exception:
             pass
-
 # =========================================================
 # TAB 4: MY ACCOUNT
 # =========================================================
@@ -1328,7 +1220,6 @@ with selected_tab[3]:
             except Exception as e:
                 st.error(f"Failed to save preferences: {str(e)}")
                 logging.error(f"Error saving preferences for {username}: {str(e)}")
-
 # =========================================================
 # TAB 5: MT5 STATS DASHBOARD
 # =========================================================
@@ -1436,6 +1327,7 @@ with selected_tab[4]:
         with st.spinner("Processing your trading data..."):
             try:
                 df = pd.read_csv(uploaded_file)
+                st.session_state.mt5_df = df
                 required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Balance"]
                 missing_cols = [col for col in required_cols if col not in df.columns]
                 if missing_cols:
@@ -1523,7 +1415,8 @@ with selected_tab[4]:
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore your performance metrics.")
     st.markdown("### 🧭 Edge Finder – Highest Expectancy Segments")
-    if df is None or df.empty:
+    df = st.session_state.get("mt5_df", pd.DataFrame())
+    if df.empty:
         st.info("Upload trades with at least one of: timeframe, symbol, setup and 'r' (R-multiple).")
     else:
         group_cols = []
@@ -1538,7 +1431,7 @@ with selected_tab[4]:
         else:
             st.warning("Edge Finder needs timeframe/symbol/setup columns.")
     st.markdown("### 🧩 Customisable Dashboard")
-    if df is None or df.empty:
+    if df.empty:
         st.info("Upload trades to customise KPIs.")
     else:
         all_kpis = [
@@ -1570,6 +1463,152 @@ with selected_tab[4]:
                 st.metric(k, _metric_map().get(k, "—"))
             i += 1
     try:
+        _ta_show_badges(df)
+    except Exception:
+        pass
+# =========================================================
+# TAB 6: COMMUNITY TRADE IDEAS
+# =========================================================
+with selected_tab[5]:
+    st.title("🖼️ Community Trade Ideas")
+    user_id = st.session_state.get("logged_in_user", "guest")
+    udir = _ta_user_dir(user_id)
+    community_path = os.path.join(udir, "community.json")
+    db = _ta_load_json(community_path, {"posts": []})
+    st.subheader("Create Post")
+    title = st.text_input("Title")
+    desc = st.text_area("Description")
+    img = st.file_uploader("Screenshot", type=["png","jpg","jpeg","webp"], key="cti_upl")
+    if st.button("Publish", disabled=(not title or img is None)):
+        img_id = _ta_hash()
+        out = os.path.join(udir, "community_images", f"{img_id}_{img.name}")
+        with open(out, "wb") as wf:
+            wf.write(img.read())
+        post = {"id": _ta_hash(), "title": title, "desc": desc, "image": out, "user": user_id, "ts": time.time()}
+        db["posts"].insert(0, post)
+        _ta_save_json(community_path, db)
+        st.success("Posted!")
+    st.write("---")
+    st.subheader("Feed")
+    if not db["posts"]:
+        st.info("No community posts yet. Be the first!")
+    else:
+        for post in db["posts"]:
+            st.markdown(f"### {post['title']} \\nby {post['user']} • {dt.datetime.fromtimestamp(post['ts']).strftime('%Y-%m-%d %H:%M')}")
+            st.write(post["desc"])
+            st.image(post["image"], use_column_width=True)
+            st.write("---")
+    try:
+        df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
+        _ta_show_badges(df)
+    except Exception:
+        pass
+# =========================================================
+# TAB 7: PSYCHOLOGY
+# =========================================================
+with selected_tab[6]:
+    st.title("🧠 Psychology")
+    mt5_df = st.session_state.get("mt5_df", pd.DataFrame())
+    df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
+    if df.empty or "emotions" not in df.columns or df["emotions"].isna().all():
+        st.info("Requires an 'emotions' column in your Backtesting/MT5 dataset (comma-separated per trade).")
+        st.markdown("**How to add emotions:**")
+        st.write("- In the Backtesting tab, add emotions (e.g., 'confident, focused') to the 'Emotions' column in your trading journal.")
+        st.write("- For MT5 data, include an 'emotions' column in your CSV with comma-separated emotions per trade.")
+    else:
+        try:
+            tmp = df.copy()
+            tmp["emotions"] = tmp["emotions"].fillna("").astype(str)
+            tmp["emotion_list"] = tmp["emotions"].apply(lambda x: [e.strip().lower() for e in x.split(",") if e.strip()])
+            exploded = tmp.explode("emotion_list")
+            exploded = exploded[exploded["emotion_list"].notna() & (exploded["emotion_list"] != "")]
+            if exploded.empty:
+                st.info("No valid emotions found. Please add emotions to your trades.")
+            else:
+                by_emotion = exploded.groupby("emotion_list").agg(
+                    trades=("r", "count") if "r" in exploded.columns else ("emotion_list", "count"),
+                    winrate=("r", lambda s: (s > 0).mean()) if "r" in exploded.columns else ("emotion_list", "count"),
+                    avg_r=("r", "mean") if "r" in exploded.columns else ("emotion_list", "count")
+                ).reset_index().sort_values("trades", ascending=False)
+                st.subheader("Emotions Impact on Results")
+                st.dataframe(by_emotion, use_container_width=True)
+                if "r" in exploded.columns:
+                    st.plotly_chart(px.bar(by_emotion, x="emotion_list", y="avg_r", title="Average R by Emotion"), use_container_width=True)
+                if "datetime" in exploded.columns:
+                    emo_daily = exploded.copy()
+                    emo_daily["date"] = pd.to_datetime(emo_daily["datetime"], errors="coerce").dt.date
+                    emo_daily = emo_daily.groupby(["date", "emotion_list"]).agg(
+                        avg_r=("r", "mean") if "r" in exploded.columns else ("emotion_list", "count")
+                    ).reset_index()
+                    st.plotly_chart(px.line(emo_daily, x="date", y="avg_r" if "r" in exploded.columns else "emotion_list", color="emotion_list", markers=True), use_container_width=True)
+        except Exception as e:
+            st.error(f"Error processing emotions data: {str(e)}")
+            logging.error(f"Error in Psychology tab: {str(e)}")
+    try:
+        _ta_show_badges(df)
+    except Exception:
+        logging.error(f"Error in badges for Psychology tab: {str(e)}")
+# =========================================================
+# TAB 8: PLAYBOOK BUILDER
+# =========================================================
+with selected_tab[7]:
+    st.title("📘 Playbook Builder")
+    user_id = st.session_state.get("logged_in_user", "guest")
+    pdir = os.path.join(_ta_user_dir(user_id), "playbooks")
+    os.makedirs(pdir, exist_ok=True)
+    mode = st.radio("Mode", ["Create", "View / Edit"], horizontal=True)
+    if mode == "Create":
+        name = st.text_input("Strategy Name")
+        tags = st.text_input("Tags (comma separated)")
+        description = st.text_area("Description / Notes", height=150)
+        rules = st.text_area("Entry/Exit Rules", height=130)
+        uploads = st.file_uploader("Attach screenshots (optional)", type=["png","jpg","jpeg","webp"], accept_multiple_files=True)
+        if st.button("Save Playbook", disabled=(not name)):
+            pb_id = _ta_hash()
+            pb_dir = os.path.join(pdir, pb_id)
+            os.makedirs(pb_dir, exist_ok=True)
+            images = []
+            for f in uploads or []:
+                out = os.path.join(pb_dir, f.name)
+                with open(out, "wb") as wf:
+                    wf.write(f.read())
+                images.append(os.path.join(pb_id, f.name))
+            meta = {"id": pb_id, "name": name, "tags": [t.strip() for t in tags.split(",") if t.strip()], "description": description, "rules": rules, "images": images, "created_at": time.time(), "updated_at": time.time()}
+            _ta_save_json(os.path.join(pb_dir, "meta.json"), meta)
+            st.success("Playbook saved.")
+    else:
+        all_pb = []
+        for d in glob.glob(os.path.join(pdir, "*")):
+            if os.path.isdir(d):
+                meta = _ta_load_json(os.path.join(d,"meta.json"), {})
+                if meta: all_pb.append(meta)
+        if not all_pb:
+            st.info("No playbooks yet.")
+        else:
+            sel = st.selectbox("Select Playbook", [f'{pb["name"]} ({pb["id"]})' for pb in all_pb])
+            pb = next(pb for pb in all_pb if f'{pb["name"]} ({pb["id"]})' == sel)
+            st.subheader(pb["name"])
+            st.caption(", ".join(pb.get("tags",[])))
+            st.write(pb.get("description",""))
+            st.write("**Rules**")
+            st.code(pb.get("rules",""))
+            img_cols = st.columns(3)
+            for i, img_rel in enumerate(pb.get("images", [])):
+                img_path = os.path.join(pdir, img_rel)
+                with img_cols[i % 3]:
+                    st.image(img_path, use_column_width=True)
+            st.write("---")
+            st.subheader("Edit")
+            new_desc = st.text_area("Description", pb.get("description",""))
+            new_rules = st.text_area("Rules", pb.get("rules",""))
+            if st.button("Save Changes"):
+                pb["description"] = new_desc
+                pb["rules"] = new_rules
+                pb["updated_at"] = time.time()
+                _ta_save_json(os.path.join(pdir, pb["id"], "meta.json"), pb)
+                st.success("Updated.")
+    try:
+        df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
         _ta_show_badges(df)
     except Exception:
         pass
