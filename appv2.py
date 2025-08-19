@@ -488,7 +488,8 @@ for i in range(0, len(interest_rates), boxes_per_row):
                 unsafe_allow_html=True
             )
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    # Major High-Impact Events
+    
+# Major High-Impact Events
     st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
         {
