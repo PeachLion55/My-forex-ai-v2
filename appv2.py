@@ -15,6 +15,10 @@ import numpy as np
 import sqlite3
 import pytz
 import logging
+import math
+import uuid
+import glob
+import time
 
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
@@ -337,7 +341,7 @@ if "temp_journal" not in st.session_state:
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = ["Forex Fundamentals", "Backtesting", "Tools", "My Account", "MT5 Stats Dashboard"]
+tabs = ["Forex Fundamentals", "Backtesting", "Tools", "My Account", "MT5 Stats Dashboard", "Community Trade Ideas", "Psychology", "Playbook Builder"]
 selected_tab = st.tabs(tabs)
 
 # =========================================================
@@ -854,7 +858,7 @@ with selected_tab[1]:
 # =========================================================
 with selected_tab[2]:
     st.title("🛠 Tools")
-    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker"])
+    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner", "Pre-Trade Checklist"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
@@ -992,6 +996,35 @@ with selected_tab[2]:
     with tools_subtabs[3]:
         st.header("🛡️ Risk Management Calculator")
         st.markdown("Proper position sizing keeps your account safe.")
+        st.write('---')
+        # 🔄 What-If Analyzer
+        st.subheader('🔄 What-If Analyzer')
+        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
+        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
+        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
+        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
+        trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
+        E_R = winrate * avg_r - (1 - winrate) * 1.0
+        exp_growth = (1 + risk_pct * E_R) ** trades
+        st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
+        alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
+        alt_growth = (1 + alt_risk * E_R) ** trades
+        st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
+        # 📈 Equity Projection
+        sim = pd.DataFrame({
+            'trade': list(range(trades + 1)),
+            'equity_base': base_equity * (1 + risk_pct * E_R) ** np.arange(trades + 1),
+            'equity_alt': base_equity * (1 + alt_risk * E_R) ** np.arange(trades + 1),
+        })
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines',
+                                 name=f'Risk {risk_pct*100:.1f}%'))
+        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines',
+                                 name=f'What-If {alt_risk*100:.1f}%'))
+        fig.update_layout(title='Equity Projection – Base vs What-If',
+                          xaxis_title='Trade #', yaxis_title='Equity')
+        st.plotly_chart(fig, use_container_width=True)
+        # 📊 Lot Size Calculator
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
@@ -1009,6 +1042,23 @@ with selected_tab[2]:
     with tools_subtabs[4]:
         st.header("🕒 Forex Market Sessions")
         st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
+        st.write('---')
+        st.subheader('📊 Session Statistics')
+        df = globals().get('trades_df') or globals().get('journal_df')
+        if df is not None and 'session' in df.columns:
+            by_sess = df.groupby(['session']).agg(
+                trades=('r','count') if 'r' in df.columns else ('session','count'),
+                winrate=('r', lambda s: (s>0).mean()) if 'r' in df.columns else ('session','count'),
+                avg_r=('r','mean') if 'r' in df.columns else ('session','count')
+            ).reset_index()
+            st.dataframe(by_sess, use_container_width=True)
+            if 'r' in df.columns:
+                st.plotly_chart(px.bar(by_sess, x='session', y='avg_r', title='Average R by Session'), use_container_width=True)
+                if 'symbol' in df.columns:
+                    sess_symbol = df.groupby(['session','symbol']).agg(expectancy=('r', lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0))).reset_index()
+                    st.plotly_chart(px.density_heatmap(sess_symbol, x='session', y='symbol', z='expectancy', title='Expectancy Heatmap'), use_container_width=True)
+        else:
+            st.info("Upload data with a 'session' column to see your session stats.")
         sessions = {
             "Sydney": (22, 7),
             "Tokyo": (0, 9),
@@ -1035,6 +1085,60 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
+    with tools_subtabs[5]:
+        st.subheader("📉 Drawdown Recovery Planner")
+        dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
+        winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
+        avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1) / 100.0
+        risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
+        needed_gain = _ta_percent_gain_to_recover(dd_pct)
+        st.metric("Gain Required to Break Even", _ta_human_pct(needed_gain))
+        E_R = winrate * avg_r - (1 - winrate) * 1.0
+        g = risk_pct * E_R
+        if g <= 0:
+            st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
+        else:
+            n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
+            st.metric("Approx. Trades Needed", f"{n}")
+        horizon = 100
+        equity = [1.0]
+        for i in range(horizon):
+            equity.append(equity[-1] * (1 + g))
+        proj = pd.DataFrame({"trade": list(range(horizon + 1)), "equity": equity})
+        target = 1 + needed_gain
+        fig = px.line(proj, x="trade", y="equity", title="Projected Equity Under Expected Return")
+        fig.add_hline(y=target, line_dash="dot", annotation_text="Break-even target")
+        st.plotly_chart(fig, use_container_width=True)
+        try:
+            df = globals().get("trades_df") or globals().get("journal_df")
+            _ta_show_badges(df)
+        except Exception:
+            pass
+    with tools_subtabs[6]:
+        st.subheader("✅ Pre-Trade Checklist")
+        user_id = st.session_state.get("logged_in_user", "guest")
+        checklist_path = os.path.join(_ta_user_dir(user_id), "pretrade_checklist.json")
+        current = _ta_load_json(checklist_path, {"criteria": [{"enabled": True, "text": "Trend Direction in favor"}, {"enabled": True, "text": "Confluence present"}, {"enabled": True, "text": "RR ≥ 1:2"}]})
+        max_rows = 20
+        data = pd.DataFrame(current["criteria"][:max_rows])
+        data = st.data_editor(data, num_rows="dynamic", use_container_width=True)
+        if st.button("Save to my account"):
+            new_list = data.to_dict(orient="records")[:max_rows]
+            _ta_save_json(checklist_path, {"criteria": new_list})
+            st.success("Checklist saved. ✅")
+        st.write("---")
+        st.subheader("Pre-Trade Enforcement")
+        enabled = [c for c in _ta_load_json(checklist_path, {"criteria": []})["criteria"] if c.get("enabled")]
+        status = {}
+        for i, c in enumerate(enabled):
+            status[i] = st.checkbox(c.get("text", ""), key=f"ck_{i}")
+        all_ok = all(status.values()) if enabled else True
+        st.button("Proceed to Log Trade", disabled=not all_ok)
+        try:
+            df = globals().get("trades_df") or globals().get("journal_df")
+            _ta_show_badges(df)
+        except Exception:
+            pass
 
 # =========================================================
 # TAB 4: MY ACCOUNT
@@ -1150,66 +1254,70 @@ with selected_tab[4]:
             font-size: 16px;
             color: #FFFFFF;
         }
-        .metrics-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            padding: 20px 0;
+        .metrics-row {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 20px;
+            padding: 15px 0;
+            justify-content: space-between;
         }
         .metric-card {
+            flex: 1;
             border-radius: 8px;
-            padding: 15px;
+            padding: 20px;
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            color: #333333;
-            background: transparent;
+            background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+            border: 1px solid #3a3a3a;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            color: white;
+            min-height: 120px;
         }
         .metric-card:hover {
             transform: translateY(-3px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
         .metric-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: #666666;
-            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #FFD700;
+            margin-bottom: 12px;
         }
         .metric-value {
             font-size: 20px;
             font-weight: bold;
-            color: #333333;
         }
         .positive .metric-value {
-            color: #2e7d32;
+            color: #00ff00;
         }
         .negative .metric-value {
-            color: #d32f2f;
+            color: #ff0000;
         }
         .neutral .metric-value {
-            color: #333333;
+            color: white;
         }
         .section-title {
             font-size: 20px;
             font-weight: bold;
-            color: #333333;
+            color: white;
             margin-top: 30px;
             margin-bottom: 15px;
         }
         .upload-container {
-            background: transparent !important;
+            background: #1a1a1a !important;
             border-radius: 8px;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
+            border: 1px solid #3a3a3a;
         }
         .stFileUploader > div > div > div {
             background-color: transparent !important;
             border-radius: 8px;
-            color: #333333 !important;
+            color: #ffffff !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -1256,8 +1364,7 @@ with selected_tab[4]:
                     largest_volume_trade = df["Volume"].max()
                     profit_per_trade = net_profit / total_trades if total_trades else 0
                     avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
-                    # Display metrics
-                    st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
+                    # Metrics list
                     metrics = [
                         ("📊 Total Trades", total_trades, "neutral"),
                         ("✅ Win Rate", f"{win_rate:.2f}%", "positive" if win_rate >= 50 else "negative"),
@@ -1272,40 +1379,8 @@ with selected_tab[4]:
                         ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
                         ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
                     ]
-                    for title, value, style in metrics:
-                        st.markdown(f"""
-                            <div class="metric-card {style}">
-                                <div class="metric-title">{title}</div>
-                                <div class="metric-value">{value}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    # Visualizations
-                    st.markdown('<div class="section-title">📊 Profit by Instrument</div>', unsafe_allow_html=True)
-                    profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
-                    fig_symbol = px.bar(
-                        profit_symbol, x="Symbol", y="Profit", color="Profit",
-                        title="Profit by Instrument", template="plotly_white",
-                        color_continuous_scale=px.colors.diverging.Tealrose
-                    )
-                    fig_symbol.update_layout(
-                        title_font_size=18, title_x=0.5,
-                        font_color="#333333"
-                    )
-                    st.plotly_chart(fig_symbol, use_container_width=True)
-                    st.markdown('<div class="section-title">🔎 Trade Distribution</div>', unsafe_allow_html=True)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        fig_types = px.pie(df, names="Type", title="Buy vs Sell Distribution", template="plotly_white")
-                        fig_types.update_layout(title_font_size=16, title_x=0.5)
-                        st.plotly_chart(fig_types, use_container_width=True)
-                    with col2:
-                        df["Weekday"] = df["Open Time"].dt.day_name()
-                        fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week", template="plotly_white")
-                        fig_weekday.update_layout(title_font_size=16, title_x=0.5)
-                        st.plotly_chart(fig_weekday, use_container_width=True)
-                    st.success("✅ MT5 Performance Dashboard Loaded Successfully!")
-            except Exception as e:
-                st.error(f"Error processing CSV: {str(e)}.")
-    else:
-        st.info("👆 Upload your MT5 trading history CSV to explore your performance metrics.")
+                    # Display metrics in three rows of four
+                    for row in range(3):
+                        row_metrics = metrics[row * 4:(row + 1) * 4]
+                        cols = st.columns(4)
+                        for i, (title, value, style) in enumerate
