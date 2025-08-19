@@ -1568,67 +1568,94 @@ with selected_tab[5]:
 # =========================================================
 with selected_tab[6]:
     st.title("👤 My Account")
+
     st.markdown("""
-    Welcome to your personal account dashboard. Manage your login credentials, customize your preferences, and access your saved trading data. Sign in to save your chart drawings and trading journal, or sign up to create a new account.
+    Welcome to your personal dashboard! Signing in unlocks the full power of your trading toolkit:
+    - **Save your charts and drawings**
+    - **Access your trading journal**
+    - **Customize your preferences and alerts**
+    - **Track your performance over time**
+    - **Receive insights and notifications**
     """)
-    # LOGIN
-    st.subheader("Login")
-    username = st.text_input("Username", key="login_username")
-    password = st.text_input("Password", type="password", key="login_password")
-    if st.button("Login"):
-        logging.info(f"Login attempt for user {username}")
-        try:
-            c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-            result = c.fetchone()
-            if result and result[0] == password:
-                st.session_state.logged_in_user = username
-                user_data = json.loads(result[1]) if result[1] else {}
-                st.session_state.drawings = user_data.get("drawings", {})
-                saved_journal = user_data.get("tools_trade_journal", [])
-                if saved_journal:
-                    loaded_df = pd.DataFrame(saved_journal)
-                    for col in journal_cols:
-                        if col not in loaded_df.columns:
-                            loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                    st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+
+    # Create sub-tabs for Sign In / Sign Up
+    account_tab = st.tabs(["Sign In", "Sign Up"])
+
+    # ------------------ SIGN IN ------------------
+    with account_tab[0]:
+        st.subheader("Sign In to Your Account")
+        login_username = st.text_input("Username", key="login_username")
+        login_password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login"):
+            logging.info(f"Login attempt for user {login_username}")
+            try:
+                c.execute("SELECT password, data FROM users WHERE username = ?", (login_username,))
+                result = c.fetchone()
+                if result and result[0] == login_password:
+                    st.session_state.logged_in_user = login_username
+                    user_data = json.loads(result[1]) if result[1] else {}
+                    st.session_state.drawings = user_data.get("drawings", {})
+                    saved_journal = user_data.get("tools_trade_journal", [])
+                    if saved_journal:
+                        loaded_df = pd.DataFrame(saved_journal)
+                        for col in journal_cols:
+                            if col not in loaded_df.columns:
+                                loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                        st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                    else:
+                        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                    st.session_state.temp_journal = None
+                    st.success(f"✅ Logged in as {login_username}")
+                    logging.info(f"Login successful for {login_username}")
                 else:
-                    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                st.session_state.temp_journal = None
-                st.success(f"Logged in as {username}")
-                logging.info(f"Login successful for {username}")
-            else:
-                st.error("Invalid username or password")
-                logging.warning(f"Login failed for {username}: Invalid credentials")
-        except Exception as e:
-            st.error(f"Login error: {str(e)}")
-            logging.error(f"Login error for {username}: {str(e)}")
-    # SIGN UP
-    st.subheader("Sign Up")
-    new_username = st.text_input("New Username", key="signup_username")
-    new_password = st.text_input("New Password", type="password", key="signup_password")
-    if st.button("Sign Up"):
-        logging.info(f"Sign up attempt for user {new_username}")
-        try:
-            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, new_password, json.dumps({})))
-            conn.commit()
-            st.success(f"Account created for {new_username}")
-            logging.info(f"Account created for {new_username}")
-        except sqlite3.IntegrityError:
-            st.error("Username already exists")
-            logging.warning(f"Sign up failed for {new_username}: Username exists")
-        except Exception as e:
-            st.error(f"Sign up error: {str(e)}")
-            logging.error(f"Sign up error for {new_username}: {str(e)}")
-    # ACCOUNT SETTINGS
+                    st.error("❌ Invalid username or password")
+                    logging.warning(f"Login failed for {login_username}: Invalid credentials")
+            except Exception as e:
+                st.error(f"Login error: {str(e)}")
+                logging.error(f"Login error for {login_username}: {str(e)}")
+
+    # ------------------ SIGN UP ------------------
+    with account_tab[1]:
+        st.subheader("Create a New Account")
+        signup_username = st.text_input("New Username", key="signup_username")
+        signup_password = st.text_input("New Password", type="password", key="signup_password")
+        if st.button("Sign Up"):
+            logging.info(f"Sign up attempt for user {signup_username}")
+            try:
+                c.execute(
+                    "INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
+                    (signup_username, signup_password, json.dumps({}))
+                )
+                conn.commit()
+                st.success(f"🎉 Account successfully created for {signup_username}")
+                logging.info(f"Account created for {signup_username}")
+            except sqlite3.IntegrityError:
+                st.error("❌ Username already exists. Please choose another.")
+                logging.warning(f"Sign up failed for {signup_username}: Username exists")
+            except Exception as e:
+                st.error(f"Sign up error: {str(e)}")
+                logging.error(f"Sign up error for {signup_username}: {str(e)}")
+
+    # ------------------ ACCOUNT SETTINGS ------------------
     if "logged_in_user" in st.session_state:
-        st.subheader("Profile Settings")
-        colA, colB = st.columns(2)
-        with colA:
-            name = st.text_input("Name", value=st.session_state.get("name", ""), key="account_name")
-            base_ccy = st.selectbox("Preferred Base Currency", ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"], index=0, key="account_base_ccy")
-        with colB:
+        st.markdown("---")
+        st.subheader("Profile Settings & Preferences")
+        col1, col2 = st.columns(2)
+        with col1:
+            name = st.text_input("Full Name", value=st.session_state.get("name", ""), key="account_name")
+            base_ccy = st.selectbox(
+                "Preferred Base Currency",
+                ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"],
+                index=0,
+                key="account_base_ccy"
+            )
+        with col2:
             email = st.text_input("Email", value=st.session_state.get("email", ""), key="account_email")
-            alerts = st.checkbox("Email me before high-impact events", value=st.session_state.get("alerts", True), key="account_alerts")
+            alerts = st.checkbox(
+                "Email me before high-impact events",
+                value=st.session_state.get("alerts", True),
+                key="account_alerts"
+            )
         if st.button("Save Preferences", key="account_save_prefs"):
             username = st.session_state.logged_in_user
             logging.info(f"Saving preferences for user {username}")
@@ -1649,7 +1676,7 @@ with selected_tab[6]:
                 st.session_state.email = email
                 st.session_state.base_ccy = base_ccy
                 st.session_state.alerts = alerts
-                st.success("Preferences saved.")
+                st.success("✅ Preferences saved successfully.")
                 logging.info(f"Preferences saved for {username}")
             except Exception as e:
                 st.error(f"Failed to save preferences: {str(e)}")
