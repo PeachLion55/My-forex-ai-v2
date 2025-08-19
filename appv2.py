@@ -2414,4 +2414,3 @@ with selected_tab[4]:
         _ta_show_badges(df)
     except Exception:
         pass
-</xaiArtifact>
