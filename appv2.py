@@ -1379,8 +1379,8 @@ with selected_tab[4]:
                         ("📊 Avg Volume", f"{avg_volume:.2f}", "neutral"),
                         ("💵 Profit / Trade", f"${profit_per_trade:.2f}", "positive" if profit_per_trade >= 0 else "negative"),
                     ]
-                    # Display metrics in three rows of four
-                    for row in range(3):
-                        row_metrics = metrics[row * 4:(row + 1) * 4]
-                        cols = st.columns(4)
-                        for i, (title, value, style) in enumerate
+# Display metrics in three rows of four
+for row in range(3):
+    row_metrics = metrics[row * 4:(row + 1) * 4]
+    cols = st.columns(4)
+    for i, (title, value, style) in enumerate(row_metrics):
