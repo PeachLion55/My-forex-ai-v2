@@ -990,45 +990,57 @@ with selected_tab[2]:
                         title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
     with tools_subtabs[3]:
-        st.header("🛡️ Risk Management Calculator")
-        st.markdown("Proper position sizing keeps your account safe.")
-        st.write('---')
-        st.subheader('🔄 What-If Analyzer')
-        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
-        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
-        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
-        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
-        trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
-        E_R = winrate*avg_r - (1-winrate)*1.0
-        exp_growth = (1 + risk_pct*E_R) ** trades
-        st.metric('Expected Growth Multiplier', _ta_human_num(exp_growth))
-        alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
-        alt_growth = (1 + alt_risk*E_R) ** trades
-        st.metric('Alt Growth Multiplier', _ta_human_num(alt_growth))
-        sim = pd.DataFrame({
-            'trade': list(range(trades+1)),
-            'equity_base': base_equity * (1 + risk_pct*E_R) ** np.arange(trades+1),
-            'equity_alt': base_equity * (1 + alt_risk*E_R) ** np.arange(trades+1),
-        })
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines', name=f'Risk {risk_pct*100:.1f}%'))
-        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines', name=f'What-If {alt_risk*100:.1f}%'))
-        fig.update_layout(title='Equity Projection – Base vs What-If', xaxis_title='Trade #', yaxis_title='Equity')
-        st.plotly_chart(fig, use_container_width=True)
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
-        with col2:
-            risk_percent = st.number_input("Risk per Trade (%)", min_value=0.1, max_value=10.0, value=1.0)
-        with col3:
-            stop_loss_pips = st.number_input("Stop Loss (pips)", min_value=1.0, value=20.0)
-        with col4:
-            pip_value = st.number_input("Pip Value per Lot ($)", min_value=0.01, value=10.0)
-        if st.button("Calculate Lot Size"):
-            risk_amount = balance * (risk_percent / 100)
-            lot_size = risk_amount / (stop_loss_pips * pip_value)
-            st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
-            logging.info(f"Calculated lot size: {lot_size}")
+    st.header("🛡️ Risk Management Calculator")
+    st.markdown("Proper position sizing keeps your account safe.")
+    st.write('---')
+
+    # 🔄 What-If Analyzer
+    st.subheader('🔄 What-If Analyzer')
+    base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
+    risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
+    winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
+    avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
+    trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
+
+    E_R = winrate * avg_r - (1 - winrate) * 1.0
+    exp_growth = (1 + risk_pct * E_R) ** trades
+    st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
+
+    alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
+    alt_growth = (1 + alt_risk * E_R) ** trades
+    st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
+
+    # 📈 Equity Projection
+    sim = pd.DataFrame({
+        'trade': list(range(trades + 1)),
+        'equity_base': base_equity * (1 + risk_pct * E_R) ** np.arange(trades + 1),
+        'equity_alt': base_equity * (1 + alt_risk * E_R) ** np.arange(trades + 1),
+    })
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines',
+                             name=f'Risk {risk_pct*100:.1f}%'))
+    fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines',
+                             name=f'What-If {alt_risk*100:.1f}%'))
+    fig.update_layout(title='Equity Projection – Base vs What-If',
+                      xaxis_title='Trade #', yaxis_title='Equity')
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 📊 Lot Size Calculator
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0)
+    with col2:
+        risk_percent = st.number_input("Risk per Trade (%)", min_value=0.1, max_value=10.0, value=1.0)
+    with col3:
+        stop_loss_pips = st.number_input("Stop Loss (pips)", min_value=1.0, value=20.0)
+    with col4:
+        pip_value = st.number_input("Pip Value per Lot ($)", min_value=0.01, value=10.0)
+
+    if st.button("Calculate Lot Size"):
+        risk_amount = balance * (risk_percent / 100)
+        lot_size = risk_amount / (stop_loss_pips * pip_value)
+        st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
+        logging.info(f"Calculated lot size: {lot_size}")
     with tools_subtabs[4]:
         st.header("🕒 Forex Market Sessions")
         st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
