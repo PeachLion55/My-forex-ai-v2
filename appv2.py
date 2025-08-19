@@ -1582,36 +1582,48 @@ with selected_tab[4]:
     except Exception:
         pass
 
-# === Psychology Tab (Trading Psychology Tracker) ===
 with selected_tab[6]:
     st.title("🧠 Psychology")
-    df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
-    if df.empty or "emotions" not in df.columns:
+    mt5_df = st.session_state.get("mt5_df", pd.DataFrame())
+    df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
+    if df.empty or "emotions" not in df.columns or df["emotions"].isna().all():
         st.info("Requires an 'emotions' column in your Backtesting/MT5 dataset (comma-separated per trade).")
+        st.markdown("**How to add emotions:**")
+        st.write("- In the Backtesting tab, add emotions (e.g., 'confident, focused') to the 'Emotions' column in your trading journal.")
+        st.write("- For MT5 data, include an 'emotions' column in your CSV with comma-separated emotions per trade.")
     else:
-        tmp = df.copy()
-        tmp["emotions"] = tmp["emotions"].fillna("").astype(str)
-        tmp["emotion_list"] = tmp["emotions"].apply(lambda x: [e.strip().lower() for e in x.split(",") if e.strip()])
-        exploded = tmp.explode("emotion_list")
-        exploded = exploded[exploded["emotion_list"].notna() & (exploded["emotion_list"]!="")]
-        by_emotion = exploded.groupby("emotion_list").agg(
-            trades=("r","count") if "r" in exploded.columns else ("emotion_list","count"),
-            winrate=("r", lambda s: (s>0).mean()) if "r" in exploded.columns else ("emotion_list","count"),
-            avg_r=("r","mean") if "r" in exploded.columns else ("emotion_list","count")
-        ).reset_index().sort_values("trades", ascending=False)
-        st.subheader("Emotions Impact on Results")
-        st.dataframe(by_emotion, use_container_width=True)
-        if "r" in exploded.columns:
-            st.plotly_chart(px.bar(by_emotion, x="emotion_list", y="avg_r", title="Average R by Emotion"), use_container_width=True)
-        if "datetime" in exploded.columns:
-            emo_daily = exploded.copy()
-            emo_daily["date"] = pd.to_datetime(emo_daily["datetime"]).dt.date
-            emo_daily = emo_daily.groupby(["date","emotion_list"]).agg(avg_r=("r","mean") if "r" in exploded.columns else ("emotion_list","count")).reset_index()
-            st.plotly_chart(px.line(emo_daily, x="date", y="avg_r" if "r" in exploded.columns else "emotion_list", color="emotion_list", markers=True), use_container_width=True)
+        try:
+            tmp = df.copy()
+            tmp["emotions"] = tmp["emotions"].fillna("").astype(str)
+            tmp["emotion_list"] = tmp["emotions"].apply(lambda x: [e.strip().lower() for e in x.split(",") if e.strip()])
+            exploded = tmp.explode("emotion_list")
+            exploded = exploded[exploded["emotion_list"].notna() & (exploded["emotion_list"] != "")]
+            if exploded.empty:
+                st.info("No valid emotions found. Please add emotions to your trades.")
+            else:
+                by_emotion = exploded.groupby("emotion_list").agg(
+                    trades=("r", "count") if "r" in exploded.columns else ("emotion_list", "count"),
+                    winrate=("r", lambda s: (s > 0).mean()) if "r" in exploded.columns else ("emotion_list", "count"),
+                    avg_r=("r", "mean") if "r" in exploded.columns else ("emotion_list", "count")
+                ).reset_index().sort_values("trades", ascending=False)
+                st.subheader("Emotions Impact on Results")
+                st.dataframe(by_emotion, use_container_width=True)
+                if "r" in exploded.columns:
+                    st.plotly_chart(px.bar(by_emotion, x="emotion_list", y="avg_r", title="Average R by Emotion"), use_container_width=True)
+                if "datetime" in exploded.columns:
+                    emo_daily = exploded.copy()
+                    emo_daily["date"] = pd.to_datetime(emo_daily["datetime"], errors="coerce").dt.date
+                    emo_daily = emo_daily.groupby(["date", "emotion_list"]).agg(
+                        avg_r=("r", "mean") if "r" in exploded.columns else ("emotion_list", "count")
+                    ).reset_index()
+                    st.plotly_chart(px.line(emo_daily, x="date", y="avg_r" if "r" in exploded.columns else "emotion_list", color="emotion_list", markers=True), use_container_width=True)
+        except Exception as e:
+            st.error(f"Error processing emotions data: {str(e)}")
+            logging.error(f"Error in Psychology tab: {str(e)}")
     try:
         _ta_show_badges(df)
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Error in badges for Psychology tab: {str(e)}")
 
 
 # === Playbook Builder Tab ===
