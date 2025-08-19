@@ -586,7 +586,7 @@ with selected_tab[0]:
 # =========================================================
 with selected_tab[1]:
     st.title("📊 Backtesting")
-    st.caption("Live TradingView chart for backtesting, curated news, and trading journal for the selected pair.")
+    st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
     # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
