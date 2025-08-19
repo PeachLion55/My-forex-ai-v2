@@ -1090,6 +1090,27 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
+import math
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+# Helper functions
+def percent_gain_to_recover(drawdown_pct: float) -> float:
+    """
+    Calculate the % gain required to recover from a drawdown.
+    drawdown_pct should be a decimal (e.g., 0.2 for 20%)
+    """
+    if drawdown_pct <= 0:
+        return 0.0
+    if drawdown_pct >= 1:
+        return float('inf')
+    return drawdown_pct / (1 - drawdown_pct)
+
+def human_pct(value: float) -> str:
+    """Format a decimal as a human-readable percentage string."""
+    return f"{value*100:.2f}%"
+
 with tools_subtabs[5]:
     st.subheader("📉 Drawdown Recovery Planner")
     
