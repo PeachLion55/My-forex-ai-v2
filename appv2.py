@@ -424,28 +424,43 @@ with selected_tab[0]:
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
     with col2:
         st.info("See the **Backtesting** tab for live charts + detailed news.")
-    # Economic Calendar
-    st.markdown("### 🗓️ Upcoming Economic Events")
-    if 'selected_currency_1' not in st.session_state:
-        st.session_state.selected_currency_1 = None
-    if 'selected_currency_2' not in st.session_state:
-        st.session_state.selected_currency_2 = None
-    uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
-    col_filter1, col_filter2 = st.columns(2)
-    with col_filter1:
-        currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1")
-        st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
-    with col_filter2:
-        currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
-        st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-    def highlight_currency(row):
-        styles = [''] * len(row)
-        if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
-            styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
-        if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
-            styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
-        return styles
-    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
+import pandas as pd
+import streamlit as st
+
+# Load economic calendar from CSV
+econ_file_path = "fx news.csv"  # ensure this file is in the app folder
+econ_df = pd.read_csv(econ_file_path)
+
+# Ensure session state keys exist
+if 'selected_currency_1' not in st.session_state:
+    st.session_state.selected_currency_1 = None
+if 'selected_currency_2' not in st.session_state:
+    st.session_state.selected_currency_2 = None
+
+# Unique currencies for filters
+uniq_ccy = sorted(econ_df["Currency"].dropna().unique())
+
+# Currency selection filters
+col_filter1, col_filter2 = st.columns(2)
+with col_filter1:
+    currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + list(uniq_ccy), key="cal_curr_1")
+    st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
+with col_filter2:
+    currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + list(uniq_ccy), key="cal_curr_2")
+    st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
+
+# Function to highlight selected currencies
+def highlight_currency(row):
+    styles = [''] * len(row)
+    if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
+        styles = ['background-color: #171447; color: white' if col == 'Currency' else 'background-color: #171447' for col in row.index]
+    if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
+        styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
+    return styles
+
+# Display the economic calendar
+st.markdown("### 🗓️ Upcoming Economic Events")
+st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
     # Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
     interest_rates = [
