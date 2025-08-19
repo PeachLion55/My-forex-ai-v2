@@ -450,44 +450,44 @@ def highlight_currency(row):
 st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
    
 # Interest rate tiles
-    st.markdown("### 💹 Major Central Bank Interest Rates")
-    interest_rates = [
-        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
-        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
-        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
-        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
-        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
-        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
-        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
-        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
-    ]
-    boxes_per_row = 4
-    colors = ["#171447", "#471414", "#144714", "#474714"]
-    for i in range(0, len(interest_rates), boxes_per_row):
-        cols = st.columns(boxes_per_row)
-        for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
-            color = colors[j % len(colors)]
-            with cols[j]:
-                st.markdown(
-                    f"""
-                    <div class="card">
-                        <div style="
-                            background-color:{color};
-                            border-radius:10px;
-                            padding:15px;
-                            text-align:center;
-                            color:white;
-                        ">
-                            <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
-                            <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
-                            <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
-                            <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
-                        </div>
+st.markdown("### 💹 Major Central Bank Interest Rates")
+interest_rates = [
+    {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
+    {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
+    {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
+    {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
+    {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
+    {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
+    {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
+    {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
+]
+boxes_per_row = 4
+colors = ["#171447", "#471414", "#144714", "#474714"]
+for i in range(0, len(interest_rates), boxes_per_row):
+    cols = st.columns(boxes_per_row)
+    for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+        color = colors[j % len(colors)]
+        with cols[j]:
+            st.markdown(
+                f"""
+                <div class="card">
+                    <div style="
+                        background-color:{color};
+                        border-radius:10px;
+                        padding:15px;
+                        text-align:center;
+                        color:white;
+                    ">
+                        <h3 style="margin: 0 0 6px 0;">{rate['Currency']}</h3>
+                        <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
+                        <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
+                        <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
                     </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     # Major High-Impact Events
     st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
