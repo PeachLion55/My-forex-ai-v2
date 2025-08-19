@@ -1137,52 +1137,57 @@ with selected_tab[2]:
         fig.update_layout(title='Equity Projection – Base vs What-If',
                           xaxis_title='Trade #', yaxis_title='Equity')
         st.plotly_chart(fig, use_container_width=True)
-    with tools_subtabs[4]:
-        st.header("🕒 Forex Market Sessions")
-        st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
-        st.write('---')
-        st.subheader('📊 Session Statistics')
-        df = st.session_state.get('mt5_df', pd.DataFrame()) or st.session_state.tools_trade_journal
-        if not df.empty and 'session' in df.columns:
-            by_sess = df.groupby(['session']).agg(
-                trades=('r','count') if 'r' in df.columns else ('session','count'),
-                winrate=('r', lambda s: (s>0).mean()) if 'r' in df.columns else ('session','count'),
-                avg_r=('r','mean') if 'r' in df.columns else ('session','count')
-            ).reset_index()
-            st.dataframe(by_sess, use_container_width=True)
-            if 'r' in df.columns:
-                st.plotly_chart(px.bar(by_sess, x='session', y='avg_r', title='Average R by Session'), use_container_width=True)
-                if 'symbol' in df.columns:
-                    sess_symbol = df.groupby(['session','symbol']).agg(expectancy=('r', lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0))).reset_index()
-                    st.plotly_chart(px.density_heatmap(sess_symbol, x='session', y='symbol', z='expectancy', title='Expectancy Heatmap'), use_container_width=True)
-        else:
-            st.info("Upload data with a 'session' column to see your session stats.")
-        sessions = {
-            "Sydney": (22, 7),
-            "Tokyo": (0, 9),
-            "London": (8, 17),
-            "New York": (13, 22),
-        }
-        now_utc = dt.datetime.now(pytz.UTC).hour
-        cols = st.columns(len(sessions))
-        for i, (session, (start, end)) in enumerate(sessions.items()):
-            active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
-            color = "#144714" if active else "#171447"
-            with cols[i]:
-                st.markdown(f"""
-                    <div style="
-                        background-color:{color};
-                        border-radius:10px;
-                        padding:15px;
-                        text-align:center;
-                        color:white;
-                        box-shadow:2px 2px 8px rgba(0,0,0,0.5);
-                    ">
-                        <h3 style="margin:0;">{session}</h3>
-                        <p style="margin:0;">{start}:00 - {end}:00 UTC</p>
-                        <b>{'ACTIVE' if active else 'Closed'}</b>
-                    </div>
-                """, unsafe_allow_html=True)
+with tools_subtabs[4]:
+    st.header("🕒 Forex Market Sessions")
+    st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
+    st.write('---')
+    st.subheader('📊 Session Statistics')
+    # Use explicit check for empty dataframe
+    mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
+    df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
+    if not df.empty and 'session' in df.columns:
+        by_sess = df.groupby(['session']).agg(
+            trades=('r', 'count') if 'r' in df.columns else ('session', 'count'),
+            winrate=('r', lambda s: (s > 0).mean()) if 'r' in df.columns else ('session', 'count'),
+            avg_r=('r', 'mean') if 'r' in df.columns else ('session', 'count')
+        ).reset_index()
+        st.dataframe(by_sess, use_container_width=True)
+        if 'r' in df.columns:
+            st.plotly_chart(px.bar(by_sess, x='session', y='avg_r', title='Average R by Session'), use_container_width=True)
+            if 'symbol' in df.columns:
+                sess_symbol = df.groupby(['session', 'symbol']).agg(
+                    expectancy=('r', lambda s: (s > 0).mean() * (s[s > 0].mean() if (s > 0).any() else 0) - 
+                              (1 - (s > 0).mean()) * (-s[s < 0].mean() if (s < 0).any() else 0))
+                ).reset_index()
+                st.plotly_chart(px.density_heatmap(sess_symbol, x='session', y='symbol', z='expectancy', title='Expectancy Heatmap'), use_container_width=True)
+    else:
+        st.info("Upload data with a 'session' column to see your session stats.")
+    sessions = {
+        "Sydney": (22, 7),
+        "Tokyo": (0, 9),
+        "London": (8, 17),
+        "New York": (13, 22),
+    }
+    now_utc = dt.datetime.now(pytz.UTC).hour
+    cols = st.columns(len(sessions))
+    for i, (session, (start, end)) in enumerate(sessions.items()):
+        active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
+        color = "#144714" if active else "#171447"
+        with cols[i]:
+            st.markdown(f"""
+                <div style="
+                    background-color:{color};
+                    border-radius:10px;
+                    padding:15px;
+                    text-align:center;
+                    color:white;
+                    box-shadow:2px 2px 8px rgba(0,0,0,0.5);
+                ">
+                    <h3 style="margin:0;">{session}</h3>
+                    <p style="margin:0;">{start}:00 - {end}:00 UTC</p>
+                    <b>{'ACTIVE' if active else 'Closed'}</b>
+                </div>
+            """, unsafe_allow_html=True)
     with tools_subtabs[5]:
         st.subheader("📉 Drawdown Recovery Planner")
         dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
