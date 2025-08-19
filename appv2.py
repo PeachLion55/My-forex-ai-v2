@@ -1090,18 +1090,21 @@ with selected_tab[2]:
                         <b>{'ACTIVE' if active else 'Closed'}</b>
                     </div>
                 """, unsafe_allow_html=True)
-    with tools_subtabs[5]:
-        st.subheader("📉 Drawdown Recovery Planner")
-        dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
-        winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
-        avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1)
-        risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
-        needed_gain = _ta_percent_gain_to_recover(dd_pct)
-        st.metric("Gain Required to Break Even", _ta_human_pct(needed_gain))
-        E_R = winrate * avg_r - (1 - winrate) * 1.0
-        g = risk_pct * E_R
-        if g <= 0:
-            st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
+with tools_subtabs[5]:
+    st.subheader("📉 Drawdown Recovery Planner")
+    
+    dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
+    winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
+    avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1)
+    risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
+
+    needed_gain = percent_gain_to_recover(dd_pct)
+    st.metric("Gain Required to Break Even", human_pct(needed_gain))
+
+    E_R = winrate * avg_r - (1 - winrate) * 1.0
+    g = risk_pct * E_R
+    if g <= 0:
+        st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
         else:
             n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
             st.metric("Approx. Trades Needed", f"{n}")
