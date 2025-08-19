@@ -19,20 +19,25 @@ import math
 import uuid
 import glob
 import time
+
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
 # === TA_PRO HELPERS START ===
 def _ta_safe_lower(s):
     return str(s).strip().lower().replace(" ", "_")
+
 def _ta_human_pct(x, nd=1):
     if pd.isna(x):
         return "—"
     return f"{x*100:.{nd}f}%"
+
 def _ta_human_num(x, nd=2):
     if pd.isna(x):
         return "—"
     return f"{x:.{nd}f}"
+
 def _ta_user_dir(user_id="guest"):
     root = os.path.join(os.path.dirname(__file__), "user_data")
     os.makedirs(root, exist_ok=True)
@@ -41,24 +46,29 @@ def _ta_user_dir(user_id="guest"):
     os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
     os.makedirs(os.path.join(d, "playbooks"), exist_ok=True)
     return d
+
 def _ta_load_json(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return default
+
 def _ta_save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
 def _ta_hash():
     return uuid.uuid4().hex[:12]
+
 def _ta_percent_gain_to_recover(drawdown_pct):
     if drawdown_pct <= 0:
         return 0.0
     if drawdown_pct >= 0.99:
         return float("inf")
     return drawdown_pct / (1 - drawdown_pct)
+
 def _ta_expectancy_by_group(df, group_cols):
     g = df.dropna(subset=["r"]).groupby(group_cols)
     res = g["r"].agg(
@@ -69,6 +79,7 @@ def _ta_expectancy_by_group(df, group_cols):
         expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
     ).reset_index()
     return res
+
 def _ta_profit_factor(df):
     if "pnl" not in df.columns:
         return np.nan
@@ -77,12 +88,14 @@ def _ta_profit_factor(df):
     if gl == 0:
         return np.nan if gp == 0 else float("inf")
     return gp / gl
+
 def _ta_daily_pnl(df):
     if "datetime" in df.columns and "pnl" in df.columns:
         tmp = df.dropna(subset=["datetime"]).copy()
         tmp["date"] = pd.to_datetime(tmp["datetime"]).dt.date
         return tmp.groupby("date", as_index=False)["pnl"].sum()
     return pd.DataFrame(columns=["date","pnl"])
+
 def _ta_compute_streaks(df):
     d = _ta_daily_pnl(df)
     if d.empty:
@@ -96,6 +109,7 @@ def _ta_compute_streaks(df):
         else:
             streak = 0
     return {"current": streak, "best": best}
+
 def _ta_show_badges(df):
     with st.expander("🏅 Gamification: Streaks & Badges", expanded=False):
         streaks = _ta_compute_streaks(df) if df is not None else {"current":0,"best":0}
@@ -106,8 +120,10 @@ def _ta_show_badges(df):
             emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
             st.caption(f"🧠 Emotion-logged trades: {emo_logged}")
 # === TA_PRO HELPERS END ===
+
 # Path to SQLite DB
 DB_FILE = "users.db"
+
 # Connect to SQLite with error handling
 try:
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
@@ -119,10 +135,12 @@ try:
 except Exception as e:
     logging.error(f"Failed to initialize SQLite database: {str(e)}")
     st.error(f"Database initialization failed: {str(e)}")
+
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
+
 # ----------------- CUSTOM CSS -----------------
 bg_opacity = 0.5
 st.markdown(
@@ -154,7 +172,7 @@ st.markdown(
 }}
 /* Content above bg */
 .main, .block-container, .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg {{ position: relative; z-index: 1; }}
-/* Enhanced tab styling */
+/* Enhanced tab styling for main navigation */
 div[data-baseweb="tab-list"] {{
     gap: 12px;
     padding-bottom: 8px;
@@ -184,7 +202,7 @@ div[data-baseweb="tab-list"] button:hover {{
     color: #fff !important;
     transform: translateY(-2px);
 }}
-/* Button styling (smaller size, smaller font, 90% opacity gradient) */
+/* Button styling */
 .stButton button {{
     background: linear-gradient(45deg, rgba(255,215,0,0.9), rgba(255,165,0,0.9)) !important;
     color: #000 !important;
@@ -206,7 +224,7 @@ div[data-baseweb="tab-list"] button:hover {{
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
-/* Form submit button styling (same as other buttons, 90% opacity gradient) */
+/* Form submit button styling */
 .stFormSubmitButton button {{
     background: linear-gradient(45deg, rgba(255,215,0,0.9), rgba(255,165,0,0.9)) !important;
     color: #000 !important;
@@ -228,7 +246,7 @@ div[data-baseweb="tab-list"] button:hover {{
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }}
-/* Original Card look */
+/* Card look */
 .card {{
     background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
     border: 1px solid rgba(255,255,255,0.07);
@@ -240,7 +258,7 @@ div[data-baseweb="tab-list"] button:hover {{
 .card:hover {{
     transform: translateY(-4px);
 }}
-/* Original dataframe styling */
+/* Dataframe styling */
 .dataframe th {{
     background-color: #1f1f1f;
     color: #FFD700;
@@ -249,19 +267,19 @@ div[data-baseweb="tab-list"] button:hover {{
     background-color: #121212;
     color: white;
 }}
-/* Original Selectbox and input styling */
+/* Selectbox and input styling */
 .stSelectbox, .stNumberInput, .stTextInput, .stRadio {{
     background-color: #1b1b1b;
     border-radius: 8px;
     padding: 8px;
 }}
-/* Original Expander styling */
+/* Expander styling */
 .stExpander {{
     border: 1px solid #242424;
     border-radius: 8px;
     background-color: #1b1b1b;
 }}
-/* small utility */
+/* Small utility */
 .small-muted {{ color:#9e9e9e; font-size:0.9rem; }}
 /* Enhanced data editor input styling */
 .stDataFrame .stTextInput input, .stDataFrame .stSelectbox select, .stDataFrame .stNumberInput input, .stDataFrame .stDateInput input {{
@@ -283,6 +301,7 @@ div[data-baseweb="tab-list"] button:hover {{
 """,
     unsafe_allow_html=True,
 )
+
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -303,6 +322,7 @@ def detect_currency(title: str) -> str:
             if kw in t:
                 return curr
     return "Unknown"
+
 def rate_impact(polarity: float) -> str:
     if polarity > 0.5:
         return "Significantly Bullish"
@@ -314,6 +334,7 @@ def rate_impact(polarity: float) -> str:
         return "Bearish"
     else:
         return "Neutral"
+
 @st.cache_data(ttl=600, show_spinner=False)
 def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -352,16 +373,19 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             logging.error(f"Failed to process news dataframe: {str(e)}")
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
+
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
+
 # Initialize drawings in session_state
 if "drawings" not in st.session_state:
     st.session_state.drawings = {}
     logging.info("Initialized st.session_state.drawings")
+
 # Define journal columns and dtypes
 journal_cols = [
     "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
@@ -394,6 +418,7 @@ journal_dtypes = {
     "Take Profit Price": float,
     "Lots": float
 }
+
 # Initialize trading journal with proper dtypes
 if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
     st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
@@ -406,18 +431,21 @@ else:
             current_journal[col] = pd.Series(dtype=journal_dtypes[col])
     # Reorder columns and apply dtypes
     st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+
 # Initialize temporary journal for form
 if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
+
 # =========================================================
-# NAVIGATION
+# NAVIGATION - RESTORED TO MAIN TABS
 # =========================================================
 tabs = ["Forex Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Tools", "Psychology", "Manage My Strategy", "My Account", "Community Trade Ideas"]
-selected_tab = st.tabs(tabs)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(tabs)
+
 # =========================================================
-# TAB 1: FOREX FUNDAMENTALS
+# TAB 1: Forex Fundamentals
 # =========================================================
-with selected_tab[0]:
+with tab1:
     col1, col2 = st.columns([3, 1])
     with col1:
         st.title("📅 Forex Fundamentals")
@@ -448,15 +476,20 @@ with selected_tab[0]:
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
     # Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
+    st.markdown("""
+    Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. 
+    Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities.
+    Below are current rates, with details on recent changes, next meeting dates, and market expectations.
+    """)
     interest_rates = [
-        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024"},
-        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025"},
-        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025"},
-        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025"},
-        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025"},
-        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025"},
-        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025"},
-        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025"},
+        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024", "Next Meeting": "2025-09-18", "Expectation": "Possible cut if inflation cools further. Fed watching labor data closely."},
+        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025", "Next Meeting": "2025-09-19", "Expectation": "BOE may hold steady amid persistent UK inflation pressures."},
+        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025", "Next Meeting": "2025-09-12", "Expectation": "ECB likely to pause cuts as eurozone growth stabilizes."},
+        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025", "Next Meeting": "2025-09-20", "Expectation": "BOJ gradual hikes if yen weakness persists."},
+        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025", "Next Meeting": "2025-09-24", "Expectation": "RBA monitoring commodity prices; potential hold."},
+        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025", "Next Meeting": "2025-09-04", "Expectation": "BOC data-dependent; oil prices key factor."},
+        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025", "Next Meeting": "2025-10-09", "Expectation": "RBNZ easing cycle may continue if dairy prices fall."},
+        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025", "Next Meeting": "2025-09-26", "Expectation": "SNB intervening on franc strength; rates likely steady."},
     ]
     boxes_per_row = 4
     colors = ["#171447", "#471414", "#144714", "#474714"]
@@ -479,6 +512,8 @@ with selected_tab[0]:
                             <p style="margin: 2px 0;"><b>Current:</b> {rate['Current']}</p>
                             <p style="margin: 2px 0;"><b>Previous:</b> {rate['Previous']}</p>
                             <p style="margin: 2px 0;"><b>Changed On:</b> {rate['Changed']}</p>
+                            <p style="margin: 2px 0;"><b>Next Meeting:</b> {rate['Next Meeting']}</p>
+                            <p style="margin: 2px 0;"><b>Expectation:</b> {rate['Expectation']}</p>
                         </div>
                     </div>
                     """,
@@ -581,10 +616,11 @@ with selected_tab[0]:
             </div>
             """, unsafe_allow_html=True
         )
+
 # =========================================================
-# TAB 2: BACKTESTING
+# TAB 2: Backtesting
 # =========================================================
-with selected_tab[1]:
+with tab2:
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
     # Pair selector & symbol map
@@ -618,7 +654,7 @@ with selected_tab[1]:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-    # TradingView widget with debug
+    # TradingView widget
     tv_html = f"""
     <div class="tradingview-widget-container" style="height:780px; width:100%">
       <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
@@ -884,42 +920,11 @@ with selected_tab[1]:
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
-    # News & Sentiment
-    #st.markdown("### 📰 News & Sentiment for Selected Pair")
-    #if not df_news.empty:
-        #base, quote = pair.split("/")
-        #filtered_df = df_news[df_news["Currency"].isin([base, quote])].copy()
-        #try:
-            #filtered_df["HighProb"] = filtered_df.apply(
-                #lambda row: "🔥" if (row["Impact"] in ["Significantly Bullish", "Significantly Bearish"]) and
-                                    #(pd.to_datetime(row["Date"]) >= pd.Timestamp.utcnow() - pd.Timedelta(days=1))
-                #else "", axis=1
-            #)
-        #except Exception as e:
-            #filtered_df["HighProb"] = ""
-            #logging.error(f"Error processing news high probability: {str(e)}")
-        #filtered_df_display = filtered_df.copy()
-        #filtered_df_display["HeadlineDisplay"] = filtered_df["HighProb"] + " " + filtered_df["Headline"]
-        #if not filtered_df_display.empty:
-            #selected_headline = st.selectbox(
-                #"Select a headline for details",
-                #filtered_df_display["HeadlineDisplay"].tolist(),
-                #key="bt_headline_select"
-            #)
-            #selected_row = filtered_df_display[filtered_df_display["HeadlineDisplay"] == selected_headline].iloc[0]
-            #st.markdown(f"**[{selected_row['Headline']}]({selected_row['Link']})**")
-            #st.write(f"**Published:** {selected_row['Date'].date() if isinstance(selected_row['Date'], pd.Timestamp) else selected_row['Date']}")
-            #st.write(f"**Detected currency:** {selected_row['Currency']} | **Impact:** {selected_row['Impact']}")
-            #with st.expander("Summary"):
-                #st.write(selected_row["Summary"])
-        #else:
-            #st.info("No pair-specific headlines found in the recent feed.")
-    #else:
-        #st.info("News feed unavailable right now.")
+
 # =========================================================
-# TAB 3: MT5 STATS DASHBOARD
+# TAB 3: MT5 Performance Dashboard
 # =========================================================
-with selected_tab[2]:
+with tab3:
     st.markdown("""
         <style>
         .title-container {
@@ -1162,15 +1167,17 @@ with selected_tab[2]:
         _ta_show_badges(df)
     except Exception:
         pass
+
 # =========================================================
-# TAB 4: TOOLS
+# TAB 4: Tools
 # =========================================================
-with selected_tab[3]:
+with tab4:
     st.title("🛠 Tools")
     tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner", "Pre-Trade Checklist"])
     with tools_subtabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
+        st.write('---')
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
             currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
@@ -1195,6 +1202,7 @@ with selected_tab[3]:
     with tools_subtabs[1]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
+        st.write('---')
         forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
         if "price_alerts" not in st.session_state:
             st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
@@ -1286,6 +1294,7 @@ with selected_tab[3]:
     with tools_subtabs[2]:
         st.header("📊 Currency Correlation Heatmap")
         st.markdown("Understand how forex pairs move relative to each other.")
+        st.write('---')
         pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
         data = np.array([
             [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
@@ -1304,7 +1313,11 @@ with selected_tab[3]:
         st.plotly_chart(fig, use_container_width=True)
     with tools_subtabs[3]:
         st.header("🛡️ Risk Management Calculator")
-        st.markdown("Proper position sizing keeps your account safe.")
+        st.markdown("""
+        Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. 
+        It helps prevent large losses, preserves capital, and allows you to stay in the game during drawdowns. 
+        Always risk no more than 1-2% per trade, use stop losses, and calculate position sizes based on your account size and risk tolerance.
+        """)
         st.write('---')
         # 📊 Lot Size Calculator
         st.subheader('📊 Lot Size Calculator')
@@ -1349,372 +1362,440 @@ with selected_tab[3]:
         fig.update_layout(title='Equity Projection – Base vs What-If',
                           xaxis_title='Trade #', yaxis_title='Equity')
         st.plotly_chart(fig, use_container_width=True)
-    with tools_subtabs[4]:
-        st.header("🕒 Forex Market Sessions")
-        st.markdown("Stay aware of active trading sessions to trade when volatility is highest.")
-        st.write('---')
-        st.subheader('📊 Session Statistics')
-        # Use explicit check for empty dataframe
-        mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
-        df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
-        if not df.empty and 'session' in df.columns:
-            by_sess = df.groupby(['session']).agg(
-                trades=('r', 'count') if 'r' in df.columns else ('session', 'count'),
-                winrate=('r', lambda s: (s > 0).mean()) if 'r' in df.columns else ('session', 'count'),
-                avg_r=('r', 'mean') if 'r' in df.columns else ('session', 'count')
-            ).reset_index()
-            st.dataframe(by_sess, use_container_width=True)
-            if 'r' in df.columns:
-                st.plotly_chart(px.bar(by_sess, x='session', y='avg_r', title='Average R by Session'), use_container_width=True)
-                if 'symbol' in df.columns:
-                    sess_symbol = df.groupby(['session', 'symbol']).agg(
-                        expectancy=('r', lambda s: (s > 0).mean() * (s[s > 0].mean() if (s > 0).any() else 0) -
-                                  (1 - (s > 0).mean()) * (-s[s < 0].mean() if (s < 0).any() else 0))
-                    ).reset_index()
-                    st.plotly_chart(px.density_heatmap(sess_symbol, x='session', y='symbol', z='expectancy', title='Expectancy Heatmap'), use_container_width=True)
-        else:
-            st.info("Upload data with a 'session' column to see your session stats.")
-        sessions = {
-            "Sydney": (22, 7),
-            "Tokyo": (0, 9),
-            "London": (8, 17),
-            "New York": (13, 22),
-        }
-        now_utc = dt.datetime.now(pytz.UTC).hour
-        cols = st.columns(len(sessions))
-        for i, (session, (start, end)) in enumerate(sessions.items()):
-            active = start <= now_utc < end if start < end else (now_utc >= start or now_utc < end)
-            color = "#144714" if active else "#171447"
-            with cols[i]:
-                st.markdown(f"""
-                    <div style="
-                        background-color:{color};
-                        border-radius:10px;
-                        padding:15px;
-                        text-align:center;
-                        color:white;
-                        box-shadow:2px 2px 8px rgba(0,0,0,0.5);
-                    ">
-                        <h3 style="margin:0;">{session}</h3>
-                        <p style="margin:0;">{start}:00 - {end}:00 UTC</p>
-                        <b>{'ACTIVE' if active else 'Closed'}</b>
-                    </div>
-                """, unsafe_allow_html=True)
-    with tools_subtabs[5]:
-        st.subheader("📉 Drawdown Recovery Planner")
-        dd_pct = st.slider("Current Drawdown (%)", 0.0, 90.0, 20.0, 0.5) / 100.0
-        winrate = st.slider("Win Rate (%)", 10.0, 90.0, 50.0, 1.0) / 100.0
-        avg_r = st.slider("Average Win (R multiple)", 0.5, 5.0, 1.5, 0.1)
-        risk_pct = st.slider("Risk per trade (% of equity)", 0.1, 5.0, 1.0, 0.1) / 100.0
-        needed_gain = _ta_percent_gain_to_recover(dd_pct)
-        st.metric("Gain Required to Break Even", _ta_human_pct(needed_gain))
-        E_R = winrate * avg_r - (1 - winrate) * 1.0
-        g = risk_pct * E_R
-        if g <= 0:
-            st.warning("Expected gain per trade ≤ 0. Increase win rate / avg R or reduce risk.")
-        else:
-            n = math.ceil(math.log(1 + needed_gain) / math.log(1 + g))
-            st.metric("Approx. Trades Needed", f"{n}")
-        horizon = 100
-        equity = [1.0]
-        for i in range(horizon):
-            equity.append(equity[-1] * (1 + g))
-        proj = pd.DataFrame({"trade": list(range(horizon + 1)), "equity": equity})
-        target = 1 + needed_gain
-        fig = px.line(proj, x="trade", y="equity", title="Projected Equity Under Expected Return")
-        fig.add_hline(y=target, line_dash="dot", annotation_text="Break-even target")
-        st.plotly_chart(fig, use_container_width=True)
-        try:
-            df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
-            _ta_show_badges(df)
-        except Exception:
-            pass
-    with tools_subtabs[6]:
-        st.subheader("✅ Pre-Trade Checklist")
-        user_id = st.session_state.get("logged_in_user", "guest")
-        checklist_path = os.path.join(_ta_user_dir(user_id), "pretrade_checklist.json")
-        current = _ta_load_json(checklist_path, {"criteria": [{"enabled": True, "text": "Trend Direction in favor"}, {"enabled": True, "text": "Confluence present"}, {"enabled": True, "text": "RR ≥ 1:2"}]})
-        max_rows = 20
-        data = pd.DataFrame(current["criteria"][:max_rows])
-        data = st.data_editor(data, num_rows="dynamic", use_container_width=True)
-        if st.button("Save to my account"):
-            new_list = data.to_dict(orient="records")[:max_rows]
-            _ta_save_json(checklist_path, {"criteria": new_list})
-            st.success("Checklist saved. ✅")
-        st.write("---")
-        st.subheader("Pre-Trade Enforcement")
-        enabled = [c for c in _ta_load_json(checklist_path, {"criteria": []})["criteria"] if c.get("enabled")]
-        status = {}
-        for i, c in enumerate(enabled):
-            status[i] = st.checkbox(c.get("text", ""), key=f"ck_{i}")
-        all_ok = all(status.values()) if enabled else True
-        st.button("Proceed to Log Trade", disabled=not all_ok)
-        try:
-            df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
-            _ta_show_badges(df)
-        except Exception:
-            pass
-# =========================================================
-# TAB 5: PSYCHOLOGY
-# =========================================================
-with selected_tab[4]:
-    st.title("🧠 Psychology")
-    mt5_df = st.session_state.get("mt5_df", pd.DataFrame())
-    df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
-    if df.empty or "emotions" not in df.columns or df["emotions"].isna().all():
-        st.info("Requires an 'emotions' column in your Backtesting/MT5 dataset (comma-separated per trade).")
-        st.markdown("**How to add emotions:**")
-        st.write("- In the Backtesting tab, add emotions (e.g., 'confident, focused') to the 'Emotions' column in your trading journal.")
-        st.write("- For MT5 data, include an 'emotions' column in your CSV with comma-separated emotions per trade.")
-    else:
-        try:
-            tmp = df.copy()
-            tmp["emotions"] = tmp["emotions"].fillna("").astype(str)
-            tmp["emotion_list"] = tmp["emotions"].apply(lambda x: [e.strip().lower() for e in x.split(",") if e.strip()])
-            exploded = tmp.explode("emotion_list")
-            exploded = exploded[exploded["emotion_list"].notna() & (exploded["emotion_list"] != "")]
-            if exploded.empty:
-                st.info("No valid emotions found. Please add emotions to your trades.")
-            else:
-                by_emotion = exploded.groupby("emotion_list").agg(
-                    trades=("r", "count") if "r" in exploded.columns else ("emotion_list", "count"),
-                    winrate=("r", lambda s: (s > 0).mean()) if "r" in exploded.columns else ("emotion_list", "count"),
-                    avg_r=("r", "mean") if "r" in exploded.columns else ("emotion_list", "count")
-                ).reset_index().sort_values("trades", ascending=False)
-                st.subheader("Emotions Impact on Results")
-                st.dataframe(by_emotion, use_container_width=True)
-                if "r" in exploded.columns:
-                    st.plotly_chart(px.bar(by_emotion, x="emotion_list", y="avg_r", title="Average R by Emotion"), use_container_width=True)
-                if "datetime" in exploded.columns:
-                    emo_daily = exploded.copy()
-                    emo_daily["date"] = pd.to_datetime(emo_daily["datetime"], errors="coerce").dt.date
-                    emo_daily = emo_daily.groupby(["date", "emotion_list"]).agg(
-                        avg_r=("r", "mean") if "r" in exploded.columns else ("emotion_list", "count")
-                    ).reset_index()
-                    st.plotly_chart(px.line(emo_daily, x="date", y="avg_r" if "r" in exploded.columns else "emotion_list", color="emotion_list", markers=True), use_container_width=True)
-        except Exception as e:
-            st.error(f"Error processing emotions data: {str(e)}")
-            logging.error(f"Error in Psychology tab: {str(e)}")
-    try:
-        _ta_show_badges(df)
-    except Exception:
-        logging.error(f"Error in badges for Psychology tab: {str(e)}")
-# =========================================================
-# TAB 6: MANAGE MY STRATEGY
-# =========================================================
-with selected_tab[5]:
-    st.title("📘 Manage My Strategy")
-    user_id = st.session_state.get("logged_in_user", "guest")
-    pdir = os.path.join(_ta_user_dir(user_id), "playbooks")
-    os.makedirs(pdir, exist_ok=True)
-    mode = st.radio("Mode", ["Create", "View / Edit"], horizontal=True)
-    if mode == "Create":
-        name = st.text_input("Strategy Name")
-        tags = st.text_input("Tags (comma separated)")
-        description = st.text_area("Description / Notes", height=150)
-        rules = st.text_area("Entry/Exit Rules", height=130)
-        uploads = st.file_uploader("Attach screenshots (optional)", type=["png","jpg","jpeg","webp"], accept_multiple_files=True)
-        if st.button("Save Playbook", disabled=(not name)):
-            pb_id = _ta_hash()
-            pb_dir = os.path.join(pdir, pb_id)
-            os.makedirs(pb_dir, exist_ok=True)
-            images = []
-            for f in uploads or []:
-                out = os.path.join(pb_dir, f.name)
-                with open(out, "wb") as wf:
-                    wf.write(f.read())
-                images.append(os.path.join(pb_id, f.name))
-            meta = {"id": pb_id, "name": name, "tags": [t.strip() for t in tags.split(",") if t.strip()], "description": description, "rules": rules, "images": images, "created_at": time.time(), "updated_at": time.time()}
-            _ta_save_json(os.path.join(pb_dir, "meta.json"), meta)
-            st.success("Playbook saved.")
-    else:
-        all_pb = []
-        for d in glob.glob(os.path.join(pdir, "*")):
-            if os.path.isdir(d):
-                meta = _ta_load_json(os.path.join(d,"meta.json"), {})
-                if meta: all_pb.append(meta)
-        if not all_pb:
-            st.info("No playbooks yet.")
-        else:
-            sel = st.selectbox("Select Playbook", [f'{pb["name"]} ({pb["id"]})' for pb in all_pb])
-            pb = next(pb for pb in all_pb if f'{pb["name"]} ({pb["id"]})' == sel)
-            st.subheader(pb["name"])
-            st.caption(", ".join(pb.get("tags",[])))
-            st.write(pb.get("description",""))
-            st.write("**Rules**")
-            st.code(pb.get("rules",""))
-            img_cols = st.columns(3)
-            for i, img_rel in enumerate(pb.get("images", [])):
-                img_path = os.path.join(pdir, img_rel)
-                with img_cols[i % 3]:
-                    st.image(img_path, use_column_width=True)
-            st.write("---")
-            st.subheader("Edit")
-            new_desc = st.text_area("Description", pb.get("description",""))
-            new_rules = st.text_area("Rules", pb.get("rules",""))
-            if st.button("Save Changes"):
-                pb["description"] = new_desc
-                pb["rules"] = new_rules
-                pb["updated_at"] = time.time()
-                _ta_save_json(os.path.join(pdir, pb["id"], "meta.json"), pb)
-                st.success("Updated.")
-    try:
-        df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
-        _ta_show_badges(df)
-    except Exception:
-        pass
-# =========================================================
-# TAB 7: MY ACCOUNT
-# =========================================================
-with selected_tab[6]:
-    st.title("👤 My Account")
-
+with tools_subtabs[4]:
+    st.header("🕒 Forex Market Sessions")
     st.markdown("""
-    Welcome to your personal dashboard! Signing in unlocks the full power of your trading toolkit:
-    - **Save your charts and drawings**
-    - **Access your trading journal**
-    - **Customize your preferences and alerts**
-    - **Track your performance over time**
-    - **Receive insights and notifications**
+    Stay aware of active trading sessions to trade when volatility is highest. 
+    Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. 
+    Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. 
+    Track your performance per session to identify your edge.
     """)
+    st.write('---')
+    st.subheader('📊 Session Statistics')
+    mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
+    df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
+    if not df.empty and 'session' in df.columns:
+        by_sess = df.groupby(['session']).agg(
+            trades=('r', 'count') if 'r' in df.columns else ('session', 'count'),
+            winrate=('r', lambda s: (s > 0).mean()) if 'r' in df.columns else ('session', 'count'),
+            avg_r=('r', 'mean') if 'r' in df.columns else ('session', 'count')
+        ).reset_index()
+        st.dataframe(by_sess, use_container_width=True)
+        if 'r' in df.columns:
+            fig = px.bar(by_sess, x='session', y='winrate', title='Win Rate by Session', template='plotly_white')
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Upload trades with a 'session' column to analyze performance by trading session.")
+    st.subheader('🕒 Current Market Sessions')
+    now = dt.datetime.now(pytz.UTC)
+    sessions = [
+        {"name": "Sydney", "start": 22, "end": 7, "tz": "Australia/Sydney"},
+        {"name": "Tokyo", "start": 0, "end": 9, "tz": "Asia/Tokyo"},
+        {"name": "London", "start": 8, "end": 17, "tz": "Europe/London"},
+        {"name": "New York", "start": 13, "end": 22, "tz": "America/New_York"},
+    ]
+    session_status = []
+    for session in sessions:
+        tz = pytz.timezone(session["tz"])
+        local_time = now.astimezone(tz)
+        local_hour = local_time.hour + local_time.minute / 60
+        start = session["start"]
+        end = session["end"]
+        is_open = (start <= local_hour < end) if start <= end else (start <= local_hour or local_hour < end)
+        session_status.append({
+            "Session": session["name"],
+            "Status": "Open" if is_open else "Closed",
+            "Local Time": local_time.strftime("%H:%M"),
+            "Time Until": (start - local_hour) % 24 if not is_open else (end - local_hour) % 24
+        })
+    session_df = pd.DataFrame(session_status)
+    st.dataframe(session_df, use_container_width=True)
+    for session in session_status:
+        color = "#2ecc71" if session["Status"] == "Open" else "#e74c3c"
+        st.markdown(
+            f"""
+            <div style="background-color: {color}; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                <strong>{session['Session']} Session:</strong> {session['Status']} (Local: {session['Local Time']}, 
+                {'Closes in' if session['Status'] == 'Open' else 'Opens in'} {session['Time Until']:.1f} hours)
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    # Create sub-tabs for Sign In / Sign Up
-    account_tab = st.tabs(["Sign In", "Sign Up"])
+with tools_subtabs[5]:
+    st.header("📉 Drawdown Recovery Planner")
+    st.markdown("""
+    Plan your recovery from a drawdown. Understand the percentage gain required to recover losses 
+    and simulate recovery based on your trading parameters.
+    """)
+    st.write('---')
+    drawdown_pct = st.slider("Current Drawdown (%)", 1.0, 50.0, 10.0) / 100
+    recovery_pct = _ta_percent_gain_to_recover(drawdown_pct)
+    st.metric("Required Gain to Recover", f"{recovery_pct*100:.2f}%")
+    st.subheader("📈 Recovery Simulation")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        initial_equity = st.number_input("Initial Equity ($)", min_value=100.0, value=10000.0)
+    with col2:
+        win_rate = st.slider("Expected Win Rate (%)", 10, 90, 50) / 100
+    with col3:
+        avg_rr = st.slider("Average R:R", 0.5, 5.0, 1.5, 0.1)
+    risk_per_trade = st.slider("Risk per Trade (%)", 0.1, 5.0, 1.0) / 100
+    trades_needed = math.ceil(math.log(1 / (1 - drawdown_pct)) / math.log(1 + risk_per_trade * (win_rate * avg_rr - (1 - win_rate))))
+    st.write(f"**Estimated Trades to Recover**: {trades_needed}")
+    sim_equity = [initial_equity * (1 - drawdown_pct)]
+    for _ in range(min(trades_needed + 10, 100)):
+        sim_equity.append(sim_equity[-1] * (1 + risk_per_trade * (win_rate * avg_rr - (1 - win_rate))))
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=list(range(len(sim_equity))), y=sim_equity, mode='lines', name='Equity'))
+    fig.add_hline(y=initial_equity, line_dash="dash", line_color="green", annotation_text="Initial Equity")
+    fig.update_layout(title='Drawdown Recovery Simulation', xaxis_title='Trade #', yaxis_title='Equity ($)')
+    st.plotly_chart(fig, use_container_width=True)
 
-    # ------------------ SIGN IN ------------------
-    with account_tab[0]:
-        st.subheader("Sign In to Your Account")
-        login_username = st.text_input("Username", key="login_username")
-        login_password = st.text_input("Password", type="password", key="login_password")
-        if st.button("Login"):
-            logging.info(f"Login attempt for user {login_username}")
-            try:
-                c.execute("SELECT password, data FROM users WHERE username = ?", (login_username,))
+with tools_subtabs[6]:
+    st.header("✅ Pre-Trade Checklist")
+    st.markdown("""
+    Ensure discipline by running through this checklist before every trade. 
+    A structured approach reduces impulsive decisions and aligns trades with your strategy.
+    """)
+    st.write('---')
+    checklist_items = [
+        "Market structure aligns with my bias",
+        "Key levels (S/R) identified",
+        "Entry trigger confirmed",
+        "Risk-reward ratio ≥ 1:2",
+        "No high-impact news imminent",
+        "Position size calculated correctly",
+        "Stop loss set",
+        "Take profit set",
+        "Trade aligns with my edge",
+        "Emotionally calm and focused"
+    ]
+    checklist_state = {item: st.checkbox(item, key=f"checklist_{i}") for i, item in enumerate(checklist_items)}
+    checked_count = sum(1 for v in checklist_state.values() if v)
+    st.metric("Checklist Completion", f"{checked_count}/{len(checklist_items)}")
+    if checked_count == len(checklist_items):
+        st.success("✅ All checks passed! Ready to trade.")
+    else:
+        st.warning(f"⚠ Complete all {len(checklist_items)} checklist items before trading.")
+
+# =========================================================
+# TAB 5: Psychology
+# =========================================================
+with tab5:
+    st.title("🧠 Psychology")
+    st.markdown("""
+    Trading psychology is critical to success. This section helps you track your emotions, 
+    reflect on your mindset, and maintain discipline through structured journaling and analysis.
+    """)
+    st.write('---')
+    st.subheader("📝 Emotion Tracker")
+    with st.form("emotion_form"):
+        emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
+        notes = st.text_area("Notes on Your Mindset")
+        submit_emotion = st.form_submit_button("Log Emotion")
+        if submit_emotion:
+            log_entry = {
+                "Date": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Emotion": emotion,
+                "Notes": notes
+            }
+            if "emotion_log" not in st.session_state:
+                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.emotion_log = pd.concat([st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True)
+            st.success("Emotion logged successfully!")
+            logging.info(f"Emotion logged: {emotion}")
+    if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
+        st.subheader("Your Emotion Log")
+        st.dataframe(st.session_state.emotion_log, use_container_width=True)
+        fig = px.histogram(st.session_state.emotion_log, x="Emotion", title="Emotion Distribution")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No emotions logged yet. Use the form above to start tracking.")
+    st.subheader("🧘 Mindset Tips")
+    tips = [
+        "Stick to your trading plan to avoid impulsive decisions.",
+        "Take breaks after losses to reset your mindset.",
+        "Focus on process, not profits, to stay disciplined.",
+        "Journal every trade to identify emotional patterns.",
+        "Practice mindfulness to manage stress during volatile markets."
+    ]
+    for tip in tips:
+        st.markdown(f"- {tip}")
+
+# =========================================================
+# TAB 6: Manage My Strategy
+# =========================================================
+with tab6:
+    st.title("📈 Manage My Strategy")
+    st.markdown("""
+    Define, refine, and track your trading strategies. 
+    Save your setups and review performance to optimize your edge.
+    """)
+    st.write('---')
+    st.subheader("➕ Add New Strategy")
+    with st.form("strategy_form"):
+        strategy_name = st.text_input("Strategy Name")
+        description = st.text_area("Strategy Description")
+        entry_rules = st.text_area("Entry Rules")
+        exit_rules = st.text_area("Exit Rules")
+        risk_management = st.text_area("Risk Management Rules")
+        submit_strategy = st.form_submit_button("Save Strategy")
+        if submit_strategy:
+            strategy_data = {
+                "Name": strategy_name,
+                "Description": description,
+                "Entry Rules": entry_rules,
+                "Exit Rules": exit_rules,
+                "Risk Management": risk_management,
+                "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
+            }
+            if "strategies" not in st.session_state:
+                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([strategy_data])], ignore_index=True)
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Strategy saved to your account!")
+                    logging.info(f"Strategy saved for {username}: {strategy_name}")
+                except Exception as e:
+                    st.error(f"Failed to save strategy: {str(e)}")
+                    logging.error(f"Error saving strategy for {username}: {str(e)}")
+            st.success(f"Strategy '{strategy_name}' added successfully!")
+    if "strategies" in st.session_state and not st.session_state.strategies.empty:
+        st.subheader("Your Strategies")
+        for idx, row in st.session_state.strategies.iterrows():
+            with st.expander(f"Strategy: {row['Name']} (Added: {row['Date Added']})"):
+                st.markdown(f"**Description**: {row['Description']}")
+                st.markdown(f"**Entry Rules**: {row['Entry Rules']}")
+                st.markdown(f"**Exit Rules**: {row['Exit Rules']}")
+                st.markdown(f"**Risk Management**: {row['Risk Management']}")
+                if st.button("Delete Strategy", key=f"delete_strategy_{idx}"):
+                    st.session_state.strategies = st.session_state.strategies.drop(idx).reset_index(drop=True)
+                    if "logged_in_user" in st.session_state:
+                        username = st.session_state.logged_in_user
+                        try:
+                            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                            result = c.fetchone()
+                            user_data = json.loads(result[0]) if result else {}
+                            user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
+                            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                            conn.commit()
+                            st.success("Strategy deleted and account updated!")
+                            logging.info(f"Strategy deleted for {username}")
+                        except Exception as e:
+                            st.error(f"Failed to delete strategy: {str(e)}")
+                            logging.error(f"Error deleting strategy for {username}: {str(e)}")
+                    st.rerun()
+    else:
+        st.info("No strategies defined yet. Add one above.")
+
+# =========================================================
+# TAB 7: My Account
+# =========================================================
+with tab7:
+    st.title("👤 My Account")
+    st.markdown("Manage your account, save your data, and sync your trading journal and drawings.")
+    st.write('---')
+    if "logged_in_user" not in st.session_state:
+        st.subheader("🔑 Login")
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            login_button = st.form_submit_button("Login")
+            if login_button:
+                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                 result = c.fetchone()
-                if result and result[0] == login_password:
-                    st.session_state.logged_in_user = login_username
+                if result and result[0] == hashed_password:
+                    st.session_state.logged_in_user = username
                     user_data = json.loads(result[1]) if result[1] else {}
                     st.session_state.drawings = user_data.get("drawings", {})
-                    saved_journal = user_data.get("tools_trade_journal", [])
-                    if saved_journal:
-                        loaded_df = pd.DataFrame(saved_journal)
+                    if "tools_trade_journal" in user_data:
+                        loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
                         for col in journal_cols:
                             if col not in loaded_df.columns:
                                 loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
                         st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                    else:
-                        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                    st.session_state.temp_journal = None
-                    st.success(f"✅ Logged in as {login_username}")
-                    logging.info(f"Login successful for {login_username}")
+                    if "strategies" in user_data:
+                        st.session_state.strategies = pd.DataFrame(user_data["strategies"])
+                    if "emotion_log" in user_data:
+                        st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
+                    st.success(f"Welcome back, {username}!")
+                    logging.info(f"User {username} logged in successfully")
+                    st.rerun()
                 else:
-                    st.error("❌ Invalid username or password")
-                    logging.warning(f"Login failed for {login_username}: Invalid credentials")
-            except Exception as e:
-                st.error(f"Login error: {str(e)}")
-                logging.error(f"Login error for {login_username}: {str(e)}")
-
-    # ------------------ SIGN UP ------------------
-    with account_tab[1]:
-        st.subheader("Create a New Account")
-        signup_username = st.text_input("New Username", key="signup_username")
-        signup_password = st.text_input("New Password", type="password", key="signup_password")
-        if st.button("Sign Up"):
-            logging.info(f"Sign up attempt for user {signup_username}")
-            try:
-                c.execute(
-                    "INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
-                    (signup_username, signup_password, json.dumps({}))
-                )
-                conn.commit()
-                st.success(f"🎉 Account successfully created for {signup_username}")
-                logging.info(f"Account created for {signup_username}")
-            except sqlite3.IntegrityError:
-                st.error("❌ Username already exists. Please choose another.")
-                logging.warning(f"Sign up failed for {signup_username}: Username exists")
-            except Exception as e:
-                st.error(f"Sign up error: {str(e)}")
-                logging.error(f"Sign up error for {signup_username}: {str(e)}")
-
-    # ------------------ ACCOUNT SETTINGS ------------------
-    if "logged_in_user" in st.session_state:
-        st.markdown("---")
-        st.subheader("Profile Settings & Preferences")
-        col1, col2 = st.columns(2)
-        with col1:
-            name = st.text_input("Full Name", value=st.session_state.get("name", ""), key="account_name")
-            base_ccy = st.selectbox(
-                "Preferred Base Currency",
-                ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"],
-                index=0,
-                key="account_base_ccy"
-            )
-        with col2:
-            email = st.text_input("Email", value=st.session_state.get("email", ""), key="account_email")
-            alerts = st.checkbox(
-                "Email me before high-impact events",
-                value=st.session_state.get("alerts", True),
-                key="account_alerts"
-            )
-        if st.button("Save Preferences", key="account_save_prefs"):
-            username = st.session_state.logged_in_user
-            logging.info(f"Saving preferences for user {username}")
-            try:
-                prefs = {
-                    "name": name,
-                    "email": email,
-                    "base_ccy": base_ccy,
-                    "alerts": alerts
-                }
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data["preferences"] = prefs
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.session_state.name = name
-                st.session_state.email = email
-                st.session_state.base_ccy = base_ccy
-                st.session_state.alerts = alerts
-                st.success("✅ Preferences saved successfully.")
-                logging.info(f"Preferences saved for {username}")
-            except Exception as e:
-                st.error(f"Failed to save preferences: {str(e)}")
-                logging.error(f"Error saving preferences for {username}: {str(e)}")
-# =========================================================
-# TAB 8: COMMUNITY TRADE IDEAS
-# =========================================================
-with selected_tab[7]:
-    st.title("🖼️ Community Trade Ideas")
-    user_id = st.session_state.get("logged_in_user", "guest")
-    udir = _ta_user_dir(user_id)
-    community_path = os.path.join(udir, "community.json")
-    db = _ta_load_json(community_path, {"posts": []})
-    st.subheader("Create Post")
-    title = st.text_input("Title")
-    desc = st.text_area("Description")
-    img = st.file_uploader("Screenshot", type=["png","jpg","jpeg","webp"], key="cti_upl")
-    if st.button("Publish", disabled=(not title or img is None)):
-        img_id = _ta_hash()
-        out = os.path.join(udir, "community_images", f"{img_id}_{img.name}")
-        with open(out, "wb") as wf:
-            wf.write(img.read())
-        post = {"id": _ta_hash(), "title": title, "desc": desc, "image": out, "user": user_id, "ts": time.time()}
-        db["posts"].insert(0, post)
-        _ta_save_json(community_path, db)
-        st.success("Posted!")
-    st.write("---")
-    st.subheader("Feed")
-    if not db["posts"]:
-        st.info("No community posts yet. Be the first!")
+                    st.error("Invalid username or password.")
+                    logging.warning(f"Failed login attempt for {username}")
+        st.subheader("📝 Register")
+        with st.form("register_form"):
+            new_username = st.text_input("New Username")
+            new_password = st.text_input("New Password", type="password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            register_button = st.form_submit_button("Register")
+            if register_button:
+                if new_password != confirm_password:
+                    st.error("Passwords do not match.")
+                    logging.warning(f"Registration failed for {new_username}: Passwords do not match")
+                elif not new_username or not new_password:
+                    st.error("Username and password cannot be empty.")
+                    logging.warning(f"Registration failed: Empty username or password")
+                else:
+                    c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
+                    if c.fetchone():
+                        st.error("Username already exists.")
+                        logging.warning(f"Registration failed: Username {new_username} already exists")
+                    else:
+                        hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
+                                  (new_username, hashed_password, json.dumps({})))
+                        conn.commit()
+                        st.session_state.logged_in_user = new_username
+                        st.session_state.drawings = {}
+                        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+                        st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+                        st.success(f"Account created for {new_username}!")
+                        logging.info(f"User {new_username} registered successfully")
+                        st.rerun()
     else:
-        for post in db["posts"]:
-            st.markdown(f"### {post['title']} \\nby {post['user']} • {dt.datetime.fromtimestamp(post['ts']).strftime('%Y-%m-%d %H:%M')}")
-            st.write(post["desc"])
-            st.image(post["image"], use_column_width=True)
-            st.write("---")
-    try:
-        df = st.session_state.get("mt5_df", pd.DataFrame()) or st.session_state.tools_trade_journal
-        _ta_show_badges(df)
-    except Exception:
-        pass
+        st.subheader(f"Welcome, {st.session_state.logged_in_user}!")
+        if st.button("Logout"):
+            del st.session_state.logged_in_user
+            st.session_state.drawings = {}
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.success("Logged out successfully!")
+            logging.info(f"User {st.session_state.logged_in_user} logged out")
+            st.rerun()
+        st.subheader("💾 Export Data")
+        user_data = {
+            "drawings": st.session_state.drawings,
+            "tools_trade_journal": st.session_state.tools_trade_journal.to_dict(orient="records"),
+            "strategies": st.session_state.strategies.to_dict(orient="records") if "strategies" in st.session_state else [],
+            "emotion_log": st.session_state.emotion_log.to_dict(orient="records") if "emotion_log" in st.session_state else []
+        }
+        st.download_button(
+            label="Download Account Data",
+            data=json.dumps(user_data, indent=2),
+            file_name=f"{st.session_state.logged_in_user}_data.json",
+            mime="application/json"
+        )
+        st.subheader("📤 Import Data")
+        uploaded_data = st.file_uploader("Upload Account Data JSON", type=["json"])
+        if uploaded_data:
+            try:
+                imported_data = json.load(uploaded_data)
+                st.session_state.drawings = imported_data.get("drawings", {})
+                if "tools_trade_journal" in imported_data:
+                    loaded_df = pd.DataFrame(imported_data["tools_trade_journal"])
+                    for col in journal_cols:
+                        if col not in loaded_df.columns:
+                            loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                    st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                if "strategies" in imported_data:
+                    st.session_state.strategies = pd.DataFrame(imported_data["strategies"])
+                if "emotion_log" in imported_data:
+                    st.session_state.emotion_log = pd.DataFrame(imported_data["emotion_log"])
+                username = st.session_state.logged_in_user
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(imported_data), username))
+                conn.commit()
+                st.success("Data imported successfully!")
+                logging.info(f"Data imported for {username}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to import data: {str(e)}")
+                logging.error(f"Error importing data for {username}: {str(e)}")
+
+# =========================================================
+# TAB 8: Community Trade Ideas
+# =========================================================
+with tab8:
+    st.title("🌐 Community Trade Ideas")
+    st.markdown("""
+    Share and explore trade ideas with the community. Upload your chart screenshots 
+    and discuss strategies with other traders.
+    """)
+    st.write('---')
+    st.subheader("➕ Share a Trade Idea")
+    with st.form("trade_idea_form"):
+        trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
+        trade_direction = st.radio("Direction", ["Long", "Short"])
+        trade_description = st.text_area("Trade Description")
+        uploaded_image = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg", "jpeg"])
+        submit_idea = st.form_submit_button("Share Idea")
+        if submit_idea:
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                user_dir = _ta_user_dir(username)
+                idea_id = _ta_hash()
+                idea_data = {
+                    "Username": username,
+                    "Pair": trade_pair,
+                    "Direction": trade_direction,
+                    "Description": trade_description,
+                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "IdeaID": idea_id
+                }
+                if uploaded_image:
+                    image_path = os.path.join(user_dir, "community_images", f"{idea_id}.png")
+                    with open(image_path, "wb") as f:
+                        f.write(uploaded_image.getbuffer())
+                    idea_data["ImagePath"] = image_path
+                if "trade_ideas" not in st.session_state:
+                    st.session_state.trade_ideas = pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"])
+                st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["trade_ideas"] = st.session_state.trade_ideas.to_dict(orient="records")
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Trade idea shared successfully!")
+                    logging.info(f"Trade idea shared by {username}: {idea_id}")
+                except Exception as e:
+                    st.error(f"Failed to save trade idea: {str(e)}")
+                    logging.error(f"Error saving trade idea for {username}: {str(e)}")
+                st.rerun()
+            else:
+                st.error("Please log in to share trade ideas.")
+                logging.warning("Attempt to share trade idea without login")
+    st.subheader("📈 Community Trade Ideas")
+    if "trade_ideas" in st.session_state and not st.session_state.trade_ideas.empty:
+        for idx, idea in st.session_state.trade_ideas.iterrows():
+            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
+                st.markdown(f"**Description**: {idea['Description']}")
+                if "ImagePath" in idea and os.path.exists(idea["ImagePath"]):
+                    st.image(idea["ImagePath"], caption="Chart Screenshot", use_column_width=True)
+                if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
+                    if "logged_in_user" in st.session_state and st.session_state.logged_in_user == idea["Username"]:
+                        st.session_state.trade_ideas = st.session_state.trade_ideas.drop(idx).reset_index(drop=True)
+                        try:
+                            c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.logged_in_user,))
+                            result = c.fetchone()
+                            user_data = json.loads(result[0]) if result else {}
+                            user_data["trade_ideas"] = st.session_state.trade_ideas.to_dict(orient="records")
+                            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), st.session_state.logged_in_user))
+                            conn.commit()
+                            st.success("Trade idea deleted successfully!")
+                            logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
+                        except Exception as e:
+                            st.error(f"Failed to delete trade idea: {str(e)}")
+                            logging.error(f"Error deleting trade idea for {st.session_state.logged_in_user}: {str(e)}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own trade ideas.")
+                        logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
+    else:
+        st.info("No trade ideas shared yet. Be the first to contribute!")
+
+# Close database connection
+conn.close()
