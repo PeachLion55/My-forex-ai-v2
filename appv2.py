@@ -20,6 +20,7 @@ import uuid
 import glob
 import time
 import scipy.stats
+import base64
 
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
@@ -46,6 +47,7 @@ def _ta_user_dir(user_id="guest"):
     os.makedirs(d, exist_ok=True)
     os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
     os.makedirs(os.path.join(d, "playbooks"), exist_ok=True)
+    os.makedirs(os.path.join(d, "trade_screenshots"), exist_ok=True)
     return d
 
 def _ta_load_json(path, default):
@@ -409,8 +411,8 @@ if "drawings" not in st.session_state:
     st.session_state.drawings = {}
     logging.info("Initialized st.session_state.drawings")
 
-# Define journal columns and dtypes
-journal_cols = [
+# Define journal fields
+journal_fields = [
     "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
     "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
     "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns",
@@ -442,22 +444,11 @@ journal_dtypes = {
     "Lots": float
 }
 
-# Initialize trading journal with proper dtypes
-if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-else:
-    # Ensure existing journal matches new structure
-    current_journal = st.session_state.tools_trade_journal
-    missing_cols = [col for col in journal_cols if col not in current_journal.columns]
-    if missing_cols:
-        for col in missing_cols:
-            current_journal[col] = pd.Series(dtype=journal_dtypes[col])
-    # Reorder columns and apply dtypes
-    st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+# Initialize trades as list of dicts
+if "trades" not in st.session_state:
+    st.session_state.trades = []
 
-# Initialize temporary journal for form
-if "temp_journal" not in st.session_state:
-    st.session_state.temp_journal = None
+reflection_fields = ["What went well", "What can be improved", "Key learnings"]
 
 # Gamification helpers
 def _ta_update_xp(amount):
@@ -722,43 +713,51 @@ with tab1:
 # =========================================================
 with tab2:
     st.title("📊 Backtesting")
-    st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
+    st.caption("Live chart for backtesting and trading journal for the selected pair.")
 
     # Pair selector & symbol map (28 major & minor pairs)
     pairs_map = {
         # Majors
-        "EUR/USD": "FX:EURUSD",
-        "USD/JPY": "FX:USDJPY",
-        "GBP/USD": "FX:GBPUSD",
-        "USD/CHF": "OANDA:USDCHF",
-        "AUD/USD": "FX:AUDUSD",
-        "NZD/USD": "OANDA:NZDUSD",
-        "USD/CAD": "CMCMARKETS:USDCAD",
+        "EUR/USD": "EURUSD",
+        "USD/JPY": "USDJPY",
+        "GBP/USD": "GBPUSD",
+        "USD/CHF": "USDCHF",
+        "AUD/USD": "AUDUSD",
+        "NZD/USD": "NZDUSD",
+        "USD/CAD": "USDCAD",
         
         # Crosses / Minors
-        "EUR/GBP": "FX:EURGBP",
-        "EUR/JPY": "FX:EURJPY",
-        "GBP/JPY": "FX:GBPJPY",
-        "AUD/JPY": "FX:AUDJPY",
-        "AUD/NZD": "FX:AUDNZD",
-        "AUD/CAD": "FX:AUDCAD",
-        "AUD/CHF": "FX:AUDCHF",
-        "CAD/JPY": "FX:CADJPY",
-        "CHF/JPY": "FX:CHFJPY",
-        "EUR/AUD": "FX:EURAUD",
-        "EUR/CAD": "FX:EURCAD",
-        "EUR/CHF": "FX:EURCHF",
-        "GBP/AUD": "FX:GBPAUD",
-        "GBP/CAD": "FX:GBPCAD",
-        "GBP/CHF": "FX:GBPCHF",
-        "NZD/JPY": "FX:NZDJPY",
-        "NZD/CAD": "FX:NZDCAD",
-        "NZD/CHF": "FX:NZDCHF",
-        "CAD/CHF": "FX:CADCHF",
+        "EUR/GBP": "EURGBP",
+        "EUR/JPY": "EURJPY",
+        "GBP/JPY": "GBPJPY",
+        "AUD/JPY": "AUDJPY",
+        "AUD/NZD": "AUDNZD",
+        "AUD/CAD": "AUDCAD",
+        "AUD/CHF": "AUDCHF",
+        "CAD/JPY": "CADJPY",
+        "CHF/JPY": "CHFJPY",
+        "EUR/AUD": "EURAUD",
+        "EUR/CAD": "EURCAD",
+        "EUR/CHF": "EURCHF",
+        "GBP/AUD": "GBPAUD",
+        "GBP/CAD": "GBPCAD",
+        "GBP/CHF": "GBPCHF",
+        "NZD/JPY": "NZDJPY",
+        "NZD/CAD": "NZDCAD",
+        "NZD/CHF": "NZDCHF",
+        "CAD/CHF": "CADCHF",
     }
 
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
-    tv_symbol = pairs_map[pair]
+    symbol = pairs_map[pair]
+
+    # Sample historical data (in real app, fetch from API)
+    sample_data = [
+        {"time": 1720000000, "open": 1.08, "high": 1.085, "low": 1.075, "close": 1.082},
+        {"time": 1720086400, "open": 1.082, "high": 1.087, "low": 1.08, "close": 1.085},
+        # ... add more for ~100 candles
+    ] * 50  # Repeat for example
+    data_json = json.dumps(sample_data)
 
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
@@ -769,7 +768,7 @@ with tab2:
             result = c.fetchone()
             if result:
                 user_data = json.loads(result[0])
-                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
+                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, [])
                 logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
             else:
                 logging.warning(f"No data found for user {username}")
@@ -777,130 +776,132 @@ with tab2:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
 
-    initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-    # TradingView widget
-    tv_html = f"""
-    <div class="tradingview-widget-container" style="height:780px; width:100%">
-      <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      console.log("Initializing TradingView widget for {tv_symbol}");
-      try {{
-        const widget = new TradingView.widget({{
-          "autosize": true,
-          "symbol": "{tv_symbol}",
-          "interval": "D",
-          "timezone": "Etc/UTC",
-          "theme": "dark",
-          "style": "1",
-          "hide_top_toolbar": false,
-          "hide_side_toolbar": false,
-          "allow_symbol_change": true,
-          "save_image": true,
-          "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
-        }});
-        widget.onChartReady(() => {{
-          console.log("Chart ready for {tv_symbol}");
-          const chart = widget.activeChart();
-          window.chart = chart;
-          const initialContent = {initial_content};
-          if (Object.keys(initialContent).length > 0) {{
-            console.log("Loading initial content:", initialContent);
-            chart.setContent(initialContent);
-          }} else {{
-            console.log("No initial content to load for {tv_symbol}");
-          }}
-        }});
-      }} catch (error) {{
-        console.error("Error initializing TradingView widget:", error);
-      }}
-      </script>
+    initial_line_tools = json.dumps(st.session_state.drawings.get(pair, []))
+
+    # Lightweight Charts with features
+    lw_html = f"""
+    <div id="chart_container" style="height:780px; width:100%; position:relative;">
+      <div id="toolbar" style="position:absolute; top:10px; left:10px; z-index:10; background:rgba(0,0,0,0.5); padding:5px; border-radius:5px;">
+        <button onclick="setTool('TrendLine')">Trendline</button>
+        <button onclick="setTool('HorizontalLine')">Horizontal</button>
+        <button onclick="setTool('VerticalLine')">Vertical</button>
+        <button onclick="setTool('Rectangle')">Rectangle</button>
+        <button onclick="setTool('FibRetracement')">Fib</button>
+      </div>
+      <div id="replay_controls" style="position:absolute; bottom:10px; left:10px; z-index:10; background:rgba(0,0,0,0.5); padding:5px; border-radius:5px;">
+        <input type="date" id="start_date" value="2025-01-01">
+        <button onclick="startReplay()">Play</button>
+        <button onclick="pauseReplay()">Pause</button>
+        <button onclick="fastForward()">FF</button>
+        <button onclick="resetReplay()">Reset</button>
+        <select id="speed">
+          <option value="1000">1x</option>
+          <option value="500">2x</option>
+          <option value="250">4x</option>
+        </select>
+      </div>
+      <div id="chart" style="height:100%; width:100%;"></div>
     </div>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script>
+      const chart = LightweightCharts.createChart(document.getElementById('chart'), {{
+        width: document.getElementById('chart').clientWidth,
+        height: document.getElementById('chart').clientHeight,
+        layout: {{ background: {{ type: 'solid', color: '#000000' }}, textColor: '#d1d4dc' }},
+        grid: {{ vertLines: {{ color: '#334158' }}, horzLines: {{ color: '#334158' }} }},
+      }});
+      const candleSeries = chart.addCandlestickSeries();
+      const data = {data_json};
+      candleSeries.setData(data);
+      
+      let currentTool = null;
+      let tempPoints = [];
+      let replayInterval = null;
+      let replayIndex = 0;
+      let replaySpeed = 1000;
+      
+      function setTool(tool) {{
+        currentTool = tool;
+        tempPoints = [];
+      }}
+      
+      chart.subscribeClick((param) => {{
+        if (!currentTool || !param.point) return;
+        tempPoints.push({{ time: param.time, price: param.seriesPrices.get(candleSeries) ? param.seriesPrices.get(candleSeries).close : 0 }});
+        if ((currentTool === 'TrendLine' || currentTool === 'HorizontalLine' || currentTool === 'VerticalLine') && tempPoints.length === 2) {{
+          chart.createLineTool({{ type: currentTool, points: tempPoints }});
+          tempPoints = [];
+        }} else if (currentTool === 'Rectangle' && tempPoints.length === 2) {{
+          chart.createLineTool({{ type: 'Rectangle', points: tempPoints }});
+          tempPoints = [];
+        }} else if (currentTool === 'FibRetracement' && tempPoints.length === 2) {{
+          chart.createLineTool({{ type: 'FibRetracement', points: tempPoints }});
+          tempPoints = [];
+        }}
+      }});
+      
+      const initialLineTools = {initial_line_tools};
+      initialLineTools.forEach(tool => chart.createLineTool(tool));
+      
+      function saveDrawings() {{
+        const lineTools = chart.lineTools().map(lt => lt.toJson());
+        window.parent.postMessage({{ type: 'streamlit:setComponentValue', value: lineTools, dataType: 'json', key: 'lw_drawings_key_{pair}' }}, '*');
+      }}
+      
+      function loadDrawings(content) {{
+        content.forEach(tool => chart.createLineTool(tool));
+      }}
+      
+      function startReplay() {{
+        const startDate = new Date(document.getElementById('start_date').value).getTime() / 1000;
+        replayIndex = data.findIndex(c => c.time >= startDate);
+        if (replayIndex === -1) replayIndex = 0;
+        candleSeries.setData(data.slice(0, replayIndex));
+        replaySpeed = parseInt(document.getElementById('speed').value);
+        replayInterval = setInterval(() => {{
+          if (replayIndex < data.length) {{
+            candleSeries.update(data[replayIndex]);
+            replayIndex++;
+          }} else {{
+            pauseReplay();
+          }}
+        }}, replaySpeed);
+      }}
+      
+      function pauseReplay() {{
+        clearInterval(replayInterval);
+      }}
+      
+      function fastForward() {{
+        replaySpeed = Math.max(100, replaySpeed / 2);
+        document.getElementById('speed').value = replaySpeed;
+      }}
+      
+      function resetReplay() {{
+        pauseReplay();
+        candleSeries.setData(data);
+        replayIndex = data.length;
+      }}
+      
+      // Example save on button, but call from Streamlit
+    </script>
     """
-    components.html(tv_html, height=820, scrolling=False)
-    # Save, Load, and Refresh buttons
+    components.html(lw_html, height=820)
+
+    # Save/Load buttons
     if "logged_in_user" in st.session_state:
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2 = st.columns(2)
         with col1:
-            if st.button("Save Drawings", key="bt_save_drawings"):
-                logging.info(f"Save Drawings button clicked for pair {pair}")
-                save_script = f"""
+            if st.button("Save Drawings"):
+                st.markdown("""
                 <script>
-                try {{
-                  console.log("Attempting to save drawings for {pair}");
-                  window.parent.chart.getContent((content) => {{
-                    console.log("Drawing content received:", content);
-                    window.parent.postMessage({{
-                      type: 'streamlit:setComponentValue',
-                      value: content,
-                      dataType: 'json',
-                      key: 'bt_drawings_key_{pair}'
-                    }}, '*');
-                  }});
-                }} catch (error) {{
-                  console.error("Error saving drawings:", error);
-                }}
+                saveDrawings();
                 </script>
-                """
-                components.html(save_script, height=0)
-                logging.info(f"Triggered save script for {pair}")
-                st.session_state[f"bt_save_trigger_{pair}"] = True
-        with col2:
-            if st.button("Load Drawings", key="bt_load_drawings"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        content = user_data.get("drawings", {}).get(pair, {})
-                        if content:
-                            load_script = f"""
-                            <script>
-                            console.log("Loading drawings for {pair}:", {json.dumps(content)});
-                            window.parent.chart.setContent({json.dumps(content)});
-                            </script>
-                            """
-                            components.html(load_script, height=0)
-                            st.success("Drawings loaded successfully!")
-                            logging.info(f"Successfully loaded drawings for {pair}")
-                        else:
-                            st.info("No saved drawings for this pair.")
-                            logging.info(f"No saved drawings found for {pair}")
-                    else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load drawings: {str(e)}")
-                    logging.error(f"Error loading drawings for {username}: {str(e)}")
-        with col3:
-            if st.button("Refresh Account", key="bt_refresh_account"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Refresh Account button clicked for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        st.session_state.drawings = user_data.get("drawings", {})
-                        st.success("Account synced successfully!")
-                        logging.info(f"Account synced for {username}: {st.session_state.drawings}")
-                    else:
-                        st.error("Failed to sync account.")
-                        logging.error(f"No user data found for {username}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to sync account: {str(e)}")
-                    logging.error(f"Error syncing account for {username}: {str(e)}")
-        # Check for saved drawings from postMessage
-        drawings_key = f"bt_drawings_key_{pair}"
-        if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
-            content = st.session_state[drawings_key]
-            logging.info(f"Received drawing content for {pair}: {content}")
-            if content and isinstance(content, dict) and content:
-                username = st.session_state.logged_in_user
-                try:
+                """, unsafe_allow_html=True)
+                drawings_key = f"lw_drawings_key_{pair}"
+                if drawings_key in st.session_state:
+                    content = st.session_state[drawings_key]
+                    username = st.session_state.logged_in_user
                     c.execute("SELECT data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
                     user_data = json.loads(result[0]) if result else {}
@@ -908,148 +909,89 @@ with tab2:
                     c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
                     conn.commit()
                     st.session_state.drawings[pair] = content
-                    st.success(f"Drawings for {pair} saved successfully!")
-                    logging.info(f"Drawings saved to database for {pair}: {content}")
-                except Exception as e:
-                    st.error(f"Failed to save drawings: {str(e)}")
-                    logging.error(f"Database error saving drawings for {pair}: {str(e)}")
-                finally:
-                    del st.session_state[drawings_key]
-                    del st.session_state[f"bt_save_trigger_{pair}"]
-            else:
-                st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-                logging.warning(f"No valid drawing content received for {pair}: {content}")
-    else:
-        st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
-        logging.info("User not logged in, save/load drawings disabled")
-    # Backtesting Journal
-    st.markdown("### 📝 Trading Journal")
-    # Configure column settings for data editor
-    column_config = {
-        "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
-        "Symbol": st.column_config.TextColumn("Symbol"),
-        "Weekly Bias": st.column_config.SelectboxColumn("Weekly Bias", options=["Bullish", "Bearish", "Neutral"]),
-        "Daily Bias": st.column_config.SelectboxColumn("Daily Bias", options=["Bullish", "Bearish", "Neutral"]),
-        "4H Structure": st.column_config.TextColumn("4H Structure"),
-        "1H Structure": st.column_config.TextColumn("1H Structure"),
-        "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
-        "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
-        "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
-        "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
-        "Planned R:R": st.column_config.TextColumn("Planned R:R"),
-        "News Filter": st.column_config.TextColumn("News Filter"),
-        "Alerts": st.column_config.TextColumn("Alerts"),
-        "Concerns": st.column_config.TextColumn("Concerns"),
-        "Emotions": st.column_config.TextColumn("Emotions"),
-        "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
-        "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
-        "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
-        "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
-        "Stop Loss Price": st.column_config.NumberColumn("Stop Loss Price", format="%.5f"),
-        "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
-        "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
-    }
-    # Prepare transposed journal for display
-    if st.session_state.tools_trade_journal.empty:
-        # Initialize with one trade column if empty
-        transposed_journal = pd.DataFrame(index=journal_cols, columns=["Trade 1"]).astype(object)
-    else:
-        # Transpose the journal: fields as rows, trades as columns
-        transposed_journal = st.session_state.tools_trade_journal.transpose()
-        # Rename columns to "Trade 1", "Trade 2", etc.
-        transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
-    # Button to add new trade column
-    if st.button("➕ Add New Trade", key="bt_add_trade_button"):
-        current_trades = transposed_journal.columns.tolist()
-        next_trade_num = len(current_trades) + 1
-        new_trade = f"Trade {next_trade_num}"
-        transposed_journal[new_trade] = pd.Series(index=journal_cols, dtype=object)
-        updated_journal = transposed_journal.transpose().reset_index(drop=True)
-        updated_journal.columns = journal_cols
-        st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
-        st.session_state.temp_journal = None
-        st.rerun()
-    # Dynamically configure columns for trades
-    transposed_column_config = {}
-    for col in transposed_journal.columns:
-        transposed_column_config[col] = column_config
-    # Use form to stabilize data editor
-    old_num_trades = len(st.session_state.tools_trade_journal)
-    with st.form(key="bt_journal_form"):
-        updated_journal_tools = st.data_editor(
-            data=transposed_journal.copy(),
-            num_rows="dynamic",
-            column_config=transposed_column_config,
-            key="bt_backtesting_journal_static",
-            use_container_width=True,
-            height=800
-        )
-        submit_button = st.form_submit_button("Submit Journal Changes")
-        if submit_button:
-            if not updated_journal_tools.empty:
-                updated_journal_tools = updated_journal_tools.transpose()
-                updated_journal_tools.columns = journal_cols
-                updated_journal_tools = updated_journal_tools.reset_index(drop=True)
-                st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
-                st.session_state.temp_journal = None
-                new_num_trades = len(st.session_state.tools_trade_journal)
-                if new_num_trades > old_num_trades:
-                    added = new_num_trades - old_num_trades
-                    _ta_update_xp(added * 10)
-                    _ta_update_streak()
-                st.success("Journal changes submitted successfully!")
-            else:
-                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                st.session_state.temp_journal = None
-            st.rerun()
-    if "logged_in_user" in st.session_state:
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("💾 Save to My Account", key="bt_save_journal_button"):
-                username = st.session_state.logged_in_user
-                journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
-                logging.info(f"Saving journal for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
-                    user_data["tools_trade_journal"] = journal_data
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                    conn.commit()
-                    st.success("Trading journal saved to your account!")
-                    logging.info(f"Journal saved for {username}")
-                except Exception as e:
-                    st.error(f"Failed to save journal: {str(e)}")
-                    logging.error(f"Error saving journal for {username}: {str(e)}")
+                    st.success("Drawings saved!")
         with col2:
-            if st.button("📂 Load Journal", key="bt_load_journal_button"):
+            if st.button("Load Drawings"):
                 username = st.session_state.logged_in_user
-                logging.info(f"Loading journal for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        saved_journal = user_data.get("tools_trade_journal", [])
-                        if saved_journal:
-                            loaded_df = pd.DataFrame(saved_journal)
-                            for col in journal_cols:
-                                if col not in loaded_df.columns:
-                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                            st.session_state.tools_trade_journal = loaded_df
-                            st.session_state.temp_journal = None
-                            st.success("Trading journal loaded from your account!")
-                            logging.info(f"Journal loaded for {username}")
-                        else:
-                            st.info("No saved journal found in your account.")
-                            logging.info(f"No journal found for {username}")
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result:
+                    user_data = json.loads(result[0])
+                    content = user_data.get("drawings", {}).get(pair, [])
+                    load_script = f"""
+                    <script>
+                    loadDrawings({json.dumps(content)});
+                    </script>
+                    """
+                    components.html(load_script, height=0)
+                    st.success("Drawings loaded!")
+
+    # Revamped Journaling with tabs
+    st.markdown("### 📝 Trading Journal")
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        user_dir = _ta_user_dir(username)
+    else:
+        st.info("Log in to save journal.")
+    
+    trade_tabs = st.tabs([f"Trade {i+1}" for i in range(len(st.session_state.trades))] + ["+ New Trade"])
+    
+    for i, tab in enumerate(trade_tabs[:-1]):
+        with tab:
+            trade = st.session_state.trades[i]
+            col1, col2 = st.columns(2)
+            with col1:
+                for field in journal_fields:
+                    if field == "Date":
+                        trade[field] = st.date_input(field, value=trade.get(field, dt.date.today()))
+                    elif field in ["Weekly Bias", "Daily Bias"]:
+                        trade[field] = st.selectbox(field, ["Bullish", "Bearish", "Neutral"], index=["Bullish", "Bearish", "Neutral"].index(trade.get(field, "Neutral")))
+                    elif field == "Confluence Score 1-7":
+                        trade[field] = st.number_input(field, min_value=1, max_value=7, value=trade.get(field, 1))
+                    elif field in ["Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"]:
+                        trade[field] = st.number_input(field, value=trade.get(field, 0.0))
                     else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load journal: {str(e)}")
-                    logging.error(f"Error loading journal for {username}: {str(e)}")
+                        trade[field] = st.text_input(field, value=trade.get(field, ""))
+            with col2:
+                st.subheader("Reflections")
+                for ref in reflection_fields:
+                    trade.setdefault("reflections", {})[ref] = st.text_area(ref, value=trade.get("reflections", {}).get(ref, ""))
+                
+                st.subheader("Screenshots")
+                uploaded = st.file_uploader("Add Screenshot", type=["png", "jpg"], key=f"upload_{i}")
+                if uploaded:
+                    img_path = os.path.join(user_dir, "trade_screenshots", f"{_ta_hash()}.png")
+                    with open(img_path, "wb") as f:
+                        f.write(uploaded.getbuffer())
+                    trade.setdefault("screenshots", []).append(img_path)
+                
+                for img in trade.get("screenshots", []):
+                    st.image(img)
+                    if st.button("Remove", key=f"remove_img_{i}_{img}"):
+                        trade["screenshots"].remove(img)
+                        os.remove(img)
+                        st.rerun()
+    
+    with trade_tabs[-1]:
+        if st.button("Add New Trade"):
+            new_trade = {field: None for field in journal_fields}
+            new_trade["reflections"] = {ref: "" for ref in reflection_fields}
+            new_trade["screenshots"] = []
+            st.session_state.trades.append(new_trade)
+            st.rerun()
+    
+    if st.button("Save Journal"):
+        if "logged_in_user" in st.session_state:
+            username = st.session_state.logged_in_user
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            user_data = json.loads(result[0]) if result else {}
+            user_data["trades"] = st.session_state.trades
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+            conn.commit()
+            st.success("Journal saved!")
+            _ta_update_streak()
+            _ta_update_xp(10 * len(st.session_state.trades))
 
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
@@ -1143,7 +1085,7 @@ with tab3:
     st.markdown("""
         <div class="title-container">
             <div class="title">📊 MT5 Performance Dashboard</div>
-            <div class="subtitle">Upload your MT5 trading history CSV to analyze your trading performance</div>
+            <div class="subtitle">Upload your MT5 trading history CSV or connect Myfxbook to analyze your trading performance</div>
         </div>
     """, unsafe_allow_html=True)
     with st.container():
@@ -1181,7 +1123,6 @@ with tab3:
                     longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
                     total_volume = df["Volume"].sum()
                     avg_volume = df["Volume"].mean()
-                    largest_volume_trade = df["Volume"].max()
                     profit_per_trade = net_profit / total_trades if total_trades else 0
                     avg_trade_duration = ((df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600).mean()
                     # Metrics list
@@ -1246,6 +1187,34 @@ with tab3:
                 pass
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore your performance metrics.")
+    
+    # Myfxbook Integration
+    st.subheader("🔗 Connect Myfxbook")
+    with st.form("myfxbook_form"):
+        email = st.text_input("Myfxbook Email")
+        password = st.text_input("Myfxbook Password", type="password")
+        submit = st.form_submit_button("Connect")
+        if submit:
+            # In real, call backend API
+            # response = requests.post("http://localhost:8000/connect-myfxbook", json={"email": email, "password": password})
+            # if response.status_code == 200:
+            #     token = response.json()["session"]
+            #     st.session_state.myfxbook_token = token
+            #     st.success("Connected!")
+            st.warning("Backend API call simulated. See provided FastAPI code for implementation.")
+    
+    if "myfxbook_token" in st.session_state:
+        # Fetch accounts
+        # accounts_resp = requests.get("http://localhost:8000/myfxbook/accounts", headers={"Authorization": st.session_state.myfxbook_token})
+        # accounts = accounts_resp.json()
+        accounts = [{"id": 123, "name": "Account1"}]  # Sample
+        account_id = st.selectbox("Select Account", [acc["name"] for acc in accounts])
+        if account_id:
+            # Fetch history etc.
+            # history_resp = requests.get(f"http://localhost:8000/myfxbook/history/{account_id}", headers={"Authorization": st.session_state.myfxbook_token})
+            # Display metrics
+            st.info("Metrics from Myfxbook displayed here.")
+    
     st.markdown("### 🧭 Edge Finder – Highest Expectancy Segments")
     df = st.session_state.get("mt5_df", pd.DataFrame())
     if df.empty:
@@ -1548,7 +1517,7 @@ with tab4:
         st.write('---')
         st.subheader('📊 Session Statistics')
         mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
-        df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
+        df = mt5_df if not mt5_df.empty else pd.DataFrame(st.session_state.trades)
         if not df.empty and 'session' in df.columns:
             by_sess = df.groupby(['session']).agg(
                 trades=('r', 'count') if 'r' in df.columns else ('session', 'count'),
@@ -1848,7 +1817,7 @@ with tab6:
         st.info("No strategies defined yet. Add one above.")
     # Evolving Playbook
     st.subheader("📖 Evolving Playbook")
-    journal_df = st.session_state.tools_trade_journal
+    journal_df = pd.DataFrame(st.session_state.trades)
     mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
     combined_df = pd.concat([journal_df, mt5_df], ignore_index=True) if not mt5_df.empty else journal_df
     group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
@@ -1899,12 +1868,8 @@ with tab7:
                         st.session_state.logged_in_user = username
                         user_data = json.loads(result[1]) if result[1] else {}
                         st.session_state.drawings = user_data.get("drawings", {})
-                        if "tools_trade_journal" in user_data:
-                            loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
-                            for col in journal_cols:
-                                if col not in loaded_df.columns:
-                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                        if "trades" in user_data:
+                            st.session_state.trades = user_data["trades"]
                         if "strategies" in user_data:
                             st.session_state.strategies = pd.DataFrame(user_data["strategies"])
                         if "emotion_log" in user_data:
@@ -1953,7 +1918,7 @@ with tab7:
                             conn.commit()
                             st.session_state.logged_in_user = new_username
                             st.session_state.drawings = {}
-                            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                            st.session_state.trades = []
                             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
                             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
                             st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -1972,7 +1937,7 @@ with tab7:
         if st.button("Logout"):
             del st.session_state.logged_in_user
             st.session_state.drawings = {}
-            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.trades = []
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
             st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -1984,16 +1949,13 @@ with tab7:
             logging.info(f"User logged out")
             st.rerun()
 
-        # Existing gamification, benchmarks, import/export code remains unchanged
-        # ...
-
 # =========================================================
 # TAB 8: Community Trade Ideas
 # =========================================================
 with tab8:
     st.title("🌐 Community Trade Ideas")
     st.markdown("""
-    Share and explore trade ideas with the community. Upload your chart screenshots 
+    Share and explore trade ideas with the community. Upload your your chart screenshots 
     and discuss strategies with other traders.
     """)
     st.write('---')
@@ -2096,7 +2058,7 @@ with tab8:
     leader_data = []
     for u, d in users:
         user_d = json.loads(d) if d else {}
-        trades = len(user_d.get("tools_trade_journal", []))
+        trades = len(user_d.get("trades", []))
         leader_data.append({"Username": u, "Journaled Trades": trades})
     if leader_data:
         leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
