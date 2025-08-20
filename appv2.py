@@ -726,10 +726,12 @@ from streamlit_lightweight_charts import renderLightweightCharts
 with tab2:
     import pandas as pd
     import os
+    import streamlit as st
+
     st.title("📊 Backtesting")
     st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
 
-    # Pair selector & Yahoo tickers
+    # Pair selector & Yahoo tickers (28 major & minor pairs)
     pairs_map = {
         "EUR/USD": "EURUSD=X",
         "USD/JPY": "JPY=X",
@@ -766,25 +768,25 @@ with tab2:
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Base directory of this script
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    # Base folder where this app file lives
+    BASE_DIR = os.path.dirname(__file__)
 
-    # Data folders to search
+    # Folders to search
     data_folders = [os.path.join(BASE_DIR, "data"), os.path.join(BASE_DIR, "data2")]
 
-    # Search for CSV in both folders
-    filename = None
+    # Look for CSV in data folders
+    found_file = None
     for folder in data_folders:
-        candidate = os.path.join(folder, f"{symbol}_{timeframe}.csv")
-        if os.path.exists(candidate):
-            filename = candidate
+        filepath = os.path.join(folder, f"{symbol}_{timeframe}.csv")
+        if os.path.exists(filepath):
+            found_file = filepath
             break
 
-    if filename is None:
+    if found_file is None:
         st.error(f"Data file for {symbol} at {timeframe} not found in {data_folders}.")
     else:
         try:
-            data = pd.read_csv(filename)
+            data = pd.read_csv(found_file)
 
             # Ensure numeric types
             for col in ["open","high","low","close"]:
@@ -808,7 +810,6 @@ with tab2:
 
             series = [{"type": "candlestick", "data": ohlc}]
 
-            # Render Lightweight Chart
             renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
 
         except Exception as e:
