@@ -761,6 +761,18 @@ with tab2:
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="yf_pair")
     timeframe = st.selectbox("Select timeframe", ["1m","5m","15m","1h","4h","1d","1wk"], index=6)
 
+    # Function to safely convert time to UNIX timestamp
+    import pandas as pd
+    def convert_time(x):
+        if isinstance(x, pd.Timestamp):
+            return int(x.timestamp())
+        elif isinstance(x, pd.Period):
+            return int(x.start_time.timestamp())  # Use start of the period for Period objects
+        elif isinstance(x, (str, float, int)):
+            return x
+        else:
+            return None
+
     # Download historical data
     symbol = pairs_map[pair]
     try:
@@ -771,10 +783,10 @@ with tab2:
         data.rename(columns={"Datetime":"time","Date":"time","Open":"open","High":"high",
                              "Low":"low","Close":"close","Volume":"volume"}, inplace=True)
 
-        # Convert time to UNIX timestamp (seconds) for Lightweight Charts
-        data["time"] = data["time"].apply(lambda x: int(x.timestamp()) if hasattr(x, "timestamp") else x)
+        # Convert time column to UNIX timestamp (works for all timeframes)
+        data["time"] = data["time"].apply(convert_time)
 
-        # Ensure numeric columns are floats
+        # Ensure numeric columns are Python floats
         for col in ["open","high","low","close"]:
             data[col] = data[col].astype(float)
 
