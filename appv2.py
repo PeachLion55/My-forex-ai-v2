@@ -726,7 +726,7 @@ from streamlit_lightweight_charts import renderLightweightCharts
 with tab2:
     import pandas as pd
     import os
-    import streamlit as st
+    from pathlib import Path
 
     st.title("📊 Backtesting")
     st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
@@ -768,21 +768,19 @@ with tab2:
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Base folder where this app file lives
-    BASE_DIR = os.path.dirname(__file__)
+    # Resolve data folders relative to this script
+    BASE_DIR = Path(__file__).parent
+    data_folders = [BASE_DIR / "data", BASE_DIR / "data2"]
 
-    # Folders to search
-    data_folders = [os.path.join(BASE_DIR, "data"), os.path.join(BASE_DIR, "data2")]
-
-    # Look for CSV in data folders
+    # Find the CSV file in either folder
     found_file = None
     for folder in data_folders:
-        filepath = os.path.join(folder, f"{symbol}_{timeframe}.csv")
-        if os.path.exists(filepath):
+        filepath = folder / f"{symbol}_{timeframe}.csv"
+        if filepath.exists():
             found_file = filepath
             break
 
-    if found_file is None:
+    if not found_file:
         st.error(f"Data file for {symbol} at {timeframe} not found in {data_folders}.")
     else:
         try:
@@ -810,6 +808,7 @@ with tab2:
 
             series = [{"type": "candlestick", "data": ohlc}]
 
+            # Render Lightweight Chart
             renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
 
         except Exception as e:
