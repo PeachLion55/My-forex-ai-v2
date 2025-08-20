@@ -766,17 +766,22 @@ with tab2:
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Look for CSV in multiple folders
-    folders = ["data", "data2"]
+    # Base directory of this script
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    # Data folders to search
+    data_folders = [os.path.join(BASE_DIR, "data"), os.path.join(BASE_DIR, "data2")]
+
+    # Search for CSV in both folders
     filename = None
-    for folder in folders:
+    for folder in data_folders:
         candidate = os.path.join(folder, f"{symbol}_{timeframe}.csv")
         if os.path.exists(candidate):
             filename = candidate
             break
 
-    if not filename:
-        st.error(f"Data file for {symbol} at {timeframe} not found in {folders}.")
+    if filename is None:
+        st.error(f"Data file for {symbol} at {timeframe} not found in {data_folders}.")
     else:
         try:
             data = pd.read_csv(filename)
