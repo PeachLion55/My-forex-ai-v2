@@ -782,9 +782,11 @@ with tab2:
         f"{symbol.replace('=X', '')}_{timeframe}{suffix}.csv" for suffix in timestamp_suffixes
     ]
 
-    # Debugging: Show working directory and available CSV files
+    # Debugging: Show working directory and all files
     st.write(f"Current working directory: {os.getcwd()}")
-    csv_files = [f.name for f in data_dir.glob("*.csv") if f.is_file()]
+    all_files = [f.name for f in data_dir.glob("*") if f.is_file()]
+    csv_files = [f for f in all_files if f.endswith(".csv")]
+    st.write("All files in root directory:", all_files)
     st.write("Available CSV files in root directory:", csv_files)
     st.write(f"Looking for files: {', '.join(possible_filenames)}")
 
@@ -802,39 +804,50 @@ with tab2:
             # Load CSV, skipping the first row to avoid invalid data
             data = pd.read_csv(file_to_load, skiprows=1)
 
-            # Debugging: Show column names and first few rows
-            st.write(f"Columns in {file_to_load.name}: {list(data.columns)}")
-            st.write("First 5 rows of data:", data.head().to_dict())
+            # Debugging: Show original column names
+            st.write(f"Original columns in {file_to_load.name}: {list(data.columns)}")
 
-            # Verify required columns
-            required_columns = ["time", "open", "high", "low", "close"]
-            if not all(col in data.columns for col in required_columns):
-                st.error(f"Missing required columns in {file_to_load.name}. Found: {list(data.columns)}, Required: {required_columns}")
-                data = None
+            # Rename columns to match expected format
+            expected_columns = ["time", "close", "high", "low", "open", "volume"]
+            if len(data.columns) >= 5:
+                data.columns = expected_columns[:len(data.columns)]
             else:
+                st.error(f"Insufficient columns in {file_to_load.name}. Found: {list(data.columns)}, Expected at least: {expected_columns[:5]}")
+                data = None
+
+            if data is not None:
+                # Debugging: Show renamed columns
+                st.write(f"Renamed columns in {file_to_load.name}: {list(data.columns)}")
+                st.write("First 5 rows of data:", data.head().to_dict())
+
                 # Select only required columns
-                data = data[["time", "open", "high", "low", "close"]]
+                required_columns = ["time", "open", "high", "low", "close"]
+                if not all(col in data.columns for col in required_columns):
+                    st.error(f"Missing required columns in {file_to_load.name} after renaming. Found: {list(data.columns)}, Required: {required_columns}")
+                    data = None
+                else:
+                    data = data[required_columns]
 
-                # Convert numeric columns to float, coerce invalid values to NaN
-                for col in ["open", "high", "low", "close"]:
-                    try:
-                        data[col] = pd.to_numeric(data[col], errors='coerce')
-                    except Exception as e:
-                        st.warning(f"Error converting column {col} to float: {str(e)}")
-                        data = None
-                        break
+                    # Convert numeric columns to float, coerce invalid values to NaN
+                    for col in ["open", "high", "low", "close"]:
+                        try:
+                            data[col] = pd.to_numeric(data[col], errors='coerce')
+                        except Exception as e:
+                            st.warning(f"Error converting column {col} to float: {str(e)}")
+                            data = None
+                            break
 
-                if data is not None:
-                    # Drop rows with NaN in numeric columns
-                    data = data.dropna(subset=["open", "high", "low", "close"])
+                    if data is not None:
+                        # Drop rows with NaN in numeric columns
+                        data = data.dropna(subset=["open", "high", "low", "close"])
 
-                    # Convert time column to integer (UNIX timestamp)
-                    try:
-                        data["time"] = pd.to_numeric(data["time"], errors='coerce').astype('Int64')
-                        data = data.dropna(subset=["time"])
-                    except Exception as e:
-                        st.error(f"Error converting time column to integer: {str(e)}")
-                        data = None
+                        # Convert time column to integer (UNIX timestamp)
+                        try:
+                            data["time"] = pd.to_numeric(data["time"], errors='coerce').astype('Int64')
+                            data = data.dropna(subset=["time"])
+                        except Exception as e:
+                            st.error(f"Error converting time column to integer: {str(e)}")
+                            data = None
 
         except Exception as e:
             st.error(f"Failed to load data from {file_to_load}: {str(e)}")
