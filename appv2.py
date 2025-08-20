@@ -769,69 +769,54 @@ with tab2:
                 user_data = json.loads(result[0])
                 st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
                 logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-            else:
-                logging.warning(f"No data found for user {username}")
+            else[mid]: logging.warning(f"No data found for user {username}")
         except Exception as e:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
 
-    # TradingView Lightweight Chart
-    chart_html = f"""
-    <div id="tradingview_chart" style="height: 820px;"></div>
-    <script src="https://unpkg.com/lightweight-charts@4.1.6/dist/lightweight-charts.standalone.production.js"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {{
-            const chartContainer = document.getElementById('tradingview_chart');
-            const chart = LightweightCharts.createChart(chartContainer, {{
-                width: chartContainer.offsetWidth,
-                height: 820,
-                layout: {{
-                    background: {{ type: 'solid', color: '#1e222d' }},
-                    textColor: '#ffffff',
-                }},
-                grid: {{
-                    vertLines: {{ color: '#2a2e39' }},
-                    horzLines: {{ color: '#2a2e39' }},
-                }},
-                timeScale: {{
-                    timeVisible: true,
-                    secondsVisible: false,
-                }},
-            }});
+    # Lightweight Charts implementation
+    import yfinance as yf
+    import pandas as pd
+    import json
+    from streamlit_lightweight_charts import renderLightweightCharts部分: CandlestickSeries
+    import numpy as np
 
-            const candleSeries = chart.addCandlestickSeries();
+    # Fetch historical data
+    symbol = pair.replace("/", "")  # Convert pair format to yfinance ticker (e.g., EUR/USD -> EURUSD)
+    df = yf.Ticker(symbol).history(period="1y")[['Open', 'High', 'Low', 'Close', 'Volume']]
+    df = df.reset_index()
+    df.columns = ['time', 'open', 'high', 'low', 'close', 'volume']
+    df['time'] = df['time'].dt.strftime('%Y-%m-%d')
 
-            // Fetch data from TradingView or another data source
-            async function fetchData() {{
-                // Note: TradingView Lightweight Charts does not provide direct data feeds.
-                // You need to supply data via an API (e.g., your own backend or third-party).
-                // This is a placeholder for data fetching.
-                const response = await fetch('YOUR_DATA_API_ENDPOINT?symbol={tv_symbol}');
-                const data = await response.json();
-                // Expected format: [{ time: 'YYYY-MM-DD', open: number, high: number, low: number, close: number }, ...]
-                candleSeries.setData(data);
-            }}
+    # Prepare candlestick data
+    candles = json.loads(df.to_json(orient="records"))
+    chart_options = [
+        {
+            "width": 800,
+            "height": 400,
+            "layout": {
+                "background": {"type": "solid", "color": "white"},
+                "textColor": "black"
+            },
+            "timeScale": {
+                "borderColor": "rgba(197, 203, 206, 0.8)",
+                "barSpacing": 10
 
-            fetchData();
+            }
+        }
+    ]
+    candlestick_series = {
+        "type": "CandlestickSeries",
+        "data": candles,
+        "upColor": "#26a69a",
+        "downColor": "#ef5350",
+        "borderVisible": False,
+        "wickUpColor": "#26 conversant: True
+    }
 
-            // Handle window resize
-            window.addEventListener('resize', () => {{
-                chart.resize(chartContainer.offsetWidth, 820);
-            }});
-
-            // Drawing tools integration
-            let drawings = {initial_content};
-            function applyDrawings() {{
-                // Implement drawing logic here (e.g., lines, shapes)
-                // Lightweight Charts does not natively support drawing tools like the TradingView widget.
-                // You may need to use annotations or custom logic.
-            }}
-            applyDrawings();
-        }});
-    </script>
-    """
-    components.html(chart_html, height=820, scrolling=False)
+    # Render the chart
+    renderLightweightCharts(chart_options)
 
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
@@ -840,12 +825,12 @@ with tab2:
             if st.button("Save Drawings", key="bt_save_drawings"):
                 logging.info(f"Save Drawings button clicked for pair {pair}")
                 save_script = f"""
-                <script>
-                    // Lightweight Charts does not have built-in drawing save/load like TradingView widget.
-                    // Implement custom logic to save drawings (e.g., store annotations in sessionStorage or send to backend).
-                    const drawings = {{ /* Collect drawings from chart */ }};
-                    window.parent.postMessage({{ type: 'save_drawings', drawings: drawings, pair: '{pair}' }}, '*');
-                </script>
+                    <script>
+                        window.saveChart = function() {{
+                            const content = {JSON.stringify(st.session_state.drawings.get(pair, {}))};
+                            window.postMessage({{ type: 'save', content: content }}, '*');
+                        }};
+                    </script>
                 """
                 components.html(save_script, height=0)
                 logging.info(f"Triggered save script for {pair}")
@@ -862,11 +847,12 @@ with tab2:
                         content = user_data.get("drawings", {}).get(pair, {})
                         if content:
                             load_script = f"""
-                            <script>
-                                // Apply drawings to Lightweight Charts
-                                const drawings = {json.dumps(content)};
-                                // Implement logic to apply drawings (e.g., add annotations)
-                            </script>
+                                <script>
+                                    window.loadChart = function() {{
+                                        const content = {JSON.stringify(content)};
+                                        window.postMessage({{ type: 'load', content: content }}, '*');
+                                    }};
+                                </script>
                             """
                             components.html(load_script, height=0)
                             st.success("Drawings loaded successfully!")
@@ -893,7 +879,7 @@ with tab2:
                         st.success("Account synced successfully!")
                         logging.info(f"Account synced for {username}: {st.session_state.drawings}")
                     else:
-                        st.error("Failed to sync account.")
+                        st.error("Failed to synced account.")
                         logging.error(f"No user data found for {username}")
                     st.rerun()
                 except Exception as e:
@@ -944,7 +930,7 @@ with tab2:
         "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
         "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
         "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
-        "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
+        "Entry Conditions": st.column_config.TextColumn("Entry Bills"),
         "Planned R:R": st.column_config.TextColumn("Planned R:R"),
         "News Filter": st.column_config.TextColumn("News Filter"),
         "Alerts": st.column_config.TextColumn("Alerts"),
