@@ -766,11 +766,22 @@ with tab2:
     try:
         data = yf.download(symbol, period="30d", interval=timeframe)
         data.reset_index(inplace=True)
-        data.rename(columns={"Datetime":"time","Date":"time","Open":"open","High":"high","Low":"low","Close":"close","Volume":"volume"}, inplace=True)
 
-        # Convert to dict format for lightweight charts
+        # Standardize column names
+        data.rename(columns={"Datetime":"time","Date":"time","Open":"open","High":"high",
+                             "Low":"low","Close":"close","Volume":"volume"}, inplace=True)
+
+        # Convert time to UNIX timestamp (seconds) for Lightweight Charts
+        data["time"] = data["time"].apply(lambda x: int(x.timestamp()) if hasattr(x, "timestamp") else x)
+
+        # Ensure numeric columns are floats
+        for col in ["open","high","low","close"]:
+            data[col] = data[col].astype(float)
+
+        # Convert to dict for charting
         ohlc = data[["time","open","high","low","close"]].to_dict("records")
 
+        # Chart options
         chart_options = {
             "height": 600,
             "width": "100%",
@@ -785,11 +796,11 @@ with tab2:
             "data": ohlc
         }]
 
+        # Render Lightweight Chart
         renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
 
     except Exception as e:
         st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe}: {str(e)}")
-
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
