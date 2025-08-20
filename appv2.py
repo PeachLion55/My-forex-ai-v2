@@ -720,43 +720,126 @@ with tab1:
 # =========================================================
 # TAB 2: Backtesting
 # =========================================================
+import yfinance as yf
+import pandas as pd
+import json
+import sqlite3
+import logging
+from streamlit_lightweight_charts import renderLightweightCharts
+import numpy as np
+
+# Modular functions for data handling
+def download_forex_data(pair, period="7d"):
+    """Download 1-minute historical forex data for a given pair."""
+    symbol = pair.replace("/", "") + "=X"  # yfinance ticker format (e.g., EURUSD=X)
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval="1m")[['Open', 'High', 'Low', 'Close', 'Volume']]
+        if df.empty:
+            logging.warning(f"No data fetched for {pair}")
+            return None
+        df = df.reset_index()
+        df['time'] = pd.to_datetime(df['Date'])
+        df = df[['time', 'Open', 'High', 'Low', 'Close', 'Volume']]
+        df.columns = ['time', 'open', 'high', 'low', 'close', 'volume']
+        return df
+    except Exception as e:
+        logging.error(f"Error fetching data for {pair}: {str(e)}")
+        return None
+
+def resample_data(df, timeframe):
+    """Resample 1-minute data to specified timeframe with OHLCV aggregation."""
+    if df is None or df.empty:
+        return None
+    timeframe_map = {
+        '5m': '5min',
+        '15m': '15min',
+        '1h': '1H',
+        '4h': '4H',
+        'daily': '1D',
+        'weekly': '1W'
+    }
+    if timeframe not in timeframe_map:
+        raise ValueError(f"Invalid timeframe: {timeframe}")
+    
+    df = df.set_index('time')
+    resampled = pd.DataFrame({
+        'open': df['open'].resample(timeframe_map[timeframe]).first(),
+        'high': df['high'].resample(timeframe_map[timeframe]).max(),
+        'low': df['low'].resample(timeframe_map[timeframe]).min(),
+        'close': df['close'].resample(timeframe_map[timeframe]).last(),
+        'volume': df['volume'].resample(timeframe_map[timeframe]).sum()
+    })
+    resampled = resampled.dropna().reset_index()
+    resampled['time'] = resampled['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+    return resampled
+
+def save_to_database(df, pair, timeframe, db_name="forex_data.db"):
+    """Save resampled data to SQLite database."""
+    if df is None or df.empty:
+        logging.warning(f"No data to save for {pair}_{timeframe}")
+        return
+    table_name = f"{pair.replace('/', '')}_{timeframe}"
+    try:
+        with sqlite3.connect(db_name) as conn:
+            df.to_sql(table_name, conn, if_exists='replace', index=False)
+            logging.info(f"Saved data for {pair}_{timeframe} to database")
+    except Exception as e:
+        logging.error(f"Error saving data for {pair}_{timeframe}: {str(e)}")
+
+def load_data_for_chart(pair, timeframe, db_name="forex_data.db"):
+    """Load data from SQLite database for a given pair and timeframe."""
+    table_name = f"{pair.replace('/', '')}_{timeframe}"
+    try:
+        with sqlite3.connect(db_name) as conn:
+            df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+            if df.empty:
+                logging.warning(f"No data found in database for {pair}_{timeframe}")
+                return None
+            df['time'] = df['time'].astype(str)  # Ensure time is string for JSON
+            return df
+    except Exception as e:
+        logging.error(f"Error loading data for {pair}_{timeframe}: {str(e)}")
+        return None
+
+# Download and save data for all pairs (run once or on schedule)
+pairs = [
+    "EUR/USD", "USD/JPY", "GBP/USD", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD",
+    "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "AUD/NZD", "AUD/CAD", "AUD/CHF",
+    "CAD/JPY", "CHF/JPY", "EUR/AUD", "EUR/CAD", "EUR/CHF", "GBP/AUD", "GBP/CAD",
+    "GBP/CHF", "NZD/JPY", "NZD/CAD", "NZD/CHF", "CAD/CHF"
+]
+timeframes = ['1m', '5m', '15m', '1h', '4h', 'daily', 'weekly']
+
+# Uncomment to fetch and save data (run periodically, e.g., via cron or button)
+"""
+for pair in pairs:
+    df_1m = download_forex_data(pair)
+    if df_1m is not None:
+        save_to_database(df_1m, pair, '1m')
+        for tf in timeframes[1:]:  # Skip 1m as it's already saved
+            df_resampled = resample_data(df_1m, tf)
+            save_to_database(df_resampled, pair, tf)
+"""
+
 with tab2:
     st.title("📊 Backtesting")
-    st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
+    st.caption("Historical forex chart for backtesting and trading journal for the selected pair.")
 
-    # Pair selector & symbol map (28 major & minor pairs)
+    # Pair selector & symbol map
     pairs_map = {
-        # Majors
-        "EUR/USD": "FX:EURUSD",
-        "USD/JPY": "FX:USDJPY",
-        "GBP/USD": "FX:GBPUSD",
-        "USD/CHF": "OANDA:USDCHF",
-        "AUD/USD": "FX:AUDUSD",
-        "NZD/USD": "OANDA:NZDUSD",
-        "USD/CAD": "CMCMARKETS:USDCAD",
-        # Crosses / Minors
-        "EUR/GBP": "FX:EURGBP",
-        "EUR/JPY": "FX:EURJPY",
-        "GBP/JPY": "FX:GBPJPY",
-        "AUD/JPY": "FX:AUDJPY",
-        "AUD/NZD": "FX:AUDNZD",
-        "AUD/CAD": "FX:AUDCAD",
-        "AUD/CHF": "FX:AUDCHF",
-        "CAD/JPY": "FX:CADJPY",
-        "CHF/JPY": "FX:CHFJPY",
-        "EUR/AUD": "FX:EURAUD",
-        "EUR/CAD": "FX:EURCAD",
-        "EUR/CHF": "FX:EURCHF",
-        "GBP/AUD": "FX:GBPAUD",
-        "GBP/CAD": "FX:GBPCAD",
-        "GBP/CHF": "FX:GBPCHF",
-        "NZD/JPY": "FX:NZDJPY",
-        "NZD/CAD": "FX:NZDCAD",
-        "NZD/CHF": "FX:NZDCHF",
-        "CAD/CHF": "FX:CADCHF",
+        "EUR/USD": "FX:EURUSD", "USD/JPY": "FX:USDJPY", "GBP/USD": "FX:GBPUSD",
+        "USD/CHF": "OANDA:USDCHF", "AUD/USD": "FX:AUDUSD", "NZD/USD": "OANDA:NZDUSD",
+        "USD/CAD": "CMCMARKETS:USDCAD", "EUR/GBP": "FX:EURGBP", "EUR/JPY": "FX:EURJPY",
+        "GBP/JPY": "FX:GBPJPY", "AUD/JPY": "FX:AUDJPY", "AUD/NZD": "FX:AUDNZD",
+        "AUD/CAD": "FX:AUDCAD", "AUD/CHF": "FX:AUDCHF", "CAD/JPY": "FX:CADJPY",
+        "CHF/JPY": "FX:CHFJPY", "EUR/AUD": "FX:EURAUD", "EUR/CAD": "FX:EURCAD",
+        "EUR/CHF": "FX:EURCHF", "GBP/AUD": "FX:GBPAUD", "GBP/CAD": "FX:GBPCAD",
+        "GBP/CHF": "FX:GBPCHF", "NZD/JPY": "FX:NZDJPY", "NZD/CAD": "FX:NZDCAD",
+        "NZD/CHF": "FX:NZDCHF", "CAD/CHF": "FX:CADCHF"
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
-    tv_symbol = pairs_map[pair]
+    timeframe = st.selectbox("Select timeframe", timeframes, index=4, key="tv_timeframe")  # Default to 4h
 
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
@@ -777,33 +860,14 @@ with tab2:
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
 
     # Lightweight Charts implementation
-    import yfinance as yf
-    import pandas as pd
-    import json
-    from streamlit_lightweight_charts import renderLightweightCharts
-    import numpy as np
-
-    # Fetch historical data
-    symbol = pair.replace("/", "")  # Convert pair format to yfinance ticker (e.g., EUR/USD -> EURUSD)
-    try:
-        df = yf.Ticker(symbol).history(period="1y")[['Open', 'High', 'Low', 'Close', 'Volume']]
-        if df.empty:
-            st.error(f"No data available for {pair}. Please select another pair.")
-            logging.error(f"No data fetched for symbol {symbol}")
-            candles = []
-        else:
-            df = df.reset_index()
-            df['time'] = pd.to_datetime(df['Date'])  # Ensure 'time' is datetime
-            df['time'] = df['time'].dt.strftime('%Y-%m-%d')  # Format as string
-            df = df[['time', 'Open', 'High', 'Low', 'Close', 'Volume']]
-            df.columns = ['time', 'open', 'high', 'low', 'close', 'volume']
-            candles = json.loads(df.to_json(orient="records"))
-    except Exception as e:
-        st.error(f"Failed to fetch data for {pair}: {str(e)}")
-        logging.error(f"Error fetching data for {symbol}: {str(e)}")
+    # Load data from database for selected pair and timeframe
+    df = load_data_for_chart(pair, timeframe)
+    if df is not None and not df.empty:
+        candles = json.loads(df.to_json(orient="records"))
+    else:
+        st.error(f"No data available for {pair} ({timeframe}). Please ensure data is fetched.")
         candles = []
 
-    # Prepare chart options and series
     chart_options = {
         "width": 800,
         "height": 400,
@@ -813,7 +877,9 @@ with tab2:
         },
         "timeScale": {
             "borderColor": "rgba(197, 203, 206, 0.8)",
-            "barSpacing": 10
+            "barSpacing": 10,
+            "timeVisible": timeframe in ['1m', '5m', '15m', '1h', '4h'],
+            "secondsVisible": timeframe == '1m'
         }
     }
     candlestick_series = {
@@ -834,9 +900,9 @@ with tab2:
             renderLightweightCharts([chart_options], [candlestick_series])
         except Exception as e:
             st.error(f"Failed to render chart: {str(e)}")
-            logging.error(f"Chart rendering error for {pair}: {str(e)}")
+            logging.error(f"Chart rendering error for {pair}_{timeframe}: {str(e)}")
     else:
-        st.warning("No chart displayed due to missing data.")
+        st.warning(f"No chart displayed for {pair} ({timeframe}) due to missing data.")
 
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
