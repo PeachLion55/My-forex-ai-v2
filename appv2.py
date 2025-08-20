@@ -710,4 +710,3 @@ if st.session_state.user is not None:
                     _ta_save_community("posts", community_posts)
                     st.rerun()
                 st.markdown("---")
-```
