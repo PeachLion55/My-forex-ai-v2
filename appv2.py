@@ -770,47 +770,34 @@ with tab2:
     symbol = pairs_map[pair]
 
     # Define the data directory (root of the repo)
-    data_dir = Path(".")  # Files are in the repository root or subdirectories
+    data_dir = Path(".")  # Files are in the repository root
 
-    # Try both naming conventions: with and without '=X'
-    filename = data_dir / f"{symbol}_{timeframe}.csv"
-    filename_alt = data_dir / f"{symbol.replace('=X', '')}_{timeframe}.csv"
+    # Possible timestamp suffixes based on observed patterns
+    timestamp_suffixes = ["", " 18.26.02", " 18.26.03", " 18.26.03 18.26.25"]
+
+    # Try multiple naming conventions
+    possible_filenames = [
+        f"{symbol}_{timeframe}{suffix}.csv" for suffix in timestamp_suffixes
+    ] + [
+        f"{symbol.replace('=X', '')}_{timeframe}{suffix}.csv" for suffix in timestamp_suffixes
+    ]
 
     # Debugging: Show working directory and available CSV files
     st.write(f"Current working directory: {os.getcwd()}")
     st.write("Available CSV files in root directory:", [f.name for f in data_dir.glob("*.csv")])
+    st.write(f"Looking for files: {', '.join(possible_filenames)}")
 
-    # Check subdirectories [0 - 100] and [100 - 184]
-    subdirs = [d for d in data_dir.iterdir() if d.is_dir()]
-    for subdir in subdirs:
-        st.write(f"CSV files in {subdir.name}:", [f.name for f in subdir.glob("*.csv")])
-
-    # Check for file in root or subdirectories
+    # Check for file in root directory
     file_to_load = None
-    if filename.exists():
-        file_to_load = filename
-    elif filename_alt.exists():
-        file_to_load = filename_alt
-    else:
-        # Search subdirectories [0 - 100] and [100 - 184]
-        for subdir in subdirs:
-            sub_filename = subdir / f"{symbol}_{timeframe}.csv"
-            sub_filename_alt = subdir / f"{symbol.replace('=X', '')}_{timeframe}.csv"
-            if sub_filename.exists():
-                file_to_load = sub_filename
-                break
-            elif sub_filename_alt.exists():
-                file_to_load = sub_filename_alt
-                break
+    for fname in possible_filenames:
+        root_file = data_dir / fname
+        if root_file.exists():
+            file_to_load = root_file
+            break
 
-    # Debugging: Show the file being loaded
-    st.write(f"Looking for file: {filename} or {filename_alt}")
-
-    if file_to_load is None:
-        st.error(f"Data file for {symbol} at {timeframe} not found in root or subdirectories.")
-    else:
+    if file_to_load:
+        st.write(f"Loading file: {file_to_load}")
         try:
-            st.write(f"Loading file: {file_to_load}")
             data = pd.read_csv(file_to_load)
 
             # Ensure numeric types
@@ -839,7 +826,9 @@ with tab2:
             renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
 
         except Exception as e:
-            st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe}: {str(e)}")
+            st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe} from {file_to_load}: {str(e)}")
+    else:
+        st.error(f"Data file for {symbol} at {timeframe} not found in root directory.")
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
