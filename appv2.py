@@ -785,27 +785,37 @@ with tab2:
 
     # Fetch historical data
     symbol = pair.replace("/", "")  # Convert pair format to yfinance ticker (e.g., EUR/USD -> EURUSD)
-    df = yf.Ticker(symbol).history(period="1y")[['Open', 'High', 'Low', 'Close', 'Volume']]
-    df = df.reset_index()
-    df.columns = ['time', 'open', 'high', 'low', 'close', 'volume']
-    df['time'] = df['time'].dt.strftime('%Y-%m-%d')
+    try:
+        df = yf.Ticker(symbol).history(period="1y")[['Open', 'High', 'Low', 'Close', 'Volume']]
+        if df.empty:
+            st.error(f"No data available for {pair}. Please select another pair.")
+            logging.error(f"No data fetched for symbol {symbol}")
+            candles = []
+        else:
+            df = df.reset_index()
+            df['time'] = pd.to_datetime(df['Date'])  # Ensure 'time' is datetime
+            df['time'] = df['time'].dt.strftime('%Y-%m-%d')  # Format as string
+            df = df[['time', 'Open', 'High', 'Low', 'Close', 'Volume']]
+            df.columns = ['time', 'open', 'high', 'low', 'close', 'volume']
+            candles = json.loads(df.to_json(orient="records"))
+    except Exception as e:
+        st.error(f"Failed to fetch data for {pair}: {str(e)}")
+        logging.error(f"Error fetching data for {symbol}: {str(e)}")
+        candles = []
 
-    # Prepare candlestick data
-    candles = json.loads(df.to_json(orient="records"))
-    chart_options = [
-        {
-            "width": 800,
-            "height": 400,
-            "layout": {
-                "background": {"type": "solid", "color": "white"},
-                "textColor": "black"
-            },
-            "timeScale": {
-                "borderColor": "rgba(197, 203, 206, 0.8)",
-                "barSpacing": 10
-            }
+    # Prepare chart options and series
+    chart_options = {
+        "width": 800,
+        "height": 400,
+        "layout": {
+            "background": {"type": "solid", "color": "white"},
+            "textColor": "black"
+        },
+        "timeScale": {
+            "borderColor": "rgba(197, 203, 206, 0.8)",
+            "barSpacing": 10
         }
-    ]
+    }
     candlestick_series = {
         "type": "Candlestick",
         "data": candles,
@@ -818,8 +828,15 @@ with tab2:
         }
     }
 
-    # Render the chart
-    renderLightweightCharts(chart_options, candlestick_series)
+    # Render the chart if data is available
+    if candles:
+        try:
+            renderLightweightCharts([chart_options], [candlestick_series])
+        except Exception as e:
+            st.error(f"Failed to render chart: {str(e)}")
+            logging.error(f"Chart rendering error for {pair}: {str(e)}")
+    else:
+        st.warning("No chart displayed due to missing data.")
 
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
@@ -830,7 +847,7 @@ with tab2:
                 save_script = f"""
                     <script>
                         window.saveChart = function() {{
-                            const content = {JSON.stringify(st.session_state.drawings.get(pair, {}))};
+                            const content = {json.dumps(st.session_state.drawings.get(pair, {}))};
                             window.postMessage({{ type: 'save', content: content }}, '*');
                         }};
                     </script>
@@ -852,7 +869,7 @@ with tab2:
                             load_script = f"""
                                 <script>
                                     window.loadChart = function() {{
-                                        const content = {JSON.stringify(content)};
+                                        const content = {json.dumps(content)};
                                         window.postMessage({{ type: 'load', content: content }}, '*');
                                     }};
                                 </script>
