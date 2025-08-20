@@ -727,6 +727,8 @@ with tab2:
     import pandas as pd
     import os
     from pathlib import Path
+    import streamlit as st
+
     st.title("📊 Backtesting")
     st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
 
@@ -760,40 +762,44 @@ with tab2:
         "CAD/CHF": "CADCHF=X",
     }
 
-    timeframes = ["1m","5m","15m","1h","4h","1d","1wk"]
+    timeframes = ["1m", "5m", "15m", "1h", "4h", "1d", "1wk"]
 
     # User selection
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0)
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # CSV file path in repo root
-    filename = Path(f"{symbol}_{timeframe}.csv")
+    # Define the data directory (adjust if files are in a different folder)
+    data_dir = Path("data")  # Assumes CSV files are in a 'data/' folder in the repo root
+    filename = data_dir / f"{symbol}_{timeframe}.csv"
+
+    # Debugging: Display the file path being checked
+    st.write(f"Looking for file: {filename}")
 
     if not filename.exists():
-        st.error(f"Data file for {symbol} at {timeframe} not found in repo root.")
+        st.error(f"Data file for {symbol} at {timeframe} not found at {filename}.")
     else:
         try:
             data = pd.read_csv(filename)
 
             # Ensure numeric types
-            for col in ["open","high","low","close"]:
+            for col in ["open", "high", "low", "close"]:
                 data[col] = data[col].astype(float)
 
             # Ensure time column is integer (UNIX timestamp)
             data["time"] = data["time"].astype(int)
 
             # Convert to dict for Lightweight Charts
-            ohlc = data[["time","open","high","low","close"]].to_dict("records")
+            ohlc = data[["time", "open", "high", "low", "close"]].to_dict("records")
 
             # Chart options
             chart_options = {
                 "height": 600,
                 "width": "100%",
-                "layout": { "background": { "color": "#0E1117" }, "textColor": "#DDD" },
-                "grid": { "vertLines": { "color": "#222" }, "horzLines": { "color": "#222" } },
-                "priceScale": { "borderColor": "#555" },
-                "timeScale": { "borderColor": "#555" }
+                "layout": {"background": {"color": "#0E1117"}, "textColor": "#DDD"},
+                "grid": {"vertLines": {"color": "#222"}, "horzLines": {"color": "#222"}},
+                "priceScale": {"borderColor": "#555"},
+                "timeScale": {"borderColor": "#555"}
             }
 
             series = [{"type": "candlestick", "data": ohlc}]
