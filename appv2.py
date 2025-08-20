@@ -167,160 +167,61 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # ------------------ Custom CSS ------------------
 st.markdown("""
     <style>
-    /* Enhanced tab styling for main navigation */
+    /* Centered vertical navigation bar */
     div[data-baseweb="tab-list"] {
         position: fixed !important;
-        left: 18px;
-        top: 18px;
-        width: 240px;
-        height: calc(100vh - 36px);
+        left: 24px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 220px;
+        max-height: calc(100vh - 48px);
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        padding: 18px;
-        background: linear-gradient(180deg, #0e0e0f 0%, #0b0b0c 100%);
-        border-radius: 14px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        gap: 10px;
+        padding: 16px;
+        background: linear-gradient(180deg, #121212 0%, #0a0a0a 100%);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         z-index: 1000;
-        overflow: auto;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #444 #1a1a1a;
+    }
+    div[data-baseweb="tab-list"]::-webkit-scrollbar {
+        width: 8px;
+    }
+    div[data-baseweb="tab-list"]::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 4px;
+    }
+    div[data-baseweb="tab-list"]::-webkit-scrollbar-track {
+        background: #1a1a1a;
     }
     div[data-baseweb="tab-list"] button {
         width: 100% !important;
         text-align: left;
-        padding: 14px 18px !important;
-        border-radius: 12px !important;
-        font-size: 15px;
+        padding: 12px 16px !important;
+        border-radius: 10px !important;
+        font-size: 14px;
+        font-weight: 500;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         justify-content: flex-start;
         color: #fff !important;
         background: linear-gradient(90deg, #c76b12, #ff9a3d) !important;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.45);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         border: none !important;
-        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        transition: all 0.2s ease;
     }
     div[data-baseweb="tab-list"] button[aria-selected="true"] {
         background: linear-gradient(90deg, #ffd37a, #ff8a00) !important;
         color: #000 !important;
-        font-weight: 700;
-        transform: translateY(-1px);
-    }
-    div[data-baseweb="tab-list"] button[aria-selected="false"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 22px rgba(0,0,0,0.5);
-    }
-    /* Make main content avoid the fixed sidebar */
-    .block-container, .main {
-        margin-left: 284px;
-    }
-    /* Small screen fallback: make sidebar relative */
-    @media (max-width: 900px) {
-        div[data-baseweb="tab-list"] {
-            position: relative !important;
-            width: 100% !important;
-            height: auto !important;
-            flex-direction: row !important;
-            overflow-x: auto;
-            padding: 8px;
-            border-radius: 10px;
-        }
-        .block-container, .main {
-            margin-left: 0px;
-        }
-    }
-    /* Content above bg */
-    .stTabs, .stMarkdown, .css-ffhzg2, .css-1d391kg { position: relative; z-index: 1; }
-    /* Button styling */
-    .stButton button {
-        background: linear-gradient(45deg, rgba(255,215,0,0.9), rgba(255,165,0,0.9)) !important;
-        color: #000 !important;
         font-weight: 600;
-        padding: 8px 16px !important;
-        border-radius: 6px !important;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.3);
-        border: none !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        font-size: 14px;
-        line-height: 1.4;
-        min-height: 32px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        transform: scale(1.02);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.5);
     }
-    .stButton button:hover {
-        background: linear-gradient(45deg, rgba(230,194,0,0.9), rgba(255,140,0,0.9)) !important;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
-    /* Form submit button styling */
-    .stFormSubmitButton button {
-        background: linear-gradient(45deg, rgba(255,215,0,0.9), rgba(255,165,0,0.9)) !important;
-        color: #000 !important;
-        font-weight: 600;
-        padding: 8px 16px !important;
-        border-radius: 6px !important;
-        box-shadow: 0 1px 6px rgba(0,0,0,0.3);
-        border: none !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        font-size: 14px;
-        line-height: 1.4;
-        min-height: 32px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .stFormSubmitButton button:hover {
-        background: linear-gradient(45deg, rgba(230,194,0,0.9), rgba(255,140,0,0.9)) !important;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
-    /* Card look */
-    .card {
-        background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-        transition: transform 0.3s ease;
-    }
-    .card:hover {
-        transform: translateY(-4px);
-    }
-    /* Dataframe styling */
-    .dataframe th {
-        background-color: #1f1f1f;
-        color: #FFD700;
-    }
-    .dataframe td {
-        background-color: #121212;
-        color: white;
-    }
-    /* Selectbox and input styling */
-    .stSelectbox, .stNumberInput, .stTextInput, .stRadio {
-        background-color: #1b1b1b;
-        border-radius: 8px;
-        padding: 8px;
-    }
-    /* Expander styling */
-    .stExpander {
-        border: 1px solid #242424;
-        border-radius: 8px;
-        background-color: #1b1b1b;
-    }
-    /* Small utility */
-    .small-muted { color:#9e9e9e; font-size:0.9rem; }
-    /* Enhanced data editor input styling */
-    .stDataFrame .stTextInput input, .stDataFrame .stSelectbox select, .stDataFrame .stNumberInput input, .stDataFrame .stDateInput input {
-        background-color: #1b1b1b;
-        color: white;
-        border: 1px solid #3a3a3a;
-        border-radius: 4px;
-        padding: 6px;
-        font-size: 14px;
-        transition: all 0.2s ease;
-    }
-    .stDataFrame .stTextInput input:focus, .stDataFrame .stSelectbox select:focus, .stDataFrame .stNumberInput input:focus, .stDataFrame .stDateInput input:focus {
+    div[data-baseLectbox select:focus, .stDataFrame .stNumberInput input:focus, .stDataFrame .stDateInput input:focus {
         background-color: #2a2a2a;
         border-color: #FFD700;
         box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
@@ -541,20 +442,47 @@ if "community_templates" not in st.session_state:
     loaded_templates = _ta_load_community('templates', [])
     st.session_state.community_templates = pd.DataFrame(loaded_templates, columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]) if loaded_templates else pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
 
+# Initialize selected main tab
+if "selected_main_tab" not in st.session_state:
+    st.session_state.selected_main_tab = "Dashboard"
+
 # =========================================================
 # NAVIGATION
 # =========================================================
-tabs = [
+main_tabs = [
     "Dashboard", "Markets", "Calendar",
     "Analytics", "Calculator", "Mentai",
     "Backtest", "Trades", "Add Trade"
 ]
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(tabs)
+tools_subtabs = [
+    "Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap",
+    "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner",
+    "Pre-Trade Checklist", "Pre-Market Checklist"
+]
+
+# Determine which tabs to show in the navigation bar
+nav_tabs = main_tabs
+if st.session_state.selected_main_tab == "Calculator":
+    nav_tabs = main_tabs + tools_subtabs
+
+# Create the navigation tabs
+tab_instances = st.tabs(nav_tabs)
+
+# Map tab names to their instances
+tab_map = {name: tab_instances[i] for i, name in enumerate(nav_tabs)}
+
+# Update selected main tab when a main tab is clicked
+for tab_name in main_tabs:
+    if tab_name in tab_map:
+        with tab_map[tab_name]:
+            if st.session_state.selected_main_tab != tab_name:
+                st.session_state.selected_main_tab = tab_name
+                st.rerun()
 
 # =========================================================
 # TAB 1: Dashboard
 # =========================================================
-with tab1:
+with tab_map.get("Dashboard", st.container()):
     st.title("Dashboard")
     st.write("Overview and key metrics")
     col1, col2 = st.columns([3, 1])
@@ -729,7 +657,7 @@ with tab1:
 # =========================================================
 # TAB 2: Markets
 # =========================================================
-with tab2:
+with tab_map.get("Markets", st.container()):
     st.title("Markets")
     st.write("Live market data")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
@@ -931,7 +859,7 @@ with tab2:
 # =========================================================
 # TAB 3: Calendar
 # =========================================================
-with tab3:
+with tab_map.get("Calendar", st.container()):
     st.title("Calendar")
     st.write("Economic events and schedules")
     st.markdown("### 🗓️ Upcoming Economic Events")
@@ -959,7 +887,7 @@ with tab3:
 # =========================================================
 # TAB 4: Analytics
 # =========================================================
-with tab4:
+with tab_map.get("Analytics", st.container()):
     st.title("Analytics")
     st.write("Performance and trade analytics")
     st.markdown("""
@@ -1253,17 +1181,22 @@ with tab4:
 # =========================================================
 # TAB 5: Calculator
 # =========================================================
-with tab5:
+with tab_map.get("Calculator", st.container()):
     st.title("Calculator")
     st.write("Position size and risk calculations")
-    tools_subtabs = st.tabs(["Profit/Loss Calculator", "Price Alerts", "Currency Correlation Heatmap", "Risk Management Calculator", "Trading Session Tracker", "Drawdown Recovery Planner", "Pre-Trade Checklist", "Pre-Market Checklist"])
-    with tools_subtabs[0]:
+    if st.session_state.selected_main_tab == "Calculator":
+        tools_subtab_instances = st.tabs(tools_subtabs)
+        tools_subtab_map = {name: tools_subtab_instances[i] for i, name in enumerate(tools_subtabs)}
+    else:
+        tools_subtab_map = {name: st.container() for name in tools_subtabs}
+
+    with tools_subtab_map.get("Profit/Loss Calculator", st.container()):
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
         st.write('---')
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
-            currency_pair =st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
+            currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
             position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01, key="pl_position_size")
             close_price = st.number_input("Close Price", value=1.1050, step=0.0001, key="pl_close_price")
         with col_calc2:
@@ -1282,7 +1215,8 @@ with tab5:
         st.write(f"**Pip Movement**: {pip_movement:.2f} pips")
         st.write(f"**Pip Value**: {pip_value:.2f} {account_currency}")
         st.write(f"**Potential Profit/Loss**: {profit_loss:.2f} {account_currency}")
-    with tools_subtabs[1]:
+
+    with tools_subtab_map.get("Price Alerts", st.container()):
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
         st.write('---')
@@ -1374,7 +1308,8 @@ with tab5:
                         logging.info(f"Cancelled alert at index {idx}")
         else:
             st.info("No price alerts set. Add one above to start monitoring prices.")
-    with tools_subtabs[2]:
+
+    with tools_subtab_map.get("Currency Correlation Heatmap", st.container()):
         st.header("📊 Currency Correlation Heatmap")
         st.markdown("Understand how forex pairs move relative to each other.")
         st.write('---')
@@ -1394,7 +1329,8 @@ with tab5:
                         color_continuous_scale="RdBu",
                         title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
-    with tools_subtabs[3]:
+
+    with tools_subtab_map.get("Risk Management Calculator", st.container()):
         st.header("🛡️ Risk Management Calculator")
         st.markdown("""
         Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. 
@@ -1418,305 +1354,65 @@ with tab5:
             lot_size = risk_amount / (stop_loss_pips * pip_value)
             st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
             logging.info(f"Calculated lot size: {lot_size}")
-# 🔄 What-If Analyzer
-st.subheader('🔄 What-If Analyzer')
-base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
-risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
-winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
-avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
-trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
+        # 🔄 What-If Analyzer
+        st.subheader('🔄 What-If Analyzer')
+        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
+        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
+        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
+        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
+        trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
+        if st.button("Run What-If Analysis"):
+            risk_per_trade = base_equity * risk_pct
+            wins = int(trades * winrate)
+            losses = trades - wins
+            avg_win = risk_per_trade * avg_r
+            avg_loss = risk_per_trade
+            expected_profit = (wins * avg_win) - (losses * avg_loss)
+            final_equity = base_equity + expected_profit
+            growth_pct = (final_equity - base_equity) / base_equity * 100
+            st.markdown("### Results")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Expected Profit", f"${expected_profit:,.2f}")
+            with col2:
+                st.metric("Final Equity", f"${final_equity:,.2f}")
+            with col3:
+                st.metric("Growth", f"{growth_pct:.2f}%")
+            logging.info(f"What-If Analysis: base=${base_equity}, risk={risk_pct*100}%, winrate={winrate*100}%, avg_r={avg_r}, trades={trades}, profit=${expected_profit}")
 
-if st.button("Run What-If Analysis"):
-    risk_per_trade = base_equity * risk_pct
-    wins = int(trades * winrate)
-    losses = trades - wins
-    avg_win = risk_per_trade * avg_r
-    avg_loss = risk_per_trade
-    expected_profit = (wins * avg_win) - (losses * avg_loss)
-    final_equity = base_equity + expected_profit
-    growth_pct = (final_equity - base_equity) / base_equity * 100
-
-    st.markdown("### Results")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Expected Profit", f"${expected_profit:,.2f}")
-    with col2:
-        st.metric("Final Equity", f"${final_equity:,.2f}")
-    with col3:
-        st.metric("Growth", f"{growth_pct:.2f}%")
-    logging.info(f"What-If Analysis: base=${base_equity}, risk={risk_pct*100}%, winrate={winrate*100}%, avg_r={avg_r}, trades={trades}, profit=${expected_profit}")
-
-# 📋 Pre-Trade Checklist
-with tools_subtabs[6]:
-    st.header("📋 Pre-Trade Checklist")
-    st.markdown("Ensure you're ready before entering a trade.")
-    st.write('---')
-    checklist_items = [
-        "Market conditions align with my strategy",
-        "Risk-reward ratio is at least 1:2",
-        "Stop loss and take profit levels are set",
-        "No high-impact news events upcoming",
-        "Position size aligns with risk management",
-        "I've reviewed my trading plan",
-        "I'm emotionally and mentally prepared"
-    ]
-    checklist_state = {}
-    for item in checklist_items:
-        checklist_state[item] = st.checkbox(item, key=f"pretrade_{item}")
-    completed = sum(checklist_state.values())
-    total = len(checklist_items)
-    st.progress(completed / total)
-    st.write(f"**Checklist Progress**: {completed}/{total} completed")
-    if completed == total and st.button("Confirm Pre-Trade Checklist"):
-        st.success("✅ Pre-Trade Checklist Completed!")
-        _ta_update_xp(10)
-        logging.info("Pre-Trade Checklist completed")
-
-# 📅 Pre-Market Checklist
-with tools_subtabs[7]:
-    st.header("📅 Pre-Market Checklist")
-    st.markdown("Prepare for the trading day with this checklist.")
-    st.write('---')
-    premarket_items = [
-        "Reviewed economic calendar",
-        "Analyzed key support/resistance levels",
-        "Checked correlation between pairs",
-        "Updated trading journal",
-        "Set price alerts for key levels",
-        "Reviewed previous trades for lessons"
-    ]
-    premarket_state = {}
-    for item in premarket_items:
-        premarket_state[item] = st.checkbox(item, key=f"premarket_{item}")
-    completed = sum(premarket_state.values())
-    total = len(premarket_items)
-    st.progress(completed / total)
-    st.write(f"**Pre-Market Progress**: {completed}/{total} completed")
-    if completed == total and st.button("Confirm Pre-Market Checklist"):
-        st.success("✅ Pre-Market Checklist Completed!")
-        _ta_update_xp(10)
-        logging.info("Pre-Market Checklist completed")
-
-# =========================================================
-# TAB 6: Mentai
-# =========================================================
-with tab6:
-    st.title("Mentai")
-    st.write("Mental game and trading psychology")
-    st.markdown("""
-    Trading psychology is critical to success. Emotions like fear, greed, or overconfidence can lead to impulsive decisions and losses. 
-    Use this section to log your emotional state, reflect on your trades, and access community wisdom to stay disciplined.
-    """)
-    st.markdown("### 🧠 Emotion Logger")
-    with st.form("emotion_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Frustrated", "Calm", "Excited", "Fearful", "Overconfident"])
-        with col2:
-            intensity = st.slider("Emotion Intensity (1-10)", 1, 10, 5)
-        notes = st.text_area("Notes on your mental state")
-        if st.form_submit_button("Log Emotion"):
-            emotion_entry = {
-                "Timestamp": dt.datetime.now().isoformat(),
-                "Emotion": emotion,
-                "Intensity": intensity,
-                "Notes": notes
-            }
-            if "logged_in_user" in st.session_state:
-                username = st.session_state.logged_in_user
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data.setdefault("emotions", []).append(emotion_entry)
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.success("Emotion logged successfully!")
-                _ta_update_xp(5)
-                logging.info(f"Emotion logged: {emotion_entry}")
+    with tools_subtab_map.get("Trading Session Tracker", st.container()):
+        st.header("⏰ Trading Session Tracker")
+        st.markdown("Track active trading sessions based on current time.")
+        st.write('---')
+        now = dt.datetime.now(pytz.UTC)
+        sessions = [
+            {"name": "Sydney", "start": 22, "end": 7, "tz": "Australia/Sydney"},
+            {"name": "Tokyo", "start": 0, "end": 9, "tz": "Asia/Tokyo"},
+            {"name": "London", "start": 8, "end": 17, "tz": "Europe/London"},
+            {"name": "New York", "start": 13, "end": 22, "tz": "America/New_York"}
+        ]
+        active_sessions = []
+        for session in sessions:
+            tz = pytz.timezone(session["tz"])
+            local_time = now.astimezone(tz).hour
+            start = session["start"]
+            end = session["end"]
+            if end < start:
+                is_active = local_time >= start or local_time < end
             else:
-                st.warning("Please sign in to log emotions.")
-    st.markdown("### 📊 Emotional Trends")
-    if "logged_in_user" in st.session_state:
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
-            emotions = user_data.get("emotions", [])
-            if emotions:
-                df_emotions = pd.DataFrame(emotions)
-                df_emotions["Timestamp"] = pd.to_datetime(df_emotions["Timestamp"])
-                fig = px.line(df_emotions, x="Timestamp", y="Intensity", color="Emotion", title="Emotional Intensity Over Time")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No emotions logged yet.")
+                is_active = start <= local_time < end
+            if is_active:
+                active_sessions.append(session["name"])
+            st.markdown(f"**{session['name']} Session**: {'🟢 Active' if is_active else '🔴 Inactive'}")
+        if active_sessions:
+            st.success(f"Active sessions: {', '.join(active_sessions)}")
         else:
-            st.error("Failed to load user data.")
-    else:
-        st.info("Sign in to view your emotional trends.")
+            st.info("No trading sessions are currently active.")
 
-# =========================================================
-# TAB 7: Backtest
-# =========================================================
-with tab7:
-    st.title("Backtest")
-    st.write("Backtest your trading strategies")
-    st.markdown("### 📈 Backtest Trading Strategy")
-    with st.form("backtest_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            strategy_name = st.text_input("Strategy Name")
-            timeframe = st.selectbox("Timeframe", ["1H", "4H", "Daily"])
-        with col2:
-            pair = st.selectbox("Currency Pair", list(pairs_map.keys()))
-            num_trades = st.number_input("Number of Trades to Simulate", min_value=10, max_value=1000, value=100)
-        win_rate = st.slider("Expected Win Rate (%)", 10, 90, 50) / 100
-        avg_rr = st.slider("Average R:R", 0.5, 5.0, 1.5)
-        submitted = st.form_submit_button("Run Backtest")
-    if submitted:
-        wins = int(num_trades * win_rate)
-        losses = num_trades - wins
-        avg_win = avg_rr * 100
-        avg_loss = 100
-        profit = (wins * avg_win) - (losses * avg_loss)
-        st.markdown("### Backtest Results")
-        st.write(f"**Strategy**: {strategy_name}")
-        st.write(f"**Pair**: {pair}")
-        st.write(f"**Timeframe**: {timeframe}")
-        st.write(f"**Total Trades**: {num_trades}")
-        st.write(f"**Win Rate**: {win_rate*100:.1f}%")
-        st.write(f"**Average R:R**: {avg_rr:.2f}")
-        st.write(f"**Net Profit (in R units)**: {profit:.2f}")
-        logging.info(f"Backtest run: {strategy_name}, {pair}, {timeframe}, {num_trades} trades, {win_rate*100}% win rate, {avg_rr} R:R, profit={profit}")
-        _ta_update_xp(20)
-
-# =========================================================
-# TAB 8: Trades
-# =========================================================
-with tab8:
-    st.title("Trades")
-    st.write("View and manage your trading journal")
-    if "logged_in_user" in st.session_state:
-        st.markdown("### 📖 Trading Journal")
-        edited_df = st.data_editor(
-            st.session_state.tools_trade_journal,
-            column_config={
-                "Date": st.column_config.DateColumn(format="YYYY-MM-DD"),
-                "Symbol": st.column_config.TextColumn(),
-                "Weekly Bias": st.column_config.SelectboxColumn(options=["Bullish", "Bearish", "Neutral"]),
-                "Daily Bias": st.column_config.SelectboxColumn(options=["Bullish", "Bearish", "Neutral"]),
-                "4H Structure": st.column_config.TextColumn(),
-                "1H Structure": st.column_config.TextColumn(),
-                "Positive Correlated Pair & Bias": st.column_config.TextColumn(),
-                "Potential Entry Points": st.column_config.TextColumn(),
-                "5min/15min Setup?": st.column_config.SelectboxColumn(options=["Yes", "No"]),
-                "Entry Conditions": st.column_config.TextColumn(),
-                "Planned R:R": st.column_config.TextColumn(),
-                "News Filter": st.column_config.TextColumn(),
-                "Alerts": st.column_config.TextColumn(),
-                "Concerns": st.column_config.TextColumn(),
-                "Emotions": st.column_config.TextColumn(),
-                "Confluence Score 1-7": st.column_config.NumberColumn(min_value=1, max_value=7),
-                "Outcome / R:R Realised": st.column_config.TextColumn(),
-                "Notes/Journal": st.column_config.TextColumn(),
-                "Entry Price": st.column_config.NumberColumn(format="%.5f"),
-                "Stop Loss Price": st.column_config.NumberColumn(format="%.5f"),
-                "Take Profit Price": st.column_config.NumberColumn(format="%.5f"),
-                "Lots": st.column_config.NumberColumn(format="%.2f")
-            },
-            use_container_width=True,
-            height=400
-        )
-        st.session_state.tools_trade_journal = edited_df
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        user_data = json.loads(result[0]) if result else {}
-        user_data["journal"] = edited_df.to_dict(orient="records")
-        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-        conn.commit()
-        logging.info(f"Trading journal updated for user {username}")
-        _ta_check_milestones(edited_df, st.session_state.get("mt5_df", pd.DataFrame()))
-        _ta_show_badges(edited_df)
-    else:
-        st.info("Sign in to view and edit your trading journal.")
-
-# =========================================================
-# TAB 9: Add Trade
-# =========================================================
-with tab9:
-    st.title("Add Trade")
-    st.write("Log a new trade to your journal")
-    with st.form("add_trade_form"):
-        st.markdown("### 📝 Log New Trade")
-        col1, col2 = st.columns(2)
-        with col1:
-            date = st.date_input("Date", value=dt.date.today())
-            symbol = st.selectbox("Symbol", list(pairs_map.keys()))
-            weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
-            daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
-            h4_structure = st.text_input("4H Structure")
-            h1_structure = st.text_input("1H Structure")
-            correlated_pair = st.text_input("Positive Correlated Pair & Bias")
-            entry_points = st.text_input("Potential Entry Points")
-            setup_5m_15m = st.selectbox("5min/15min Setup?", ["Yes", "No"])
-        with col2:
-            entry_conditions = st.text_input("Entry Conditions")
-            planned_rr = st.text_input("Planned R:R")
-            news_filter = st.text_input("News Filter")
-            alerts = st.text_input("Alerts")
-            concerns = st.text_input("Concerns")
-            emotions = st.text_input("Emotions")
-            confluence_score = st.number_input("Confluence Score (1-7)", min_value=1, max_value=7, value=1)
-            outcome_rr = st.text_input("Outcome / R:R Realised")
-            notes = st.text_area("Notes/Journal")
-        col3, col4 = st.columns(2)
-        with col3:
-            entry_price = st.number_input("Entry Price", min_value=0.0, format="%.5f")
-            stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, format="%.5f")
-        with col4:
-            take_profit_price = st.number_input("Take Profit Price", min_value=0.0, format="%.5f")
-            lots = st.number_input("Lots", min_value=0.01, format="%.2f")
-        submitted = st.form_submit_button("Add Trade")
-        if submitted:
-            new_trade = {
-                "Date": pd.to_datetime(date),
-                "Symbol": symbol,
-                "Weekly Bias": weekly_bias,
-                "Daily Bias": daily_bias,
-                "4H Structure": h4_structure,
-                "1H Structure": h1_structure,
-                "Positive Correlated Pair & Bias": correlated_pair,
-                "Potential Entry Points": entry_points,
-                "5min/15min Setup?": setup_5m_15m,
-                "Entry Conditions": entry_conditions,
-                "Planned R:R": planned_rr,
-                "News Filter": news_filter,
-                "Alerts": alerts,
-                "Concerns": concerns,
-                "Emotions": emotions,
-                "Confluence Score 1-7": confluence_score,
-                "Outcome / R:R Realised": outcome_rr,
-                "Notes/Journal": notes,
-                "Entry Price": entry_price,
-                "Stop Loss Price": stop_loss_price,
-                "Take Profit Price": take_profit_price,
-                "Lots": lots
-            }
-            st.session_state.tools_trade_journal = pd.concat([st.session_state.tools_trade_journal, pd.DataFrame([new_trade])], ignore_index=True).astype(journal_dtypes, errors='ignore')
-            if "logged_in_user" in st.session_state:
-                username = st.session_state.logged_in_user
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data["journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.success("Trade added successfully!")
-                _ta_update_xp(15)
-                _ta_update_streak()
-                logging.info(f"New trade added for user {username}: {new_trade}")
-            else:
-                st.warning("Sign in to save trades to your account.")
-            st.session_state.temp_journal = None
-            st.rerun()
+    with tools_subtab_map.get("Drawdown Recovery Planner", st.container()):
+        st.header("📉 Drawdown Recovery Planner")
+        st.markdown("Plan your recovery from a drawdown.")
+        st.write('---')
+        drawdown_pct = st.number_input("Current Drawdown (%)", min_value=0.0, max_value=100.0, value=10.0)
+        recovery_r = st.number_input("Average R per Trade", min_value=0.1, value=1.5)
+        recovery_trades = st.number
