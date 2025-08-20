@@ -768,9 +768,11 @@ with tab2:
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Resolve data folders relative to this script
-    BASE_DIR = Path(__file__).parent
-    data_folders = [BASE_DIR / "data", BASE_DIR / "data2"]
+from pathlib import Path
+
+# Adjust BASE_DIR depending on your environment
+BASE_DIR = Path.cwd()  # current working directory
+data_folders = [BASE_DIR / "data", BASE_DIR / "data2"]
 
     # Find the CSV file in either folder
     found_file = None
