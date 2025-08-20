@@ -786,8 +786,13 @@ with tab2:
     st.write(f"Current working directory: {os.getcwd()}")
     all_files = [f.name for f in data_dir.glob("*") if f.is_file()]
     csv_files = [f for f in all_files if f.endswith(".csv")]
+    subdirs = [d.name for d in data_dir.glob("*") if d.is_dir()]
     st.write("All files in root directory:", all_files)
     st.write("Available CSV files in root directory:", csv_files)
+    st.write("Subdirectories in root:", subdirs)
+    for subdir in subdirs:
+        subdir_path = data_dir / subdir
+        st.write(f"Files in {subdir}:", [f.name for f in subdir_path.glob("*")])
     st.write(f"Looking for files: {', '.join(possible_filenames)}")
 
     # Check for file in root directory
@@ -858,26 +863,25 @@ with tab2:
 
     if data is not None and not data.empty:
         try:
-            # Debugging: Show cleaned data
+            # Debugging: Show cleaned data and OHLC for chart
             st.write("Cleaned data (first 5 rows):", data.head().to_dict())
-
-            # Convert to dict for Lightweight Charts
             ohlc = data[["time", "open", "high", "low", "close"]].to_dict("records")
+            st.write("OHLC data for chart (first 5 entries):", ohlc[:5])
 
-            # Chart options
+            # Simplified chart options
             chart_options = {
                 "height": 600,
                 "width": "100%",
-                "layout": {"background": {"color": "#0E1117"}, "textColor": "#DDD"},
-                "grid": {"vertLines": {"color": "#222"}, "horzLines": {"color": "#222"}},
-                "priceScale": {"borderColor": "#555"},
-                "timeScale": {"borderColor": "#555"}
             }
 
-            series = [{"type": "candlestick", "data": ohlc}]
+            series = [{"type": "Candlestick", "data": ohlc}]
 
-            # Render Lightweight Chart
-            renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
+            # Render Lightweight Chart with error handling
+            try:
+                renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
+                st.write("Chart rendering attempted successfully.")
+            except Exception as e:
+                st.error(f"Failed to render chart for {pair} ({symbol}) at {timeframe}: {str(e)}")
 
         except Exception as e:
             st.error(f"Failed to process data for {pair} ({symbol}) at {timeframe}: {str(e)}")
