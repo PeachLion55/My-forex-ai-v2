@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -365,7 +366,8 @@ if st.session_state.user is not None:
     
     # Load user data
     c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.user,))
-    user_data = json.loads(c.fetchone()[0]) if c.fetchone() else {}
+    row = c.fetchone()
+    user_data = json.loads(row[0]) if row else {}
     
     # Navigation
     tabs = st.tabs(["Dashboard", "Backtesting", "Myfxbook", "Community"])
@@ -511,12 +513,81 @@ if st.session_state.user is not None:
                     if (newCandle) {{
                         candleSeries.update(newCandle);
                     }}
-                }});
+                }}).catch(error => console.error('Error fetching new candle:', error));
             }}, 60000);
         }}}})();
         </script>
         """
         components.html(chart_html, height=420)
+        
+        # Trade Logging (Moved to Backtesting Tab)
+        st.subheader("Log a Trade")
+        with st.form("trade_form_backtest"):
+            col1, col2 = st.columns(2)
+            with col1:
+                pair = st.text_input("Currency Pair (e.g., EUR/USD)", key="backtest_pair")
+                direction = st.selectbox("Direction", ["Long", "Short"], key="backtest_direction")
+                entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, key="backtest_entry")
+                stop_loss = st.number_input("Stop Loss", min_value=0.0, step=0.0001, key="backtest_sl")
+            with col2:
+                take_profit = st.number_input("Take Profit", min_value=0.0, step=0.0001, key="backtest_tp")
+                size = st.number_input("Position Size (Lots)", min_value=0.0, step=0.01, key="backtest_size")
+                trade_date = st.date_input("Trade Date", dt.date.today(), key="backtest_date")
+                emotions = st.text_area("Emotions/Notes", key="backtest_emotions")
+            submit = st.form_submit_button("Log Trade")
+            
+            if submit:
+                trade_id = _ta_hash()
+                trade = {
+                    "id": trade_id,
+                    "pair": pair,
+                    "direction": direction,
+                    "entry_price": entry_price,
+                    "stop_loss": stop_loss,
+                    "take_profit": take_profit,
+                    "size": size,
+                    "date": str(trade_date),
+                    "emotions": emotions,
+                    "pnl": 0.0,
+                    "r": 0.0,
+                    "datetime": str(dt.datetime.combine(trade_date, dt.datetime.now().time()))
+                }
+                user_data.setdefault("trades", []).append(trade)
+                c.execute("UPDATE users SET data = ? WHERE username = ?",
+                         (json.dumps(user_data), st.session_state.user))
+                conn.commit()
+                st.success("Trade logged!")
+        
+        # Trade History with Tabs per Trade
+        st.subheader("Trade History")
+        trades = user_data.get("trades", [])
+        trades_df = pd.DataFrame(trades)
+        if not trades_df.empty:
+            trade_tabs = st.tabs([f"Trade {t['id'][-4:]}" for t in trades])
+            for i, (trade, tab) in enumerate(zip(trades, trade_tabs)):
+                with tab:
+                    col1, col2 = st.columns([2, 1])
+                    with col1:
+                        st.write(f"**Pair**: {trade['pair']}")
+                        st.write(f"**Direction**: {trade['direction']}")
+                        st.write(f"**Entry Price**: {_ta_human_num(trade['entry_price'])}")
+                        st.write(f"**Stop Loss**: {_ta_human_num(trade['stop_loss'])}")
+                        st.write(f"**Take Profit**: {_ta_human_num(trade['take_profit'])}")
+                        st.write(f"**Size**: {_ta_human_num(trade['size'])} lots")
+                        st.write(f"**Date**: {trade['date']}")
+                        st.write(f"**Emotions/Notes**: {trade['emotions']}")
+                    with col2:
+                        st.subheader("Update Trade")
+                        with st.form(f"update_trade_{trade['id']}"):
+                            new_pnl = st.number_input("PnL ($)", key=f"pnl_{trade['id']}")
+                            new_r = st.number_input("R Multiple", key=f"r_{trade['id']}")
+                            if st.form_submit_button("Update"):
+                                trades[i]["pnl"] = new_pnl
+                                trades[i]["r"] = new_r
+                                c.execute("UPDATE users SET data = ? WHERE username = ?",
+                                         (json.dumps(user_data), st.session_state.user))
+                                conn.commit()
+                                st.success("Trade updated!")
         
         # Backtest Parameters
         st.subheader("Backtest Parameters")
@@ -640,3 +711,4 @@ if st.session_state.user is not None:
                     _ta_save_community("posts", community_posts)
                     st.rerun()
                 st.markdown("---")
+```
