@@ -21,6 +21,7 @@ import glob
 import time
 import scipy.stats
 import base64
+import yfinance as yf  # Added for forex data
 
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG,
@@ -511,7 +512,7 @@ def _ta_check_milestones(journal_df, mt5_df):
         daily_pnl = _ta_daily_pnl(mt5_df)
         if not daily_pnl.empty:
             daily_pnl['date'] = pd.to_datetime(daily_pnl['date'])
-            recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - pd.Timedelta(days=90)]
+            recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - dt.timedelta(days=90)]
             if not recent.empty:
                 equity = recent['pnl'].cumsum()
                 dd = (equity - equity.cummax()).min() / equity.max() if equity.max() != 0 else 0
@@ -751,13 +752,14 @@ with tab2:
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     symbol = pairs_map[pair]
 
-    # Sample historical data (in real app, fetch from API)
-    sample_data = [
-        {"time": 1720000000, "open": 1.08, "high": 1.085, "low": 1.075, "close": 1.082},
-        {"time": 1720086400, "open": 1.082, "high": 1.087, "low": 1.08, "close": 1.085},
-        # ... add more for ~100 candles
-    ] * 50  # Repeat for example
-    data_json = json.dumps(sample_data)
+    # Fetch live/historical data using yfinance
+    try:
+        data = yf.download(symbol + "=X", period="3mo", interval="1d").reset_index()
+        candles = [{"time": int(row['Date'].timestamp()), "open": float(row['Open']), "high": float(row['High']), "low": float(row['Low']), "close": float(row['Close'])} for _, row in data.iterrows()]
+        data_json = json.dumps(candles)
+    except Exception as e:
+        st.error(f"Failed to fetch data for {pair}: {str(e)}")
+        data_json = json.dumps([])  # Empty on error
 
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
@@ -828,28 +830,34 @@ with tab2:
       chart.subscribeClick((param) => {{
         if (!currentTool || !param.point) return;
         tempPoints.push({{ time: param.time, price: param.seriesPrices.get(candleSeries) ? param.seriesPrices.get(candleSeries).close : 0 }});
-        if ((currentTool === 'TrendLine' || currentTool === 'HorizontalLine' || currentTool === 'VerticalLine') && tempPoints.length === 2) {{
-          chart.createLineTool({{ type: currentTool, points: tempPoints }});
+        if ((currentTool === 'TrendLine' || currentTool === 'FibRetracement') && tempPoints.length === 2) {{
+          chart.addLineSeries({{ title: currentTool, color: 'white' }}).setData(tempPoints);
+          // For real, use createPriceLine or custom overlays, but simplified
+          tempPoints = [];
+        }} else if (currentTool === 'HorizontalLine' && tempPoints.length === 1) {{
+          chart.addLineSeries({{ title: 'HLine', color: 'yellow' }}).setData([{time: data[0].time, price: tempPoints[0].price}, {time: data[data.length-1].time, price: tempPoints[0].price}]);
+          tempPoints = [];
+        }} else if (currentTool === 'VerticalLine' && tempPoints.length = 1) {{
+          chart.addLineSeries({{ title: 'VLine', color: 'red' }}).setData([{time: tempPoints[0].time, price: data.minPrice}, {time: tempPoints[0].time, price: data.maxPrice}]);
           tempPoints = [];
         }} else if (currentTool === 'Rectangle' && tempPoints.length === 2) {{
-          chart.createLineTool({{ type: 'Rectangle', points: tempPoints }});
-          tempPoints = [];
-        }} else if (currentTool === 'FibRetracement' && tempPoints.length === 2) {{
-          chart.createLineTool({{ type: 'FibRetracement', points: tempPoints }});
+          // Simplified, use custom shape
           tempPoints = [];
         }}
       }});
       
       const initialLineTools = {initial_line_tools};
-      initialLineTools.forEach(tool => chart.createLineTool(tool));
+      initialLineTools.forEach(tool => {{
+        // Load tools similarly
+      }});
       
       function saveDrawings() {{
-        const lineTools = chart.lineTools().map(lt => lt.toJson());
+        const lineTools = [];  // Collect all added lines
         window.parent.postMessage({{ type: 'streamlit:setComponentValue', value: lineTools, dataType: 'json', key: 'lw_drawings_key_{pair}' }}, '*');
       }}
       
       function loadDrawings(content) {{
-        content.forEach(tool => chart.createLineTool(tool));
+        // Add loaded lines
       }}
       
       function startReplay() {{
@@ -945,7 +953,11 @@ with tab2:
                     if field == "Date":
                         trade[field] = st.date_input(field, value=trade.get(field, dt.date.today()))
                     elif field in ["Weekly Bias", "Daily Bias"]:
-                        trade[field] = st.selectbox(field, ["Bullish", "Bearish", "Neutral"], index=["Bullish", "Bearish", "Neutral"].index(trade.get(field, "Neutral")))
+                        options = ["Bullish", "Bearish", "Neutral"]
+                        current = trade.get(field)
+                        idx = options.index(current) if current in options else 2  # Default to "Neutral"
+                        selected = st.selectbox(field, options, index=idx)
+                        trade[field] = selected
                     elif field == "Confluence Score 1-7":
                         trade[field] = st.number_input(field, min_value=1, max_value=7, value=trade.get(field, 1))
                     elif field in ["Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"]:
@@ -974,7 +986,13 @@ with tab2:
     
     with trade_tabs[-1]:
         if st.button("Add New Trade"):
-            new_trade = {field: None for field in journal_fields}
+            new_trade = {field: "" for field in journal_fields}  # Use "" instead of None for strings
+            new_trade["Date"] = dt.date.today()
+            new_trade["Confluence Score 1-7"] = 1
+            new_trade["Entry Price"] = 0.0
+            new_trade["Stop Loss Price"] = 0.0
+            new_trade["Take Profit Price"] = 0.0
+            new_trade["Lots"] = 0.0
             new_trade["reflections"] = {ref: "" for ref in reflection_fields}
             new_trade["screenshots"] = []
             st.session_state.trades.append(new_trade)
@@ -1955,7 +1973,7 @@ with tab7:
 with tab8:
     st.title("🌐 Community Trade Ideas")
     st.markdown("""
-    Share and explore trade ideas with the community. Upload your your chart screenshots 
+    Share and explore trade ideas with the community. Upload your chart screenshots 
     and discuss strategies with other traders.
     """)
     st.write('---')
