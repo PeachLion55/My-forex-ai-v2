@@ -720,126 +720,45 @@ with tab1:
 # =========================================================
 # TAB 2: Backtesting
 # =========================================================
-import yfinance as yf
-import pandas as pd
-import json
-import sqlite3
-import logging
-from streamlit_lightweight_charts import renderLightweightCharts
-import numpy as np
-
-# Modular functions for data handling
-def download_forex_data(pair, period="7d"):
-    """Download 1-minute historical forex data for a given pair."""
-    symbol = pair.replace("/", "") + "=X"  # yfinance ticker format (e.g., EURUSD=X)
-    try:
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=period, interval="1m")[['Open', 'High', 'Low', 'Close', 'Volume']]
-        if df.empty:
-            logging.warning(f"No data fetched for {pair}")
-            return None
-        df = df.reset_index()
-        df['time'] = pd.to_datetime(df['Date'])
-        df = df[['time', 'Open', 'High', 'Low', 'Close', 'Volume']]
-        df.columns = ['time', 'open', 'high', 'low', 'close', 'volume']
-        return df
-    except Exception as e:
-        logging.error(f"Error fetching data for {pair}: {str(e)}")
-        return None
-
-def resample_data(df, timeframe):
-    """Resample 1-minute data to specified timeframe with OHLCV aggregation."""
-    if df is None or df.empty:
-        return None
-    timeframe_map = {
-        '5m': '5min',
-        '15m': '15min',
-        '1h': '1H',
-        '4h': '4H',
-        'daily': '1D',
-        'weekly': '1W'
-    }
-    if timeframe not in timeframe_map:
-        raise ValueError(f"Invalid timeframe: {timeframe}")
-    
-    df = df.set_index('time')
-    resampled = pd.DataFrame({
-        'open': df['open'].resample(timeframe_map[timeframe]).first(),
-        'high': df['high'].resample(timeframe_map[timeframe]).max(),
-        'low': df['low'].resample(timeframe_map[timeframe]).min(),
-        'close': df['close'].resample(timeframe_map[timeframe]).last(),
-        'volume': df['volume'].resample(timeframe_map[timeframe]).sum()
-    })
-    resampled = resampled.dropna().reset_index()
-    resampled['time'] = resampled['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-    return resampled
-
-def save_to_database(df, pair, timeframe, db_name="forex_data.db"):
-    """Save resampled data to SQLite database."""
-    if df is None or df.empty:
-        logging.warning(f"No data to save for {pair}_{timeframe}")
-        return
-    table_name = f"{pair.replace('/', '')}_{timeframe}"
-    try:
-        with sqlite3.connect(db_name) as conn:
-            df.to_sql(table_name, conn, if_exists='replace', index=False)
-            logging.info(f"Saved data for {pair}_{timeframe} to database")
-    except Exception as e:
-        logging.error(f"Error saving data for {pair}_{timeframe}: {str(e)}")
-
-def load_data_for_chart(pair, timeframe, db_name="forex_data.db"):
-    """Load data from SQLite database for a given pair and timeframe."""
-    table_name = f"{pair.replace('/', '')}_{timeframe}"
-    try:
-        with sqlite3.connect(db_name) as conn:
-            df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
-            if df.empty:
-                logging.warning(f"No data found in database for {pair}_{timeframe}")
-                return None
-            df['time'] = df['time'].astype(str)  # Ensure time is string for JSON
-            return df
-    except Exception as e:
-        logging.error(f"Error loading data for {pair}_{timeframe}: {str(e)}")
-        return None
-
-# Download and save data for all pairs (run once or on schedule)
-pairs = [
-    "EUR/USD", "USD/JPY", "GBP/USD", "USD/CHF", "AUD/USD", "NZD/USD", "USD/CAD",
-    "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "AUD/NZD", "AUD/CAD", "AUD/CHF",
-    "CAD/JPY", "CHF/JPY", "EUR/AUD", "EUR/CAD", "EUR/CHF", "GBP/AUD", "GBP/CAD",
-    "GBP/CHF", "NZD/JPY", "NZD/CAD", "NZD/CHF", "CAD/CHF"
-]
-timeframes = ['1m', '5m', '15m', '1h', '4h', 'daily', 'weekly']
-
-# Uncomment to fetch and save data (run periodically, e.g., via cron or button)
-"""
-for pair in pairs:
-    df_1m = download_forex_data(pair)
-    if df_1m is not None:
-        save_to_database(df_1m, pair, '1m')
-        for tf in timeframes[1:]:  # Skip 1m as it's already saved
-            df_resampled = resample_data(df_1m, tf)
-            save_to_database(df_resampled, pair, tf)
-"""
-
 with tab2:
     st.title("📊 Backtesting")
-    st.caption("Historical forex chart for backtesting and trading journal for the selected pair.")
+    st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
 
-    # Pair selector & symbol map
+    # Pair selector & symbol map (28 major & minor pairs)
     pairs_map = {
-        "EUR/USD": "FX:EURUSD", "USD/JPY": "FX:USDJPY", "GBP/USD": "FX:GBPUSD",
-        "USD/CHF": "OANDA:USDCHF", "AUD/USD": "FX:AUDUSD", "NZD/USD": "OANDA:NZDUSD",
-        "USD/CAD": "CMCMARKETS:USDCAD", "EUR/GBP": "FX:EURGBP", "EUR/JPY": "FX:EURJPY",
-        "GBP/JPY": "FX:GBPJPY", "AUD/JPY": "FX:AUDJPY", "AUD/NZD": "FX:AUDNZD",
-        "AUD/CAD": "FX:AUDCAD", "AUD/CHF": "FX:AUDCHF", "CAD/JPY": "FX:CADJPY",
-        "CHF/JPY": "FX:CHFJPY", "EUR/AUD": "FX:EURAUD", "EUR/CAD": "FX:EURCAD",
-        "EUR/CHF": "FX:EURCHF", "GBP/AUD": "FX:GBPAUD", "GBP/CAD": "FX:GBPCAD",
-        "GBP/CHF": "FX:GBPCHF", "NZD/JPY": "FX:NZDJPY", "NZD/CAD": "FX:NZDCAD",
-        "NZD/CHF": "FX:NZDCHF", "CAD/CHF": "FX:CADCHF"
+        # Majors
+        "EUR/USD": "FX:EURUSD",
+        "USD/JPY": "FX:USDJPY",
+        "GBP/USD": "FX:GBPUSD",
+        "USD/CHF": "OANDA:USDCHF",
+        "AUD/USD": "FX:AUDUSD",
+        "NZD/USD": "OANDA:NZDUSD",
+        "USD/CAD": "CMCMARKETS:USDCAD",
+        
+        # Crosses / Minors
+        "EUR/GBP": "FX:EURGBP",
+        "EUR/JPY": "FX:EURJPY",
+        "GBP/JPY": "FX:GBPJPY",
+        "AUD/JPY": "FX:AUDJPY",
+        "AUD/NZD": "FX:AUDNZD",
+        "AUD/CAD": "FX:AUDCAD",
+        "AUD/CHF": "FX:AUDCHF",
+        "CAD/JPY": "FX:CADJPY",
+        "CHF/JPY": "FX:CHFJPY",
+        "EUR/AUD": "FX:EURAUD",
+        "EUR/CAD": "FX:EURCAD",
+        "EUR/CHF": "FX:EURCHF",
+        "GBP/AUD": "FX:GBPAUD",
+        "GBP/CAD": "FX:GBPCAD",
+        "GBP/CHF": "FX:GBPCHF",
+        "NZD/JPY": "FX:NZDJPY",
+        "NZD/CAD": "FX:NZDCAD",
+        "NZD/CHF": "FX:NZDCHF",
+        "CAD/CHF": "FX:CADCHF",
     }
+
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
-    timeframe = st.selectbox("Select timeframe", timeframes, index=4, key="tv_timeframe")  # Default to 4h
+    tv_symbol = pairs_map[pair]
 
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
@@ -857,53 +776,48 @@ with tab2:
         except Exception as e:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
+
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-
-    # Lightweight Charts implementation
-    # Load data from database for selected pair and timeframe
-    df = load_data_for_chart(pair, timeframe)
-    if df is not None and not df.empty:
-        candles = json.loads(df.to_json(orient="records"))
-    else:
-        st.error(f"No data available for {pair} ({timeframe}). Please ensure data is fetched.")
-        candles = []
-
-    chart_options = {
-        "width": 800,
-        "height": 400,
-        "layout": {
-            "background": {"type": "solid", "color": "white"},
-            "textColor": "black"
-        },
-        "timeScale": {
-            "borderColor": "rgba(197, 203, 206, 0.8)",
-            "barSpacing": 10,
-            "timeVisible": timeframe in ['1m', '5m', '15m', '1h', '4h'],
-            "secondsVisible": timeframe == '1m'
-        }
-    }
-    candlestick_series = {
-        "type": "Candlestick",
-        "data": candles,
-        "options": {
-            "upColor": "#26a69a",
-            "downColor": "#ef5350",
-            "borderVisible": False,
-            "wickUpColor": "#26a69a",
-            "wickDownColor": "#ef5350"
-        }
-    }
-
-    # Render the chart if data is available
-    if candles:
-        try:
-            renderLightweightCharts([chart_options], [candlestick_series])
-        except Exception as e:
-            st.error(f"Failed to render chart: {str(e)}")
-            logging.error(f"Chart rendering error for {pair}_{timeframe}: {str(e)}")
-    else:
-        st.warning(f"No chart displayed for {pair} ({timeframe}) due to missing data.")
-
+    # TradingView widget
+    tv_html = f"""
+    <div class="tradingview-widget-container" style="height:780px; width:100%">
+      <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      console.log("Initializing TradingView widget for {tv_symbol}");
+      try {{
+        const widget = new TradingView.widget({{
+          "autosize": true,
+          "symbol": "{tv_symbol}",
+          "interval": "D",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "hide_top_toolbar": false,
+          "hide_side_toolbar": false,
+          "allow_symbol_change": true,
+          "save_image": true,
+          "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
+        }});
+        widget.onChartReady(() => {{
+          console.log("Chart ready for {tv_symbol}");
+          const chart = widget.activeChart();
+          window.chart = chart;
+          const initialContent = {initial_content};
+          if (Object.keys(initialContent).length > 0) {{
+            console.log("Loading initial content:", initialContent);
+            chart.setContent(initialContent);
+          }} else {{
+            console.log("No initial content to load for {tv_symbol}");
+          }}
+        }});
+      }} catch (error) {{
+        console.error("Error initializing TradingView widget:", error);
+      }}
+      </script>
+    </div>
+    """
+    components.html(tv_html, height=820, scrolling=False)
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
         col1, col2, col3 = st.columns([1, 1, 1])
@@ -911,12 +825,22 @@ with tab2:
             if st.button("Save Drawings", key="bt_save_drawings"):
                 logging.info(f"Save Drawings button clicked for pair {pair}")
                 save_script = f"""
-                    <script>
-                        window.saveChart = function() {{
-                            const content = {json.dumps(st.session_state.drawings.get(pair, {}))};
-                            window.postMessage({{ type: 'save', content: content }}, '*');
-                        }};
-                    </script>
+                <script>
+                try {{
+                  console.log("Attempting to save drawings for {pair}");
+                  window.parent.chart.getContent((content) => {{
+                    console.log("Drawing content received:", content);
+                    window.parent.postMessage({{
+                      type: 'streamlit:setComponentValue',
+                      value: content,
+                      dataType: 'json',
+                      key: 'bt_drawings_key_{pair}'
+                    }}, '*');
+                  }});
+                }} catch (error) {{
+                  console.error("Error saving drawings:", error);
+                }}
+                </script>
                 """
                 components.html(save_script, height=0)
                 logging.info(f"Triggered save script for {pair}")
@@ -933,12 +857,10 @@ with tab2:
                         content = user_data.get("drawings", {}).get(pair, {})
                         if content:
                             load_script = f"""
-                                <script>
-                                    window.loadChart = function() {{
-                                        const content = {json.dumps(content)};
-                                        window.postMessage({{ type: 'load', content: content }}, '*');
-                                    }};
-                                </script>
+                            <script>
+                            console.log("Loading drawings for {pair}:", {json.dumps(content)});
+                            window.parent.chart.setContent({json.dumps(content)});
+                            </script>
                             """
                             components.html(load_script, height=0)
                             st.success("Drawings loaded successfully!")
@@ -971,40 +893,37 @@ with tab2:
                 except Exception as e:
                     st.error(f"Failed to sync account: {str(e)}")
                     logging.error(f"Error syncing account for {username}: {str(e)}")
-
-    # Check for saved drawings from postMessage
-    drawings_key = f"bt_drawings_key_{pair}"
-    if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
-        content = st.session_state[drawings_key]
-        logging.info(f"Received drawing content for {pair}: {content}")
-        if content and isinstance(content, dict) and content:
-            username = st.session_state.logged_in_user
-            try:
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data.setdefault("drawings", {})[pair] = content
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.session_state.drawings[pair] = content
-                st.success(f"Drawings for {pair} saved successfully!")
-                logging.info(f"Drawings saved to database for {pair}: {content}")
-            except Exception as e:
-                st.error(f"Failed to save drawings: {str(e)}")
-                logging.error(f"Database error saving drawings for {pair}: {str(e)}")
-            finally:
-                del st.session_state[drawings_key]
-                del st.session_state[f"bt_save_trigger_{pair}"]
-        else:
-            st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-            logging.warning(f"No valid drawing content received for {pair}: {content}")
+        # Check for saved drawings from postMessage
+        drawings_key = f"bt_drawings_key_{pair}"
+        if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
+            content = st.session_state[drawings_key]
+            logging.info(f"Received drawing content for {pair}: {content}")
+            if content and isinstance(content, dict) and content:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data.setdefault("drawings", {})[pair] = content
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.session_state.drawings[pair] = content
+                    st.success(f"Drawings for {pair} saved successfully!")
+                    logging.info(f"Drawings saved to database for {pair}: {content}")
+                except Exception as e:
+                    st.error(f"Failed to save drawings: {str(e)}")
+                    logging.error(f"Database error saving drawings for {pair}: {str(e)}")
+                finally:
+                    del st.session_state[drawings_key]
+                    del st.session_state[f"bt_save_trigger_{pair}"]
+            else:
+                st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
+                logging.warning(f"No valid drawing content received for {pair}: {content}")
     else:
         st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
-
     # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
-
     # Configure column settings for data editor
     column_config = {
         "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
@@ -1030,7 +949,6 @@ with tab2:
         "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
         "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
     }
-
     # Prepare transposed journal for display
     if st.session_state.tools_trade_journal.empty:
         # Initialize with one trade column if empty
@@ -1040,7 +958,6 @@ with tab2:
         transposed_journal = st.session_state.tools_trade_journal.transpose()
         # Rename columns to "Trade 1", "Trade 2", etc.
         transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
-
     # Button to add new trade column
     if st.button("➕ Add New Trade", key="bt_add_trade_button"):
         current_trades = transposed_journal.columns.tolist()
@@ -1052,12 +969,10 @@ with tab2:
         st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
         st.session_state.temp_journal = None
         st.rerun()
-
     # Dynamically configure columns for trades
     transposed_column_config = {}
     for col in transposed_journal.columns:
         transposed_column_config[col] = column_config
-
     # Use form to stabilize data editor
     old_num_trades = len(st.session_state.tools_trade_journal)
     with st.form(key="bt_journal_form"):
@@ -1087,7 +1002,6 @@ with tab2:
                 st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
                 st.session_state.temp_journal = None
             st.rerun()
-
     if "logged_in_user" in st.session_state:
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -1136,6 +1050,7 @@ with tab2:
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
+
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
