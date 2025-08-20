@@ -1418,10 +1418,305 @@ with tab5:
             lot_size = risk_amount / (stop_loss_pips * pip_value)
             st.success(f"✅ Recommended Lot Size: **{lot_size:.2f} lots**")
             logging.info(f"Calculated lot size: {lot_size}")
-        # 🔄 What-If Analyzer
-        st.subheader('🔄 What-If Analyzer')
-        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
-        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
-        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
-        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
-        trades = st.slider('Number of trades', 10, 500, 100, 10,
+# 🔄 What-If Analyzer
+st.subheader('🔄 What-If Analyzer')
+base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
+risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
+winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
+avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
+trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
+
+if st.button("Run What-If Analysis"):
+    risk_per_trade = base_equity * risk_pct
+    wins = int(trades * winrate)
+    losses = trades - wins
+    avg_win = risk_per_trade * avg_r
+    avg_loss = risk_per_trade
+    expected_profit = (wins * avg_win) - (losses * avg_loss)
+    final_equity = base_equity + expected_profit
+    growth_pct = (final_equity - base_equity) / base_equity * 100
+
+    st.markdown("### Results")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Expected Profit", f"${expected_profit:,.2f}")
+    with col2:
+        st.metric("Final Equity", f"${final_equity:,.2f}")
+    with col3:
+        st.metric("Growth", f"{growth_pct:.2f}%")
+    logging.info(f"What-If Analysis: base=${base_equity}, risk={risk_pct*100}%, winrate={winrate*100}%, avg_r={avg_r}, trades={trades}, profit=${expected_profit}")
+
+# 📋 Pre-Trade Checklist
+with tools_subtabs[6]:
+    st.header("📋 Pre-Trade Checklist")
+    st.markdown("Ensure you're ready before entering a trade.")
+    st.write('---')
+    checklist_items = [
+        "Market conditions align with my strategy",
+        "Risk-reward ratio is at least 1:2",
+        "Stop loss and take profit levels are set",
+        "No high-impact news events upcoming",
+        "Position size aligns with risk management",
+        "I've reviewed my trading plan",
+        "I'm emotionally and mentally prepared"
+    ]
+    checklist_state = {}
+    for item in checklist_items:
+        checklist_state[item] = st.checkbox(item, key=f"pretrade_{item}")
+    completed = sum(checklist_state.values())
+    total = len(checklist_items)
+    st.progress(completed / total)
+    st.write(f"**Checklist Progress**: {completed}/{total} completed")
+    if completed == total and st.button("Confirm Pre-Trade Checklist"):
+        st.success("✅ Pre-Trade Checklist Completed!")
+        _ta_update_xp(10)
+        logging.info("Pre-Trade Checklist completed")
+
+# 📅 Pre-Market Checklist
+with tools_subtabs[7]:
+    st.header("📅 Pre-Market Checklist")
+    st.markdown("Prepare for the trading day with this checklist.")
+    st.write('---')
+    premarket_items = [
+        "Reviewed economic calendar",
+        "Analyzed key support/resistance levels",
+        "Checked correlation between pairs",
+        "Updated trading journal",
+        "Set price alerts for key levels",
+        "Reviewed previous trades for lessons"
+    ]
+    premarket_state = {}
+    for item in premarket_items:
+        premarket_state[item] = st.checkbox(item, key=f"premarket_{item}")
+    completed = sum(premarket_state.values())
+    total = len(premarket_items)
+    st.progress(completed / total)
+    st.write(f"**Pre-Market Progress**: {completed}/{total} completed")
+    if completed == total and st.button("Confirm Pre-Market Checklist"):
+        st.success("✅ Pre-Market Checklist Completed!")
+        _ta_update_xp(10)
+        logging.info("Pre-Market Checklist completed")
+
+# =========================================================
+# TAB 6: Mentai
+# =========================================================
+with tab6:
+    st.title("Mentai")
+    st.write("Mental game and trading psychology")
+    st.markdown("""
+    Trading psychology is critical to success. Emotions like fear, greed, or overconfidence can lead to impulsive decisions and losses. 
+    Use this section to log your emotional state, reflect on your trades, and access community wisdom to stay disciplined.
+    """)
+    st.markdown("### 🧠 Emotion Logger")
+    with st.form("emotion_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Frustrated", "Calm", "Excited", "Fearful", "Overconfident"])
+        with col2:
+            intensity = st.slider("Emotion Intensity (1-10)", 1, 10, 5)
+        notes = st.text_area("Notes on your mental state")
+        if st.form_submit_button("Log Emotion"):
+            emotion_entry = {
+                "Timestamp": dt.datetime.now().isoformat(),
+                "Emotion": emotion,
+                "Intensity": intensity,
+                "Notes": notes
+            }
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                user_data = json.loads(result[0]) if result else {}
+                user_data.setdefault("emotions", []).append(emotion_entry)
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                conn.commit()
+                st.success("Emotion logged successfully!")
+                _ta_update_xp(5)
+                logging.info(f"Emotion logged: {emotion_entry}")
+            else:
+                st.warning("Please sign in to log emotions.")
+    st.markdown("### 📊 Emotional Trends")
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            emotions = user_data.get("emotions", [])
+            if emotions:
+                df_emotions = pd.DataFrame(emotions)
+                df_emotions["Timestamp"] = pd.to_datetime(df_emotions["Timestamp"])
+                fig = px.line(df_emotions, x="Timestamp", y="Intensity", color="Emotion", title="Emotional Intensity Over Time")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No emotions logged yet.")
+        else:
+            st.error("Failed to load user data.")
+    else:
+        st.info("Sign in to view your emotional trends.")
+
+# =========================================================
+# TAB 7: Backtest
+# =========================================================
+with tab7:
+    st.title("Backtest")
+    st.write("Backtest your trading strategies")
+    st.markdown("### 📈 Backtest Trading Strategy")
+    with st.form("backtest_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            strategy_name = st.text_input("Strategy Name")
+            timeframe = st.selectbox("Timeframe", ["1H", "4H", "Daily"])
+        with col2:
+            pair = st.selectbox("Currency Pair", list(pairs_map.keys()))
+            num_trades = st.number_input("Number of Trades to Simulate", min_value=10, max_value=1000, value=100)
+        win_rate = st.slider("Expected Win Rate (%)", 10, 90, 50) / 100
+        avg_rr = st.slider("Average R:R", 0.5, 5.0, 1.5)
+        submitted = st.form_submit_button("Run Backtest")
+    if submitted:
+        wins = int(num_trades * win_rate)
+        losses = num_trades - wins
+        avg_win = avg_rr * 100
+        avg_loss = 100
+        profit = (wins * avg_win) - (losses * avg_loss)
+        st.markdown("### Backtest Results")
+        st.write(f"**Strategy**: {strategy_name}")
+        st.write(f"**Pair**: {pair}")
+        st.write(f"**Timeframe**: {timeframe}")
+        st.write(f"**Total Trades**: {num_trades}")
+        st.write(f"**Win Rate**: {win_rate*100:.1f}%")
+        st.write(f"**Average R:R**: {avg_rr:.2f}")
+        st.write(f"**Net Profit (in R units)**: {profit:.2f}")
+        logging.info(f"Backtest run: {strategy_name}, {pair}, {timeframe}, {num_trades} trades, {win_rate*100}% win rate, {avg_rr} R:R, profit={profit}")
+        _ta_update_xp(20)
+
+# =========================================================
+# TAB 8: Trades
+# =========================================================
+with tab8:
+    st.title("Trades")
+    st.write("View and manage your trading journal")
+    if "logged_in_user" in st.session_state:
+        st.markdown("### 📖 Trading Journal")
+        edited_df = st.data_editor(
+            st.session_state.tools_trade_journal,
+            column_config={
+                "Date": st.column_config.DateColumn(format="YYYY-MM-DD"),
+                "Symbol": st.column_config.TextColumn(),
+                "Weekly Bias": st.column_config.SelectboxColumn(options=["Bullish", "Bearish", "Neutral"]),
+                "Daily Bias": st.column_config.SelectboxColumn(options=["Bullish", "Bearish", "Neutral"]),
+                "4H Structure": st.column_config.TextColumn(),
+                "1H Structure": st.column_config.TextColumn(),
+                "Positive Correlated Pair & Bias": st.column_config.TextColumn(),
+                "Potential Entry Points": st.column_config.TextColumn(),
+                "5min/15min Setup?": st.column_config.SelectboxColumn(options=["Yes", "No"]),
+                "Entry Conditions": st.column_config.TextColumn(),
+                "Planned R:R": st.column_config.TextColumn(),
+                "News Filter": st.column_config.TextColumn(),
+                "Alerts": st.column_config.TextColumn(),
+                "Concerns": st.column_config.TextColumn(),
+                "Emotions": st.column_config.TextColumn(),
+                "Confluence Score 1-7": st.column_config.NumberColumn(min_value=1, max_value=7),
+                "Outcome / R:R Realised": st.column_config.TextColumn(),
+                "Notes/Journal": st.column_config.TextColumn(),
+                "Entry Price": st.column_config.NumberColumn(format="%.5f"),
+                "Stop Loss Price": st.column_config.NumberColumn(format="%.5f"),
+                "Take Profit Price": st.column_config.NumberColumn(format="%.5f"),
+                "Lots": st.column_config.NumberColumn(format="%.2f")
+            },
+            use_container_width=True,
+            height=400
+        )
+        st.session_state.tools_trade_journal = edited_df
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        user_data = json.loads(result[0]) if result else {}
+        user_data["journal"] = edited_df.to_dict(orient="records")
+        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+        conn.commit()
+        logging.info(f"Trading journal updated for user {username}")
+        _ta_check_milestones(edited_df, st.session_state.get("mt5_df", pd.DataFrame()))
+        _ta_show_badges(edited_df)
+    else:
+        st.info("Sign in to view and edit your trading journal.")
+
+# =========================================================
+# TAB 9: Add Trade
+# =========================================================
+with tab9:
+    st.title("Add Trade")
+    st.write("Log a new trade to your journal")
+    with st.form("add_trade_form"):
+        st.markdown("### 📝 Log New Trade")
+        col1, col2 = st.columns(2)
+        with col1:
+            date = st.date_input("Date", value=dt.date.today())
+            symbol = st.selectbox("Symbol", list(pairs_map.keys()))
+            weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
+            daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
+            h4_structure = st.text_input("4H Structure")
+            h1_structure = st.text_input("1H Structure")
+            correlated_pair = st.text_input("Positive Correlated Pair & Bias")
+            entry_points = st.text_input("Potential Entry Points")
+            setup_5m_15m = st.selectbox("5min/15min Setup?", ["Yes", "No"])
+        with col2:
+            entry_conditions = st.text_input("Entry Conditions")
+            planned_rr = st.text_input("Planned R:R")
+            news_filter = st.text_input("News Filter")
+            alerts = st.text_input("Alerts")
+            concerns = st.text_input("Concerns")
+            emotions = st.text_input("Emotions")
+            confluence_score = st.number_input("Confluence Score (1-7)", min_value=1, max_value=7, value=1)
+            outcome_rr = st.text_input("Outcome / R:R Realised")
+            notes = st.text_area("Notes/Journal")
+        col3, col4 = st.columns(2)
+        with col3:
+            entry_price = st.number_input("Entry Price", min_value=0.0, format="%.5f")
+            stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, format="%.5f")
+        with col4:
+            take_profit_price = st.number_input("Take Profit Price", min_value=0.0, format="%.5f")
+            lots = st.number_input("Lots", min_value=0.01, format="%.2f")
+        submitted = st.form_submit_button("Add Trade")
+        if submitted:
+            new_trade = {
+                "Date": pd.to_datetime(date),
+                "Symbol": symbol,
+                "Weekly Bias": weekly_bias,
+                "Daily Bias": daily_bias,
+                "4H Structure": h4_structure,
+                "1H Structure": h1_structure,
+                "Positive Correlated Pair & Bias": correlated_pair,
+                "Potential Entry Points": entry_points,
+                "5min/15min Setup?": setup_5m_15m,
+                "Entry Conditions": entry_conditions,
+                "Planned R:R": planned_rr,
+                "News Filter": news_filter,
+                "Alerts": alerts,
+                "Concerns": concerns,
+                "Emotions": emotions,
+                "Confluence Score 1-7": confluence_score,
+                "Outcome / R:R Realised": outcome_rr,
+                "Notes/Journal": notes,
+                "Entry Price": entry_price,
+                "Stop Loss Price": stop_loss_price,
+                "Take Profit Price": take_profit_price,
+                "Lots": lots
+            }
+            st.session_state.tools_trade_journal = pd.concat([st.session_state.tools_trade_journal, pd.DataFrame([new_trade])], ignore_index=True).astype(journal_dtypes, errors='ignore')
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                user_data = json.loads(result[0]) if result else {}
+                user_data["journal"] = st.session_state.tools_trade_journal.to_dict(orient="records")
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                conn.commit()
+                st.success("Trade added successfully!")
+                _ta_update_xp(15)
+                _ta_update_streak()
+                logging.info(f"New trade added for user {username}: {new_trade}")
+            else:
+                st.warning("Sign in to save trades to your account.")
+            st.session_state.temp_journal = None
+            st.rerun()
