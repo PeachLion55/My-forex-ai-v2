@@ -724,8 +724,10 @@ from streamlit_lightweight_charts import renderLightweightCharts
 # TAB 2: Backtesting
 # =========================================================
 with tab2:
+    import pandas as pd
+    import os
     st.title("📊 Backtesting")
-    st.caption("Live chart from Yahoo Finance data and trading journal for the selected pair.")
+    st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
 
     # Pair selector & Yahoo tickers (28 major & minor pairs)
     pairs_map = {
@@ -757,62 +759,48 @@ with tab2:
         "CAD/CHF": "CADCHF=X",
     }
 
-    # Select pair + timeframe
-    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="yf_pair")
-    timeframe = st.selectbox("Select timeframe", ["1m","5m","15m","1h","4h","1d","1wk"], index=6)
+    timeframes = ["1m","5m","15m","1h","4h","1d","1wk"]
 
-    # Function to safely convert time to UNIX timestamp
-    import pandas as pd
-    def convert_time(x):
-        if isinstance(x, pd.Timestamp):
-            return int(x.timestamp())
-        elif isinstance(x, pd.Period):
-            return int(x.start_time.timestamp())  # Use start of the period for Period objects
-        elif isinstance(x, (str, float, int)):
-            return x
-        else:
-            return None
-
-    # Download historical data
+    # User selection
+    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0)
+    timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
-    try:
-        data = yf.download(symbol, period="30d", interval=timeframe)
-        data.reset_index(inplace=True)
 
-        # Standardize column names
-        data.rename(columns={"Datetime":"time","Date":"time","Open":"open","High":"high",
-                             "Low":"low","Close":"close","Volume":"volume"}, inplace=True)
+    # Load pre-downloaded CSV
+    filename = f"data/{symbol}_{timeframe}.csv"
+    if not os.path.exists(filename):
+        st.error(f"Data file {filename} not found. Please pre-download all CSVs first.")
+    else:
+        try:
+            data = pd.read_csv(filename)
 
-        # Convert time column to UNIX timestamp (works for all timeframes)
-        data["time"] = data["time"].apply(convert_time)
+            # Ensure numeric types
+            for col in ["open","high","low","close"]:
+                data[col] = data[col].astype(float)
 
-        # Ensure numeric columns are Python floats
-        for col in ["open","high","low","close"]:
-            data[col] = data[col].astype(float)
+            # Ensure time column is integer (UNIX timestamp)
+            data["time"] = data["time"].astype(int)
 
-        # Convert to dict for charting
-        ohlc = data[["time","open","high","low","close"]].to_dict("records")
+            # Convert to dict for Lightweight Charts
+            ohlc = data[["time","open","high","low","close"]].to_dict("records")
 
-        # Chart options
-        chart_options = {
-            "height": 600,
-            "width": "100%",
-            "layout": { "background": { "color": "#0E1117" }, "textColor": "#DDD" },
-            "grid": { "vertLines": { "color": "#222" }, "horzLines": { "color": "#222" } },
-            "priceScale": { "borderColor": "#555" },
-            "timeScale": { "borderColor": "#555" }
-        }
+            # Chart options
+            chart_options = {
+                "height": 600,
+                "width": "100%",
+                "layout": { "background": { "color": "#0E1117" }, "textColor": "#DDD" },
+                "grid": { "vertLines": { "color": "#222" }, "horzLines": { "color": "#222" } },
+                "priceScale": { "borderColor": "#555" },
+                "timeScale": { "borderColor": "#555" }
+            }
 
-        series = [{
-            "type": "candlestick",
-            "data": ohlc
-        }]
+            series = [{"type": "candlestick", "data": ohlc}]
 
-        # Render Lightweight Chart
-        renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
+            # Render Lightweight Chart
+            renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
 
-    except Exception as e:
-        st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe}: {str(e)}")
+        except Exception as e:
+            st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe}: {str(e)}")
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
