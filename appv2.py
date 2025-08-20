@@ -769,11 +769,13 @@ with tab2:
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Define the data directory (adjust if files are in a different folder)
-    data_dir = Path("data")  # Assumes CSV files are in a 'data/' folder in the repo root
+    # Define the data directory (root of the repo)
+    data_dir = Path(".")  # Files are in the repository root
     filename = data_dir / f"{symbol}_{timeframe}.csv"
 
-    # Debugging: Display the file path being checked
+    # Debugging: Show working directory and available CSV files
+    st.write(f"Current working directory: {os.getcwd()}")
+    st.write("Available CSV files in directory:", [f.name for f in data_dir.glob("*.csv")])
     st.write(f"Looking for file: {filename}")
 
     if not filename.exists():
