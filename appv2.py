@@ -726,10 +726,11 @@ from streamlit_lightweight_charts import renderLightweightCharts
 with tab2:
     import pandas as pd
     import os
+    from pathlib import Path
     st.title("📊 Backtesting")
     st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
 
-    # Pair selector & Yahoo tickers (28 major & minor pairs)
+    # Map of pairs to Yahoo tickers
     pairs_map = {
         "EUR/USD": "EURUSD=X",
         "USD/JPY": "JPY=X",
@@ -766,9 +767,10 @@ with tab2:
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Look for CSV in the repo root
-    filename = f"{symbol}_{timeframe}.csv"
-    if not os.path.exists(filename):
+    # CSV file path in repo root
+    filename = Path(f"{symbol}_{timeframe}.csv")
+
+    if not filename.exists():
         st.error(f"Data file for {symbol} at {timeframe} not found in repo root.")
     else:
         try:
