@@ -755,6 +755,7 @@ with tab2:
     # Fetch live/historical data using yfinance
     try:
         data = yf.download(symbol + "=X", period="3mo", interval="1d").reset_index()
+        data['Date'] = pd.to_datetime(data['Date'])
         candles = [{"time": int(row['Date'].timestamp()), "open": float(row['Open']), "high": float(row['High']), "low": float(row['Low']), "close": float(row['Close'])} for _, row in data.iterrows()]
         data_json = json.dumps(candles)
     except Exception as e:
@@ -814,13 +815,18 @@ with tab2:
       }});
       const candleSeries = chart.addCandlestickSeries();
       const data = {data_json};
-      candleSeries.setData(data);
+      if (data.length > 0) {{
+        candleSeries.setData(data);
+      }} else {{
+        console.log("No data available");
+      }}
       
       let currentTool = null;
       let tempPoints = [];
       let replayInterval = null;
       let replayIndex = 0;
       let replaySpeed = 1000;
+      let drawings = [];
       
       function setTool(tool) {{
         currentTool = tool;
@@ -828,20 +834,20 @@ with tab2:
       }}
       
       chart.subscribeClick((param) => {{
-        if (!currentTool || !param.point) return;
-        tempPoints.push({{ time: param.time, price: param.seriesPrices.get(candleSeries) ? param.seriesPrices.get(candleSeries).close : 0 }});
-        if ((currentTool === 'TrendLine' || currentTool === 'FibRetracement') && tempPoints.length === 2) {{
-          chart.addLineSeries({{ title: currentTool, color: 'white' }}).setData(tempPoints);
-          // For real, use createPriceLine or custom overlays, but simplified
+        if (!currentTool || !param.point || data.length === 0) return;
+        const price = chart.priceScale('right').coordinateToPrice(param.point.y);
+        const time = param.time;
+        tempPoints.push({{ time: time, value: price }});
+        if (tempPoints.length === 2 && (currentTool === 'TrendLine' || currentTool === 'FibRetracement' || currentTool === 'Rectangle')) {{
+          const lineSeries = chart.addLineSeries({{ color: 'white', lineWidth: 2 }});
+          lineSeries.setData(tempPoints);
+          drawings.push(lineSeries);
           tempPoints = [];
         }} else if (currentTool === 'HorizontalLine' && tempPoints.length === 1) {{
-          chart.addLineSeries({{ title: 'HLine', color: 'yellow' }}).setData([{time: data[0].time, price: tempPoints[0].price}, {time: data[data.length-1].time, price: tempPoints[0].price}]);
+          candleSeries.createPriceLine({{ price: tempPoints[0].value, color: 'yellow', lineWidth: 2, lineStyle: 0, axisLabelVisible: true }});
           tempPoints = [];
-        }} else if (currentTool === 'VerticalLine' && tempPoints.length = 1) {{
-          chart.addLineSeries({{ title: 'VLine', color: 'red' }}).setData([{time: tempPoints[0].time, price: data.minPrice}, {time: tempPoints[0].time, price: data.maxPrice}]);
-          tempPoints = [];
-        }} else if (currentTool === 'Rectangle' && tempPoints.length === 2) {{
-          // Simplified, use custom shape
+        }} else if (currentTool === 'VerticalLine' && tempPoints.length === 1) {{
+          candleSeries.setMarkers([{{ time: tempPoints[0].time, position: 'belowBar', color: 'red', shape: 'arrowUp', text: 'VLine' }}]);
           tempPoints = [];
         }}
       }});
@@ -852,15 +858,20 @@ with tab2:
       }});
       
       function saveDrawings() {{
-        const lineTools = [];  // Collect all added lines
-        window.parent.postMessage({{ type: 'streamlit:setComponentValue', value: lineTools, dataType: 'json', key: 'lw_drawings_key_{pair}' }}, '*');
+        const savedDrawings = drawings.map(d => d.data());  // Simplified
+        window.parent.postMessage({{ type: 'streamlit:setComponentValue', value: savedDrawings, dataType: 'json', key: 'lw_drawings_key_{pair}' }}, '*');
       }}
       
       function loadDrawings(content) {{
-        // Add loaded lines
+        content.forEach(points => {{
+          const lineSeries = chart.addLineSeries({{ color: 'white', lineWidth: 2 }});
+          lineSeries.setData(points);
+          drawings.push(lineSeries);
+        }});
       }}
       
       function startReplay() {{
+        if (data.length === 0) return;
         const startDate = new Date(document.getElementById('start_date').value).getTime() / 1000;
         replayIndex = data.findIndex(c => c.time >= startDate);
         if (replayIndex === -1) replayIndex = 0;
@@ -986,7 +997,7 @@ with tab2:
     
     with trade_tabs[-1]:
         if st.button("Add New Trade"):
-            new_trade = {field: "" for field in journal_fields}  # Use "" instead of None for strings
+            new_trade = {field: "" for field in journal_fields}  # Use "" for strings
             new_trade["Date"] = dt.date.today()
             new_trade["Confluence Score 1-7"] = 1
             new_trade["Entry Price"] = 0.0
