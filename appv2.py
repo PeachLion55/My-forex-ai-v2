@@ -728,6 +728,11 @@ with tab2:
     import os
     from pathlib import Path
     import streamlit as st
+    try:
+        from streamlit_lightweight_charts import renderLightweightCharts
+    except ImportError:
+        st.error("The 'streamlit-lightweight-charts' library is not installed. Please add it to requirements.txt and install with 'pip install streamlit-lightweight-charts'.")
+        st.stop()
 
     st.title("📊 Backtesting")
     st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
@@ -784,15 +789,16 @@ with tab2:
 
     # Debugging: Show working directory and all files
     st.write(f"Current working directory: {os.getcwd()}")
-    all_files = [f.name for f in data_dir.glob("*") if f.is_file()]
-    csv_files = [f for f in all_files if f.endswith(".csv")]
-    subdirs = [d.name for d in data_dir.glob("*") if d.is_dir()]
+    all_files = sorted([f.name for f in data_dir.glob("*") if f.is_file()])
+    csv_files = sorted([f for f in all_files if f.lower().endswith(".csv")])
+    subdirs = sorted([d.name for d in data_dir.glob("*") if d.is_dir()])
     st.write("All files in root directory:", all_files)
     st.write("Available CSV files in root directory:", csv_files)
     st.write("Subdirectories in root:", subdirs)
     for subdir in subdirs:
         subdir_path = data_dir / subdir
-        st.write(f"Files in {subdir}:", [f.name for f in subdir_path.glob("*")])
+        subdir_files = sorted([f.name for f in subdir_path.glob("*")])
+        st.write(f"Files in {subdir}:", subdir_files)
     st.write(f"Looking for files: {', '.join(possible_filenames)}")
 
     # Check for file in root directory
@@ -868,20 +874,27 @@ with tab2:
             ohlc = data[["time", "open", "high", "low", "close"]].to_dict("records")
             st.write("OHLC data for chart (first 5 entries):", ohlc[:5])
 
-            # Simplified chart options
+            # Fallback: Display data as a table
+            st.write("Displaying data as a table (fallback):")
+            st.dataframe(data.head(10))
+
+            # Minimal chart options
             chart_options = {
                 "height": 600,
                 "width": "100%",
+                "layout": {"background": {"type": "solid", "color": "#000000"}, "textColor": "#FFFFFF"},
+                "timeScale": {"visible": True, "timeVisible": True},
             }
 
             series = [{"type": "Candlestick", "data": ohlc}]
 
             # Render Lightweight Chart with error handling
             try:
-                renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
-                st.write("Chart rendering attempted successfully.")
+                renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}_{str(hash(str(ohlc)))}")
+                st.write("Chart rendering attempted successfully. If no chart is visible, check the browser console for errors (press F12, go to Console tab).")
             except Exception as e:
                 st.error(f"Failed to render chart for {pair} ({symbol}) at {timeframe}: {str(e)}")
+                st.write("Browser console debugging: Open your browser's developer tools (F12), go to the Console tab, and look for JavaScript errors related to Lightweight Charts.")
 
         except Exception as e:
             st.error(f"Failed to process data for {pair} ({symbol}) at {timeframe}: {str(e)}")
