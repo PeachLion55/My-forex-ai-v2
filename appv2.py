@@ -784,7 +784,8 @@ with tab2:
 
     # Debugging: Show working directory and available CSV files
     st.write(f"Current working directory: {os.getcwd()}")
-    st.write("Available CSV files in root directory:", [f.name for f in data_dir.glob("*.csv")])
+    csv_files = [f.name for f in data_dir.glob("*.csv") if f.is_file()]
+    st.write("Available CSV files in root directory:", csv_files)
     st.write(f"Looking for files: {', '.join(possible_filenames)}")
 
     # Check for file in root directory
@@ -798,15 +799,49 @@ with tab2:
     if file_to_load:
         st.write(f"Loading file: {file_to_load}")
         try:
+            # Load CSV with error handling
             data = pd.read_csv(file_to_load)
 
-            # Ensure numeric types
-            for col in ["open", "high", "low", "close"]:
-                data[col] = data[col].astype(float)
+            # Debugging: Show column names and first few rows
+            st.write(f"Columns in {file_to_load.name}: {list(data.columns)}")
+            st.write("First 5 rows of data:", data.head().to_dict())
 
-            # Ensure time column is integer (UNIX timestamp)
-            data["time"] = data["time"].astype(int)
+            # Verify required columns
+            required_columns = ["time", "open", "high", "low", "close"]
+            if not all(col in data.columns for col in required_columns):
+                st.error(f"Missing required columns in {file_to_load.name}. Found: {list(data.columns)}, Required: {required_columns}")
+                data = None
+            else:
+                # Try to convert numeric columns to float, skip invalid rows
+                for col in ["open", "high", "low", "close"]:
+                    try:
+                        data[col] = pd.to_numeric(data[col], errors='coerce')
+                    except Exception as e:
+                        st.warning(f"Error converting column {col} to float: {str(e)}")
+                        data = None
+                        break
 
+                if data is not None:
+                    # Drop rows with NaN in numeric columns
+                    data = data.dropna(subset=["open", "high", "low", "close"])
+
+                    # Ensure time column is integer (UNIX timestamp)
+                    try:
+                        data["time"] = pd.to_numeric(data["time"], errors='coerce').astype('Int64')
+                        data = data.dropna(subset=["time"])
+                    except Exception as e:
+                        st.error(f"Error converting time column to integer: {str(e)}")
+                        data = None
+
+        except Exception as e:
+            st.error(f"Failed to load data from {file_to_load}: {str(e)}")
+            data = None
+    else:
+        st.error(f"Data file for {symbol} at {timeframe} not found in root directory.")
+        data = None
+
+    if data is not None and not data.empty:
+        try:
             # Convert to dict for Lightweight Charts
             ohlc = data[["time", "open", "high", "low", "close"]].to_dict("records")
 
@@ -826,9 +861,9 @@ with tab2:
             renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}")
 
         except Exception as e:
-            st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe} from {file_to_load}: {str(e)}")
-    else:
-        st.error(f"Data file for {symbol} at {timeframe} not found in root directory.")
+            st.error(f"Failed to process data for {pair} ({symbol}) at {timeframe}: {str(e)}")
+    elif data is not None and data.empty:
+        st.error(f"Data file {file_to_load} is empty or contains no valid rows after processing.")
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
