@@ -717,189 +717,340 @@ with tab1:
             """, unsafe_allow_html=True
         )
 
-import yfinance as yf
-from streamlit_lightweight_charts import renderLightweightCharts
-
 # =========================================================
 # TAB 2: Backtesting
 # =========================================================
 with tab2:
-    import pandas as pd
-    import os
-    from pathlib import Path
-    import streamlit as st
-    try:
-        from streamlit_lightweight_charts import renderLightweightCharts
-    except ImportError:
-        st.error("The 'streamlit-lightweight-charts' library is not installed. Please add it to requirements.txt and install with 'pip install streamlit-lightweight-charts'.")
-        st.stop()
-
     st.title("📊 Backtesting")
-    st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
+    st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
 
-    # Map of pairs to Yahoo tickers
+    # Pair selector & symbol map (28 major & minor pairs)
     pairs_map = {
-        "EUR/USD": "EURUSD=X",
-        "USD/JPY": "JPY=X",
-        "GBP/USD": "GBPUSD=X",
-        "USD/CHF": "CHF=X",
-        "AUD/USD": "AUDUSD=X",
-        "NZD/USD": "NZDUSD=X",
-        "USD/CAD": "CAD=X",
-        "EUR/GBP": "EURGBP=X",
-        "EUR/JPY": "EURJPY=X",
-        "GBP/JPY": "GBPJPY=X",
-        "AUD/JPY": "AUDJPY=X",
-        "AUD/NZD": "AUDNZD=X",
-        "AUD/CAD": "AUDCAD=X",
-        "AUD/CHF": "AUDCHF=X",
-        "CAD/JPY": "CADJPY=X",
-        "CHF/JPY": "CHFJPY=X",
-        "EUR/AUD": "EURAUD=X",
-        "EUR/CAD": "EURCAD=X",
-        "EUR/CHF": "EURCHF=X",
-        "GBP/AUD": "GBPAUD=X",
-        "GBP/CAD": "GBPCAD=X",
-        "GBP/CHF": "GBPCHF=X",
-        "NZD/JPY": "NZDJPY=X",
-        "NZD/CAD": "NZDCAD=X",
-        "NZD/CHF": "NZDCHF=X",
-        "CAD/CHF": "CADCHF=X",
+        # Majors
+        "EUR/USD": "FX:EURUSD",
+        "USD/JPY": "FX:USDJPY",
+        "GBP/USD": "FX:GBPUSD",
+        "USD/CHF": "OANDA:USDCHF",
+        "AUD/USD": "FX:AUDUSD",
+        "NZD/USD": "OANDA:NZDUSD",
+        "USD/CAD": "CMCMARKETS:USDCAD",
+        
+        # Crosses / Minors
+        "EUR/GBP": "FX:EURGBP",
+        "EUR/JPY": "FX:EURJPY",
+        "GBP/JPY": "FX:GBPJPY",
+        "AUD/JPY": "FX:AUDJPY",
+        "AUD/NZD": "FX:AUDNZD",
+        "AUD/CAD": "FX:AUDCAD",
+        "AUD/CHF": "FX:AUDCHF",
+        "CAD/JPY": "FX:CADJPY",
+        "CHF/JPY": "FX:CHFJPY",
+        "EUR/AUD": "FX:EURAUD",
+        "EUR/CAD": "FX:EURCAD",
+        "EUR/CHF": "FX:EURCHF",
+        "GBP/AUD": "FX:GBPAUD",
+        "GBP/CAD": "FX:GBPCAD",
+        "GBP/CHF": "FX:GBPCHF",
+        "NZD/JPY": "FX:NZDJPY",
+        "NZD/CAD": "FX:NZDCAD",
+        "NZD/CHF": "FX:NZDCHF",
+        "CAD/CHF": "FX:CADCHF",
     }
 
-    timeframes = ["1m", "5m", "15m", "1h", "4h", "1d", "1wk"]
+    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
+    tv_symbol = pairs_map[pair]
 
-    # User selection
-    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0)
-    timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
-    symbol = pairs_map[pair]
-
-    # Define the data directory (root of the repo)
-    data_dir = Path(".")  # Files are in the repository root
-
-    # Possible timestamp suffixes based on observed patterns
-    timestamp_suffixes = ["", " 18.26.02", " 18.26.03", " 18.26.03 18.26.25"]
-
-    # Try multiple naming conventions
-    possible_filenames = [
-        f"{symbol}_{timeframe}{suffix}.csv" for suffix in timestamp_suffixes
-    ] + [
-        f"{symbol.replace('=X', '')}_{timeframe}{suffix}.csv" for suffix in timestamp_suffixes
-    ]
-
-    # Debugging: Show working directory and all files
-    st.write(f"Current working directory: {os.getcwd()}")
-    all_files = sorted([f.name for f in data_dir.glob("*") if f.is_file()])
-    csv_files = sorted([f for f in all_files if f.lower().endswith(".csv")])
-    subdirs = sorted([d.name for d in data_dir.glob("*") if d.is_dir()])
-    st.write("All files in root directory:", all_files)
-    st.write("Available CSV files in root directory:", csv_files)
-    st.write("Subdirectories in root:", subdirs)
-    for subdir in subdirs:
-        subdir_path = data_dir / subdir
-        subdir_files = sorted([f.name for f in subdir_path.glob("*")])
-        st.write(f"Files in {subdir}:", subdir_files)
-    st.write(f"Looking for files: {', '.join(possible_filenames)}")
-
-    # Check for file in root directory
-    file_to_load = None
-    for fname in possible_filenames:
-        root_file = data_dir / fname
-        if root_file.exists():
-            file_to_load = root_file
-            break
-
-    if file_to_load:
-        st.write(f"Loading file: {file_to_load}")
+    # Load initial drawings if available
+    if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
+        username = st.session_state.logged_in_user
+        logging.info(f"Loading drawings for user {username}, pair {pair}")
         try:
-            # Load CSV, skipping the first row to avoid invalid data
-            data = pd.read_csv(file_to_load, skiprows=1)
-
-            # Debugging: Show original column names
-            st.write(f"Original columns in {file_to_load.name}: {list(data.columns)}")
-
-            # Rename columns to match expected format
-            expected_columns = ["time", "close", "high", "low", "open", "volume"]
-            if len(data.columns) >= 5:
-                data.columns = expected_columns[:len(data.columns)]
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result:
+                user_data = json.loads(result[0])
+                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
+                logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
             else:
-                st.error(f"Insufficient columns in {file_to_load.name}. Found: {list(data.columns)}, Expected at least: {expected_columns[:5]}")
-                data = None
-
-            if data is not None:
-                # Debugging: Show renamed columns
-                st.write(f"Renamed columns in {file_to_load.name}: {list(data.columns)}")
-                st.write("First 5 rows of data:", data.head().to_dict())
-
-                # Select only required columns
-                required_columns = ["time", "open", "high", "low", "close"]
-                if not all(col in data.columns for col in required_columns):
-                    st.error(f"Missing required columns in {file_to_load.name} after renaming. Found: {list(data.columns)}, Required: {required_columns}")
-                    data = None
-                else:
-                    data = data[required_columns]
-
-                    # Convert numeric columns to float, coerce invalid values to NaN
-                    for col in ["open", "high", "low", "close"]:
-                        try:
-                            data[col] = pd.to_numeric(data[col], errors='coerce')
-                        except Exception as e:
-                            st.warning(f"Error converting column {col} to float: {str(e)}")
-                            data = None
-                            break
-
-                    if data is not None:
-                        # Drop rows with NaN in numeric columns
-                        data = data.dropna(subset=["open", "high", "low", "close"])
-
-                        # Convert time column to integer (UNIX timestamp)
-                        try:
-                            data["time"] = pd.to_numeric(data["time"], errors='coerce').astype('Int64')
-                            data = data.dropna(subset=["time"])
-                        except Exception as e:
-                            st.error(f"Error converting time column to integer: {str(e)}")
-                            data = None
-
+                logging.warning(f"No data found for user {username}")
         except Exception as e:
-            st.error(f"Failed to load data from {file_to_load}: {str(e)}")
-            data = None
+            logging.error(f"Error loading drawings for {username}: {str(e)}")
+            st.error(f"Failed to load drawings: {str(e)}")
+
+    initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
+    # TradingView widget
+    tv_html = f"""
+    <div class="tradingview-widget-container" style="height:780px; width:100%">
+      <div id="tradingview_chart_{tv_symbol.replace(':','_')}" style="height:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      console.log("Initializing TradingView widget for {tv_symbol}");
+      try {{
+        const widget = new TradingView.widget({{
+          "autosize": true,
+          "symbol": "{tv_symbol}",
+          "interval": "D",
+          "timezone": "Etc/UTC",
+          "theme": "dark",
+          "style": "1",
+          "hide_top_toolbar": false,
+          "hide_side_toolbar": false,
+          "allow_symbol_change": true,
+          "save_image": true,
+          "container_id": "tradingview_chart_{tv_symbol.replace(':','_')}"
+        }});
+        widget.onChartReady(() => {{
+          console.log("Chart ready for {tv_symbol}");
+          const chart = widget.activeChart();
+          window.chart = chart;
+          const initialContent = {initial_content};
+          if (Object.keys(initialContent).length > 0) {{
+            console.log("Loading initial content:", initialContent);
+            chart.setContent(initialContent);
+          }} else {{
+            console.log("No initial content to load for {tv_symbol}");
+          }}
+        }});
+      }} catch (error) {{
+        console.error("Error initializing TradingView widget:", error);
+      }}
+      </script>
+    </div>
+    """
+    components.html(tv_html, height=820, scrolling=False)
+    # Save, Load, and Refresh buttons
+    if "logged_in_user" in st.session_state:
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.button("Save Drawings", key="bt_save_drawings"):
+                logging.info(f"Save Drawings button clicked for pair {pair}")
+                save_script = f"""
+                <script>
+                try {{
+                  console.log("Attempting to save drawings for {pair}");
+                  window.parent.chart.getContent((content) => {{
+                    console.log("Drawing content received:", content);
+                    window.parent.postMessage({{
+                      type: 'streamlit:setComponentValue',
+                      value: content,
+                      dataType: 'json',
+                      key: 'bt_drawings_key_{pair}'
+                    }}, '*');
+                  }});
+                }} catch (error) {{
+                  console.error("Error saving drawings:", error);
+                }}
+                </script>
+                """
+                components.html(save_script, height=0)
+                logging.info(f"Triggered save script for {pair}")
+                st.session_state[f"bt_save_trigger_{pair}"] = True
+        with col2:
+            if st.button("Load Drawings", key="bt_load_drawings"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        content = user_data.get("drawings", {}).get(pair, {})
+                        if content:
+                            load_script = f"""
+                            <script>
+                            console.log("Loading drawings for {pair}:", {json.dumps(content)});
+                            window.parent.chart.setContent({json.dumps(content)});
+                            </script>
+                            """
+                            components.html(load_script, height=0)
+                            st.success("Drawings loaded successfully!")
+                            logging.info(f"Successfully loaded drawings for {pair}")
+                        else:
+                            st.info("No saved drawings for this pair.")
+                            logging.info(f"No saved drawings found for {pair}")
+                    else:
+                        st.error("Failed to load user data.")
+                        logging.error(f"No user data found for {username}")
+                except Exception as e:
+                    st.error(f"Failed to load drawings: {str(e)}")
+                    logging.error(f"Error loading drawings for {username}: {str(e)}")
+        with col3:
+            if st.button("Refresh Account", key="bt_refresh_account"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Refresh Account button clicked for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        st.session_state.drawings = user_data.get("drawings", {})
+                        st.success("Account synced successfully!")
+                        logging.info(f"Account synced for {username}: {st.session_state.drawings}")
+                    else:
+                        st.error("Failed to sync account.")
+                        logging.error(f"No user data found for {username}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to sync account: {str(e)}")
+                    logging.error(f"Error syncing account for {username}: {str(e)}")
+        # Check for saved drawings from postMessage
+        drawings_key = f"bt_drawings_key_{pair}"
+        if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
+            content = st.session_state[drawings_key]
+            logging.info(f"Received drawing content for {pair}: {content}")
+            if content and isinstance(content, dict) and content:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data.setdefault("drawings", {})[pair] = content
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.session_state.drawings[pair] = content
+                    st.success(f"Drawings for {pair} saved successfully!")
+                    logging.info(f"Drawings saved to database for {pair}: {content}")
+                except Exception as e:
+                    st.error(f"Failed to save drawings: {str(e)}")
+                    logging.error(f"Database error saving drawings for {pair}: {str(e)}")
+                finally:
+                    del st.session_state[drawings_key]
+                    del st.session_state[f"bt_save_trigger_{pair}"]
+            else:
+                st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
+                logging.warning(f"No valid drawing content received for {pair}: {content}")
     else:
-        st.error(f"Data file for {symbol} at {timeframe} not found in root directory.")
-        data = None
+        st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
+        logging.info("User not logged in, save/load drawings disabled")
+    # Backtesting Journal
+    st.markdown("### 📝 Trading Journal")
+    # Configure column settings for data editor
+    column_config = {
+        "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+        "Symbol": st.column_config.TextColumn("Symbol"),
+        "Weekly Bias": st.column_config.SelectboxColumn("Weekly Bias", options=["Bullish", "Bearish", "Neutral"]),
+        "Daily Bias": st.column_config.SelectboxColumn("Daily Bias", options=["Bullish", "Bearish", "Neutral"]),
+        "4H Structure": st.column_config.TextColumn("4H Structure"),
+        "1H Structure": st.column_config.TextColumn("1H Structure"),
+        "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
+        "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
+        "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
+        "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
+        "Planned R:R": st.column_config.TextColumn("Planned R:R"),
+        "News Filter": st.column_config.TextColumn("News Filter"),
+        "Alerts": st.column_config.TextColumn("Alerts"),
+        "Concerns": st.column_config.TextColumn("Concerns"),
+        "Emotions": st.column_config.TextColumn("Emotions"),
+        "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
+        "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
+        "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
+        "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
+        "Stop Loss Price": st.column_config.NumberColumn("Stop Loss Price", format="%.5f"),
+        "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
+        "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
+    }
+    # Prepare transposed journal for display
+    if st.session_state.tools_trade_journal.empty:
+        # Initialize with one trade column if empty
+        transposed_journal = pd.DataFrame(index=journal_cols, columns=["Trade 1"]).astype(object)
+    else:
+        # Transpose the journal: fields as rows, trades as columns
+        transposed_journal = st.session_state.tools_trade_journal.transpose()
+        # Rename columns to "Trade 1", "Trade 2", etc.
+        transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
+    # Button to add new trade column
+    if st.button("➕ Add New Trade", key="bt_add_trade_button"):
+        current_trades = transposed_journal.columns.tolist()
+        next_trade_num = len(current_trades) + 1
+        new_trade = f"Trade {next_trade_num}"
+        transposed_journal[new_trade] = pd.Series(index=journal_cols, dtype=object)
+        updated_journal = transposed_journal.transpose().reset_index(drop=True)
+        updated_journal.columns = journal_cols
+        st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
+        st.session_state.temp_journal = None
+        st.rerun()
+    # Dynamically configure columns for trades
+    transposed_column_config = {}
+    for col in transposed_journal.columns:
+        transposed_column_config[col] = column_config
+    # Use form to stabilize data editor
+    old_num_trades = len(st.session_state.tools_trade_journal)
+    with st.form(key="bt_journal_form"):
+        updated_journal_tools = st.data_editor(
+            data=transposed_journal.copy(),
+            num_rows="dynamic",
+            column_config=transposed_column_config,
+            key="bt_backtesting_journal_static",
+            use_container_width=True,
+            height=800
+        )
+        submit_button = st.form_submit_button("Submit Journal Changes")
+        if submit_button:
+            if not updated_journal_tools.empty:
+                updated_journal_tools = updated_journal_tools.transpose()
+                updated_journal_tools.columns = journal_cols
+                updated_journal_tools = updated_journal_tools.reset_index(drop=True)
+                st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
+                st.session_state.temp_journal = None
+                new_num_trades = len(st.session_state.tools_trade_journal)
+                if new_num_trades > old_num_trades:
+                    added = new_num_trades - old_num_trades
+                    _ta_update_xp(added * 10)
+                    _ta_update_streak()
+                st.success("Journal changes submitted successfully!")
+            else:
+                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                st.session_state.temp_journal = None
+            st.rerun()
+    if "logged_in_user" in st.session_state:
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("💾 Save to My Account", key="bt_save_journal_button"):
+                username = st.session_state.logged_in_user
+                journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
+                logging.info(f"Saving journal for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["tools_trade_journal"] = journal_data
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Trading journal saved to your account!")
+                    logging.info(f"Journal saved for {username}")
+                except Exception as e:
+                    st.error(f"Failed to save journal: {str(e)}")
+                    logging.error(f"Error saving journal for {username}: {str(e)}")
+        with col2:
+            if st.button("📂 Load Journal", key="bt_load_journal_button"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Loading journal for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        saved_journal = user_data.get("tools_trade_journal", [])
+                        if saved_journal:
+                            loaded_df = pd.DataFrame(saved_journal)
+                            for col in journal_cols:
+                                if col not in loaded_df.columns:
+                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                            loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                            st.session_state.tools_trade_journal = loaded_df
+                            st.session_state.temp_journal = None
+                            st.success("Trading journal loaded from your account!")
+                            logging.info(f"Journal loaded for {username}")
+                        else:
+                            st.info("No saved journal found in your account.")
+                            logging.info(f"No journal found for {username}")
+                    else:
+                        st.error("Failed to load user data.")
+                        logging.error(f"No user data found for {username}")
+                except Exception as e:
+                    st.error(f"Failed to load journal: {str(e)}")
+                    logging.error(f"Error loading journal for {username}: {str(e)}")
 
-    if data is not None and not data.empty:
-        try:
-            # Debugging: Show cleaned data and OHLC for chart
-            st.write("Cleaned data (first 5 rows):", data.head().to_dict())
-            ohlc = data[["time", "open", "high", "low", "close"]].to_dict("records")
-            st.write("OHLC data for chart (first 5 entries):", ohlc[:5])
-
-            # Fallback: Display data as a table
-            st.write("Displaying data as a table (fallback):")
-            st.dataframe(data.head(10))
-
-            # Minimal chart options
-            chart_options = {
-                "height": 600,
-                "width": "100%",
-                "layout": {"background": {"type": "solid", "color": "#000000"}, "textColor": "#FFFFFF"},
-                "timeScale": {"visible": True, "timeVisible": True},
-            }
-
-            series = [{"type": "Candlestick", "data": ohlc}]
-
-            # Render Lightweight Chart with error handling
-            try:
-                renderLightweightCharts([{"chart": chart_options, "series": series}], key=f"chart_{pair}_{timeframe}_{str(hash(str(ohlc)))}")
-                st.write("Chart rendering attempted successfully. If no chart is visible, check the browser console for errors (press F12, go to Console tab).")
-            except Exception as e:
-                st.error(f"Failed to render chart for {pair} ({symbol}) at {timeframe}: {str(e)}")
-                st.write("Browser console debugging: Open your browser's developer tools (F12), go to the Console tab, and look for JavaScript errors related to Lightweight Charts.")
-
-        except Exception as e:
-            st.error(f"Failed to process data for {pair} ({symbol}) at {timeframe}: {str(e)}")
-    elif data is not None and data.empty:
-        st.error(f"Data file {file_to_load} is empty or contains no valid rows after processing.")
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
