@@ -799,8 +799,8 @@ with tab2:
     if file_to_load:
         st.write(f"Loading file: {file_to_load}")
         try:
-            # Load CSV with error handling
-            data = pd.read_csv(file_to_load)
+            # Load CSV, skipping the first row to avoid invalid data
+            data = pd.read_csv(file_to_load, skiprows=1)
 
             # Debugging: Show column names and first few rows
             st.write(f"Columns in {file_to_load.name}: {list(data.columns)}")
@@ -812,7 +812,10 @@ with tab2:
                 st.error(f"Missing required columns in {file_to_load.name}. Found: {list(data.columns)}, Required: {required_columns}")
                 data = None
             else:
-                # Try to convert numeric columns to float, skip invalid rows
+                # Select only required columns
+                data = data[["time", "open", "high", "low", "close"]]
+
+                # Convert numeric columns to float, coerce invalid values to NaN
                 for col in ["open", "high", "low", "close"]:
                     try:
                         data[col] = pd.to_numeric(data[col], errors='coerce')
@@ -825,7 +828,7 @@ with tab2:
                     # Drop rows with NaN in numeric columns
                     data = data.dropna(subset=["open", "high", "low", "close"])
 
-                    # Ensure time column is integer (UNIX timestamp)
+                    # Convert time column to integer (UNIX timestamp)
                     try:
                         data["time"] = pd.to_numeric(data["time"], errors='coerce').astype('Int64')
                         data = data.dropna(subset=["time"])
@@ -842,6 +845,9 @@ with tab2:
 
     if data is not None and not data.empty:
         try:
+            # Debugging: Show cleaned data
+            st.write("Cleaned data (first 5 rows):", data.head().to_dict())
+
             # Convert to dict for Lightweight Charts
             ohlc = data[["time", "open", "high", "low", "close"]].to_dict("records")
 
