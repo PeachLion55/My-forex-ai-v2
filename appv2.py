@@ -727,9 +727,9 @@ with tab2:
     import pandas as pd
     import os
     st.title("📊 Backtesting")
-    st.caption("Live chart from pre-downloaded Forex CSV data in data/ or data2/ folders.")
+    st.caption("Live chart from pre-downloaded Forex data and trading journal for the selected pair.")
 
-    # Pair selector & Yahoo tickers (28 major & minor pairs)
+    # Pair selector & Yahoo tickers
     pairs_map = {
         "EUR/USD": "EURUSD=X",
         "USD/JPY": "JPY=X",
@@ -759,40 +759,34 @@ with tab2:
         "CAD/CHF": "CADCHF=X",
     }
 
-    timeframes = ["1m", "5m", "15m", "1h", "4h", "1d", "1wk"]
+    timeframes = ["1m","5m","15m","1h","4h","1d","1wk"]
 
     # User selection
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0)
     timeframe = st.selectbox("Select timeframe", timeframes, index=5)  # default 1d
     symbol = pairs_map[pair]
 
-    # Try both folders
-    folders = ["data/", "data2/"]
-    csv_path = None
+    # Look for CSV in multiple folders
+    folders = ["data", "data2"]
+    filename = None
     for folder in folders:
-        path = f"{folder}/{symbol}_{timeframe}.csv"
-        if os.path.exists(path):
-            csv_path = path
+        candidate = os.path.join(folder, f"{symbol}_{timeframe}.csv")
+        if os.path.exists(candidate):
+            filename = candidate
             break
 
-    if csv_path:
+    if not filename:
+        st.error(f"Data file for {symbol} at {timeframe} not found in {folders}.")
+    else:
         try:
-            data = pd.read_csv(csv_path)
-
-            # Ensure required columns
-            for col in ["open","high","low","close","time"]:
-                if col not in data.columns:
-                    st.error(f"CSV missing column: {col}")
-                    st.stop()
+            data = pd.read_csv(filename)
 
             # Ensure numeric types
             for col in ["open","high","low","close"]:
                 data[col] = data[col].astype(float)
 
             # Ensure time column is integer (UNIX timestamp)
-            if not pd.api.types.is_numeric_dtype(data["time"]):
-                data["time"] = pd.to_datetime(data["time"])
-                data["time"] = data["time"].apply(lambda x: int(x.timestamp()))
+            data["time"] = data["time"].astype(int)
 
             # Convert to dict for Lightweight Charts
             ohlc = data[["time","open","high","low","close"]].to_dict("records")
@@ -814,8 +808,6 @@ with tab2:
 
         except Exception as e:
             st.error(f"Failed to load data for {pair} ({symbol}) at {timeframe}: {str(e)}")
-    else:
-        st.error(f"Data file not found in either folder for {symbol}_{timeframe}.csv")
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
