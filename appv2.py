@@ -769,7 +769,8 @@ with tab2:
                 user_data = json.loads(result[0])
                 st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
                 logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-            else[mid]: logging.warning(f"No data found for user {username}")
+            else:
+                logging.warning(f"No data found for user {username}")
         except Exception as e:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
@@ -779,7 +780,7 @@ with tab2:
     import yfinance as yf
     import pandas as pd
     import json
-    from streamlit_lightweight_charts import renderLightweightCharts部分: CandlestickSeries
+    from streamlit_lightweight_charts import renderLightweightCharts
     import numpy as np
 
     # Fetch historical data
@@ -802,21 +803,23 @@ with tab2:
             "timeScale": {
                 "borderColor": "rgba(197, 203, 206, 0.8)",
                 "barSpacing": 10
-
             }
         }
     ]
     candlestick_series = {
-        "type": "CandlestickSeries",
+        "type": "Candlestick",
         "data": candles,
-        "upColor": "#26a69a",
-        "downColor": "#ef5350",
-        "borderVisible": False,
-        "wickUpColor": "#26 conversant: True
+        "options": {
+            "upColor": "#26a69a",
+            "downColor": "#ef5350",
+            "borderVisible": False,
+            "wickUpColor": "#26a69a",
+            "wickDownColor": "#ef5350"
+        }
     }
 
     # Render the chart
-    renderLightweightCharts(chart_options)
+    renderLightweightCharts(chart_options, candlestick_series)
 
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
@@ -879,7 +882,7 @@ with tab2:
                         st.success("Account synced successfully!")
                         logging.info(f"Account synced for {username}: {st.session_state.drawings}")
                     else:
-                        st.error("Failed to synced account.")
+                        st.error("Failed to sync account.")
                         logging.error(f"No user data found for {username}")
                     st.rerun()
                 except Exception as e:
@@ -930,7 +933,7 @@ with tab2:
         "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
         "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
         "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
-        "Entry Conditions": st.column_config.TextColumn("Entry Bills"),
+        "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
         "Planned R:R": st.column_config.TextColumn("Planned R:R"),
         "News Filter": st.column_config.TextColumn("News Filter"),
         "Alerts": st.column_config.TextColumn("Alerts"),
@@ -1050,7 +1053,6 @@ with tab2:
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
-
 # =========================================================
 # TAB 3: MT5 Performance Dashboard
 # =========================================================
