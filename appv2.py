@@ -71,17 +71,35 @@ chart_json = json.dumps(candles)
 
 # ---------- Inject Lightweight Charts ----------
 chart_template = Template("""
-<div id="chart" style="width:100%; height:500px;"></div>
+<div id="chart-container" style="width:100%; height:500px;"></div>
 <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <script>
-    const chart = LightweightCharts.createChart(document.getElementById("chart"), {
-        width: document.getElementById("chart").offsetWidth,
+(function() {
+    const container = document.getElementById("chart-container");
+    if (!container) return;
+
+    const chart = LightweightCharts.createChart(container, {
+        width: container.clientWidth,
         height: 500,
-        layout: { background: { type: 'Solid', color: '#ffffff' }, textColor: '#333' },
-        grid: { vertLines: { color: '#eee' }, horzLines: { color: '#eee' } }
+        layout: {
+            background: { type: 'Solid', color: '#ffffff' },
+            textColor: '#333'
+        },
+        grid: {
+            vertLines: { color: '#f0f3fa' },
+            horzLines: { color: '#f0f3fa' }
+        }
     });
+
     const candleSeries = chart.addCandlestickSeries();
-    candleSeries.setData($candles);
+    const data = $candles;
+    candleSeries.setData(data);
+
+    // Resize listener
+    window.addEventListener("resize", () => {
+        chart.applyOptions({ width: container.clientWidth });
+    });
+})();
 </script>
 """)
 
