@@ -767,7 +767,7 @@ with tab2:
     symbol = pairs_map[pair]
 
     # Try both folders
-    folders = ["data", "data2"]
+    folders = ["data/", "data2/"]
     csv_path = None
     for folder in folders:
         path = f"{folder}/{symbol}_{timeframe}.csv"
