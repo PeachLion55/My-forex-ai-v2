@@ -1,80 +1,57 @@
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, String, Integer
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from fastapi import FastAPI, HTTPException
 import requests
-import datetime
-import schedule
-import time
-import threading
+import sqlite3
+import json
 
 app = FastAPI()
 
-# DB Setup
-ENGINE = create_engine('sqlite:///myfxbook.db')
-Base = declarative_base()
+# SQLite for storing tokens
+conn = sqlite3.connect("tokens.db", check_same_thread=False)
+c = conn.cursor()
+c.execute("""
+CREATE TABLE IF NOT EXISTS myfxbook_tokens (
+    username TEXT PRIMARY KEY,
+    token TEXT
+)
+""")
+conn.commit()
 
-class Token(Base):
-    __tablename__ = "tokens"
-    user_id = Column(Integer, primary_key=True)
-    token = Column(String)
-    expiration = Column(String)
-
-Base.metadata.create_all(ENGINE)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
-
-class LoginCreds(BaseModel):
-    email: str
-    password: str
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+MYFXBOOK_API = "https://www.myfxbook.com/api"
 
 @app.post("/connect-myfxbook")
-def connect(creds: LoginCreds, db: Session = Depends(get_db)):
-    resp = requests.get(f"https://www.myfxbook.com/api/login.json?email={creds.email}&password={creds.password}")
-    data = resp.json()
-    if data.get("error"):
-        raise HTTPException(400, data["message"])
-    token = data["session"]
-    # Store token, assume user_id from auth
-    user_id = 1  # Replace with real user
-    db_token = Token(user_id=user_id, token=token, expiration=(datetime.datetime.now() + datetime.timedelta(hours=24)).isoformat())
-    db.add(db_token)
-    db.commit()
-    return {"session": token}
+def connect_myfxbook(username: str, email: str, password: str):
+    url = f"{MYFXBOOK_API}/login.json?email={email}&password={password}"
+    r = requests.get(url)
+    data = r.json()
+
+    if not data.get("error"):
+        token = data["session"]
+        c.execute("REPLACE INTO myfxbook_tokens (username, token) VALUES (?, ?)", (username, token))
+        conn.commit()
+        return {"success": True, "token": token}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.get("/myfxbook/accounts")
-def get_accounts(db: Session = Depends(get_db)):
-    # Get token for user
-    token = db.query(Token).filter(Token.user_id == 1).first().token  # Replace user_id
-    resp = requests.get(f"https://www.myfxbook.com/api/get-my-accounts.json?session={token}")
-    return resp.json()
+def get_accounts(username: str):
+    c.execute("SELECT token FROM myfxbook_tokens WHERE username=?", (username,))
+    row = c.fetchone()
+    if not row:
+        raise HTTPException(status_code=403, detail="User not connected")
+    token = row[0]
+
+    url = f"{MYFXBOOK_API}/get-my-accounts.json?session={token}"
+    r = requests.get(url)
+    return r.json()
 
 @app.get("/myfxbook/history/{account_id}")
-def get_history(account_id: int, db: Session = Depends(get_db)):
-    token = db.query(Token).filter(Token.user_id == 1).first().token
-    resp = requests.get(f"https://www.myfxbook.com/api/get-history.json?session={token}&id={account_id}")
-    data = resp.json()
-    # Cache in DB
-    # ...
-    return data
+def get_history(account_id: str, username: str):
+    c.execute("SELECT token FROM myfxbook_tokens WHERE username=?", (username,))
+    row = c.fetchone()
+    if not row:
+        raise HTTPException(status_code=403, detail="User not connected")
+    token = row[0]
 
-# Refresh schedule
-def refresh_data():
-    # Query tokens, fetch data for each, cache
-    pass
-
-schedule.every(1).hour.do(refresh_data)
-
-def run_scheduler():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-
-threading.Thread(target=run_scheduler).start()
+    url = f"{MYFXBOOK_API}/get-history.json?session={token}&id={account_id}"
+    r = requests.get(url)
+    return r.json()
