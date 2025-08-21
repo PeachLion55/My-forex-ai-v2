@@ -1398,4 +1398,4 @@ elif st.session_state.current_page == 'strategy':
     combined_df = pd.concat([journal_df, mt5_df], ignore_index=True) if not mt5_df.empty else journal_df
     group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
     if "Outcome / R:R Realised" in combined_df.columns:
-        combined_df['r'] = combined_df["Outcome / R:R Realised"].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else
+        combined_df['r'] = combined_df["Outcome / R:R Realised"].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else)
