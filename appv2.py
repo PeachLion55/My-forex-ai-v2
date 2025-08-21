@@ -739,7 +739,7 @@ else:
         transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
 
     # Button to add new trade column
-    if st.button("➕ Add New Trade", key="bt_add_trade_button"):
+if st.button("➕ Add New Trade", key="bt_add_trade_button"):
         current_trades = transposed_journal.columns.tolist()
         next_trade_num = len(current_trades) + 1
         new_trade = f"Trade {next_trade_num}"
