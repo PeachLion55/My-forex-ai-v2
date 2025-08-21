@@ -509,7 +509,9 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True
 )
-# Navigation items
+# =========================================================
+# SIDEBAR NAVIGATION
+# =========================================================
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
@@ -521,54 +523,45 @@ nav_items = [
     ('tools', 'Tools'),
 ]
 
-# Initialize current page if not set
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
-
-# CSS for buttons: hover + selected border
+# CSS for sidebar buttons
 st.markdown("""
-    <style>
-    div.stButton > button {
-        width: 100%;
-        text-align: left;
-        padding: 8px 12px;
-        margin-bottom: 5px;
-        border-radius: 5px;
-        border: 2px solid transparent;
-        transition: all 0.2s;
-        background-color: #f0f2f6;
-        font-weight: bold;
-    }
-    div.stButton > button:hover {
-        background-color: #e6f0ff;
-        cursor: pointer;
-    }
-    div.stButton > button.selected {
-        border: 3px solid #3399ff;
-        background-color: #dceaff;
-    }
-    </style>
+<style>
+.sidebar-button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    text-align: left;
+    font-weight: bold;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-color: #f0f2f6;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: black;
+}
+.sidebar-button:hover {
+    background-color: #e6f0ff;
+}
+.sidebar-button.selected {
+    border: 3px solid #3399ff;
+    background-color: #dceaff;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # Render buttons
 for page_key, page_name in nav_items:
-    # Add "selected" class to the current page button
-    extra_class = "selected" if st.session_state.current_page == page_key else ""
-    if st.sidebar.button(page_name, key=f"nav_{page_key}", help=page_key):
-        st.session_state.current_page = page_key
-        st.session_state.current_subpage = None
-        st.session_state.show_tools_submenu = False
-        st.rerun()
+    is_selected = "selected" if st.session_state.get("current_page") == page_key else ""
+    if st.sidebar.markdown(f"""
+        <a class="sidebar-button {is_selected}" href="?page={page_key}">{page_name}</a>
+    """, unsafe_allow_html=True):
+        pass
 
-    # Inject JS to add 'selected' class dynamically
-    st.markdown(f"""
-        <script>
-        const btn = window.parent.document.querySelector('button[key="nav_{page_key}"]');
-        if(btn) {{
-            btn.classList.add("{extra_class}");
-        }}
-        </script>
-    """, unsafe_allow_html=True)
+# Handle navigation
+query_params = st.experimental_get_query_params()
+if "page" in query_params:
+    st.session_state.current_page = query_params["page"][0]
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
