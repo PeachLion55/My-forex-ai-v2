@@ -1267,7 +1267,7 @@ elif st.session_state.current_page == 'mt5':
 elif st.session_state.current_page == 'psychology':
     st.title("🧠 Psychology")
     st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
-    st.write('---')
+    st.markdown('---')
     st.subheader("📝 Emotion Tracker")
     with st.form("emotion_form"):
         emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
