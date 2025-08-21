@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -2139,4 +2138,3 @@ with tab8:
         st.info("No leaderboard data yet.")
 # Close database connection
 conn.close()
-```
