@@ -1619,6 +1619,13 @@ elif st.session_state.current_page == 'community':
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
     st.markdown('---')
+st.markdown("""
+<style>
+div[data-testid="stTabs"] div[role="tablist"] > div {
+    background-color: #58b3b1 !important;
+}
+</style>
+""", unsafe_allow_html=True)
     tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
