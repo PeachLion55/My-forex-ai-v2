@@ -525,7 +525,7 @@ nav_items = [
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
-# Sidebar CSS for buttons
+# Add sidebar CSS for hover and selected button
 st.sidebar.markdown("""
     <style>
     div.stButton > button {
@@ -544,27 +544,26 @@ st.sidebar.markdown("""
         cursor: pointer;
     }
     .selected-button {
-        border: 2px solid #3399ff;
-        background-color: #f0f2f6 !important;
+        border: 3px solid #3399ff !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Render sidebar buttons with selected-page border
+# Render sidebar buttons
 for page_key, page_name in nav_items:
-    is_selected = st.session_state.current_page == page_key
-    button_style = "selected-button" if is_selected else ""
-    if st.sidebar.button(page_name, key=f"nav_{page_key}"):
+    button_clicked = st.sidebar.button(page_name, key=f"nav_{page_key}")
+    if button_clicked:
         st.session_state.current_page = page_key
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
     
-    # Apply border highlight by wrapping in container with CSS class
-    st.sidebar.markdown(
-        f"<div class='{button_style}'></div>", 
-        unsafe_allow_html=True
-    )
+    # Apply selected-page border using JS hack
+    if st.session_state.current_page == page_key:
+        st.sidebar.markdown(
+            f"<script>const btn=document.querySelector('button[k="{f'nav_{page_key}'}"]');if(btn){{btn.classList.add('selected-button');}}</script>",
+            unsafe_allow_html=True
+        )
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
