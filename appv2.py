@@ -171,29 +171,50 @@ st.markdown(
         background-color: #000000; /* Black (main color) */
     }}
     div[data-testid="stSidebar"] div.stButton > button {{
-        width: 220px; /* Fixed length for all sidebar buttons */
+        width: 220px; /* Fixed length for all sidebar navigation buttons */
         text-align: center;
-        background-color: #58b3b1; /* Secondary color */
-        color: #000000; /* Black text for contrast */
+        background-color: #000000; /* Black background */
+        color: #58b3b1; /* Secondary color text */
+        border: 2px solid #58b3b1; /* Border color #58b3b1 */
         border-radius: 5px;
         padding: 10px;
         margin: 5px auto; /* Center the buttons */
         font-weight: bold;
     }}
     div[data-testid="stSidebar"] div.stButton > button:hover {{
-        background-color: #4a9290; /* Darker shade of secondary color on hover */
+        background-color: #58b3b1; /* Secondary color on hover */
+        color: #000000; /* Black text on hover */
     }}
-    .stTabs [data-testid="stMarkdownContainer"] {{
-        color: #58b3b1; /* Secondary color for tab text */
+    [data-testid="baseButton-secondary"] {{
+        background-color: #000000; /* Black for secondary buttons */
+        color: #58b3b1; /* Secondary color text */
+        border: 2px solid #58b3b1;
+    }}
+    [data-testid="baseButton-secondary"]:hover {{
+        background-color: #58b3b1;
+        color: #000000;
+    }}
+    .stTabs [data-testid="stTab"] {{
+        background-color: #000000; /* Black for tabs */
+        color: #58b3b1; /* Secondary color text */
+        border: 2px solid #58b3b1; /* Border for tabs */
+        border-radius: 5px 5px 0 0;
+        padding: 10px 20px;
+        margin-right: 5px;
+        font-weight: bold;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background-color: #58b3b1; /* Active tab background */
+        color: #000000; /* Black text for active tab */
+    }}
+    .stTabs [data-testid="stTab"]:hover {{
+        background-color: #58b3b1; /* Hover background */
+        color: #000000;
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
-
-# Display logo in sidebar instead of title
-logo_base64 = "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"
-st.sidebar.image(f"data:image/png;base64,{logo_base64}", use_column_width=True)
 
 # =========================================================
 # HELPERS / DATA
@@ -404,6 +425,7 @@ if 'show_tools_submenu' not in st.session_state:
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
+st.sidebar.title("Forex Dashboard")
 
 # Navigation items
 nav_items = [
@@ -422,12 +444,30 @@ for page_key, page_name in nav_items:
         st.session_state.show_tools_submenu = False
         st.rerun()
 
-# Tools button (no submenu in sidebar)
+# Tools submenu
 if st.sidebar.button("Tools", key="nav_tools"):
+    st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
     st.session_state.current_page = 'tools'
-    st.session_state.current_subpage = None
-    st.session_state.show_tools_submenu = False
+    if not st.session_state.show_tools_submenu:
+        st.session_state.current_subpage = None
     st.rerun()
+
+# Tools submenu items
+if st.session_state.show_tools_submenu:
+    tools_subitems = [
+        ('profit_loss', 'Profit/Loss Calculator'),
+        ('alerts', 'Price Alerts'),
+        ('correlation', 'Currency Correlation Heatmap'),
+        ('risk_mgmt', 'Risk Management Calculator'),
+        ('sessions', 'Trading Session Tracker'),
+        ('drawdown', 'Drawdown Recovery Planner'),
+        ('checklist', 'Pre-Trade Checklist'),
+        ('premarket', 'Pre-Market Checklist')
+    ]
+    for sub_key, sub_name in tools_subitems:
+        if st.sidebar.button(sub_name, key=f"sub_{sub_key}"):
+            st.session_state.current_subpage = sub_key
+            st.rerun()
 
 # Settings
 if st.sidebar.button("Settings", key="nav_settings"):
@@ -450,7 +490,6 @@ if st.sidebar.button("Logout", key="nav_logout"):
     st.success("Logged out successfully!")
     logging.info("User logged out")
     st.rerun()
-
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
