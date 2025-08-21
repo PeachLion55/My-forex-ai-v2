@@ -25,7 +25,7 @@ import streamlit as st
 
 # --- Gridline background settings ---
 grid_color = "#58b3b1"  # gridline color
-grid_opacity = 0.1      # 0.0 (transparent) to 1.0 (solid)
+grid_opacity = 0.16      # 0.0 (transparent) to 1.0 (solid)
 grid_size = 40          # distance between gridlines in px
 
 # Convert HEX to RGB
