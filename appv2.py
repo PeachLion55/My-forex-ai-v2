@@ -162,31 +162,59 @@ def _ta_save_community(key, data):
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
-# ----------------- CUSTOM CSS -----------------
+# =========================================================
+# CUSTOM CSS + JS
+# =========================================================
 bg_opacity = 0.5
 st.markdown(
     """
     <style>
-    /* Ensure sidebar background is black */
+    /* Sidebar background */
     section[data-testid="stSidebar"] {
         background-color: #000000 !important;
     }
+    /* Sidebar buttons default style */
+    section[data-testid="stSidebar"] button {
+        width: 220px !important;
+        background-color: #000000 !important;
+        color: #58b3b1 !important;
+        border: 2px solid #58b3b1 !important;
+        border-radius: 5px !important;
+        padding: 10px !important;
+        margin: 5px auto !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        text-align: center !important;
+        display: block !important;
+    }
     </style>
     <script>
-    // Wait for DOM and apply button styles dynamically
+    // Ensure dynamically loaded buttons get the style applied
     document.addEventListener("DOMContentLoaded", function() {
-        let buttons = document.querySelectorAll('section[data-testid="stSidebar"] button');
-        buttons.forEach(btn => {
-            btn.style.width = "220px";
-            btn.style.backgroundColor = "#000000";
-            btn.style.color = "#58b3b1";
-            btn.style.border = "2px solid #58b3b1";
-            btn.style.borderRadius = "5px";
-            btn.style.padding = "10px";
-            btn.style.margin = "5px auto";
-            btn.style.fontWeight = "bold";
-            btn.style.fontSize = "16px";
-        });
+        const applyButtonStyles = () => {
+            let buttons = document.querySelectorAll('section[data-testid="stSidebar"] button');
+            buttons.forEach(btn => {
+                btn.style.width = "220px";
+                btn.style.backgroundColor = "#000000";
+                btn.style.color = "#58b3b1";
+                btn.style.border = "2px solid #58b3b1";
+                btn.style.borderRadius = "5px";
+                btn.style.padding = "10px";
+                btn.style.margin = "5px auto";
+                btn.style.fontWeight = "bold";
+                btn.style.fontSize = "16px";
+                btn.style.textAlign = "center";
+                btn.style.display = "block";
+            });
+        };
+        // Initial apply
+        applyButtonStyles();
+        // Observe sidebar for dynamically added buttons
+        const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+        if(sidebar){
+            const observer = new MutationObserver(applyButtonStyles);
+            observer.observe(sidebar, { childList: true, subtree: true });
+        }
     });
     </script>
     """,
