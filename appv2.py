@@ -186,8 +186,8 @@ st.markdown(
         color: #000000; /* Black text on hover */
     }}
     [data-testid="baseButton-secondary"] {{
-        background-color: #000000; /* Black for secondary buttons */
-        color: #58b3b1; /* Secondary color text */
+        background-color: #000000;
+        color: #58b3b1;
         border: 2px solid #58b3b1;
     }}
     [data-testid="baseButton-secondary"]:hover {{
@@ -195,20 +195,20 @@ st.markdown(
         color: #000000;
     }}
     .stTabs [data-testid="stTab"] {{
-        background-color: #000000; /* Black for tabs */
-        color: #58b3b1; /* Secondary color text */
-        border: 2px solid #58b3b1; /* Border for tabs */
+        background-color: #000000;
+        color: #58b3b1;
+        border: 2px solid #58b3b1;
         border-radius: 5px 5px 0 0;
         padding: 10px 20px;
         margin-right: 5px;
         font-weight: bold;
     }}
     .stTabs [aria-selected="true"] {{
-        background-color: #58b3b1; /* Active tab background */
-        color: #000000; /* Black text for active tab */
+        background-color: #58b3b1;
+        color: #000000;
     }}
     .stTabs [data-testid="stTab"]:hover {{
-        background-color: #58b3b1; /* Hover background */
+        background-color: #58b3b1;
         color: #000000;
     }}
     </style>
@@ -217,217 +217,10 @@ st.markdown(
 )
 
 # =========================================================
-# HELPERS / DATA
-# =========================================================
-def detect_currency(title: str) -> str:
-    t = title.upper()
-    currency_map = {
-        "USD": ["USD", "US ", " US:", "FED", "FEDERAL RESERVE", "AMERICA", "U.S."],
-        "GBP": ["GBP", "UK", " BRITAIN", "BOE", "POUND", "STERLING"],
-        "EUR": ["EUR", "EURO", "EUROZONE", "ECB"],
-        "JPY": ["JPY", "JAPAN", "BOJ", "YEN"],
-        "AUD": ["AUD", "AUSTRALIA", "RBA"],
-        "CAD": ["CAD", "CANADA", "BOC"],
-        "CHF": ["CHF", "SWITZERLAND", "SNB"],
-        "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
-    }
-    for curr, kws in currency_map.items():
-        for kw in kws:
-            if kw in t:
-                return curr
-    return "Unknown"
-
-def rate_impact(polarity: float) -> str:
-    if polarity > 0.5:
-        return "Significantly Bullish"
-    elif polarity > 0.1:
-        return "Bullish"
-    elif polarity < -0.5:
-        return "Significantly Bearish"
-    elif polarity < -0.1:
-        return "Bearish"
-    else:
-        return "Neutral"
-
-@st.cache_data(ttl=600, show_spinner=False)
-def get_fxstreet_forex_news() -> pd.DataFrame:
-    RSS_URL = "https://www.fxstreet.com/rss/news"
-    try:
-        feed = feedparser.parse(RSS_URL)
-        logging.info("Successfully parsed FXStreet RSS feed")
-    except Exception as e:
-        logging.error(f"Failed to parse FXStreet RSS feed: {str(e)}")
-        return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-    rows = []
-    for entry in getattr(feed, "entries", []):
-        title = entry.title
-        published = getattr(entry, "published", "")
-        date = published[:10] if published else ""
-        currency = detect_currency(title)
-        polarity = TextBlob(title).sentiment.polarity
-        impact = rate_impact(polarity)
-        summary = getattr(entry, "summary", "")
-        rows.append({
-            "Date": date,
-            "Currency": currency,
-            "Headline": title,
-            "Polarity": polarity,
-            "Impact": impact,
-            "Summary": summary,
-            "Link": entry.link
-        })
-    if rows:
-        df = pd.DataFrame(rows)
-        try:
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-            cutoff = pd.Timestamp.utcnow().normalize() - pd.Timedelta(days=3)
-            df = df[df["Date"] >= cutoff]
-            logging.info("News dataframe processed successfully")
-        except Exception as e:
-            logging.error(f"Failed to process news dataframe: {str(e)}")
-        return df.reset_index(drop=True)
-    return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-
-econ_calendar_data = [
-    {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
-    {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
-]
-econ_df = pd.DataFrame(econ_calendar_data)
-df_news = get_fxstreet_forex_news()
-
-# Initialize drawings in session_state
-if "drawings" not in st.session_state:
-    st.session_state.drawings = {}
-    logging.info("Initialized st.session_state.drawings")
-
-# Define journal columns and dtypes
-journal_cols = [
-    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
-    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
-    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns", "Emotions",
-    "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
-    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
-]
-journal_dtypes = {
-    "Date": "datetime64[ns]", "Symbol": str, "Weekly Bias": str, "Daily Bias": str,
-    "4H Structure": str, "1H Structure": str, "Positive Correlated Pair & Bias": str,
-    "Potential Entry Points": str, "5min/15min Setup?": str, "Entry Conditions": str,
-    "Planned R:R": str, "News Filter": str, "Alerts": str, "Concerns": str, "Emotions": str,
-    "Confluence Score 1-7": float, "Outcome / R:R Realised": str, "Notes/Journal": str,
-    "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Lots": float
-}
-
-# Initialize trading journal with proper dtypes
-if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-else:
-    # Ensure existing journal matches new structure
-    current_journal = st.session_state.tools_trade_journal
-    missing_cols = [col for col in journal_cols if col not in current_journal.columns]
-    if missing_cols:
-        for col in missing_cols:
-            current_journal[col] = pd.Series(dtype=journal_dtypes[col])
-    # Reorder columns and apply dtypes
-    st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
-
-# Initialize temporary journal for form
-if "temp_journal" not in st.session_state:
-    st.session_state.temp_journal = None
-
-# Gamification helpers
-def ta_update_xp(amount):
-    if "logged_in_user" in st.session_state:
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
-            user_data['xp'] = user_data.get('xp', 0) + amount
-            level = user_data['xp'] // 100
-            if level > user_data.get('level', 0):
-                user_data['level'] = level
-                user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
-                st.balloons()
-                st.success(f"Level up! You are now level {level}.")
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-            conn.commit()
-            st.session_state.xp = user_data['xp']
-            st.session_state.level = user_data['level']
-            st.session_state.badges = user_data['badges']
-
-def ta_update_streak():
-    if "logged_in_user" in st.session_state:
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
-            today = dt.date.today().isoformat()
-            last_date = user_data.get('last_journal_date')
-            streak = user_data.get('streak', 0)
-            if last_date:
-                last = dt.date.fromisoformat(last_date)
-                if last == dt.date.fromisoformat(today) - dt.timedelta(days=1):
-                    streak += 1
-                elif last < dt.date.fromisoformat(today) - dt.timedelta(days=1):
-                    streak = 1
-            else:
-                streak = 1
-            user_data['streak'] = streak
-            user_data['last_journal_date'] = today
-            if streak % 7 == 0:
-                badge = "Discipline Badge"
-                if badge not in user_data.get('badges', []):
-                    user_data['badges'] = user_data.get('badges', []) + [badge]
-                    st.balloons()
-                    st.success(f"Unlocked: {badge} for {streak} day streak!")
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-            conn.commit()
-            st.session_state.streak = streak
-            st.session_state.badges = user_data['badges']
-
-def ta_check_milestones(journal_df, mt5_df):
-    total_trades = len(journal_df)
-    if total_trades >= 100:
-        st.balloons()
-        st.success("Milestone achieved: 100 trades journaled!")
-    if not mt5_df.empty:
-        daily_pnl = _ta_daily_pnl(mt5_df)
-        if not daily_pnl.empty:
-            daily_pnl['date'] = pd.to_datetime(daily_pnl['date'])
-            recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - pd.Timedelta(days=90)]
-            if not recent.empty:
-                equity = recent['pnl'].cumsum()
-                dd = (equity - equity.cummax()).min() / equity.max() if equity.max() != 0 else 0
-                if abs(dd) < 0.1:
-                    st.balloons()
-                    st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
-
-# Load community data
-if "trade_ideas" not in st.session_state:
-    loaded_ideas = _ta_load_community('trade_ideas', [])
-    st.session_state.trade_ideas = pd.DataFrame(loaded_ideas, columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]) if loaded_ideas else pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"])
-
-if "community_templates" not in st.session_state:
-    loaded_templates = _ta_load_community('templates', [])
-    st.session_state.community_templates = pd.DataFrame(loaded_templates, columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]) if loaded_templates else pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
-
-# =========================================================
-# SESSION STATE INITIALIZATION
-# =========================================================
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
-if 'current_subpage' not in st.session_state:
-    st.session_state.current_subpage = None
-if 'show_tools_submenu' not in st.session_state:
-    st.session_state.show_tools_submenu = False
-
-# =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
 st.sidebar.title("Forex Dashboard")
 
-# Navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
@@ -444,7 +237,7 @@ for page_key, page_name in nav_items:
         st.session_state.show_tools_submenu = False
         st.rerun()
 
-# Tools submenu
+# Tools main button
 if st.sidebar.button("Tools", key="nav_tools"):
     st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
     st.session_state.current_page = 'tools'
@@ -452,8 +245,8 @@ if st.sidebar.button("Tools", key="nav_tools"):
         st.session_state.current_subpage = None
     st.rerun()
 
-# Tools submenu items
-if st.session_state.show_tools_submenu:
+# Tools submenu (always shown when Tools page is active)
+if st.session_state.current_page == 'tools':
     tools_subitems = [
         ('profit_loss', 'Profit/Loss Calculator'),
         ('alerts', 'Price Alerts'),
@@ -468,28 +261,6 @@ if st.session_state.show_tools_submenu:
         if st.sidebar.button(sub_name, key=f"sub_{sub_key}"):
             st.session_state.current_subpage = sub_key
             st.rerun()
-
-# Settings
-if st.sidebar.button("Settings", key="nav_settings"):
-    st.session_state.current_page = 'settings'
-    st.rerun()
-
-# Logout
-if st.sidebar.button("Logout", key="nav_logout"):
-    if 'logged_in_user' in st.session_state:
-        del st.session_state.logged_in_user
-    st.session_state.drawings = {}
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-    st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-    st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-    st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-    st.session_state.xp = 0
-    st.session_state.level = 0
-    st.session_state.badges = []
-    st.session_state.streak = 0
-    st.success("Logged out successfully!")
-    logging.info("User logged out")
-    st.rerun()
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
