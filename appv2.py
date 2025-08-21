@@ -470,7 +470,12 @@ if 'show_tools_submenu' not in st.session_state:
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
-st.sidebar.title("Forex Dashboard")
+from PIL import Image
+
+# Display logo instead of text title
+logo = Image.open("logo2.png")  # make sure logo2.png is in the same folder as this script
+st.sidebar.image(logo, use_column_width=True)
+
 # Navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
@@ -483,12 +488,14 @@ nav_items = [
     ('tools', 'Tools'),
     ('settings', 'Settings')
 ]
+
 for page_key, page_name in nav_items:
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
         st.session_state.current_page = page_key
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
+
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
