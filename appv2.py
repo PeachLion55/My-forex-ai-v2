@@ -509,9 +509,7 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True
 )
-# =========================================================
-# SIDEBAR NAVIGATION
-# =========================================================
+# Navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
@@ -521,47 +519,16 @@ nav_items = [
     ('account', 'My Account'),
     ('community', 'Community Trade Ideas'),
     ('tools', 'Tools'),
+    #('settings', 'Settings')
 ]
 
-# CSS for sidebar buttons
-st.markdown("""
-<style>
-.sidebar-button {
-    display: block;
-    width: 100%;
-    padding: 8px 12px;
-    margin-bottom: 5px;
-    text-align: left;
-    font-weight: bold;
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-color: #f0f2f6;
-    transition: all 0.2s;
-    text-decoration: none;
-    color: black;
-}
-.sidebar-button:hover {
-    background-color: #e6f0ff;
-}
-.sidebar-button.selected {
-    border: 3px solid #3399ff;
-    background-color: #dceaff;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Render buttons
 for page_key, page_name in nav_items:
-    is_selected = "selected" if st.session_state.get("current_page") == page_key else ""
-    if st.sidebar.markdown(f"""
-        <a class="sidebar-button {is_selected}" href="?page={page_key}">{page_name}</a>
-    """, unsafe_allow_html=True):
-        pass
+    if st.sidebar.button(page_name, key=f"nav_{page_key}"):
+        st.session_state.current_page = page_key
+        st.session_state.current_subpage = None
+        st.session_state.show_tools_submenu = False
+        st.rerun()
 
-# Handle navigation
-query_params = st.experimental_get_query_params()
-if "page" in query_params:
-    st.session_state.current_page = query_params["page"][0]
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
