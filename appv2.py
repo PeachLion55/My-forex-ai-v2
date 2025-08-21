@@ -471,13 +471,27 @@ if 'show_tools_submenu' not in st.session_state:
 # SIDEBAR NAVIGATION
 # =========================================================
 from PIL import Image
+import io
+import base64
 
 # Load and resize the logo
-logo = Image.open("logo22.png")  # make sure logo2.png is in the same folder as this script
+logo = Image.open("logo22.png")
 logo = logo.resize((60, 50))  # adjust width and height as needed
 
-# Display the logo in the sidebar
-st.sidebar.image(logo, use_column_width=False)
+# Convert logo to base64 for HTML embedding
+buffered = io.BytesIO()
+logo.save(buffered, format="PNG")
+logo_str = base64.b64encode(buffered.getvalue()).decode()
+
+# Display logo centered in the sidebar
+st.sidebar.markdown(
+    f"""
+    <div style='text-align: center; margin-bottom: 20px;'>
+        <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 # Navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
