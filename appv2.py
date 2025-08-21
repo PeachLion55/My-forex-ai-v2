@@ -751,7 +751,7 @@ if st.button("➕ Add New Trade", key="bt_add_trade_button"):
         st.rerun()
 
     # Dynamically configure columns for trades
-    transposed_column_config = {}
+transposed_column_config = {}
     for col in transposed_journal.columns:
         transposed_column_config[col] = column_config
 
