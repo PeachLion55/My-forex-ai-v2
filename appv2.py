@@ -750,89 +750,88 @@ if st.button("➕ Add New Trade", key="bt_add_trade_button"):
         st.session_state.temp_journal = None
         st.rerun()
 
-    # Dynamically configure columns for trades
-transposed_column_config = {}
-    for col in transposed_journal.columns:
-        transposed_column_config[col] = column_config
+# Configure columns dynamically
+transposed_column_config = {col: column_config for col in transposed_journal.columns}
 
-    # Use form to stabilize data editor
-    old_num_trades = len(st.session_state.tools_trade_journal)
-    with st.form(key="bt_journal_form"):
-        updated_journal_tools = st.data_editor(
-            data=transposed_journal.copy(),
-            num_rows="dynamic",
-            column_config=transposed_column_config,
-            key="bt_backtesting_journal_static",
-            use_container_width=True,
-            height=800
-        )
-        submit_button = st.form_submit_button("Submit Journal Changes")
-        if submit_button:
-            if not updated_journal_tools.empty:
-                updated_journal_tools = updated_journal_tools.transpose()
-                updated_journal_tools.columns = journal_cols
-                updated_journal_tools = updated_journal_tools.reset_index(drop=True)
-                st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
-                st.session_state.temp_journal = None
-                new_num_trades = len(st.session_state.tools_trade_journal)
-                if new_num_trades > old_num_trades:
-                    added = new_num_trades - old_num_trades
-                    ta_update_xp(added * 10)
-                    ta_update_streak()
-                st.success("Journal changes submitted successfully!")
-            else:
-                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                st.session_state.temp_journal = None
-                st.rerun()
+# Use form to stabilize data editor
+old_num_trades = len(st.session_state.tools_trade_journal)
+with st.form(key="bt_journal_form"):
+    updated_journal_tools = st.data_editor(
+        data=transposed_journal.copy(),
+        num_rows="dynamic",
+        column_config=transposed_column_config,
+        key="bt_backtesting_journal_static",
+        use_container_width=True,
+        height=800
+    )
+    submit_button = st.form_submit_button("Submit Journal Changes")
 
-    if "logged_in_user" in st.session_state:
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("💾 Save to My Account", key="bt_save_journal_button"):
-                username = st.session_state.logged_in_user
-                journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
-                logging.info(f"Saving journal for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
-                    user_data["tools_trade_journal"] = journal_data
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                    conn.commit()
-                    st.success("Trading journal saved to your account!")
-                    logging.info(f"Journal saved for {username}")
-                except Exception as e:
-                    st.error(f"Failed to save journal: {str(e)}")
-                    logging.error(f"Error saving journal for {username}: {str(e)}")
-        with col2:
-            if st.button("📂 Load Journal", key="bt_load_journal_button"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Loading journal for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        saved_journal = user_data.get("tools_trade_journal", [])
-                        if saved_journal:
-                            loaded_df = pd.DataFrame(saved_journal)
-                            for col in journal_cols:
-                                if col not in loaded_df.columns:
-                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                            st.session_state.tools_trade_journal = loaded_df
-                            st.session_state.temp_journal = None
-                            st.success("Trading journal loaded from your account!")
-                            logging.info(f"Journal loaded for {username}")
-                        else:
-                            st.info("No saved journal found in your account.")
-                            logging.info(f"No journal found for {username}")
+    if submit_button:
+        if not updated_journal_tools.empty:
+            # Transpose back to original format
+            updated_journal_tools = updated_journal_tools.transpose()
+            updated_journal_tools.columns = journal_cols
+            updated_journal_tools = updated_journal_tools.reset_index(drop=True)
+            st.session_state.tools_trade_journal = updated_journal_tools.astype(journal_dtypes, errors='ignore')
+            st.session_state.temp_journal = None
+
+            new_num_trades = len(st.session_state.tools_trade_journal)
+            if new_num_trades > old_num_trades:
+                added = new_num_trades - old_num_trades
+                ta_update_xp(added * 10)
+                ta_update_streak()
+
+            st.success("Journal changes submitted successfully!")
+        else:
+            # Reset to empty DataFrame if nothing is submitted
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.temp_journal = None
+            st.rerun()
+
+# Save / Load journal for logged-in users
+if "logged_in_user" in st.session_state:
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        if st.button("💾 Save to My Account", key="bt_save_journal_button"):
+            username = st.session_state.logged_in_user
+            journal_data = st.session_state.tools_trade_journal.to_dict(orient="records")
+            try:
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                user_data = json.loads(result[0]) if result else {}
+                user_data["tools_trade_journal"] = journal_data
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                conn.commit()
+                st.success("Trading journal saved to your account!")
+            except Exception as e:
+                st.error(f"Failed to save journal: {str(e)}")
+
+    with col2:
+        if st.button("📂 Load Journal", key="bt_load_journal_button"):
+            username = st.session_state.logged_in_user
+            try:
+                c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result:
+                    user_data = json.loads(result[0])
+                    saved_journal = user_data.get("tools_trade_journal", [])
+                    if saved_journal:
+                        loaded_df = pd.DataFrame(saved_journal)
+                        # Ensure all columns exist
+                        for col in journal_cols:
+                            if col not in loaded_df.columns:
+                                loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                        loaded_df = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                        st.session_state.tools_trade_journal = loaded_df
+                        st.session_state.temp_journal = None
+                        st.success("Trading journal loaded from your account!")
                     else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load journal: {str(e)}")
-                    logging.error(f"Error loading journal for {username}: {str(e)}")
+                        st.info("No saved journal found in your account.")
+                else:
+                    st.error("Failed to load user data.")
+            except Exception as e:
+                st.error(f"Failed to load journal: {str(e)}")
 
 elif st.session_state.current_page == 'mt5':
     st.markdown("""
