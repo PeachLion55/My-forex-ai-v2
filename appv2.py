@@ -732,7 +732,7 @@ column_config = {
 if st.session_state.tools_trade_journal.empty:
         # Initialize with one trade column if empty
         transposed_journal = pd.DataFrame(index=journal_cols, columns=["Trade 1"]).astype(object)
-    else:
+else:
         # Transpose the journal: fields as rows, trades as columns
         transposed_journal = st.session_state.tools_trade_journal.transpose()
         # Rename columns to "Trade 1", "Trade 2", etc.
