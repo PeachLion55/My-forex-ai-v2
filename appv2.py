@@ -613,78 +613,72 @@ elif st.session_state.current_page == 'backtesting':
 import streamlit as st
 import json
 import os
+from datetime import datetime
 import streamlit.components.v1 as components
 
-# ===============================
-# CONFIGURATION
-# ===============================
-DATA_FOLDER = "Data"  # Make sure this folder is in the root of your repo
+# -------------------------------
+# Configuration
+# -------------------------------
+DATA_DIR = "Data"  # folder in main branch with JSON files
+PAIR = "EURUSD"
+TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d", "1w", "1M"]
 
-# Pairs
-pairs_map = {
-    "EUR/USD": "EURUSD",
-    "USD/JPY": "USDJPY",
-    "GBP/USD": "GBPUSD",
-    # add other pairs as needed
-}
+# -------------------------------
+# User selects timeframe
+# -------------------------------
+tf = st.selectbox("Select timeframe", TIMEFRAMES, index=4)  # default 1d
 
-# Timeframes
-timeframes = ["1m", "5m", "15m", "1h", "4h", "8h", "1D", "1W", "1M"]
+# -------------------------------
+# Load JSON data
+# -------------------------------
+json_file = os.path.join(DATA_DIR, f"{PAIR}_{tf}.json")
+if not os.path.exists(json_file):
+    st.error(f"Data file not found: {PAIR}_{tf}.json")
+    st.stop()
 
-# ===============================
-# USER INPUT
-# ===============================
-pair_name = st.selectbox("Select Pair", list(pairs_map.keys()))
-selected_tf = st.selectbox("Select Timeframe", timeframes)
+with open(json_file, "r") as f:
+    data = json.load(f)
 
-pair_code = pairs_map[pair_name]
-file_name = f"{pair_code}_{selected_tf}.json"
-file_path = os.path.join(DATA_FOLDER, file_name)
+# -------------------------------
+# Ensure timestamp is proper
+# -------------------------------
+for bar in data:
+    # Convert to UNIX timestamp if in string format
+    if isinstance(bar["time"], str):
+        # Try YYYY-MM-DD or YYYYMMDD HHMMSS
+        try:
+            dt = datetime.strptime(bar["time"], "%Y-%m-%d")
+        except:
+            dt = datetime.strptime(bar["time"], "%Y%m%d %H%M%S")
+        bar["time"] = int(dt.timestamp())
 
-# ===============================
-# LOAD DATA
-# ===============================
-if os.path.exists(file_path):
-    with open(file_path, "r") as f:
-        data = json.load(f)
-    st.write(f"Loaded {len(data)} bars for {pair_name} ({selected_tf})")
-else:
-    st.error(f"Data file not found: {file_name}")
-    data = []
+# -------------------------------
+# Show sample
+# -------------------------------
+st.write(f"Loaded {len(data)} bars for {PAIR} ({tf})")
+st.write(data[:5])
 
-# ===============================
-# RENDER LIGHTWEIGHT CHART
-# ===============================
-if data:
-    lwc_html = f"""
-    <div id="chart" style="width:100%; height:600px;"></div>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-    <script>
-        const chart = LightweightCharts.createChart(document.getElementById('chart'), {{
-            width: document.getElementById('chart').clientWidth,
-            height: 600,
-            layout: {{ backgroundColor: '#000000', textColor: 'white' }},
-            grid: {{ vertLines: {{ color: '#444' }}, horzLines: {{ color: '#444' }} }},
-            crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }},
-            rightPriceScale: {{ borderColor: '#555' }},
-            timeScale: {{ borderColor: '#555' }}
-        }});
+# -------------------------------
+# Render Lightweight Chart
+# -------------------------------
+html_code = f"""
+<div id="chart" style="height:600px;"></div>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {{
+    width: window.innerWidth*0.9,
+    height: 600,
+    layout: {{ backgroundColor: '#0f0f0f', textColor: '#ffffff' }},
+    rightPriceScale: {{ borderColor: '#555' }},
+    timeScale: {{ borderColor: '#555' }}
+}});
+const candleSeries = chart.addCandlestickSeries();
+const data = {json.dumps(data)};
+candleSeries.setData(data);
+</script>
+"""
 
-        const candlestickSeries = chart.addCandlestickSeries({{
-            upColor: '#4CAF50',
-            borderUpColor: '#4CAF50',
-            downColor: '#F44336',
-            borderDownColor: '#F44336',
-            wickUpColor: '#4CAF50',
-            wickDownColor: '#F44336',
-        }});
-
-        const data = {json.dumps(data)};
-        candlestickSeries.setData(data);
-    </script>
-    """
-    components.html(lwc_html, height=620, scrolling=False)
-
+components.html(html_code, height=620, scrolling=False)
 # Backtesting Journal
 st.markdown("### 📝 Trading Journal")
 
