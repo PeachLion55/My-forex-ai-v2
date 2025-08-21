@@ -29,18 +29,9 @@ import streamlit as st
 st.markdown(
     """
     <style>
-    /* Main content container */
-    .css-18e3th9 {
-        padding-top: 0rem;
-        margin-top: 0rem;
-    }
-    /* Optional: Titles */
-    .css-10trblm {
-        margin-top: 0rem;
-    }
-    /* Optional: Markdown blocks */
-    .css-1d391kg { 
-        margin-top: 0rem;
+    /* Remove main top padding */
+    main {
+        padding-top: 0rem !important;
     }
     </style>
     """,
