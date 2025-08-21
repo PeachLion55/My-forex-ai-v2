@@ -161,7 +161,6 @@ def _ta_save_community(key, data):
 # PAGE CONFIG
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
-
 # =========================================================
 # CUSTOM CSS + JS
 # =========================================================
@@ -174,37 +173,39 @@ st.markdown(
         background-color: #000000 !important;
     }
     /* Sidebar buttons default style */
-    section[data-testid="stSidebar"] button {
-        width: 220px !important;
+    section[data-testid="stSidebar"] div.stButton > button {
+        width: 100% !important;
         background-color: #000000 !important;
-        color: #58b3b1 !important;
+        color: #ffffff !important;
         border: 2px solid #58b3b1 !important;
         border-radius: 5px !important;
         padding: 10px !important;
-        margin: 5px auto !important;
+        margin: 5px 0 !important;
         font-weight: bold !important;
         font-size: 16px !important;
-        text-align: center !important;
+        text-align: left !important;
         display: block !important;
+        box-sizing: border-box !important;
     }
     </style>
     <script>
     // Ensure dynamically loaded buttons get the style applied
     document.addEventListener("DOMContentLoaded", function() {
         const applyButtonStyles = () => {
-            let buttons = document.querySelectorAll('section[data-testid="stSidebar"] button');
+            let buttons = document.querySelectorAll('section[data-testid="stSidebar"] div.stButton > button');
             buttons.forEach(btn => {
-                btn.style.width = "220px";
+                btn.style.width = "100%";
                 btn.style.backgroundColor = "#000000";
-                btn.style.color = "#58b3b1";
+                btn.style.color = "#ffffff";
                 btn.style.border = "2px solid #58b3b1";
                 btn.style.borderRadius = "5px";
                 btn.style.padding = "10px";
-                btn.style.margin = "5px auto";
+                btn.style.margin = "5px 0";
                 btn.style.fontWeight = "bold";
                 btn.style.fontSize = "16px";
-                btn.style.textAlign = "center";
+                btn.style.textAlign = "left";
                 btn.style.display = "block";
+                btn.style.boxSizing = "border-box";
             });
         };
         // Initial apply
@@ -240,7 +241,6 @@ def detect_currency(title: str) -> str:
             if kw in t:
                 return curr
     return "Unknown"
-
 def rate_impact(polarity: float) -> str:
     if polarity > 0.5:
         return "Significantly Bullish"
@@ -252,7 +252,6 @@ def rate_impact(polarity: float) -> str:
         return "Bearish"
     else:
         return "Neutral"
-
 @st.cache_data(ttl=600, show_spinner=False)
 def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -291,19 +290,16 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             logging.error(f"Failed to process news dataframe: {str(e)}")
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
-
 # Initialize drawings in session_state
 if "drawings" not in st.session_state:
     st.session_state.drawings = {}
     logging.info("Initialized st.session_state.drawings")
-
 # Define journal columns and dtypes
 journal_cols = [
     "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
@@ -320,7 +316,6 @@ journal_dtypes = {
     "Confluence Score 1-7": float, "Outcome / R:R Realised": str, "Notes/Journal": str,
     "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Lots": float
 }
-
 # Initialize trading journal with proper dtypes
 if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
     st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
@@ -333,11 +328,9 @@ else:
             current_journal[col] = pd.Series(dtype=journal_dtypes[col])
     # Reorder columns and apply dtypes
     st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
-
 # Initialize temporary journal for form
 if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
-
 # Gamification helpers
 def ta_update_xp(amount):
     if "logged_in_user" in st.session_state:
@@ -358,7 +351,6 @@ def ta_update_xp(amount):
             st.session_state.xp = user_data['xp']
             st.session_state.level = user_data['level']
             st.session_state.badges = user_data['badges']
-
 def ta_update_streak():
     if "logged_in_user" in st.session_state:
         username = st.session_state.logged_in_user
@@ -389,7 +381,6 @@ def ta_update_streak():
             conn.commit()
             st.session_state.streak = streak
             st.session_state.badges = user_data['badges']
-
 def ta_check_milestones(journal_df, mt5_df):
     total_trades = len(journal_df)
     if total_trades >= 100:
@@ -406,16 +397,13 @@ def ta_check_milestones(journal_df, mt5_df):
                 if abs(dd) < 0.1:
                     st.balloons()
                     st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
-
 # Load community data
 if "trade_ideas" not in st.session_state:
     loaded_ideas = _ta_load_community('trade_ideas', [])
     st.session_state.trade_ideas = pd.DataFrame(loaded_ideas, columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]) if loaded_ideas else pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"])
-
 if "community_templates" not in st.session_state:
     loaded_templates = _ta_load_community('templates', [])
     st.session_state.community_templates = pd.DataFrame(loaded_templates, columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]) if loaded_templates else pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
-
 # =========================================================
 # SESSION STATE INITIALIZATION
 # =========================================================
@@ -425,21 +413,19 @@ if 'current_subpage' not in st.session_state:
     st.session_state.current_subpage = None
 if 'show_tools_submenu' not in st.session_state:
     st.session_state.show_tools_submenu = False
-
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
 st.sidebar.title("Forex Dashboard")
-
 # Navigation items
 nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
-    ('backtesting', 'Backtesting'),
-    ('mt5', 'MT5 Performance Dashboard'),
-    ('psychology', 'Psychology'),
-    ('strategy', 'Manage My Strategy'),
-    ('account', 'My Account'),
-    ('community', 'Community Trade Ideas')
+    ('fundamentals', '📈 Forex Fundamentals'),
+    ('backtesting', '🔍 Backtesting'),
+    ('mt5', '📊 MT5 Performance Dashboard'),
+    ('psychology', '🧠 Psychology'),
+    ('strategy', '⚔️ Manage My Strategy'),
+    ('account', '👤 My Account'),
+    ('community', '🌐 Community Trade Ideas')
 ]
 for page_key, page_name in nav_items:
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
@@ -447,39 +433,35 @@ for page_key, page_name in nav_items:
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
-
 # Tools submenu
-if st.sidebar.button("Tools", key="nav_tools"):
+if st.sidebar.button("🛠️ Tools", key="nav_tools"):
     st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
     st.session_state.current_page = 'tools'
     if not st.session_state.show_tools_submenu:
         st.session_state.current_subpage = None
     st.rerun()
-
 # Tools submenu items
 if st.session_state.show_tools_submenu:
     tools_subitems = [
-        ('profit_loss', 'Profit/Loss Calculator'),
-        ('alerts', 'Price Alerts'),
-        ('correlation', 'Currency Correlation Heatmap'),
-        ('risk_mgmt', 'Risk Management Calculator'),
-        ('sessions', 'Trading Session Tracker'),
-        ('drawdown', 'Drawdown Recovery Planner'),
-        ('checklist', 'Pre-Trade Checklist'),
-        ('premarket', 'Pre-Market Checklist')
+        ('profit_loss', '💹 Profit/Loss Calculator'),
+        ('alerts', '🔔 Price Alerts'),
+        ('correlation', '🔗 Currency Correlation Heatmap'),
+        ('risk_mgmt', '🛡️ Risk Management Calculator'),
+        ('sessions', '⏰ Trading Session Tracker'),
+        ('drawdown', '📉 Drawdown Recovery Planner'),
+        ('checklist', '✅ Pre-Trade Checklist'),
+        ('premarket', '🌅 Pre-Market Checklist')
     ]
     for sub_key, sub_name in tools_subitems:
         if st.sidebar.button(sub_name, key=f"sub_{sub_key}"):
             st.session_state.current_subpage = sub_key
             st.rerun()
-
 # Settings
-if st.sidebar.button("Settings", key="nav_settings"):
+if st.sidebar.button("⚙️ Settings", key="nav_settings"):
     st.session_state.current_page = 'settings'
     st.rerun()
-
 # Logout
-if st.sidebar.button("Logout", key="nav_logout"):
+if st.sidebar.button("🚪 Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
         del st.session_state.logged_in_user
     st.session_state.drawings = {}
