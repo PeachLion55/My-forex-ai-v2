@@ -525,8 +525,8 @@ nav_items = [
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
-# CSS for buttons: hover + selected
-st.sidebar.markdown("""
+# CSS for buttons: hover + selected border
+st.markdown("""
     <style>
     div.stButton > button {
         width: 100%;
@@ -543,29 +543,32 @@ st.sidebar.markdown("""
         background-color: #e6f0ff;
         cursor: pointer;
     }
-    .selected-button {
-        border: 3px solid #3399ff !important;
+    div.stButton > button.selected {
+        border: 3px solid #3399ff;
+        background-color: #dceaff;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # Render buttons
 for page_key, page_name in nav_items:
-    # Check if this button is the current page
-    is_selected = st.session_state.current_page == page_key
+    # Add "selected" class to the current page button
+    extra_class = "selected" if st.session_state.current_page == page_key else ""
+    if st.sidebar.button(page_name, key=f"nav_{page_key}", help=page_key):
+        st.session_state.current_page = page_key
+        st.session_state.current_subpage = None
+        st.session_state.show_tools_submenu = False
+        st.rerun()
 
-    # Add a class to the selected button
-    if is_selected:
-        st.sidebar.markdown(
-            f"<div class='selected-button'>{page_name}</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        if st.sidebar.button(page_name, key=f"nav_{page_key}"):
-            st.session_state.current_page = page_key
-            st.session_state.current_subpage = None
-            st.session_state.show_tools_submenu = False
-            st.rerun()
+    # Inject JS to add 'selected' class dynamically
+    st.markdown(f"""
+        <script>
+        const btn = window.parent.document.querySelector('button[key="nav_{page_key}"]');
+        if(btn) {{
+            btn.classList.add("{extra_class}");
+        }}
+        </script>
+    """, unsafe_allow_html=True)
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
