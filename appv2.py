@@ -163,54 +163,33 @@ def _ta_save_community(key, data):
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # ----------------- CUSTOM CSS -----------------
-bg_opacity = 0.5
 st.markdown(
-    f"""
+    """
     <style>
-    div[data-testid="stSidebar"] {{
-        background-color: #000000; /* Black (main color) */
-    }}
-    div[data-testid="stSidebar"] div.stButton > button {{
-        width: 220px; /* Fixed length for all sidebar navigation buttons */
-        text-align: center;
-        background-color: #000000; /* Black background */
-        color: #58b3b1; /* Secondary color text */
-        border: 2px solid #58b3b1; /* Border color #58b3b1 */
-        border-radius: 5px;
-        padding: 10px;
-        margin: 5px auto; /* Center the buttons */
-        font-weight: bold;
-    }}
-    div[data-testid="stSidebar"] div.stButton > button:hover {{
-        background-color: #58b3b1; /* Secondary color on hover */
-        color: #000000; /* Black text on hover */
-    }}
-    [data-testid="baseButton-secondary"] {{
+    /* Sidebar background */
+    div[data-testid="stSidebar"] {
         background-color: #000000;
-        color: #58b3b1;
-        border: 2px solid #58b3b1;
-    }}
-    [data-testid="baseButton-secondary"]:hover {{
-        background-color: #58b3b1;
-        color: #000000;
-    }}
-    .stTabs [data-testid="stTab"] {{
-        background-color: #000000;
-        color: #58b3b1;
-        border: 2px solid #58b3b1;
-        border-radius: 5px 5px 0 0;
-        padding: 10px 20px;
-        margin-right: 5px;
-        font-weight: bold;
-    }}
-    .stTabs [aria-selected="true"] {{
-        background-color: #58b3b1;
-        color: #000000;
-    }}
-    .stTabs [data-testid="stTab"]:hover {{
-        background-color: #58b3b1;
-        color: #000000;
-    }}
+    }
+
+    /* Sidebar navigation buttons - match My Account buttons */
+    div[data-testid="stSidebar"] div.stButton > button {
+        width: 220px !important;
+        text-align: center !important;
+        background-color: #000000 !important;
+        color: #58b3b1 !important;
+        border: 2px solid #58b3b1 !important;
+        border-radius: 5px !important;
+        padding: 10px !important;
+        margin: 5px auto !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+    }
+
+    /* Hover effect */
+    div[data-testid="stSidebar"] div.stButton > button:hover {
+        background-color: #58b3b1 !important;
+        color: #000000 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -221,6 +200,7 @@ st.markdown(
 # =========================================================
 st.sidebar.title("Forex Dashboard")
 
+# Main navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
@@ -245,7 +225,7 @@ if st.sidebar.button("Tools", key="nav_tools"):
         st.session_state.current_subpage = None
     st.rerun()
 
-# Tools submenu (always shown when Tools page is active)
+# Tools submenu - appears when Tools page is active
 if st.session_state.current_page == 'tools':
     tools_subitems = [
         ('profit_loss', 'Profit/Loss Calculator'),
@@ -261,6 +241,28 @@ if st.session_state.current_page == 'tools':
         if st.sidebar.button(sub_name, key=f"sub_{sub_key}"):
             st.session_state.current_subpage = sub_key
             st.rerun()
+
+# Settings button
+if st.sidebar.button("Settings", key="nav_settings"):
+    st.session_state.current_page = 'settings'
+    st.rerun()
+
+# Logout button
+if st.sidebar.button("Logout", key="nav_logout"):
+    if 'logged_in_user' in st.session_state:
+        del st.session_state.logged_in_user
+    st.session_state.drawings = {}
+    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+    st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+    st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+    st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+    st.session_state.xp = 0
+    st.session_state.level = 0
+    st.session_state.badges = []
+    st.session_state.streak = 0
+    st.success("Logged out successfully!")
+    logging.info("User logged out")
+    st.rerun()
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
