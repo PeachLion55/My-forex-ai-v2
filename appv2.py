@@ -20,30 +20,24 @@ import uuid
 import glob
 import time
 import scipy.stats
-
 import streamlit as st
-
 st.markdown(
     """
     <style>
     /* Hide Streamlit top-right menu */
     #MainMenu {visibility: hidden !important;}
-
     /* Hide Streamlit footer (bottom-left) */
     footer {visibility: hidden !important;}
-
     /* Hide the GitHub / Share banner (bottom-right) */
     [data-testid="stDecoration"] {display: none !important;}
-    
+   
     #/* Optional: remove extra padding/margin from main page */
     #.css-1d391kg {padding-top: 0rem !important;}
     #</style>
     """,
     unsafe_allow_html=True
 )
-
 import streamlit as st
-
 st.markdown(
     """
     <style>
@@ -52,7 +46,6 @@ st.markdown(
         padding-top: 0rem !important;
         margin-top: 0rem !important;
     }
-
     /* Optional: reduce padding inside Streamlit containers */
     .block-container {
         padding-top: 0rem !important;
@@ -61,23 +54,20 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # --- Gridline background settings ---
-grid_color = "#58b3b1"  # gridline color
-grid_opacity = 0.16      # 0.0 (transparent) to 1.0 (solid)
-grid_size = 40          # distance between gridlines in px
-
+grid_color = "#58b3b1" # gridline color
+grid_opacity = 0.16 # 0.0 (transparent) to 1.0 (solid)
+grid_size = 40 # distance between gridlines in px
 # Convert HEX to RGB
 r = int(grid_color[1:3], 16)
 g = int(grid_color[3:5], 16)
 b = int(grid_color[5:7], 16)
-
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-color: #000000;  /* black background */
-        background-image: 
+        background-color: #000000; /* black background */
+        background-image:
             linear-gradient(rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px),
             linear-gradient(90deg, rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px);
         background-size: {grid_size}px {grid_size}px;
@@ -87,24 +77,19 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # Set up logging
 logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
 # === TA_PRO HELPERS START ===
 def ta_safe_lower(s):
     return str(s).strip().lower().replace(" ", "")
-
 def ta_human_pct(x, nd=1):
     if pd.isna(x):
         return "—"
     return f"{x*100:.{nd}f}%"
-
 def _ta_human_num(x, nd=2):
     if pd.isna(x):
         return "—"
     return f"{x:.{nd}f}"
-
 def _ta_user_dir(user_id="guest"):
     root = os.path.join(os.path.dirname(__file__), "user_data")
     os.makedirs(root, exist_ok=True)
@@ -113,29 +98,24 @@ def _ta_user_dir(user_id="guest"):
     os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
     os.makedirs(os.path.join(d, "playbooks"), exist_ok=True)
     return d
-
 def _ta_load_json(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return default
-
 def _ta_save_json(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-
 def _ta_hash():
     return uuid.uuid4().hex[:12]
-
 def _ta_percent_gain_to_recover(drawdown_pct):
     if drawdown_pct <= 0:
         return 0.0
     if drawdown_pct >= 0.99:
         return float("inf")
     return drawdown_pct / (1 - drawdown_pct)
-
 def _ta_expectancy_by_group(df, group_cols):
     g = df.dropna(subset=["r"]).groupby(group_cols)
     res = g["r"].agg(
@@ -146,7 +126,6 @@ def _ta_expectancy_by_group(df, group_cols):
         expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
     ).reset_index()
     return res
-
 def _ta_profit_factor(df):
     if "pnl" not in df.columns:
         return np.nan
@@ -155,14 +134,12 @@ def _ta_profit_factor(df):
     if gl == 0:
         return np.nan if gp == 0 else float("inf")
     return gp / gl
-
 def _ta_daily_pnl(df):
     if "datetime" in df.columns and "pnl" in df.columns:
         tmp = df.dropna(subset=["datetime"]).copy()
         tmp["date"] = pd.to_datetime(tmp["datetime"]).dt.date
         return tmp.groupby("date", as_index=False)["pnl"].sum()
     return pd.DataFrame(columns=["date","pnl"])
-
 def _ta_compute_streaks(df):
     d = _ta_daily_pnl(df)
     if d.empty:
@@ -176,7 +153,6 @@ def _ta_compute_streaks(df):
         else:
             streak = 0
     return {"current": streak, "best": best}
-
 def _ta_show_badges(df):
     with st.expander("🏅 Gamification: Streaks & Badges", expanded=False):
         streaks = _ta_compute_streaks(df) if df is not None else {"current":0,"best":0}
@@ -186,12 +162,9 @@ def _ta_show_badges(df):
         if df is not None and "emotions" in df.columns:
             emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
             st.caption(f"🧠 Emotion-logged trades: {emo_logged}")
-
 # === TA_PRO HELPERS END ===
-
 # Path to SQLite DB
 DB_FILE = "users.db"
-
 # Connect to SQLite with error handling
 try:
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
@@ -203,7 +176,6 @@ try:
 except Exception as e:
     logging.error(f"Failed to initialize SQLite database: {str(e)}")
     st.error(f"Database initialization failed: {str(e)}")
-
 def _ta_load_community(key, default=[]):
     try:
         c.execute("SELECT data FROM community_data WHERE key = ?", (key,))
@@ -214,7 +186,6 @@ def _ta_load_community(key, default=[]):
     except Exception as e:
         logging.error(f"Failed to load community data for {key}: {str(e)}")
         return default
-
 def _ta_save_community(key, data):
     try:
         json_data = json.dumps(data)
@@ -223,7 +194,6 @@ def _ta_save_community(key, data):
         logging.info(f"Community data saved for {key}")
     except Exception as e:
         logging.error(f"Failed to save community data for {key}: {str(e)}")
-
 # =========================================================
 # PAGE CONFIG
 # =========================================================
@@ -412,8 +382,13 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
 econ_calendar_data = [
-    {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
-    {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
+  {"Date": "2025-08-22", "Time": "14:30", "Currency": "USD", "Event": "Non-Farm Payrolls", "Actual": "", "Forecast": "200K", "Previous": "185K", "Impact": "High"},
+  {"Date": "2025-08-23", "Time": "09:00", "Currency": "EUR", "Event": "CPI Flash Estimate YoY", "Actual": "", "Forecast": "2.2%", "Previous": "2.1%", "Impact": "High"},
+  {"Date": "2025-08-24", "Time": "12:00", "Currency": "GBP", "Event": "Bank of England Interest Rate Decision", "Actual": "", "Forecast": "5.00%", "Previous": "5.00%", "Impact": "High"},
+  {"Date": "2025-08-25", "Time": "23:50", "Currency": "JPY", "Event": "Trade Balance", "Actual": "", "Forecast": "1000B", "Previous": "950B", "Impact": "Medium"},
+  {"Date": "2025-08-26", "Time": "01:30", "Currency": "AUD", "Event": "Retail Sales MoM", "Actual": "", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
+  {"Date": "2025-08-27", "Time": "13:30", "Currency": "CAD", "Event": "GDP MoM", "Actual": "", "Forecast": "0.1%", "Previous": "0.0%", "Impact": "Medium"},
+  {"Date": "2025-08-28", "Time": "08:00", "Currency": "CHF", "Event": "CPI YoY", "Actual": "", "Forecast": "1.5%", "Previous": "1.4%", "Impact": "Medium"}
 ]
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
@@ -540,11 +515,9 @@ if 'show_tools_submenu' not in st.session_state:
 from PIL import Image
 import io
 import base64
-
 import io
 import base64
 from PIL import Image
-
 # ---- Reduce top padding in the sidebar ----
 st.markdown(
     """
@@ -557,16 +530,13 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # ---- Load and resize the logo ----
 logo = Image.open("logo22.png")
-logo = logo.resize((60, 50))  # adjust width/height as needed
-
+logo = logo.resize((60, 50)) # adjust width/height as needed
 # ---- Convert logo to base64 ----
 buffered = io.BytesIO()
 logo.save(buffered, format="PNG")
 logo_str = base64.b64encode(buffered.getvalue()).decode()
-
 # ---- Display logo centered in the sidebar ----
 st.sidebar.markdown(
     f"""
@@ -588,14 +558,12 @@ nav_items = [
     ('tools', 'Tools'),
     #('settings', 'Settings')
 ]
-
 for page_key, page_name in nav_items:
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
         st.session_state.current_page = page_key
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
-
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
@@ -612,23 +580,6 @@ if st.sidebar.button("Logout", key="nav_logout"):
     st.success("Logged out successfully!")
     logging.info("User logged out")
     st.rerun()
-
-# Display content based on current page
-if st.session_state.current_page == 'tools':
-    st.title("Tools")
-    st.markdown('---')
-    tools_options = [
-        'Profit/Loss Calculator',
-        'Price Alerts',
-        'Currency Correlation Heatmap',
-        'Risk Management Calculator',
-        'Trading Session Tracker',
-        'Drawdown Recovery Planner',
-        'Pre-Trade Checklist',
-        'Pre-Market Checklist'
-    ]
-    selected_tool = st.selectbox("Select a Tool", tools_options, key="tool_select")
-    st.write(f"You selected: {selected_tool}")
 # =========================================================
 # =========================================================
 # MAIN APPLICATION
@@ -641,7 +592,6 @@ if st.session_state.current_page == 'fundamentals':
         st.markdown('---')
     with col2:
         st.info("See the Backtesting tab for live charts + detailed news.")
-
     # Economic Calendar
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
@@ -656,7 +606,6 @@ if st.session_state.current_page == 'fundamentals':
     with col_filter2:
         currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
         st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-
     def highlight_currency(row):
         styles = [''] * len(row)
         if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
@@ -664,21 +613,19 @@ if st.session_state.current_page == 'fundamentals':
         if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
             styles = ['background-color: #471414; color: white' if col == 'Currency' else 'background-color: #471414' for col in row.index]
         return styles
-
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-
     # Interest rate tiles
     st.markdown("### 💹 Major Central Bank Interest Rates")
     st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
     interest_rates = [
-        {"Currency": "USD", "Current": "4.50%", "Previous": "4.75%", "Changed": "12-18-2024", "Next Meeting": "2025-09-18"},
-        {"Currency": "GBP", "Current": "4.00%", "Previous": "4.25%", "Changed": "08-07-2025", "Next Meeting": "2025-09-19"},
-        {"Currency": "EUR", "Current": "2.15%", "Previous": "2.40%", "Changed": "06-05-2025", "Next Meeting": "2025-09-12"},
-        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "01-24-2025", "Next Meeting": "2025-09-20"},
-        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "08-12-2025", "Next Meeting": "2025-09-24"},
-        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "03-12-2025", "Next Meeting": "2025-09-04"},
-        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "05-28-2025", "Next Meeting": "2025-10-09"},
-        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "06-19-2025", "Next Meeting": "2025-09-26"},
+        {"Currency": "USD", "Current": "3.78%", "Previous": "4.00%", "Changed": "2025-07-17", "Next Meeting": "2025-09-18"},
+        {"Currency": "GBP", "Current": "3.82%", "Previous": "4.00%", "Changed": "2025-08-07", "Next Meeting": "2025-09-19"},
+        {"Currency": "EUR", "Current": "1.82%", "Previous": "2.00%", "Changed": "2025-07-10", "Next Meeting": "2025-09-12"},
+        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "2025-07-31", "Next Meeting": "2025-09-20"},
+        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "2025-08-12", "Next Meeting": "2025-09-24"},
+        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "2025-03-12", "Next Meeting": "2025-09-04"},
+        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "2025-05-28", "Next Meeting": "2025-10-09"},
+        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "2025-06-19", "Next Meeting": "2025-09-26"},
     ]
     boxes_per_row = 4
     colors = ["#171447", "#471414", "#144714", "#474714"]
@@ -700,7 +647,6 @@ if st.session_state.current_page == 'fundamentals':
                     unsafe_allow_html=True,
                 )
                 st.markdown("<br>", unsafe_allow_html=True)
-
     # Major High-Impact Events
     st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
@@ -785,12 +731,10 @@ if st.session_state.current_page == 'fundamentals':
             """,
             unsafe_allow_html=True,
         )
-
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
     st.markdown('---')
-
     # Pair selector & symbol map (28 major & minor pairs)
     pairs_map = {
         # Majors
@@ -824,7 +768,6 @@ elif st.session_state.current_page == 'backtesting':
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
-
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
         username = st.session_state.logged_in_user
@@ -842,7 +785,6 @@ elif st.session_state.current_page == 'backtesting':
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-
     # TradingView widget
     tv_html = f"""
     <div id="tradingview_widget"></div>
@@ -869,7 +811,6 @@ elif st.session_state.current_page == 'backtesting':
     </script>
     """
     components.html(tv_html, height=820, scrolling=False)
-
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
         col1, col2, col3 = st.columns([1, 1, 1])
@@ -931,7 +872,6 @@ elif st.session_state.current_page == 'backtesting':
                 except Exception as e:
                     st.error(f"Failed to sync account: {str(e)}")
                     logging.error(f"Error syncing account for {username}: {str(e)}")
-
     # Check for saved drawings from postMessage
     drawings_key = f"bt_drawings_key_{pair}"
     if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
@@ -961,10 +901,8 @@ elif st.session_state.current_page == 'backtesting':
     else:
         st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
-
     # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
-
     # Configure column settings for data editor
     column_config = {
         "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
@@ -990,7 +928,6 @@ elif st.session_state.current_page == 'backtesting':
         "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
         "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
     }
-
     # Prepare transposed journal for display
     if st.session_state.tools_trade_journal.empty:
         # Initialize with one trade column if empty
@@ -1000,7 +937,6 @@ elif st.session_state.current_page == 'backtesting':
         transposed_journal = st.session_state.tools_trade_journal.transpose()
         # Rename columns to "Trade 1", "Trade 2", etc.
         transposed_journal.columns = [f"Trade {i+1}" for i in range(len(transposed_journal.columns))]
-
     # Button to add new trade column
     if st.button("➕ Add New Trade", key="bt_add_trade_button"):
         current_trades = transposed_journal.columns.tolist()
@@ -1012,12 +948,10 @@ elif st.session_state.current_page == 'backtesting':
         st.session_state.tools_trade_journal = updated_journal.astype(journal_dtypes, errors='ignore')
         st.session_state.temp_journal = None
         st.rerun()
-
     # Dynamically configure columns for trades
     transposed_column_config = {}
     for col in transposed_journal.columns:
         transposed_column_config[col] = column_config
-
     # Use form to stabilize data editor
     old_num_trades = len(st.session_state.tools_trade_journal)
     with st.form(key="bt_journal_form"):
@@ -1047,7 +981,6 @@ elif st.session_state.current_page == 'backtesting':
                 st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
                 st.session_state.temp_journal = None
                 st.rerun()
-
     if "logged_in_user" in st.session_state:
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -1096,24 +1029,23 @@ elif st.session_state.current_page == 'backtesting':
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
-
 elif st.session_state.current_page == 'mt5':
     st.markdown("""
     <style>
-    .metric-box {{
+    .metric-box {
         background-color: #f0f2f6;
         padding: 10px;
         border-radius: 5px;
         text-align: center;
-    }}
-    .metric-box.positive {{
+    }
+    .metric-box.positive {
         background-color: #d4edda;
         color: #155724;
-    }}
-    .metric-box.negative {{
+    }
+    .metric-box.negative {
         background-color: #f8d7da;
         color: #721c24;
-    }}
+    }
     </style>
     """, unsafe_allow_html=True)
     st.markdown("""
@@ -1206,7 +1138,6 @@ elif st.session_state.current_page == 'mt5':
                             font_color="#333333"
                         )
                         st.plotly_chart(fig_symbol, use_container_width=True)
-
                         st.markdown('<br>🔎 Trade Distribution<br>', unsafe_allow_html=True)
                         col1, col2 = st.columns(2)
                         with col1:
@@ -1218,7 +1149,6 @@ elif st.session_state.current_page == 'mt5':
                             fig_weekday = px.histogram(df, x="Weekday", color="Type", title="Trades by Day of Week", template="plotly_white")
                             fig_weekday.update_layout(title_font_size=16, title_x=0.5)
                             st.plotly_chart(fig_weekday, use_container_width=True)
-
                         st.success("✅ Performance Dashboard Loaded Successfully!")
                         ta_update_xp(50)
                 except Exception as e:
@@ -1227,7 +1157,6 @@ elif st.session_state.current_page == 'mt5':
                     pass
         else:
             st.info("👆 Upload your MT5 trading history CSV to explore your performance metrics.")
-
     st.markdown("### 🧭 Edge Finder – Highest Expectancy Segments")
     df = st.session_state.get("mt5_df", pd.DataFrame())
     if df.empty:
@@ -1247,7 +1176,6 @@ elif st.session_state.current_page == 'mt5':
             st.plotly_chart(px.bar(agg.head(top_n), x="expectancy", y=group_cols, orientation="h"), use_container_width=True)
         else:
             st.warning("Edge Finder needs timeframe/symbol/setup columns.")
-
     st.markdown("### 🧩 Customisable Dashboard")
     if df.empty:
         st.info("Upload trades to customise KPIs.")
@@ -1283,7 +1211,6 @@ elif st.session_state.current_page == 'mt5':
             _ta_show_badges(df)
         except Exception:
             pass
-
     # Dynamic Performance Reports
     st.subheader("📈 Dynamic Performance Reports")
     if not df.empty:
@@ -1302,7 +1229,6 @@ elif st.session_state.current_page == 'mt5':
                 st.info(insight)
         else:
             st.info("Upload trades to generate insights.")
-
     # Report Export & Sharing
     if not df.empty:
         if st.button("📄 Generate Performance Report"):
@@ -1332,7 +1258,6 @@ elif st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
-
 elif st.session_state.current_page == 'psychology':
     st.title("🧠 Psychology")
     st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
@@ -1364,7 +1289,6 @@ elif st.session_state.current_page == 'psychology':
                     logging.error(f"Error saving emotion log: {str(e)}")
             st.success("Emotion logged successfully!")
             logging.info(f"Emotion logged: {emotion}")
-
     if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
         st.subheader("Your Emotion Log")
         st.dataframe(st.session_state.emotion_log, use_container_width=True)
@@ -1372,7 +1296,6 @@ elif st.session_state.current_page == 'psychology':
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No emotions logged yet. Use the form above to start tracking.")
-
     st.subheader("🧘 Mindset Tips")
     tips = [
         "Stick to your trading plan to avoid impulsive decisions.",
@@ -1383,7 +1306,6 @@ elif st.session_state.current_page == 'psychology':
     ]
     for tip in tips:
         st.markdown(f"- {tip}")
-
     # Curated Education Feeds
     st.subheader("📚 Curated Trading Insights")
     insights = [
@@ -1394,7 +1316,6 @@ elif st.session_state.current_page == 'psychology':
     week_num = dt.datetime.now().isocalendar()[1]
     current_insight = insights[week_num % len(insights)]
     st.info(f"Insight of the Week: {current_insight}")
-
     # Challenge Mode
     st.subheader("🏅 Challenge Mode")
     st.write("30-Day Journaling Discipline Challenge")
@@ -1403,8 +1324,7 @@ elif st.session_state.current_page == 'psychology':
     st.progress(progress)
     if progress >= 1.0:
         st.success("Challenge completed! Great job on your consistency.")
-        ta_update_xp(100)  # Bonus XP for completion
-
+        ta_update_xp(100) # Bonus XP for completion
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
@@ -1444,7 +1364,6 @@ elif st.session_state.current_page == 'strategy':
                     st.error(f"Failed to save strategy: {str(e)}")
                     logging.error(f"Error saving strategy for {username}: {str(e)}")
             st.success(f"Strategy '{strategy_name}' added successfully!")
-
     if "strategies" in st.session_state and not st.session_state.strategies.empty:
         st.subheader("Your Strategies")
         for idx, row in st.session_state.strategies.iterrows():
@@ -1472,7 +1391,6 @@ elif st.session_state.current_page == 'strategy':
                     st.rerun()
     else:
         st.info("No strategies defined yet. Add one above.")
-
     # Evolving Playbook
     st.subheader("📖 Evolving Playbook")
     journal_df = st.session_state.tools_trade_journal
@@ -1487,7 +1405,6 @@ elif st.session_state.current_page == 'strategy':
         st.dataframe(agg)
     else:
         st.info("Log more trades with symbols and outcomes to evolve your playbook.")
-
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
     st.markdown(
@@ -1503,7 +1420,6 @@ elif st.session_state.current_page == 'account':
     if "logged_in_user" not in st.session_state:
         # Tabs for Sign In and Sign Up
         tab_signin, tab_signup = st.tabs(["🔑 Sign In", "📝 Sign Up"])
-
         # --------------------------
         # SIGN IN TAB
         # --------------------------
@@ -1544,7 +1460,6 @@ elif st.session_state.current_page == 'account':
                     else:
                         st.error("Invalid username or password.")
                         logging.warning(f"Failed login attempt for {username}")
-
         # --------------------------
         # SIGN UP TAB
         # --------------------------
@@ -1590,7 +1505,6 @@ elif st.session_state.current_page == 'account':
         # LOGGED-IN USER VIEW
         # --------------------------
         st.subheader(f"Welcome, {st.session_state.logged_in_user}!")
-
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
@@ -1628,7 +1542,6 @@ elif st.session_state.current_page == 'community':
             else:
                 st.error("Please log in to share trade ideas.")
                 logging.warning("Attempt to share trade idea without login")
-
     st.subheader("📈 Community Trade Ideas")
     if not st.session_state.trade_ideas.empty:
         for idx, idea in st.session_state.trade_ideas.iterrows():
@@ -1648,7 +1561,6 @@ elif st.session_state.current_page == 'community':
                         logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
     else:
         st.info("No trade ideas shared yet. Be the first to contribute!")
-
     # Community Templates
     st.subheader("📄 Community Templates")
     with st.form("template_form"):
@@ -1675,7 +1587,6 @@ elif st.session_state.current_page == 'community':
                 st.rerun()
             else:
                 st.error("Please log in to share templates.")
-
     if not st.session_state.community_templates.empty:
         for idx, template in st.session_state.community_templates.iterrows():
             with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp']})"):
@@ -1691,7 +1602,6 @@ elif st.session_state.current_page == 'community':
                         st.error("You can only delete your own templates.")
     else:
         st.info("No templates shared yet. Share one above!")
-
     # Leaderboard / Self-Competition
     st.subheader("🏆 Leaderboard - Consistency")
     users = c.execute("SELECT username, data FROM users").fetchall()
@@ -1706,12 +1616,21 @@ elif st.session_state.current_page == 'community':
         st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
     else:
         st.info("No leaderboard data yet.")
-
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
-    if st.session_state.current_subpage is None:
-        st.write("Please select a tool from the sidebar.")
-    elif st.session_state.current_subpage == 'profit_loss':
+    st.markdown('---')
+    tools_options = [
+        'Profit/Loss Calculator',
+        'Price Alerts',
+        'Currency Correlation Heatmap',
+        'Risk Management Calculator',
+        'Trading Session Tracker',
+        'Drawdown Recovery Planner',
+        'Pre-Trade Checklist',
+        'Pre-Market Checklist'
+    ]
+    tabs = st.tabs(tools_options)
+    with tabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
         st.write('---')
@@ -1734,7 +1653,7 @@ elif st.session_state.current_page == 'tools':
         st.write(f"Pip Movement: {pip_movement:.2f} pips")
         st.write(f"Pip Value: {pip_value:.2f} {account_currency}")
         st.write(f"Potential Profit/Loss: {profit_loss:.2f} {account_currency}")
-    elif st.session_state.current_subpage == 'alerts':
+    with tabs[1]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
         st.write('---')
@@ -1814,7 +1733,7 @@ elif st.session_state.current_page == 'tools':
                         logging.info(f"Cancelled alert at index {idx}")
         else:
             st.info("No price alerts set. Add one above to start monitoring prices.")
-    elif st.session_state.current_subpage == 'correlation':
+    with tabs[2]:
         st.header("📊 Currency Correlation Heatmap")
         st.markdown("Understand how forex pairs move relative to each other.")
         st.write('---')
@@ -1830,7 +1749,7 @@ elif st.session_state.current_page == 'tools':
         corr_df = pd.DataFrame(data, columns=pairs, index=pairs)
         fig = px.imshow(corr_df, text_auto=True, aspect="auto", color_continuous_scale="RdBu", title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
-    elif st.session_state.current_subpage == 'risk_mgmt':
+    with tabs[3]:
         st.header("🛡️ Risk Management Calculator")
         st.markdown(""" Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. It helps prevent large losses, preserves capital, and allows you to stay in the game during drawdowns. Always risk no more than 1-2% per trade, use stop losses, and calculate position sizes based on your account size and risk tolerance. """)
         st.write('---')
@@ -1874,7 +1793,7 @@ elif st.session_state.current_page == 'tools':
         fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines', name=f'What-If {alt_risk*100:.1f}%'))
         fig.update_layout(title='Equity Projection – Base vs What-If', xaxis_title='Trade #', yaxis_title='Equity')
         st.plotly_chart(fig, use_container_width=True)
-    elif st.session_state.current_subpage == 'sessions':
+    with tabs[4]:
         st.header("🕒 Forex Market Sessions")
         st.markdown(""" Stay aware of active trading sessions to trade when volatility is highest. Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. Track your performance per session to identify your edge. """)
         st.write('---')
@@ -1927,7 +1846,7 @@ elif st.session_state.current_page == 'tools':
                 """,
                 unsafe_allow_html=True
             )
-    elif st.session_state.current_subpage == 'drawdown':
+    with tabs[5]:
         st.header("📉 Drawdown Recovery Planner")
         st.markdown(""" Plan your recovery from a drawdown. Understand the percentage gain required to recover losses and simulate recovery based on your trading parameters. """)
         st.write('---')
@@ -1953,7 +1872,7 @@ elif st.session_state.current_page == 'tools':
         fig.add_hline(y=initial_equity, line_dash="dash", line_color="green", annotation_text="Initial Equity")
         fig.update_layout(title='Drawdown Recovery Simulation', xaxis_title='Trade #', yaxis_title='Equity ($)')
         st.plotly_chart(fig, use_container_width=True)
-    elif st.session_state.current_subpage == 'checklist':
+    with tabs[6]:
         st.header("✅ Pre-Trade Checklist")
         st.markdown(""" Ensure discipline by running through this checklist before every trade. A structured approach reduces impulsive decisions and aligns trades with your strategy. """)
         st.write('---')
@@ -1976,7 +1895,7 @@ elif st.session_state.current_page == 'tools':
             st.success("✅ All checks passed! Ready to trade.")
         else:
             st.warning(f"⚠ Complete all {len(checklist_items)} checklist items before trading.")
-    elif st.session_state.current_subpage == 'premarket':
+    with tabs[7]:
         st.header("📅 Pre-Market Checklist")
         st.markdown(""" Build consistent habits with pre-market checklists and end-of-day reflections. These rituals help maintain discipline and continuous improvement. """)
         st.write('---')
@@ -2021,11 +1940,9 @@ elif st.session_state.current_page == 'tools':
                 st.success("Reflection logged!")
         if "reflection_log" in st.session_state and not st.session_state.reflection_log.empty:
             st.dataframe(st.session_state.reflection_log)
-
 elif st.session_state.current_page == 'settings':
     st.title("Settings")
     st.markdown('---')
     # Add settings content if needed
-
 # Close database connection
 conn.close()
