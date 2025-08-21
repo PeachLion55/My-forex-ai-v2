@@ -610,176 +610,94 @@ elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
 
-    # Pair selector & symbol map (28 major & minor pairs)
-    pairs_map = {
-        # Majors
-        "EUR/USD": "FX:EURUSD",
-        "USD/JPY": "FX:USDJPY",
-        "GBP/USD": "FX:GBPUSD",
-        "USD/CHF": "OANDA:USDCHF",
-        "AUD/USD": "FX:AUDUSD",
-        "NZD/USD": "OANDA:NZDUSD",
-        "USD/CAD": "CMCMARKETS:USDCAD",
-        # Crosses / Minors
-        "EUR/GBP": "FX:EURGBP",
-        "EUR/JPY": "FX:EURJPY",
-        "GBP/JPY": "FX:GBPJPY",
-        "AUD/JPY": "FX:AUDJPY",
-        "AUD/NZD": "FX:AUDNZD",
-        "AUD/CAD": "FX:AUDCAD",
-        "AUD/CHF": "FX:AUDCHF",
-        "CAD/JPY": "FX:CADJPY",
-        "CHF/JPY": "FX:CHFJPY",
-        "EUR/AUD": "FX:EURAUD",
-        "EUR/CAD": "FX:EURCAD",
-        "EUR/CHF": "FX:EURCHF",
-        "GBP/AUD": "FX:GBPAUD",
-        "GBP/CAD": "FX:GBPCAD",
-        "GBP/CHF": "FX:GBPCHF",
-        "NZD/JPY": "FX:NZDJPY",
-        "NZD/CAD": "FX:NZDCAD",
-        "NZD/CHF": "FX:NZDCHF",
-        "CAD/CHF": "FX:CADCHF",
-    }
-    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
-    tv_symbol = pairs_map[pair]
+import streamlit as st
+import streamlit.components.v1 as components
+import json
+import os
+import logging
 
-    # Load initial drawings if available
-    if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
-        username = st.session_state.logged_in_user
-        logging.info(f"Loading drawings for user {username}, pair {pair}")
-        try:
-            c.execute("SELECT data FROM users WHERE username = ?", (username,))
-            result = c.fetchone()
-            if result:
-                user_data = json.loads(result[0])
-                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
-                logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-            else:
-                logging.warning(f"No data found for user {username}")
-        except Exception as e:
-            logging.error(f"Error loading drawings for {username}: {str(e)}")
-            st.error(f"Failed to load drawings: {str(e)}")
-    initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
+# =========================================================
+# CONFIG
+# =========================================================
+DATA_FOLDER = "Data"
 
-    # TradingView widget
-    tv_html = f"""
-    <div id="tradingview_widget"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    new TradingView.widget({{
-        "container_id": "tradingview_widget",
-        "width": "100%",
-        "height": 800,
-        "symbol": "{tv_symbol}",
-        "interval": "D",
-        "timezone": "Etc/UTC",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#f1f3f6",
-        "enable_publishing": false,
-        "allow_symbol_change": true,
-        "studies": [],
-        "show_popup_button": true,
-        "popup_width": "1000",
-        "popup_height": "650"
-    }});
-    </script>
-    """
-    components.html(tv_html, height=820, scrolling=False)
+pairs_map = {
+    # Majors
+    "EUR/USD": "EURUSD",
+    "USD/JPY": "USDJPY",
+    "GBP/USD": "GBPUSD",
+    "USD/CHF": "USDCHF",
+    "AUD/USD": "AUDUSD",
+    "NZD/USD": "NZDUSD",
+    "USD/CAD": "USDCAD",
+    # Crosses / Minors
+    "EUR/GBP": "EURGBP",
+    "EUR/JPY": "EURJPY",
+    "GBP/JPY": "GBPJPY",
+    "AUD/JPY": "AUDJPY",
+    "AUD/NZD": "AUDNZD",
+    "AUD/CAD": "AUDCAD",
+    "AUD/CHF": "AUDCHF",
+    "CAD/JPY": "CADJPY",
+    "CHF/JPY": "CHFJPY",
+    "EUR/AUD": "EURAUD",
+    "EUR/CAD": "EURCAD",
+    "EUR/CHF": "EURCHF",
+    "GBP/AUD": "GBPAUD",
+    "GBP/CAD": "GBPCAD",
+    "GBP/CHF": "GBPCHF",
+    "NZD/JPY": "NZDJPY",
+    "NZD/CAD": "NZDCAD",
+    "NZD/CHF": "NZDCHF",
+    "CAD/CHF": "CADCHF",
+}
 
-    # Save, Load, and Refresh buttons
-    if "logged_in_user" in st.session_state:
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col1:
-            if st.button("Save Drawings", key="bt_save_drawings"):
-                logging.info(f"Save Drawings button clicked for pair {pair}")
-                save_script = f"""
-                <script>
-                parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '*');
-                </script>
-                """
-                components.html(save_script, height=0)
-                logging.info(f"Triggered save script for {pair}")
-                st.session_state[f"bt_save_trigger_{pair}"] = True
-        with col2:
-            if st.button("Load Drawings", key="bt_load_drawings"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        content = user_data.get("drawings", {}).get(pair, {})
-                        if content:
-                            load_script = f"""
-                            <script>
-                            parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '*');
-                            </script>
-                            """
-                            components.html(load_script, height=0)
-                            st.success("Drawings loaded successfully!")
-                            logging.info(f"Successfully loaded drawings for {pair}")
-                        else:
-                            st.info("No saved drawings for this pair.")
-                            logging.info(f"No saved drawings found for {pair}")
-                    else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load drawings: {str(e)}")
-                    logging.error(f"Error loading drawings for {username}: {str(e)}")
-        with col3:
-            if st.button("Refresh Account", key="bt_refresh_account"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Refresh Account button clicked for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        st.session_state.drawings = user_data.get("drawings", {})
-                        st.success("Account synced successfully!")
-                        logging.info(f"Account synced for {username}: {st.session_state.drawings}")
-                    else:
-                        st.error("Failed to sync account.")
-                        logging.error(f"No user data found for {username}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to sync account: {str(e)}")
-                    logging.error(f"Error syncing account for {username}: {str(e)}")
+timeframes = ['1m', '5m', '15m', '1h', '4h', '8h', '1d', '1w', '1M']
 
-    # Check for saved drawings from postMessage
-    drawings_key = f"bt_drawings_key_{pair}"
-    if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
-        content = st.session_state[drawings_key]
-        logging.info(f"Received drawing content for {pair}: {content}")
-        if content and isinstance(content, dict) and content:
-            username = st.session_state.logged_in_user
-            try:
-                c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                user_data = json.loads(result[0]) if result else {}
-                user_data.setdefault("drawings", {})[pair] = content
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                conn.commit()
-                st.session_state.drawings[pair] = content
-                st.success(f"Drawings for {pair} saved successfully!")
-                logging.info(f"Drawings saved to database for {pair}: {content}")
-            except Exception as e:
-                st.error(f"Failed to save drawings: {str(e)}")
-                logging.error(f"Database error saving drawings for {pair}: {str(e)}")
-            finally:
-                del st.session_state[drawings_key]
-                del st.session_state[f"bt_save_trigger_{pair}"]
-        else:
-            st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-            logging.warning(f"No valid drawing content received for {pair}: {content}")
-    else:
-        st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
-        logging.info("User not logged in, save/load drawings disabled")
+# =========================================================
+# SELECTORS
+# =========================================================
+pair_display = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="pair_selector")
+pair = pairs_map[pair_display]
+
+selected_tf = st.selectbox("Select timeframe", timeframes, index=6, key="tf_selector")  # default 1d
+
+# =========================================================
+# LOAD JSON DATA
+# =========================================================
+file_name = f"{pair}_{selected_tf}.json"
+file_path = os.path.join(DATA_FOLDER, file_name)
+
+if os.path.exists(file_path):
+    with open(file_path, "r") as f:
+        ohlc_data = json.load(f)
+else:
+    st.error(f"No data found for {pair_display} {selected_tf}")
+    ohlc_data = []
+
+ohlc_json = json.dumps(ohlc_data)
+
+# =========================================================
+# LIGHTWEIGHT CHART
+# =========================================================
+chart_html = f"""
+<div id="chart" style="width:100%; height:600px;"></div>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const chart = LightweightCharts.createChart(document.getElementById('chart'), {{
+    width: document.getElementById('chart').clientWidth,
+    height: 600,
+    layout: {{ backgroundColor: '#000000', textColor: '#ffffff' }},
+    grid: {{ vertLines: {{ color: '#444' }}, horzLines: {{ color: '#444' }} }},
+    rightPriceScale: {{ borderColor: '#555' }},
+    timeScale: {{ borderColor: '#555' }}
+}});
+
+const candleSeries = chart.addCandlestickSeries();
+candleSeries.setData({ohlc_json});
+</script>
+"""
+components.html(chart_html, height=620)
 
     # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
