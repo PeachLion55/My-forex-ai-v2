@@ -611,93 +611,79 @@ elif st.session_state.current_page == 'backtesting':
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
 
 import streamlit as st
-import streamlit.components.v1 as components
 import json
 import os
-import logging
+import streamlit.components.v1 as components
 
-# =========================================================
-# CONFIG
-# =========================================================
-DATA_FOLDER = "Data"
+# ===============================
+# CONFIGURATION
+# ===============================
+DATA_FOLDER = "Data"  # Make sure this folder is in the root of your repo
 
+# Pairs
 pairs_map = {
-    # Majors
     "EUR/USD": "EURUSD",
     "USD/JPY": "USDJPY",
     "GBP/USD": "GBPUSD",
-    "USD/CHF": "USDCHF",
-    "AUD/USD": "AUDUSD",
-    "NZD/USD": "NZDUSD",
-    "USD/CAD": "USDCAD",
-    # Crosses / Minors
-    "EUR/GBP": "EURGBP",
-    "EUR/JPY": "EURJPY",
-    "GBP/JPY": "GBPJPY",
-    "AUD/JPY": "AUDJPY",
-    "AUD/NZD": "AUDNZD",
-    "AUD/CAD": "AUDCAD",
-    "AUD/CHF": "AUDCHF",
-    "CAD/JPY": "CADJPY",
-    "CHF/JPY": "CHFJPY",
-    "EUR/AUD": "EURAUD",
-    "EUR/CAD": "EURCAD",
-    "EUR/CHF": "EURCHF",
-    "GBP/AUD": "GBPAUD",
-    "GBP/CAD": "GBPCAD",
-    "GBP/CHF": "GBPCHF",
-    "NZD/JPY": "NZDJPY",
-    "NZD/CAD": "NZDCAD",
-    "NZD/CHF": "NZDCHF",
-    "CAD/CHF": "CADCHF",
+    # add other pairs as needed
 }
 
-timeframes = ['1m', '5m', '15m', '1h', '4h', '8h', '1d', '1w', '1M']
+# Timeframes
+timeframes = ["1m", "5m", "15m", "1h", "4h", "8h", "1D", "1W", "1M"]
 
-# =========================================================
-# SELECTORS
-# =========================================================
-pair_display = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="pair_selector")
-pair = pairs_map[pair_display]
+# ===============================
+# USER INPUT
+# ===============================
+pair_name = st.selectbox("Select Pair", list(pairs_map.keys()))
+selected_tf = st.selectbox("Select Timeframe", timeframes)
 
-selected_tf = st.selectbox("Select timeframe", timeframes, index=6, key="tf_selector")  # default 1d
-
-# =========================================================
-# LOAD JSON DATA
-# =========================================================
-file_name = f"{pair}_{selected_tf}.json"
+pair_code = pairs_map[pair_name]
+file_name = f"{pair_code}_{selected_tf}.json"
 file_path = os.path.join(DATA_FOLDER, file_name)
 
+# ===============================
+# LOAD DATA
+# ===============================
 if os.path.exists(file_path):
     with open(file_path, "r") as f:
-        ohlc_data = json.load(f)
+        data = json.load(f)
+    st.write(f"Loaded {len(data)} bars for {pair_name} ({selected_tf})")
 else:
-    st.error(f"No data found for {pair_display} {selected_tf}")
-    ohlc_data = []
+    st.error(f"Data file not found: {file_name}")
+    data = []
 
-ohlc_json = json.dumps(ohlc_data)
+# ===============================
+# RENDER LIGHTWEIGHT CHART
+# ===============================
+if data:
+    lwc_html = f"""
+    <div id="chart" style="width:100%; height:600px;"></div>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script>
+        const chart = LightweightCharts.createChart(document.getElementById('chart'), {{
+            width: document.getElementById('chart').clientWidth,
+            height: 600,
+            layout: {{ backgroundColor: '#000000', textColor: 'white' }},
+            grid: {{ vertLines: {{ color: '#444' }}, horzLines: {{ color: '#444' }} }},
+            crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }},
+            rightPriceScale: {{ borderColor: '#555' }},
+            timeScale: {{ borderColor: '#555' }}
+        }});
 
-# =========================================================
-# LIGHTWEIGHT CHART
-# =========================================================
-chart_html = f"""
-<div id="chart" style="width:100%; height:600px;"></div>
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-<script>
-const chart = LightweightCharts.createChart(document.getElementById('chart'), {{
-    width: document.getElementById('chart').clientWidth,
-    height: 600,
-    layout: {{ backgroundColor: '#000000', textColor: '#ffffff' }},
-    grid: {{ vertLines: {{ color: '#444' }}, horzLines: {{ color: '#444' }} }},
-    rightPriceScale: {{ borderColor: '#555' }},
-    timeScale: {{ borderColor: '#555' }}
-}});
+        const candlestickSeries = chart.addCandlestickSeries({{
+            upColor: '#4CAF50',
+            borderUpColor: '#4CAF50',
+            downColor: '#F44336',
+            borderDownColor: '#F44336',
+            wickUpColor: '#4CAF50',
+            wickDownColor: '#F44336',
+        }});
 
-const candleSeries = chart.addCandlestickSeries();
-candleSeries.setData({ohlc_json});
-</script>
-"""
-components.html(chart_html, height=620)
+        const data = {json.dumps(data)};
+        candlestickSeries.setData(data);
+    </script>
+    """
+    components.html(lwc_html, height=620, scrolling=False)
 
 # Backtesting Journal
 st.markdown("### 📝 Trading Journal")
