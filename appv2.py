@@ -167,10 +167,13 @@ bg_opacity = 0.5
 st.markdown(
     """
     <style>
-    div[data-testid="stSidebar"] {
+    /* Sidebar Background */
+    section[data-testid="stSidebar"] {
         background-color: #000000 !important;
     }
-    div[data-testid="stSidebar"] div.stButton > button {
+
+    /* Buttons inside Sidebar - more aggressive selector */
+    section[data-testid="stSidebar"] button {
         width: 220px !important;
         text-align: center !important;
         background-color: #000000 !important;
@@ -180,8 +183,11 @@ st.markdown(
         padding: 10px !important;
         margin: 5px auto !important;
         font-weight: bold !important;
+        font-size: 16px !important;
     }
-    div[data-testid="stSidebar"] div.stButton > button:hover {
+
+    /* Hover Effect */
+    section[data-testid="stSidebar"] button:hover {
         background-color: #58b3b1 !important;
         color: #000000 !important;
     }
