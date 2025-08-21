@@ -503,7 +503,7 @@ logo_str = base64.b64encode(buffered.getvalue()).decode()
 # ---- Display logo centered in the sidebar ----
 st.sidebar.markdown(
     f"""
-    <div style='text-align: center; margin-bottom: 10px;'>
+    <div style='text-align: center; margin-bottom: 20px;'>
         <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
     </div>
     """,
