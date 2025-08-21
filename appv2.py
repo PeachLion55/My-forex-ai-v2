@@ -26,6 +26,24 @@ import streamlit as st
 st.markdown(
     """
     <style>
+    /* Hide Streamlit menu (top-right hamburger menu) */
+    #MainMenu {visibility: hidden;}
+
+    /* Hide Streamlit footer */
+    footer {visibility: hidden;}
+
+    /* Hide GitHub banner if using st.beta_set_page_config / st.set_page_config */
+    [data-testid="stDecoration"] {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+import streamlit as st
+
+st.markdown(
+    """
+    <style>
     /* Remove top padding and margins for main content */
     .css-18e3th9, .css-1d391kg {
         padding-top: 0rem !important;
