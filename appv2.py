@@ -25,17 +25,22 @@ import streamlit as st
 
 # --- Gridline background settings ---
 grid_color = "#58b3b1"  # gridline color
-grid_opacity = 0.2      # 0.0 (transparent) to 1.0 (solid)
+grid_opacity = 0.3      # 0.0 (transparent) to 1.0 (solid)
 grid_size = 40          # distance between gridlines in px
+
+# Convert HEX to RGB
+r = int(grid_color[1:3], 16)
+g = int(grid_color[3:5], 16)
+b = int(grid_color[5:7], 16)
 
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-color: #ffffff;  /* optional base color */
+        background-color: #000000;  /* black background */
         background-image: 
-            linear-gradient(rgba({int(grid_color[1:3],16)}, {int(grid_color[3:5],16)}, {int(grid_color[5:7],16)}, {grid_opacity}) 1px, transparent 1px),
-            linear-gradient(90deg, rgba({int(grid_color[1:3],16)}, {int(grid_color[3:5],16)}, {int(grid_color[5:7],16)}, {grid_opacity}) 1px, transparent 1px);
+            linear-gradient(rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px),
+            linear-gradient(90deg, rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px);
         background-size: {grid_size}px {grid_size}px;
         background-attachment: fixed;
     }}
