@@ -473,7 +473,7 @@ if 'show_tools_submenu' not in st.session_state:
 from PIL import Image
 
 # Display logo instead of text title
-logo = Image.open("logo2.png")  # make sure logo2.png is in the same folder as this script
+logo = Image.open("logo22.png")  # make sure logo2.png is in the same folder as this script
 st.sidebar.image(logo, use_column_width=True)
 
 # Navigation items
