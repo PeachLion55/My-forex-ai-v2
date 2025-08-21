@@ -546,7 +546,7 @@ for page_key, page_name in nav_items:
         st.session_state.current_page = page_key
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
-        st.experimental_rerun()
+        st.rerun()
 # Tools submenu
 if st.sidebar.button("Tools", key="nav_tools"):
     st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
