@@ -519,48 +519,52 @@ nav_items = [
     ('account', 'My Account'),
     ('community', 'Community Trade Ideas'),
     ('tools', 'Tools'),
-    #('settings', 'Settings')
 ]
 
-# Initialize selected page if not already
+# Initialize current page if not already
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
-# Sidebar CSS for animated/highlighted buttons
+# Sidebar CSS for buttons
 st.sidebar.markdown("""
     <style>
-    .nav-button {
-        display: block;
-        padding: 10px 15px;
+    div.stButton > button {
+        width: 100%;
+        text-align: left;
+        padding: 8px 12px;
         margin-bottom: 5px;
         border-radius: 5px;
-        text-align: left;
-        font-weight: bold;
+        border: 2px solid transparent;
+        transition: all 0.2s;
         background-color: #f0f2f6;
-        color: black;
-        text-decoration: none;
-        transition: 0.3s;
+        font-weight: bold;
     }
-    .nav-button:hover {
-        background-color: #cce5ff;
+    div.stButton > button:hover {
+        background-color: #e6f0ff;
         cursor: pointer;
     }
-    .nav-button-selected {
-        background-color: #3399ff;
-        color: white !important;
+    .selected-button {
+        border: 2px solid #3399ff;
+        background-color: #f0f2f6 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Render buttons with highlight for current page
+# Render sidebar buttons with selected-page border
 for page_key, page_name in nav_items:
-    selected_class = "nav-button-selected" if st.session_state.current_page == page_key else "nav-button"
+    is_selected = st.session_state.current_page == page_key
+    button_style = "selected-button" if is_selected else ""
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
         st.session_state.current_page = page_key
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
-    st.sidebar.markdown(f"<div class='{selected_class}'>{page_name}</div>", unsafe_allow_html=True)
+    
+    # Apply border highlight by wrapping in container with CSS class
+    st.sidebar.markdown(
+        f"<div class='{button_style}'></div>", 
+        unsafe_allow_html=True
+    )
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
