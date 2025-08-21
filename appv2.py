@@ -176,8 +176,8 @@ st.markdown(
     }
     /* Sidebar buttons default style */
     section[data-testid="stSidebar"] div.stButton > button {
-        width: 100% !important;
-        background: linear-gradient(to right, #000000, #58b3b1) !important;
+        width: 200px !important;
+        background: linear-gradient(to right, rgba(0, 0, 0, 0.7), rgba(88, 179, 177, 0.7)) !important;
         color: #ffffff !important;
         border: none !important;
         border-radius: 5px !important;
@@ -195,7 +195,7 @@ st.markdown(
     }
     /* Active page button style */
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-        background: #58b3b1 !important;
+        background: rgba(88, 179, 177, 0.7) !important;
         color: #ffffff !important;
     }
     /* Adjust button size dynamically */
@@ -218,8 +218,8 @@ st.markdown(
         const applyButtonStyles = () => {
             let buttons = document.querySelectorAll('section[data-testid="stSidebar"] div.stButton > button');
             buttons.forEach(btn => {
-                btn.style.width = "100%";
-                btn.style.background = "linear-gradient(to right, #000000, #58b3b1)";
+                btn.style.width = "200px";
+                btn.style.background = "linear-gradient(to right, rgba(0, 0, 0, 0.7), rgba(88, 179, 177, 0.7))";
                 btn.style.color = "#ffffff";
                 btn.style.border = "none";
                 btn.style.borderRadius = "5px";
@@ -250,7 +250,7 @@ st.markdown(
                 const totalHeight = buttonHeight * buttonCount;
                 if (totalHeight > window.innerHeight) {
                     sidebar.style.height = `${window.innerHeight}px`;
-                    sidebar.style.overflowY = "auto";
+                    sidebar.style.overflowY = "hidden";
                 } else {
                     sidebar.style.height = `${totalHeight}px`;
                     sidebar.style.overflowY = "hidden";
@@ -272,6 +272,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+# =========================================================
 # =========================================================
 # =========================================================
 # =========================================================
