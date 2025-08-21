@@ -731,22 +731,22 @@ forex_high_impact_events = [
     },
 ]
 
+# Display events in side-by-side boxes
 for ev in forex_high_impact_events:
-    # Prepare HTML for positive and negative columns
     positive_html = "<br>".join([f"{k}: {v}" for k, v in ev["impact_positive"].items()])
     negative_html = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
 
     st.markdown(
         f"""
         <div style="display: flex; gap: 20px; margin-bottom: 15px;">
-            <div style="background-color: #000000; color: #ffffff; padding: 10px; border-radius: 5px; flex: 1;">
+            <div style="background-color: #000000; color: #ffffff; padding: 15px; border-radius: 8px; flex: 1;">
                 <strong>{ev['event']}</strong><br>
                 <em>What it is:</em> {ev['description']}<br>
                 <em>Why it matters:</em> {ev['why_it_matters']}<br><br>
                 <strong>Positive Impact →</strong><br>
                 {positive_html}
             </div>
-            <div style="background-color: #000000; color: #ffffff; padding: 10px; border-radius: 5px; flex: 1;">
+            <div style="background-color: #000000; color: #ffffff; padding: 15px; border-radius: 8px; flex: 1;">
                 <strong>Negative Impact →</strong><br>
                 {negative_html}
             </div>
@@ -754,11 +754,12 @@ for ev in forex_high_impact_events:
         """,
         unsafe_allow_html=True
     )
-elif st.session_state.current_page == 'backtesting':
+
+# Backtesting page
+if st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
     st.markdown('---')
-
     # Pair selector & symbol map (28 major & minor pairs)
     pairs_map = {
         # Majors
