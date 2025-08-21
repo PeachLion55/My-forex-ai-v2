@@ -1619,14 +1619,6 @@ elif st.session_state.current_page == 'community':
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
     st.caption("A suite of tools to enhance your trading workflow.")
-    st.markdown('---')
-    st.markdown("""
-    <style>
-    div[data-testid="stTabs"] div[role="tablist"] > div {
-        background-color: #58b3b1 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
     st.markdown("""
     ### Available Tools
     - **Profit/Loss Calculator**: Calculate potential profits or losses based on trade size, entry, and exit prices.
@@ -1638,6 +1630,25 @@ elif st.session_state.current_page == 'tools':
     - **Pre-Trade Checklist**: Follow a structured checklist to ensure disciplined trade entries.
     - **Pre-Market Checklist**: Prepare for the trading day with a comprehensive market analysis checklist.
     """)
+    st.markdown('---')
+    st.markdown("""
+    <style>
+    div[data-testid="stTabs"] div[role="tablist"] > div {
+        background-color: #58b3b1 !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        color: #ffffff !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+        background-color: #58b3b1 !important;
+        color: #ffffff !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #58b3b1 !important;
+        color: #ffffff !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
