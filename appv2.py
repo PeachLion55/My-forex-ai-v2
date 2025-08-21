@@ -474,7 +474,7 @@ from PIL import Image
 
 # Load and resize the logo
 logo = Image.open("logo22.png")  # make sure logo2.png is in the same folder as this script
-logo = logo.resize((200, 100))  # adjust width and height as needed
+logo = logo.resize((100, 100))  # adjust width and height as needed
 
 # Display the logo in the sidebar
 st.sidebar.image(logo, use_column_width=False)
