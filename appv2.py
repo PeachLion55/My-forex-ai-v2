@@ -570,7 +570,7 @@ if st.session_state.current_page == 'fundamentals':
     with col1:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-        st.write('---')
+        st.markdown('---')
     with col2:
         st.info("See the Backtesting tab for live charts + detailed news.")
 
@@ -721,6 +721,7 @@ if st.session_state.current_page == 'fundamentals':
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
+    st.markdown('---')
 
     # Pair selector & symbol map (28 major & minor pairs)
     pairs_map = {
@@ -1955,6 +1956,7 @@ elif st.session_state.current_page == 'tools':
 
 elif st.session_state.current_page == 'settings':
     st.title("Settings")
+    st.markdown('---')
     # Add settings content if needed
 
 # Close database connection
