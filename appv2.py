@@ -521,11 +521,11 @@ nav_items = [
     ('tools', 'Tools'),
 ]
 
-# Initialize current page if not already
+# Initialize current page if not set
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
-# Add sidebar CSS for hover and selected button
+# CSS for buttons: hover + selected
 st.sidebar.markdown("""
     <style>
     div.stButton > button {
@@ -549,21 +549,23 @@ st.sidebar.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Render sidebar buttons
+# Render buttons
 for page_key, page_name in nav_items:
-    button_clicked = st.sidebar.button(page_name, key=f"nav_{page_key}")
-    if button_clicked:
-        st.session_state.current_page = page_key
-        st.session_state.current_subpage = None
-        st.session_state.show_tools_submenu = False
-        st.rerun()
-    
-    # Apply selected-page border using JS hack
-    if st.session_state.current_page == page_key:
+    # Check if this button is the current page
+    is_selected = st.session_state.current_page == page_key
+
+    # Add a class to the selected button
+    if is_selected:
         st.sidebar.markdown(
-            f"<script>const btn=document.querySelector('button[k="{f'nav_{page_key}'}"]');if(btn){{btn.classList.add('selected-button');}}</script>",
+            f"<div class='selected-button'>{page_name}</div>",
             unsafe_allow_html=True
         )
+    else:
+        if st.sidebar.button(page_name, key=f"nav_{page_key}"):
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
+            st.rerun()
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
