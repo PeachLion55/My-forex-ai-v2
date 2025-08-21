@@ -766,7 +766,7 @@ if st.session_state.current_page == 'fundamentals':
 # =========================================================
 # TAB 2: Backtesting
 # =========================================================
-tab1, tab2 = st.tabs(["Fundamentals", "Backtesting"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["Fundamentals", "Backtesting", "MT5 Performance Dashboard", "Psycology", "Manage My Strategy", "My Account", "Community Trade Ideas", "Tools"])
 with tab2:
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
