@@ -165,57 +165,30 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # ----------------- CUSTOM CSS -----------------
 bg_opacity = 0.5
 st.markdown(
-    f"""
+    """
     <style>
-    div[data-testid="stSidebar"] {{
-        background-color: #000000; /* Black (main color) */
-    }}
-    div[data-testid="stSidebar"] div.stButton > button {{
-        width: 220px; /* Fixed length for all sidebar navigation buttons */
-        text-align: center;
-        background-color: #000000; /* Black background */
-        color: #58b3b1; /* Secondary color text */
-        border: 2px solid #58b3b1; /* Border color #58b3b1 */
-        border-radius: 5px;
-        padding: 10px;
-        margin: 5px auto; /* Center the buttons */
-        font-weight: bold;
-    }}
-    div[data-testid="stSidebar"] div.stButton > button:hover {{
-        background-color: #58b3b1; /* Secondary color on hover */
-        color: #000000; /* Black text on hover */
-    }}
-    [data-testid="baseButton-secondary"] {{
-        background-color: #000000; /* Black for secondary buttons */
-        color: #58b3b1; /* Secondary color text */
-        border: 2px solid #58b3b1;
-    }}
-    [data-testid="baseButton-secondary"]:hover {{
-        background-color: #58b3b1;
-        color: #000000;
-    }}
-    .stTabs [data-testid="stTab"] {{
-        background-color: #000000; /* Black for tabs */
-        color: #58b3b1; /* Secondary color text */
-        border: 2px solid #58b3b1; /* Border for tabs */
-        border-radius: 5px 5px 0 0;
-        padding: 10px 20px;
-        margin-right: 5px;
-        font-weight: bold;
-    }}
-    .stTabs [aria-selected="true"] {{
-        background-color: #58b3b1; /* Active tab background */
-        color: #000000; /* Black text for active tab */
-    }}
-    .stTabs [data-testid="stTab"]:hover {{
-        background-color: #58b3b1; /* Hover background */
-        color: #000000;
-    }}
+    div[data-testid="stSidebar"] {
+        background-color: #000000 !important;
+    }
+    div[data-testid="stSidebar"] div.stButton > button {
+        width: 220px !important;
+        text-align: center !important;
+        background-color: #000000 !important;
+        color: #58b3b1 !important;
+        border: 2px solid #58b3b1 !important;
+        border-radius: 5px !important;
+        padding: 10px !important;
+        margin: 5px auto !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stSidebar"] div.stButton > button:hover {
+        background-color: #58b3b1 !important;
+        color: #000000 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 # =========================================================
 # HELPERS / DATA
 # =========================================================
