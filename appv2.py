@@ -475,7 +475,7 @@ st.sidebar.title("Forex Dashboard")
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
-    ('mt5', 'MT5 Performance Dashboard'),
+    ('mt5', 'Performance Dashboard'),
     ('psychology', 'Psychology'),
     ('strategy', 'Manage My Strategy'),
     ('account', 'My Account'),
@@ -1007,7 +1007,7 @@ elif st.session_state.current_page == 'mt5':
     </style>
     """, unsafe_allow_html=True)
     st.markdown("""
-    📊 MT5 Performance Dashboard
+    📊 Performance Dashboard
     Upload your MT5 trading history CSV to analyze your trading performance
     """, unsafe_allow_html=True)
     with st.container():
@@ -1109,7 +1109,7 @@ elif st.session_state.current_page == 'mt5':
                             fig_weekday.update_layout(title_font_size=16, title_x=0.5)
                             st.plotly_chart(fig_weekday, use_container_width=True)
 
-                        st.success("✅ MT5 Performance Dashboard Loaded Successfully!")
+                        st.success("✅ Performance Dashboard Loaded Successfully!")
                         ta_update_xp(50)
                 except Exception as e:
                     st.error(f"Error processing CSV: {str(e)}")
@@ -1199,7 +1199,7 @@ elif st.session_state.current_page == 'mt5':
             report_html = f"""
             <html>
             <body>
-            <h2>MT5 Performance Report</h2>
+            <h2>Performance Report</h2>
             <p>Total Trades: {total_trades}</p>
             <p>Win Rate: {win_rate:.2f}%</p>
             <p>Net Profit: ${net_profit:,.2f}</p>
