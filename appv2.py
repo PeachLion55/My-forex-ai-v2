@@ -662,90 +662,101 @@ if st.session_state.current_page == 'fundamentals':
                 )
                 st.markdown("<br>", unsafe_allow_html=True)
 
-    # Major High-Impact Events
-    st.markdown("### 📊 Major High-Impact Forex Events")
-    forex_high_impact_events = [
-        {
-            "event": "Non-Farm Payrolls (NFP)",
-            "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
-            "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
-            "impact_positive": {
-                "USD": "↑ Stronger USD due to strong labor market",
-                "EUR/USD": "↓ EUR weakens vs USD",
-                "GBP/USD": "↓ GBP weakens vs USD",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ AUD weakens vs USD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "USD": "↓ Weaker USD due to weak labor market",
-                "EUR/USD": "↑ EUR strengthens vs USD",
-                "GBP/USD": "↑ GBP strengthens vs USD",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ AUD strengthens vs USD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
+# Major High-Impact Events
+st.markdown("### 📊 Major High-Impact Forex Events")
+
+forex_high_impact_events = [
+    {
+        "event": "Non-Farm Payrolls (NFP)",
+        "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
+        "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
+        "impact_positive": {
+            "USD": "↑ Stronger USD due to strong labor market",
+            "EUR/USD": "↓ EUR weakens vs USD",
+            "GBP/USD": "↓ GBP weakens vs USD",
+            "USD/JPY": "↑ USD strengthens vs JPY",
+            "AUD/USD": "↓ AUD weakens vs USD",
+            "USD/CAD": "↑ USD strengthens vs CAD"
         },
-        {
-            "event": "Consumer Price Index (CPI)",
-            "description": "Measures changes in consumer prices; gauges inflation.",
-            "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ Higher rates likely → currency strengthens",
-                "EUR/USD": "↓ Currency strengthens vs EUR",
-                "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ Currency strengthens vs AUD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ Lower inflation → dovish → currency weakens",
-                "EUR/USD": "↑ Currency weakens vs EUR",
-                "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ Currency weakens vs AUD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
+        "impact_negative": {
+            "USD": "↓ Weaker USD due to weak labor market",
+            "EUR/USD": "↑ EUR strengthens vs USD",
+            "GBP/USD": "↑ GBP strengthens vs USD",
+            "USD/JPY": "↓ USD weakens vs JPY",
+            "AUD/USD": "↑ AUD strengthens vs USD",
+            "USD/CAD": "↓ USD weakens vs CAD"
         },
-        {
-            "event": "Interest Rate Decision",
-            "description": "Central bank sets the official interest rate.",
-            "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ if hike or hawkish guidance → strengthens vs majors",
-                "EUR/USD": "↓ Currency strengthens vs EUR",
-                "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ Currency strengthens vs AUD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ if cut or dovish guidance → weakens vs majors",
-                "EUR/USD": "↑ Currency weakens vs EUR",
-                "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ Currency weakens vs AUD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
+    },
+    {
+        "event": "Consumer Price Index (CPI)",
+        "description": "Measures changes in consumer prices; gauges inflation.",
+        "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
+        "impact_positive": {
+            "Currency": "↑ Higher rates likely → currency strengthens",
+            "EUR/USD": "↓ Currency strengthens vs EUR",
+            "GBP/USD": "↓ Currency strengthens vs GBP",
+            "USD/JPY": "↑ USD strengthens vs JPY",
+            "AUD/USD": "↓ Currency strengthens vs AUD",
+            "USD/CAD": "↑ USD strengthens vs CAD"
         },
-    ]
-    for ev in forex_high_impact_events:
-        positive_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_positive"].items()])
-        negative_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
-        st.markdown(
-            f"""
-            <div style="background-color: #000000; padding: 10px; border-radius: 5px;">
-            <strong>{ev['event']}</strong><br>
-            What it is: {ev['description']}<br>
-            Why it matters: {ev['why_it_matters']}<br>
-            Positive →<br>
-            {positive_impact}<br>
-            Negative →<br>
-            {negative_impact}
+        "impact_negative": {
+            "Currency": "↓ Lower inflation → dovish → currency weakens",
+            "EUR/USD": "↑ Currency weakens vs EUR",
+            "GBP/USD": "↑ Currency weakens vs GBP",
+            "USD/JPY": "↓ USD weakens vs JPY",
+            "AUD/USD": "↑ Currency weakens vs AUD",
+            "USD/CAD": "↓ USD weakens vs CAD"
+        },
+    },
+    {
+        "event": "Interest Rate Decision",
+        "description": "Central bank sets the official interest rate.",
+        "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
+        "impact_positive": {
+            "Currency": "↑ if hike or hawkish guidance → strengthens vs majors",
+            "EUR/USD": "↓ Currency strengthens vs EUR",
+            "GBP/USD": "↓ Currency strengthens vs GBP",
+            "USD/JPY": "↑ USD strengthens vs JPY",
+            "AUD/USD": "↓ Currency strengthens vs AUD",
+            "USD/CAD": "↑ USD strengthens vs CAD"
+        },
+        "impact_negative": {
+            "Currency": "↓ if cut or dovish guidance → weakens vs majors",
+            "EUR/USD": "↑ Currency weakens vs EUR",
+            "GBP/USD": "↑ Currency weakens vs GBP",
+            "USD/JPY": "↓ USD weakens vs JPY",
+            "AUD/USD": "↑ Currency weakens vs AUD",
+            "USD/CAD": "↓ USD weakens vs CAD"
+        },
+    },
+]
+
+for ev in forex_high_impact_events:
+    positive_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_positive"].items()])
+    negative_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
+
+    st.markdown(
+        f"""
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <!-- Positive Impact Box -->
+            <div style="background-color: #000000; color: white; padding: 10px; border-radius: 5px; flex: 1;">
+                <strong>{ev['event']} - Positive</strong><br>
+                What it is: {ev['description']}<br>
+                Why it matters: {ev['why_it_matters']}<br><br>
+                {positive_impact}
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+
+            <!-- Negative Impact Box -->
+            <div style="background-color: #000000; color: white; padding: 10px; border-radius: 5px; flex: 1;">
+                <strong>{ev['event']} - Negative</strong><br>
+                What it is: {ev['description']}<br>
+                Why it matters: {ev['why_it_matters']}<br><br>
+                {negative_impact}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
