@@ -26,15 +26,18 @@ import streamlit as st
 st.markdown(
     """
     <style>
-    /* Hide Streamlit menu (top-right hamburger menu) */
-    #MainMenu {visibility: hidden;}
+    /* Hide Streamlit top-right menu */
+    #MainMenu {visibility: hidden !important;}
 
-    /* Hide Streamlit footer */
-    footer {visibility: hidden;}
+    /* Hide Streamlit footer (bottom-left) */
+    footer {visibility: hidden !important;}
 
-    /* Hide GitHub banner if using st.beta_set_page_config / st.set_page_config */
-    [data-testid="stDecoration"] {visibility: hidden;}
-    </style>
+    /* Hide the GitHub / Share banner (bottom-right) */
+    [data-testid="stDecoration"] {display: none !important;}
+    
+    #/* Optional: remove extra padding/margin from main page */
+    #.css-1d391kg {padding-top: 0rem !important;}
+    #</style>
     """,
     unsafe_allow_html=True
 )
