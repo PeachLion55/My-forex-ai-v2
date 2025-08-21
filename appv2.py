@@ -472,10 +472,12 @@ if 'show_tools_submenu' not in st.session_state:
 # =========================================================
 from PIL import Image
 
-# Display logo instead of text title
+# Load and resize the logo
 logo = Image.open("logo22.png")  # make sure logo2.png is in the same folder as this script
-st.sidebar.image(logo, use_column_width=True)
+logo = logo.resize((200, 100))  # adjust width and height as needed
 
+# Display the logo in the sidebar
+st.sidebar.image(logo, use_column_width=False)
 # Navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
