@@ -522,13 +522,45 @@ nav_items = [
     #('settings', 'Settings')
 ]
 
+# Initialize selected page if not already
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
+
+# Sidebar CSS for animated/highlighted buttons
+st.sidebar.markdown("""
+    <style>
+    .nav-button {
+        display: block;
+        padding: 10px 15px;
+        margin-bottom: 5px;
+        border-radius: 5px;
+        text-align: left;
+        font-weight: bold;
+        background-color: #f0f2f6;
+        color: black;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+    .nav-button:hover {
+        background-color: #cce5ff;
+        cursor: pointer;
+    }
+    .nav-button-selected {
+        background-color: #3399ff;
+        color: white !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Render buttons with highlight for current page
 for page_key, page_name in nav_items:
+    selected_class = "nav-button-selected" if st.session_state.current_page == page_key else "nav-button"
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
         st.session_state.current_page = page_key
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
-
+    st.sidebar.markdown(f"<div class='{selected_class}'>{page_name}</div>", unsafe_allow_html=True)
 # Logout
 if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
