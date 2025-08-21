@@ -171,13 +171,15 @@ st.markdown(
     /* Sidebar background */
     section[data-testid="stSidebar"] {
         background-color: #000000 !important;
+        overflow: hidden !important;
+        max-height: 100vh !important;
     }
     /* Sidebar buttons default style */
     section[data-testid="stSidebar"] div.stButton > button {
-        width: 200px !important;
-        background-color: #000000 !important;
-        color: #58b3b1 !important;
-        border: 2px solid #58b3b1 !important;
+        width: 100% !important;
+        background: linear-gradient(to right, #000000, #58b3b1) !important;
+        color: #ffffff !important;
+        border: none !important;
         border-radius: 5px !important;
         padding: 10px !important;
         margin: 5px 0 !important;
@@ -189,11 +191,25 @@ st.markdown(
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        transition: all 0.3s ease !important;
     }
     /* Active page button style */
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-        background-color: #58b3b1 !important;
+        background: #58b3b1 !important;
         color: #ffffff !important;
+    }
+    /* Adjust button size dynamically */
+    @media (max-height: 800px) {
+        section[data-testid="stSidebar"] div.stButton > button {
+            font-size: 14px !important;
+            padding: 8px !important;
+        }
+    }
+    @media (max-height: 600px) {
+        section[data-testid="stSidebar"] div.stButton > button {
+            font-size: 12px !important;
+            padding: 6px !important;
+        }
     }
     </style>
     <script>
@@ -202,10 +218,10 @@ st.markdown(
         const applyButtonStyles = () => {
             let buttons = document.querySelectorAll('section[data-testid="stSidebar"] div.stButton > button');
             buttons.forEach(btn => {
-                btn.style.width = "200px";
-                btn.style.backgroundColor = "#000000";
-                btn.style.color = "#58b3b1";
-                btn.style.border = "2px solid #58b3b1";
+                btn.style.width = "100%";
+                btn.style.background = "linear-gradient(to right, #000000, #58b3b1)";
+                btn.style.color = "#ffffff";
+                btn.style.border = "none";
                 btn.style.borderRadius = "5px";
                 btn.style.padding = "10px";
                 btn.style.margin = "5px 0";
@@ -217,6 +233,7 @@ st.markdown(
                 btn.style.whiteSpace = "nowrap";
                 btn.style.overflow = "hidden";
                 btn.style.textOverflow = "ellipsis";
+                btn.style.transition = "all 0.3s ease";
                 // Set active state based on current page
                 const page = window.location.hash || '#fundamentals';
                 if (btn.textContent.trim() === st.session_state.current_page.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())) {
@@ -225,6 +242,20 @@ st.markdown(
                     btn.removeAttribute('data-active');
                 }
             });
+            // Adjust sidebar height to fit buttons without scrolling
+            const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+            if (sidebar) {
+                const buttonHeight = 40; // Approximate height of each button including margin
+                const buttonCount = buttons.length;
+                const totalHeight = buttonHeight * buttonCount;
+                if (totalHeight > window.innerHeight) {
+                    sidebar.style.height = `${window.innerHeight}px`;
+                    sidebar.style.overflowY = "auto";
+                } else {
+                    sidebar.style.height = `${totalHeight}px`;
+                    sidebar.style.overflowY = "hidden";
+                }
+            }
         };
         // Initial apply
         applyButtonStyles();
@@ -234,11 +265,14 @@ st.markdown(
             const observer = new MutationObserver(applyButtonStyles);
             observer.observe(sidebar, { childList: true, subtree: true });
         }
+        // Handle window resize
+        window.addEventListener('resize', applyButtonStyles);
     });
     </script>
     """,
     unsafe_allow_html=True,
 )
+# =========================================================
 # =========================================================
 # =========================================================
 # HELPERS / DATA
