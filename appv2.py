@@ -1637,7 +1637,7 @@ tools_options = [
         'Pre-Market Checklist'
     ]
 tabs = st.tabs(tools_options)
-    with tabs[0]:
+with tabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
         st.write('---')
