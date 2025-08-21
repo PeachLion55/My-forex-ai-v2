@@ -23,6 +23,30 @@ import scipy.stats
 
 import streamlit as st
 
+import streamlit as st
+
+# ---- Reduce top spacing ----
+st.markdown(
+    """
+    <style>
+    /* Main content container */
+    .css-18e3th9 {
+        padding-top: 0rem;
+        margin-top: 0rem;
+    }
+    /* Optional: Titles */
+    .css-10trblm {
+        margin-top: 0rem;
+    }
+    /* Optional: Markdown blocks */
+    .css-1d391kg { 
+        margin-top: 0rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # --- Gridline background settings ---
 grid_color = "#58b3b1"  # gridline color
 grid_opacity = 0.16      # 0.0 (transparent) to 1.0 (solid)
