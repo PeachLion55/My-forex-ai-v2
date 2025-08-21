@@ -549,6 +549,7 @@ if st.sidebar.button("Logout", key="nav_logout"):
 # Display content based on current page
 if st.session_state.current_page == 'tools':
     st.title("Tools")
+    st.markdown('---')
     tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
