@@ -23,14 +23,17 @@ import scipy.stats
 
 import streamlit as st
 
-import streamlit as st
-
-# ---- Reduce top spacing ----
 st.markdown(
     """
     <style>
-    /* Remove main top padding */
-    main {
+    /* Remove top padding and margins for main content */
+    .css-18e3th9, .css-1d391kg {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    /* Optional: reduce padding inside Streamlit containers */
+    .block-container {
         padding-top: 0rem !important;
     }
     </style>
