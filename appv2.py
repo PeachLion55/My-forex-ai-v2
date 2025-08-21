@@ -474,19 +474,30 @@ from PIL import Image
 import io
 import base64
 
-# Load and resize the logo
-logo = Image.open("logo22.png")
-logo = logo.resize((60, 50))  # adjust width and height as needed
+# ---- Inject CSS to reduce top padding of sidebar ----
+st.markdown(
+    """
+    <style>
+    /* Reduce top padding of Streamlit sidebar */
+    .css-1d391kg {padding-top: 0rem;}  /* may vary by Streamlit version */
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# Convert logo to base64 for HTML embedding
+# ---- Load and resize the logo ----
+logo = Image.open("logo22.png")
+logo = logo.resize((60, 50))  # adjust width/height as needed
+
+# ---- Convert logo to base64 ----
 buffered = io.BytesIO()
 logo.save(buffered, format="PNG")
 logo_str = base64.b64encode(buffered.getvalue()).decode()
 
-# Display logo centered in the sidebar
+# ---- Display logo centered in the sidebar ----
 st.sidebar.markdown(
     f"""
-    <div style='text-align: center; margin-bottom: 20px;'>
+    <div style='text-align: center; margin-bottom: 10px;'>
         <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
     </div>
     """,
