@@ -734,7 +734,7 @@ if st.session_state.current_page == 'fundamentals':
         negative_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
         st.markdown(
             f"""
-            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px;">
+            <div style="background-color: #000000; padding: 10px; border-radius: 5px;">
             <strong>{ev['event']}</strong><br>
             What it is: {ev['description']}<br>
             Why it matters: {ev['why_it_matters']}<br>
