@@ -699,34 +699,34 @@ candleSeries.setData({ohlc_json});
 """
 components.html(chart_html, height=620)
 
-    # Backtesting Journal
-    st.markdown("### 📝 Trading Journal")
+# Backtesting Journal
+st.markdown("### 📝 Trading Journal")
 
-    # Configure column settings for data editor
-    column_config = {
-        "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
-        "Symbol": st.column_config.TextColumn("Symbol"),
-        "Weekly Bias": st.column_config.SelectboxColumn("Weekly Bias", options=["Bullish", "Bearish", "Neutral"]),
-        "Daily Bias": st.column_config.SelectboxColumn("Daily Bias", options=["Bullish", "Bearish", "Neutral"]),
-        "4H Structure": st.column_config.TextColumn("4H Structure"),
-        "1H Structure": st.column_config.TextColumn("1H Structure"),
-        "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
-        "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
-        "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
-        "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
-        "Planned R:R": st.column_config.TextColumn("Planned R:R"),
-        "News Filter": st.column_config.TextColumn("News Filter"),
-        "Alerts": st.column_config.TextColumn("Alerts"),
-        "Concerns": st.column_config.TextColumn("Concerns"),
-        "Emotions": st.column_config.TextColumn("Emotions"),
-        "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
-        "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
-        "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
-        "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
-        "Stop Loss Price": st.column_config.NumberColumn("Stop Loss Price", format="%.5f"),
-        "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
-        "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
-    }
+# Configure column settings for data editor
+column_config = {
+    "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+    "Symbol": st.column_config.TextColumn("Symbol"),
+    "Weekly Bias": st.column_config.SelectboxColumn("Weekly Bias", options=["Bullish", "Bearish", "Neutral"]),
+    "Daily Bias": st.column_config.SelectboxColumn("Daily Bias", options=["Bullish", "Bearish", "Neutral"]),
+    "4H Structure": st.column_config.TextColumn("4H Structure"),
+    "1H Structure": st.column_config.TextColumn("1H Structure"),
+    "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
+    "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
+    "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
+    "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
+    "Planned R:R": st.column_config.TextColumn("Planned R:R"),
+    "News Filter": st.column_config.TextColumn("News Filter"),
+    "Alerts": st.column_config.TextColumn("Alerts"),
+    "Concerns": st.column_config.TextColumn("Concerns"),
+    "Emotions": st.column_config.TextColumn("Emotions"),
+    "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
+    "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
+    "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
+    "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
+    "Stop Loss Price": st.column_config.NumberColumn("Stop Loss Price", format="%.5f"),
+    "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
+    "Lots": st.column_config.NumberColumn("Lots", format="%.2f")
+}
 
     # Prepare transposed journal for display
     if st.session_state.tools_trade_journal.empty:
