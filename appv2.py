@@ -1618,14 +1618,26 @@ elif st.session_state.current_page == 'community':
         st.info("No leaderboard data yet.")
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
+    st.caption("A suite of tools to enhance your trading workflow.")
     st.markdown('---')
-st.markdown("""
-<style>
-div[data-testid="stTabs"] div[role="tablist"] > div {
-    background-color: #58b3b1 !important;
-}
-</style>
-""", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    div[data-testid="stTabs"] div[role="tablist"] > div {
+        background-color: #58b3b1 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    ### Available Tools
+    - **Profit/Loss Calculator**: Calculate potential profits or losses based on trade size, entry, and exit prices.
+    - **Price Alerts**: Set custom price alerts for key levels on your chosen currency pairs.
+    - **Currency Correlation Heatmap**: Visualize correlations between currency pairs to identify hedging opportunities.
+    - **Risk Management Calculator**: Determine optimal position sizes based on risk tolerance and stop-loss levels.
+    - **Trading Session Tracker**: Monitor active trading sessions (e.g., London, New York) to align with market hours.
+    - **Drawdown Recovery Planner**: Plan recovery strategies for account drawdowns with calculated targets.
+    - **Pre-Trade Checklist**: Follow a structured checklist to ensure disciplined trade entries.
+    - **Pre-Market Checklist**: Prepare for the trading day with a comprehensive market analysis checklist.
+    """)
     tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
@@ -1643,7 +1655,7 @@ div[data-testid="stTabs"] div[role="tablist"] > div {
         st.write('---')
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
-            currency_pair =st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
+            currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
             position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01, key="pl_position_size")
             close_price = st.number_input("Close Price", value=1.1050, step=0.0001, key="pl_close_price")
         with col_calc2:
@@ -1728,7 +1740,7 @@ div[data-testid="stTabs"] div[role="tablist"] > div {
                         f"""
                         <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
                         {pair} {status}<br>
-                        Current: {current_price_display}    Target: {target}
+                        Current: {current_price_display} &nbsp;&nbsp;&nbsp; Target: {target}
                         </div>
                         """,
                         unsafe_allow_html=True,
@@ -1947,9 +1959,3 @@ div[data-testid="stTabs"] div[role="tablist"] > div {
                 st.success("Reflection logged!")
         if "reflection_log" in st.session_state and not st.session_state.reflection_log.empty:
             st.dataframe(st.session_state.reflection_log)
-elif st.session_state.current_page == 'settings':
-    st.title("Settings")
-    st.markdown('---')
-    # Add settings content if needed
-# Close database connection
-conn.close()
