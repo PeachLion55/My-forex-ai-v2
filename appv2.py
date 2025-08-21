@@ -1626,7 +1626,7 @@ div[data-testid="stTabs"] div[role="tablist"] > div {
 }
 </style>
 """, unsafe_allow_html=True)
-    tools_options = [
+tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
         'Currency Correlation Heatmap',
