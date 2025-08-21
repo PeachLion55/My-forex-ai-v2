@@ -610,8 +610,8 @@ if st.sidebar.button("🚪 Logout", key="nav_logout"):
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
-if st.session_state.current_page == 'fundamentals':
-    show_fundamentals()
+def show_fundamentals():
+    st.write("Fundamentals page under construction.")
 elif st.session_state.current_page == 'backtesting':
     show_backtesting()
 elif st.session_state.current_page == 'mt5':
