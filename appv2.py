@@ -519,7 +519,7 @@ nav_items = [
     ('account', 'My Account'),
     ('community', 'Community Trade Ideas'),
     ('tools', 'Tools'),
-    ('settings', 'Settings')
+    #('settings', 'Settings')
 ]
 
 for page_key, page_name in nav_items:
