@@ -145,7 +145,7 @@ def _ta_save_community(key, data):
 # =========================================================
 # PAGE CONFIG
 # =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # ----------------- CUSTOM CSS -----------------
 bg_opacity = 0.5
 st.markdown(
@@ -302,37 +302,10 @@ div[data-baseweb="tab-list"] button:hover {{
     box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
     outline: none;
 }}
-/* Sidebar styling for launch ready */
-section[data-testid="stSidebar"] {{
-    background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
-    border-right: 2px solid #333;
-}}
-section[data-testid="stSidebar"] .stButton > button {{
-    width: 100%;
-    background: linear-gradient(45deg, #ff6b35, #f7931e);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}}
-section[data-testid="stSidebar"] .stButton > button:hover {{
-    background: linear-gradient(45deg, #e55a2b, #d87419);
-    transform: translateX(5px);
-}}
-section[data-testid="stSidebar"] .stExpander {{
-    background: transparent;
-}}
-/* Main content padding */
-div.block-container {{
-    padding-top: 2rem;
-}}
 </style>
 """,
     unsafe_allow_html=True,
 )
-
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -353,7 +326,6 @@ def detect_currency(title: str) -> str:
             if kw in t:
                 return curr
     return "Unknown"
-
 def rate_impact(polarity: float) -> str:
     if polarity > 0.5:
         return "Significantly Bullish"
@@ -365,7 +337,6 @@ def rate_impact(polarity: float) -> str:
         return "Bearish"
     else:
         return "Neutral"
-
 @st.cache_data(ttl=600, show_spinner=False)
 def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
@@ -404,7 +375,6 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             logging.error(f"Failed to process news dataframe: {str(e)}")
         return df.reset_index(drop=True)
     return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-
 econ_calendar_data = [
     {"Date": "2025-08-15", "Time": "00:50", "Currency": "JPY", "Event": "Prelim GDP Price Index y/y", "Actual": "3.0%", "Forecast": "3.1%", "Previous": "3.3%", "Impact": ""},
     {"Date": "2025-08-22", "Time": "09:30", "Currency": "GBP", "Event": "Retail Sales m/m", "Actual": "0.5%", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
@@ -547,71 +517,72 @@ if 'show_tools_submenu' not in st.session_state:
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
-st.sidebar.title("Forex Dashboard")
-# Navigation items
-nav_items = [
-    ('fundamentals', 'Forex Fundamentals', '📅'),
-    ('backtesting', 'Backtesting', '📊'),
-    ('mt5', 'MT5 Performance Dashboard', '📈'),
-    ('psychology', 'Psychology', '🧠'),
-    ('strategy', 'Manage My Strategy', '📈'),
-    ('account', 'My Account', '👤'),
-    ('community', 'Community Trade Ideas', '🌐')
-]
-for page_key, page_name, icon in nav_items:
-    if st.sidebar.button(f"{icon} {page_name}", key=f"nav_{page_key}"):
-        st.session_state.current_page = page_key
-        st.session_state.current_subpage = None
-        st.session_state.show_tools_submenu = False
-        st.experimental_rerun()
-# Tools submenu
-if st.sidebar.button("🛠 Tools", key="nav_tools"):
-    st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
-    st.session_state.current_page = 'tools'
-    if not st.session_state.show_tools_submenu:
-        st.session_state.current_subpage = None
-    st.experimental_rerun()
-# Tools submenu items
-if st.session_state.show_tools_submenu:
-    tools_subitems = [
-        ('profit_loss', 'Profit/Loss Calculator'),
-        ('alerts', 'Price Alerts'),
-        ('correlation', 'Currency Correlation Heatmap'),
-        ('risk_mgmt', 'Risk Management Calculator'),
-        ('sessions', 'Trading Session Tracker'),
-        ('drawdown', 'Drawdown Recovery Planner'),
-        ('checklist', 'Pre-Trade Checklist'),
-        ('premarket', 'Pre-Market Checklist')
+with st.sidebar:
+    st.title("Forex Dashboard")
+    # Navigation items
+    nav_items = [
+        ('fundamentals', 'Forex Fundamentals'),
+        ('backtesting', 'Backtesting'),
+        ('mt5', 'MT5 Performance Dashboard'),
+        ('psychology', 'Psychology'),
+        ('strategy', 'Manage My Strategy'),
+        ('account', 'My Account'),
+        ('community', 'Community Trade Ideas')
     ]
-    for sub_key, sub_name in tools_subitems:
-        if st.sidebar.button(sub_name, key=f"sub_{sub_key}"):
-            st.session_state.current_subpage = sub_key
+    for page_key, page_name in nav_items:
+        if st.button(page_name, key=f"nav_{page_key}"):
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
             st.experimental_rerun()
-# Settings
-if st.sidebar.button("⚙ Settings", key="nav_settings"):
-    st.session_state.current_page = 'settings'
-    st.experimental_rerun()
-# Logout
-if st.sidebar.button("🚪 Logout", key="nav_logout"):
-    if 'logged_in_user' in st.session_state:
-        del st.session_state.logged_in_user
-        st.session_state.drawings = {}
-        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-        st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-        st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-        st.session_state.xp = 0
-        st.session_state.level = 0
-        st.session_state.badges = []
-        st.session_state.streak = 0
-        st.success("Logged out successfully!")
-        logging.info("User logged out")
+    # Tools submenu
+    if st.button("Tools", key="nav_tools"):
+        st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
+        st.session_state.current_page = 'tools'
+        if not st.session_state.show_tools_submenu:
+            st.session_state.current_subpage = None
         st.experimental_rerun()
+    # Tools submenu items
+    if st.session_state.show_tools_submenu:
+        tools_subitems = [
+            ('profit_loss', 'Profit/Loss Calculator'),
+            ('alerts', 'Price Alerts'),
+            ('correlation', 'Currency Correlation Heatmap'),
+            ('risk_mgmt', 'Risk Management Calculator'),
+            ('sessions', 'Trading Session Tracker'),
+            ('drawdown', 'Drawdown Recovery Planner'),
+            ('checklist', 'Pre-Trade Checklist'),
+            ('premarket', 'Pre-Market Checklist')
+        ]
+        for sub_key, sub_name in tools_subitems:
+            if st.button(sub_name, key=f"sub_{sub_key}"):
+                st.session_state.current_subpage = sub_key
+                st.experimental_rerun()
+    # Settings
+    if st.button("Settings", key="nav_settings"):
+        st.session_state.current_page = 'settings'
+        st.experimental_rerun()
+    # Logout
+    if st.button("Logout", key="nav_logout"):
+        if 'logged_in_user' in st.session_state:
+            del st.session_state.logged_in_user
+            st.session_state.drawings = {}
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+            st.session_state.xp = 0
+            st.session_state.level = 0
+            st.session_state.badges = []
+            st.session_state.streak = 0
+            st.success("Logged out successfully!")
+            logging.info("User logged out")
+            st.experimental_rerun()
 # =========================================================
-# MAIN APPLICATION
+# MAIN CONTENT
 # =========================================================
-def show_fundamentals():
-    st.write("Fundamentals page under construction.")
+if st.session_state.current_page == 'fundamentals':
+    show_fundamentals()
 elif st.session_state.current_page == 'backtesting':
     show_backtesting()
 elif st.session_state.current_page == 'mt5':
@@ -628,5 +599,6 @@ elif st.session_state.current_page == 'community':
     show_community()
 elif st.session_state.current_page == 'settings':
     show_settings()
+
 # Close database connection
 conn.close()
