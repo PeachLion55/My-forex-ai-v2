@@ -732,32 +732,28 @@ forex_high_impact_events = [
 ]
 
 for ev in forex_high_impact_events:
-    positive_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_positive"].items()])
-    negative_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
+    # Prepare HTML for positive and negative columns
+    positive_html = "<br>".join([f"{k}: {v}" for k, v in ev["impact_positive"].items()])
+    negative_html = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
 
     st.markdown(
         f"""
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <!-- Positive Impact Box -->
-            <div style="background-color: #000000; color: white; padding: 10px; border-radius: 5px; flex: 1;">
-                <strong>{ev['event']} - Positive</strong><br>
-                What it is: {ev['description']}<br>
-                Why it matters: {ev['why_it_matters']}<br><br>
-                {positive_impact}
+        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+            <div style="background-color: #000000; color: #ffffff; padding: 10px; border-radius: 5px; flex: 1;">
+                <strong>{ev['event']}</strong><br>
+                <em>What it is:</em> {ev['description']}<br>
+                <em>Why it matters:</em> {ev['why_it_matters']}<br><br>
+                <strong>Positive Impact →</strong><br>
+                {positive_html}
             </div>
-
-            <!-- Negative Impact Box -->
-            <div style="background-color: #000000; color: white; padding: 10px; border-radius: 5px; flex: 1;">
-                <strong>{ev['event']} - Negative</strong><br>
-                What it is: {ev['description']}<br>
-                Why it matters: {ev['why_it_matters']}<br><br>
-                {negative_impact}
+            <div style="background-color: #000000; color: #ffffff; padding: 10px; border-radius: 5px; flex: 1;">
+                <strong>Negative Impact →</strong><br>
+                {negative_html}
             </div>
         </div>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
-
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and trading journal for the selected pair.")
