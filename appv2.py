@@ -474,12 +474,18 @@ from PIL import Image
 import io
 import base64
 
-# ---- Inject CSS to reduce top padding of sidebar ----
+import io
+import base64
+from PIL import Image
+
+# ---- Reduce top padding in the sidebar ----
 st.markdown(
     """
     <style>
-    /* Reduce top padding of Streamlit sidebar */
-    .css-1d391kg {padding-top: 0rem;}  /* may vary by Streamlit version */
+    /* Streamlit sidebar: remove top padding to move content up */
+    .sidebar-content {
+        padding-top: 0rem;
+    }
     </style>
     """,
     unsafe_allow_html=True
