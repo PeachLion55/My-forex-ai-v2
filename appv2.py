@@ -570,6 +570,7 @@ if st.session_state.current_page == 'fundamentals':
     with col1:
         st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+        st.write('---')
     with col2:
         st.info("See the Backtesting tab for live charts + detailed news.")
 
