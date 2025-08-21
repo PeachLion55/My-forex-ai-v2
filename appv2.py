@@ -174,9 +174,9 @@ st.markdown(
     }
     /* Sidebar buttons default style */
     section[data-testid="stSidebar"] div.stButton > button {
-        width: 100% !important;
+        width: 200px !important;
         background-color: #000000 !important;
-        color: #ffffff !important;
+        color: #58b3b1 !important;
         border: 2px solid #58b3b1 !important;
         border-radius: 5px !important;
         padding: 10px !important;
@@ -186,17 +186,25 @@ st.markdown(
         text-align: left !important;
         display: block !important;
         box-sizing: border-box !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    /* Active page button style */
+    section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+        background-color: #58b3b1 !important;
+        color: #ffffff !important;
     }
     </style>
     <script>
-    // Ensure dynamically loaded buttons get the style applied
+    // Ensure dynamically loaded buttons get the style applied and set active state
     document.addEventListener("DOMContentLoaded", function() {
         const applyButtonStyles = () => {
             let buttons = document.querySelectorAll('section[data-testid="stSidebar"] div.stButton > button');
             buttons.forEach(btn => {
-                btn.style.width = "100%";
+                btn.style.width = "200px";
                 btn.style.backgroundColor = "#000000";
-                btn.style.color = "#ffffff";
+                btn.style.color = "#58b3b1";
                 btn.style.border = "2px solid #58b3b1";
                 btn.style.borderRadius = "5px";
                 btn.style.padding = "10px";
@@ -206,6 +214,16 @@ st.markdown(
                 btn.style.textAlign = "left";
                 btn.style.display = "block";
                 btn.style.boxSizing = "border-box";
+                btn.style.whiteSpace = "nowrap";
+                btn.style.overflow = "hidden";
+                btn.style.textOverflow = "ellipsis";
+                // Set active state based on current page
+                const page = window.location.hash || '#fundamentals';
+                if (btn.textContent.trim() === st.session_state.current_page.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())) {
+                    btn.setAttribute('data-active', 'true');
+                } else {
+                    btn.removeAttribute('data-active');
+                }
             });
         };
         // Initial apply
@@ -221,6 +239,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+# =========================================================
 # =========================================================
 # HELPERS / DATA
 # =========================================================
@@ -419,13 +438,15 @@ if 'show_tools_submenu' not in st.session_state:
 st.sidebar.title("Forex Dashboard")
 # Navigation items
 nav_items = [
-    ('fundamentals', '📈 Forex Fundamentals'),
-    ('backtesting', '🔍 Backtesting'),
-    ('mt5', '📊 MT5 Performance Dashboard'),
-    ('psychology', '🧠 Psychology'),
-    ('strategy', '⚔️ Manage My Strategy'),
-    ('account', '👤 My Account'),
-    ('community', '🌐 Community Trade Ideas')
+    ('fundamentals', 'Forex Fundamentals'),
+    ('backtesting', 'Backtesting'),
+    ('mt5', 'MT5 Performance Dashboard'),
+    ('psychology', 'Psychology'),
+    ('strategy', 'Manage My Strategy'),
+    ('account', 'My Account'),
+    ('community', 'Community Trade Ideas'),
+    ('tools', 'Tools'),
+    ('settings', 'Settings')
 ]
 for page_key, page_name in nav_items:
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
@@ -433,35 +454,8 @@ for page_key, page_name in nav_items:
         st.session_state.current_subpage = None
         st.session_state.show_tools_submenu = False
         st.rerun()
-# Tools submenu
-if st.sidebar.button("🛠️ Tools", key="nav_tools"):
-    st.session_state.show_tools_submenu = not st.session_state.show_tools_submenu
-    st.session_state.current_page = 'tools'
-    if not st.session_state.show_tools_submenu:
-        st.session_state.current_subpage = None
-    st.rerun()
-# Tools submenu items
-if st.session_state.show_tools_submenu:
-    tools_subitems = [
-        ('profit_loss', '💹 Profit/Loss Calculator'),
-        ('alerts', '🔔 Price Alerts'),
-        ('correlation', '🔗 Currency Correlation Heatmap'),
-        ('risk_mgmt', '🛡️ Risk Management Calculator'),
-        ('sessions', '⏰ Trading Session Tracker'),
-        ('drawdown', '📉 Drawdown Recovery Planner'),
-        ('checklist', '✅ Pre-Trade Checklist'),
-        ('premarket', '🌅 Pre-Market Checklist')
-    ]
-    for sub_key, sub_name in tools_subitems:
-        if st.sidebar.button(sub_name, key=f"sub_{sub_key}"):
-            st.session_state.current_subpage = sub_key
-            st.rerun()
-# Settings
-if st.sidebar.button("⚙️ Settings", key="nav_settings"):
-    st.session_state.current_page = 'settings'
-    st.rerun()
 # Logout
-if st.sidebar.button("🚪 Logout", key="nav_logout"):
+if st.sidebar.button("Logout", key="nav_logout"):
     if 'logged_in_user' in st.session_state:
         del st.session_state.logged_in_user
     st.session_state.drawings = {}
@@ -476,6 +470,23 @@ if st.sidebar.button("🚪 Logout", key="nav_logout"):
     st.success("Logged out successfully!")
     logging.info("User logged out")
     st.rerun()
+
+# Display content based on current page
+if st.session_state.current_page == 'tools':
+    st.title("Tools")
+    tools_options = [
+        'Profit/Loss Calculator',
+        'Price Alerts',
+        'Currency Correlation Heatmap',
+        'Risk Management Calculator',
+        'Trading Session Tracker',
+        'Drawdown Recovery Planner',
+        'Pre-Trade Checklist',
+        'Pre-Market Checklist'
+    ]
+    selected_tool = st.selectbox("Select a Tool", tools_options, key="tool_select")
+    st.write(f"You selected: {selected_tool}")
+# =========================================================
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
