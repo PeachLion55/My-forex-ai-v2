@@ -692,7 +692,62 @@ if st.session_state.current_page == 'fundamentals':
             """,
             unsafe_allow_html=True,
         )
-elif st.session_state.current_page == 'backtesting':
+import streamlit as st
+import pandas as pd
+import json
+import logging
+import subprocess
+from datetime import datetime, date  # Added missing datetime import
+import plotly.express as px
+import plotly.graph_objects as go
+
+# Assuming these are defined elsewhere in your code
+journal_cols = [
+    'Date', 'Symbol', 'Weekly Bias', 'Daily Bias', '4H Structure', '1H Structure',
+    'Positive Correlated Pair & Bias', 'Potential Entry Points', '5min/15min Setup?',
+    'Entry Conditions', 'Planned R:R', 'News Filter', 'Alerts', 'Concerns',
+    'Emotions', 'Confluence Score 1-7', 'Outcome / R:R Realised', 'Notes/Journal',
+    'Entry Price', 'Stop Loss Price', 'Take Profit Price', 'Lots', 'Tags'
+]
+
+journal_dtypes = {
+    'Date': 'datetime64[ns]', 'Symbol': str, 'Weekly Bias': str, 'Daily Bias': str,
+    '4H Structure': str, '1H Structure': str, 'Positive Correlated Pair & Bias': str,
+    'Potential Entry Points': str, '5min/15min Setup?': str, 'Entry Conditions': str,
+    'Planned R:R': str, 'News Filter': str, 'Alerts': str, 'Concerns': str,
+    'Emotions': str, 'Confluence Score 1-7': float, 'Outcome / R:R Realised': str,
+    'Notes/Journal': str, 'Entry Price': float, 'Stop Loss Price': float,
+    'Take Profit Price': float, 'Lots': float, 'Tags': str
+}
+
+# Custom JSON encoder for handling special types
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date, pd.Timestamp)):
+            return obj.isoformat()
+        if pd.isna(obj):
+            return None
+        return super().default(obj)
+
+# Placeholder for ta_update_xp and ta_update_streak (implement as needed)
+def ta_update_xp(points):
+    st.session_state['xp'] = st.session_state.get('xp', 0) + points
+
+def ta_update_streak():
+    today = datetime.now().date()
+    last_date = st.session_state.get('last_journal_date')
+    if last_date:
+        last_date = pd.to_datetime(last_date).date()
+        if last_date == today - pd.Timedelta(days=1):
+            st.session_state['streak'] = st.session_state.get('streak', 0) + 1
+        elif last_date != today:
+            st.session_state['streak'] = 1
+    else:
+        st.session_state['streak'] = 1
+    st.session_state['last_journal_date'] = today
+
+# Backtesting page
+if st.session_state.get('current_page') == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
     st.markdown('---')
@@ -716,21 +771,23 @@ elif st.session_state.current_page == 'backtesting':
         "CAD/JPY": "FX:CADJPY",
         "CHF/JPY": "FX:CHFJPY",
         "EUR/AUD": "FX:EURAUD",
-        "EUR/CAD": "FX:EURCAD",
-        "EUR/CHF": "FX:EURCHF",
-        "GBP/AUD": "FX:GBPAUD",
-        "GBP/CAD": "FX:GBPCAD",
-        "GBP/CHF": "FX:GBPCHF",
-        "NZD/JPY": "FX:NZDJPY",
-        "NZD/CAD": "FX:NZDCAD",
-        "NZD/CHF": "FX:NZDCHF",
-        "CAD/CHF": "FX:CADCHF",
+        "EUR/CAD Ascending": {
+            "EUR/CAD": "FX:EURCAD",
+            "EUR/CHF": "FX:EURCHF",
+            "GBP/AUD": "FX:GBPAUD",
+            "GBP/CAD": "FX:GBPCAD",
+            "GBP/CHF": "FX:GBPCHF",
+            "NZD/JPY": "FX:NZDJPY",
+            "NZD/CAD": "FX:NZDCAD",
+            "NZD/CHF": "FX:NZDCHF",
+            "CAD/CHF": "FX:CADCHF",
+        }
     }
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
 
     # Load initial drawings if available
-    if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
+    if "logged_in_user" in st.session_state and pair not in st.session_state.get('drawings', {}):
         username = st.session_state.logged_in_user
         logging.info(f"Loading drawings for user {username}, pair {pair}")
         try:
@@ -745,7 +802,8 @@ elif st.session_state.current_page == 'backtesting':
         except Exception as e:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
-    initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
+
+    initial_content = json.dumps(st.session_state.get('drawings', {}).get(pair, {}))
 
     # TradingView widget
     tv_html = f"""
@@ -772,7 +830,7 @@ elif st.session_state.current_page == 'backtesting':
     }});
     </script>
     """
-    components.html(tv_html, height=820, scrolling=False)
+    st.components.v1.html(tv_html, height=820, scrolling=False)
 
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
@@ -785,9 +843,10 @@ elif st.session_state.current_page == 'backtesting':
                 parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '*');
                 </script>
                 """
-                components.html(save_script, height=0)
+                st.components.v1.html(save_script, height=0)
                 logging.info(f"Triggered save script for {pair}")
                 st.session_state[f"bt_save_trigger_{pair}"] = True
+
         with col2:
             if st.button("Load Drawings", key="bt_load_drawings"):
                 username = st.session_state.logged_in_user
@@ -804,7 +863,7 @@ elif st.session_state.current_page == 'backtesting':
                             parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '*');
                             </script>
                             """
-                            components.html(load_script, height=0)
+                            st.components.v1.html(load_script, height=0)
                             st.success("Drawings loaded successfully!")
                             logging.info(f"Successfully loaded drawings for {pair}")
                         else:
@@ -816,6 +875,7 @@ elif st.session_state.current_page == 'backtesting':
                 except Exception as e:
                     st.error(f"Failed to load drawings: {str(e)}")
                     logging.error(f"Error loading drawings for {username}: {str(e)}")
+
         with col3:
             if st.button("Refresh Account", key="bt_refresh_account"):
                 username = st.session_state.logged_in_user
@@ -914,7 +974,7 @@ elif st.session_state.current_page == 'backtesting':
                 emotions = st.selectbox("Emotions", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
                 tags = st.multiselect("Tags", ["Setup: Breakout", "Setup: Reversal", "Mistake: Overtrading", "Mistake: No Stop Loss", "Emotion: FOMO", "Emotion: Revenge"])
                 notes = st.text_area("Notes/Journal")
-            
+
             submit_button = st.form_submit_button("Save Trade")
             if submit_button:
                 # Calculate P/L and R:R
@@ -970,8 +1030,8 @@ elif st.session_state.current_page == 'backtesting':
                     for key in ['tools_trade_journal', 'strategies', 'emotion_log', 'reflection_log']:
                         user_data[key] = pd.DataFrame(user_data[key]).replace({pd.NA: None, float('nan'): None}).to_dict('records')
                     try:
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", 
-                                (json.dumps(user_data, cls=CustomJSONEncoder), username))
+                        c.execute("UPDATE users SET data = ? WHERE username = ?",
+                                  (json.dumps(user_data, cls=CustomJSONEncoder), username))
                         conn.commit()
                         ta_update_xp(10)
                         ta_update_streak()
@@ -1062,18 +1122,17 @@ elif st.session_state.current_page == 'backtesting':
             # Filters
             col_filter1, col_filter2, col_filter3 = st.columns(3)
             with col_filter1:
-                symbol_filter = st.multiselect("Filter by Symbol", 
+                symbol_filter = st.multiselect("Filter by Symbol",
                     options=st.session_state.tools_trade_journal['Symbol'].unique(),
                     default=st.session_state.tools_trade_journal['Symbol'].unique())
             with col_filter2:
-                # Safely handle tags, default to empty list if 'Tags' is missing or empty
                 tag_options = []
                 if 'Tags' in st.session_state.tools_trade_journal.columns:
                     tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
                 tag_filter = st.multiselect("Filter by Tags", options=tag_options)
             with col_filter3:
                 bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
-            
+
             filtered_df = st.session_state.tools_trade_journal[
                 st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
             ]
@@ -1123,7 +1182,6 @@ elif st.session_state.current_page == 'backtesting':
             st.write(f"Emotions: {selected_trade['Emotions']}")
             st.write(f"Tags: {selected_trade.get('Tags', '')}")
             st.write(f"Notes: {selected_trade['Notes/Journal']}")
-
             if st.button("Replay Trade"):
                 st.warning("Simulated MT5 chart replay. In a real implementation, connect to MT5 API to fetch historical data.")
                 fig = go.Figure()
