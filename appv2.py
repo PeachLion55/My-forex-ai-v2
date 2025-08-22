@@ -1,5 +1,4 @@
-import streamlit as st
-import pandas as pd
+import streamlit as st          st.rerunpd
 import feedparser
 from textblob import TextBlob
 import streamlit.components.v1 as components
@@ -512,7 +511,6 @@ nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
     ('mt5', 'Performance Dashboard'),
-    ('psychology', 'Psychology'),
     ('strategy', 'Manage My Strategy'),
     ('account', 'My Account'),
     ('community', 'Community Trade Ideas'),
@@ -589,7 +587,7 @@ if st.session_state.current_page == 'fundamentals':
         {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "2025-06-19", "Next Meeting": "2025-09-26"},
     ]
     boxes_per_row = 4
-    colors = ["#171447", "#471414", "#144714", "#474714"]
+    colors = ["#2d4646", "#4d7171", "#2d4646", "#4d7171"]
     for i in range(0, len(interest_rates), boxes_per_row):
         cols = st.columns(boxes_per_row)
         for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
@@ -692,6 +690,35 @@ if st.session_state.current_page == 'fundamentals':
             """,
             unsafe_allow_html=True,
         )
+import json
+from datetime import datetime, date
+import pandas as pd
+
+# Custom JSON encoder to handle datetime and other non-serializable types
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
+        if pd.isna(obj):
+            return None
+        return super().default(obj)
+
+# ... other imports and global definitions (e.g., journal_cols, journal_dtypes, database setup) ...
+
+# Navigation structure (replace around line 710)
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'home'
+
+if st.session_state.current_page == 'home':
+    st.title("Home")
+    st.write("Welcome to the Forex Trading App")
+    # Add your existing Home page code here
+elif st.session_state.current_page == 'my_account':
+    st.title("My Account")
+    st.write("User account details")
+    # Add your existing My Account page code here
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
@@ -942,7 +969,7 @@ elif st.session_state.current_page == 'backtesting':
                     'Notes/Journal': notes,
                     'Entry Price': entry_price,
                     'Stop Loss Price': stop_loss_price,
-                    'Take Profit Price': take_profit_price,
+                    'Exit Price': take_profit_price,
                     'Lots': lots,
                     'Tags': ','.join(tags)
                 }
@@ -1146,237 +1173,6 @@ elif st.session_state.current_page == 'backtesting':
                 fig.add_hline(y=selected_trade['Stop Loss Price'], line_dash="dash", line_color="red", name="Stop Loss")
                 fig.add_hline(y=selected_trade['Take Profit Price'], line_dash="dash", line_color="green", name="Take Profit")
                 fig.update_layout(title=f"Trade Replay: {selected_trade['Symbol']}", xaxis_title="Time", yaxis_title="Price")
-                st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No trades available for replay.")
-    # Performance Dashboard (Revamped Analytics Tab)
-    with tab_analytics:
-        st.subheader("Performance Dashboard")
-        st.markdown("Analyze your trading performance with detailed metrics and interactive visualizations.", unsafe_allow_html=True)
-
-        if not st.session_state.tools_trade_journal.empty:
-            # Filters
-            with st.expander("Filter Options", expanded=True):
-                col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
-                with col_filter1:
-                    symbol_filter = st.multiselect("Filter by Symbol", 
-                        options=st.session_state.tools_trade_journal['Symbol'].unique(),
-                        default=st.session_state.tools_trade_journal['Symbol'].unique())
-                with col_filter2:
-                    tag_options = []
-                    if 'Tags' in st.session_state.tools_trade_journal.columns:
-                        tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
-                    tag_filter = st.multiselect("Filter by Tags", options=tag_options)
-                with col_filter3:
-                    bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
-                with col_filter4:
-                    date_range = st.date_input("Date Range", 
-                        value=(st.session_state.tools_trade_journal['Date'].min(), st.session_state.tools_trade_journal['Date'].max()),
-                        min_value=st.session_state.tools_trade_journal['Date'].min(),
-                        max_value=st.session_state.tools_trade_journal['Date'].max())
-
-            # Apply filters
-            filtered_df = st.session_state.tools_trade_journal[
-                st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
-            ]
-            if tag_filter and 'Tags' in filtered_df.columns:
-                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in x.split(',') for tag in tag_filter) if isinstance(x, str) and x else False)]
-            if bias_filter != "All":
-                filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
-            if isinstance(date_range, tuple) and len(date_range) == 2:
-                filtered_df = filtered_df[(filtered_df['Date'] >= pd.to_datetime(date_range[0])) & (filtered_df['Date'] <= pd.to_datetime(date_range[1]))]
-
-            # Parse R:R safely
-            def parse_rr(x):
-                try:
-                    if isinstance(x, str) and ':' in x:
-                        return float(x.split(':')[1])
-                    return 0.0
-                except (ValueError, IndexError):
-                    return 0.0
-
-            # Calculate metrics
-            win_rate = (filtered_df['Outcome / R:R Realised'].apply(parse_rr) > 0).mean() * 100 if not filtered_df.empty else 0
-            avg_rr = filtered_df['Outcome / R:R Realised'].apply(parse_rr).mean() if not filtered_df.empty else 0
-            total_trades = len(filtered_df)
-            total_pips = filtered_df.apply(
-                lambda row: (row['Take Profit Price'] - row['Entry Price']) * (100 if 'JPY' in row['Symbol'] else 10000) * row['Lots']
-                            if row['Weekly Bias'] in ["Bullish", "Neutral"]
-                            else (row['Entry Price'] - row['Take Profit Price']) * (100 if 'JPY' in row['Symbol'] else 10000) * row['Lots'],
-                axis=1
-            ).sum() if not filtered_df.empty else 0
-            best_symbol = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
-                lambda x: pd.Series([parse_rr(r) for r in x]).mean()
-            ).idxmax() if not filtered_df.empty else "N/A"
-            worst_symbol = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
-                lambda x: pd.Series([parse_rr(r) for r in x]).mean()
-            ).idxmin() if not filtered_df.empty else "N/A"
-
-            # Display metrics in a grid
-            st.markdown("### Key Metrics")
-            col_metric1, col_metric2, col_metric3 = st.columns(3)
-            col_metric4, col_metric5, col_metric6 = st.columns(3)
-            with col_metric1:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Win Rate (%)", f"{win_rate:.2f}", delta=f"{win_rate-50:.2f}% vs 50%", delta_color="normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col_metric2:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Average R:R", f"{avg_rr:.2f}", delta_color="normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col_metric3:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Total Trades", total_trades, delta_color="normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col_metric4:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Total Pips", f"{total_pips:.2f}", delta_color="normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col_metric5:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Best Symbol", best_symbol, delta_color="normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-            with col_metric6:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Worst Symbol", worst_symbol, delta_color="normal")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Visualizations
-            st.markdown("### Performance Visualizations")
-            with st.expander("Charts", expanded=True):
-                col_chart1, col_chart2 = st.columns(2)
-                with col_chart1:
-                    # Average R:R by Symbol
-                    rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
-                        lambda x: pd.Series([parse_rr(r) for r in x]).mean()
-                    ).reset_index(name='Average R:R')
-                    fig_rr = px.bar(
-                        rr_values, 
-                        x='Symbol', 
-                        y='Average R:R', 
-                        title="Average R:R by Symbol",
-                        color='Average R:R',
-                        color_continuous_scale=['#FF4500', '#FFD700', '#1E90FF'],
-                        template='plotly_dark'
-                    )
-                    fig_rr.update_layout(
-                        plot_bgcolor='#2A2A2A',
-                        paper_bgcolor='#2A2A2A',
-                        font_color='#D3D3D3',
-                        title_font_color='#FFD700',
-                        showlegend=False
-                    )
-                    st.plotly_chart(fig_rr, use_container_width=True)
-
-                    # Win Rate Trend Over Time
-                    if not filtered_df.empty:
-                        win_rate_trend = filtered_df.groupby(filtered_df['Date'].dt.to_period('M'))['Outcome / R:R Realised'].apply(
-                            lambda x: (pd.Series([parse_rr(r) for r in x]) > 0).mean() * 100
-                        ).reset_index(name='Win Rate (%)')
-                        win_rate_trend['Date'] = win_rate_trend['Date'].astype(str)
-                        fig_trend = px.line(
-                            win_rate_trend,
-                            x='Date',
-                            y='Win Rate (%)',
-                            title="Win Rate Trend Over Time",
-                            template='plotly_dark',
-                            markers=True
-                        )
-                        fig_trend.update_layout(
-                            plot_bgcolor='#2A2A2A',
-                            paper_bgcolor='#2A2A2A',
-                            font_color='#D3D3D3',
-                            title_font_color='#FFD700'
-                        )
-                        fig_trend.update_traces(line_color='#1E90FF')
-                        st.plotly_chart(fig_trend, use_container_width=True)
-
-                with col_chart2:
-                    # Trades by Emotional State
-                    fig_emotions = px.pie(
-                        filtered_df,
-                        names='Emotions',
-                        title="Trades by Emotional State",
-                        template='plotly_dark',
-                        color_discrete_sequence=['#1E90FF', '#FFD700', '#FF4500', '#00CED1', '#FF69B4', '#32CD32']
-                    )
-                    fig_emotions.update_layout(
-                        plot_bgcolor='#2A2A2A',
-                        paper_bgcolor='#2A2A2A',
-                        font_color='#D3D3D3',
-                        title_font_color='#FFD700'
-                    )
-                    st.plotly_chart(fig_emotions, use_container_width=True)
-
-                    # Performance by Tag
-                    if 'Tags' in filtered_df.columns and tag_options:
-                        tag_performance = filtered_df.explode('Tags').groupby('Tags')['Outcome / R:R Realised'].apply(
-                            lambda x: pd.Series([parse_rr(r) for r in x]).mean()
-                        ).reset_index(name='Average R:R')
-                        tag_performance = tag_performance[tag_performance['Tags'].isin(tag_options)]
-                        fig_tags = px.bar(
-                            tag_performance,
-                            x='Tags',
-                            y='Average R:R',
-                            title="Performance by Tag",
-                            color='Average R:R',
-                            color_continuous_scale=['#FF4500', '#FFD700', '#1E90FF'],
-                            template='plotly_dark'
-                        )
-                        fig_tags.update_layout(
-                            plot_bgcolor='#2A2A2A',
-                            paper_bgcolor='#2A2A2A',
-                            font_color='#D3D3D3',
-                            title_font_color='#FFD700',
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig_tags, use_container_width=True)
-
-        else:
-            st.info("No trades logged yet. Add trades in the 'Log Trade' tab.")
-
-    # Trade Replay Tab
-    with tab_replay:
-        st.subheader("Trade Replay")
-        if not st.session_state.tools_trade_journal.empty:
-            trade_id = st.selectbox("Select Trade to Replay",
-                                    options=st.session_state.tools_trade_journal.index,
-                                    format_func=lambda x: f"{st.session_state.tools_trade_journal.loc[x, 'Date'].strftime('%Y-%m-%d')} - {st.session_state.tools_trade_journal.loc[x, 'Symbol']}")
-            selected_trade = st.session_state.tools_trade_journal.loc[trade_id]
-            st.write("**Trade Details**")
-            st.write(f"Symbol: {selected_trade['Symbol']}")
-            st.write(f"Weekly Bias: {selected_trade['Weekly Bias']}")
-            st.write(f"Entry Price: {selected_trade['Entry Price']:.5f}")
-            st.write(f"Stop Loss Price: {selected_trade['Stop Loss Price']:.5f}")
-            st.write(f"Take Profit Price: {selected_trade['Take Profit Price']:.5f}")
-            st.write(f"Outcome / R:R Realised: {selected_trade['Outcome / R:R Realised']}")
-            st.write(f"Entry Conditions: {selected_trade['Entry Conditions']}")
-            st.write(f"Emotions: {selected_trade['Emotions']}")
-            st.write(f"Tags: {selected_trade.get('Tags', '')}")
-            st.write(f"Notes: {selected_trade['Notes/Journal']}")
-
-            if st.button("Replay Trade"):
-                st.warning("Simulated MT5 chart replay. In a real implementation, connect to MT5 API to fetch historical data.")
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(
-                    x=[selected_trade['Date'], selected_trade['Date'] + pd.Timedelta(minutes=60)],
-                    y=[selected_trade['Entry Price'], selected_trade['Take Profit Price']],
-                    mode='lines+markers',
-                    name='Price Movement',
-                    line=dict(color='#1E90FF')
-                ))
-                fig.add_hline(y=selected_trade['Stop Loss Price'], line_dash="dash", line_color="#FF4500", name="Stop Loss")
-                fig.add_hline(y=selected_trade['Take Profit Price'], line_dash="dash", line_color="#FFD700", name="Take Profit")
-                fig.update_layout(
-                    title=f"Trade Replay: {selected_trade['Symbol']}",
-                    xaxis_title="Time",
-                    yaxis_title="Price",
-                    template='plotly_dark',
-                    plot_bgcolor='#2A2A2A',
-                    paper_bgcolor='#2A2A2A',
-                    font_color='#D3D3D3',
-                    title_font_color='#FFD700'
-                )
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trades available for replay.")
@@ -1609,73 +1405,6 @@ elif st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
-elif st.session_state.current_page == 'psychology':
-    st.title("🧠 Psychology")
-    st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
-    st.markdown('---')
-    st.subheader("📝 Emotion Tracker")
-    with st.form("emotion_form"):
-        emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
-        notes = st.text_area("Notes on Your Mindset")
-        submit_emotion = st.form_submit_button("Log Emotion")
-        if submit_emotion:
-            log_entry = {
-                "Date": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Emotion": emotion,
-                "Notes": notes
-            }
-            if "emotion_log" not in st.session_state:
-                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-            st.session_state.emotion_log = pd.concat([st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True)
-            if "logged_in_user" in st.session_state:
-                username = st.session_state.logged_in_user
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
-                    user_data["emotion_log"] = st.session_state.emotion_log.to_dict(orient="records")
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                    conn.commit()
-                except Exception as e:
-                    logging.error(f"Error saving emotion log: {str(e)}")
-            st.success("Emotion logged successfully!")
-            logging.info(f"Emotion logged: {emotion}")
-    if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
-        st.subheader("Your Emotion Log")
-        st.dataframe(st.session_state.emotion_log, use_container_width=True)
-        fig = px.histogram(st.session_state.emotion_log, x="Emotion", title="Emotion Distribution")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No emotions logged yet. Use the form above to start tracking.")
-    st.subheader("🧘 Mindset Tips")
-    tips = [
-        "Stick to your trading plan to avoid impulsive decisions.",
-        "Take breaks after losses to reset your mindset.",
-        "Focus on process, not profits, to stay disciplined.",
-        "Journal every trade to identify emotional patterns.",
-        "Practice mindfulness to manage stress during volatile markets."
-    ]
-    for tip in tips:
-        st.markdown(f"- {tip}")
-    # Curated Education Feeds
-    st.subheader("📚 Curated Trading Insights")
-    insights = [
-        "Risk Management: Always risk no more than 1-2% of your account per trade to preserve capital.",
-        "Psychology: Master your emotions; fear and greed are the biggest enemies of traders.",
-        "Setups: Focus on high-probability patterns like pin bars and engulfing candles in trending markets."
-    ]
-    week_num = dt.datetime.now().isocalendar()[1]
-    current_insight = insights[week_num % len(insights)]
-    st.info(f"Insight of the Week: {current_insight}")
-    # Challenge Mode
-    st.subheader("🏅 Challenge Mode")
-    st.write("30-Day Journaling Discipline Challenge")
-    streak = st.session_state.get('streak', 0)
-    progress = min(streak / 30.0, 1.0)
-    st.progress(progress)
-    if progress >= 1.0:
-        st.success("Challenge completed! Great job on your consistency.")
-        ta_update_xp(100) # Bonus XP for completion
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
