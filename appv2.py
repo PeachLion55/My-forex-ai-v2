@@ -526,21 +526,21 @@ for page_key, page_name in nav_items:
         st.session_state.show_tools_submenu = False
         st.rerun()
 # Logout
-if st.sidebar.button("Logout", key="nav_logout"):
-    if 'logged_in_user' in st.session_state:
-        del st.session_state.logged_in_user
-    st.session_state.drawings = {}
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-    st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-    st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-    st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-    st.session_state.xp = 0
-    st.session_state.level = 0
-    st.session_state.badges = []
-    st.session_state.streak = 0
-    st.success("Logged out successfully!")
-    logging.info("User logged out")
-    st.rerun()
+#if st.sidebar.button("Logout", key="nav_logout"):
+    #if 'logged_in_user' in st.session_state:
+        #del st.session_state.logged_in_user
+    #st.session_state.drawings = {}
+    #st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+    #st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+    #st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+    #st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+    #st.session_state.xp = 0
+    #st.session_state.level = 0
+    #st.session_state.badges = []
+    #st.session_state.streak = 0
+    #st.success("Logged out successfully!")
+    #logging.info("User logged out")
+    #st.rerun()
 # =========================================================
 # =========================================================
 # MAIN APPLICATION
