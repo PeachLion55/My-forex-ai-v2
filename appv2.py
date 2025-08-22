@@ -692,6 +692,26 @@ if st.session_state.current_page == 'fundamentals':
             """,
             unsafe_allow_html=True,
         )
+from datetime import datetime  # Ensure this import is at the top of your script
+import streamlit as st
+import pandas as pd
+import json
+import logging
+import sqlite3
+from datetime import date
+import plotly.express as px
+import plotly.graph_objects as go
+import subprocess
+
+# Assuming these are defined elsewhere in your script
+# conn = sqlite3.connect('database.db')
+# c = conn.cursor()
+# journal_cols = [...]  # Your journal columns
+# journal_dtypes = {...}  # Your journal data types
+# class CustomJSONEncoder(json.JSONEncoder):  # Your custom JSON encoder
+# def ta_update_xp(points):  # Your XP update function
+# def ta_update_streak():  # Your streak update function
+
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
@@ -729,6 +749,10 @@ elif st.session_state.current_page == 'backtesting':
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
 
+    # Initialize drawings in session state if not present
+    if 'drawings' not in st.session_state:
+        st.session_state.drawings = {}
+
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
         username = st.session_state.logged_in_user
@@ -745,6 +769,7 @@ elif st.session_state.current_page == 'backtesting':
         except Exception as e:
             logging.error(f"Error loading drawings for {username}: {str(e)}")
             st.error(f"Failed to load drawings: {str(e)}")
+    
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
 
     # TradingView widget
@@ -772,7 +797,7 @@ elif st.session_state.current_page == 'backtesting':
     }});
     </script>
     """
-    components.html(tv_html, height=820, scrolling=False)
+    st.components.v1.html(tv_html, height=820, scrolling=False)
 
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
@@ -785,7 +810,7 @@ elif st.session_state.current_page == 'backtesting':
                 parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '*');
                 </script>
                 """
-                components.html(save_script, height=0)
+                st.components.v1.html(save_script, height=0)
                 logging.info(f"Triggered save script for {pair}")
                 st.session_state[f"bt_save_trigger_{pair}"] = True
         with col2:
@@ -804,7 +829,7 @@ elif st.session_state.current_page == 'backtesting':
                             parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '*');
                             </script>
                             """
-                            components.html(load_script, height=0)
+                            st.components.v1.html(load_script, height=0)
                             st.success("Drawings loaded successfully!")
                             logging.info(f"Successfully loaded drawings for {pair}")
                         else:
@@ -848,7 +873,7 @@ elif st.session_state.current_page == 'backtesting':
                 result = c.fetchone()
                 user_data = json.loads(result[0]) if result else {}
                 user_data.setdefault("drawings", {})[pair] = content
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
                 conn.commit()
                 st.session_state.drawings[pair] = content
                 st.success(f"Drawings for {pair} saved successfully!")
@@ -878,13 +903,11 @@ elif st.session_state.current_page == 'backtesting':
     if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
         st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
     else:
-        # Ensure existing journal has all columns, including 'Tags'
         current_journal = st.session_state.tools_trade_journal
         missing_cols = [col for col in journal_cols if col not in current_journal.columns]
         if missing_cols:
             for col in missing_cols:
                 current_journal[col] = pd.Series(dtype=journal_dtypes[col])
-        # Ensure 'Tags' column exists and is string type
         if 'Tags' not in current_journal.columns:
             current_journal['Tags'] = ''
         current_journal['Tags'] = current_journal['Tags'].astype(str).fillna('')
@@ -917,7 +940,6 @@ elif st.session_state.current_page == 'backtesting':
             
             submit_button = st.form_submit_button("Save Trade")
             if submit_button:
-                # Calculate P/L and R:R
                 pip_multiplier = 100 if "JPY" in symbol else 10000
                 pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
                 rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
@@ -970,8 +992,8 @@ elif st.session_state.current_page == 'backtesting':
                     for key in ['tools_trade_journal', 'strategies', 'emotion_log', 'reflection_log']:
                         user_data[key] = pd.DataFrame(user_data[key]).replace({pd.NA: None, float('nan'): None}).to_dict('records')
                     try:
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", 
-                                (json.dumps(user_data, cls=CustomJSONEncoder), username))
+                        c.execute("UPDATE users SET data = ? WHERE username = ?",
+                                 (json.dumps(user_data, cls=CustomJSONEncoder), username))
                         conn.commit()
                         ta_update_xp(10)
                         ta_update_streak()
@@ -1059,21 +1081,21 @@ elif st.session_state.current_page == 'backtesting':
     with tab_analytics:
         st.subheader("Trade Analytics")
         if not st.session_state.tools_trade_journal.empty:
-            # Filters
             col_filter1, col_filter2, col_filter3 = st.columns(3)
             with col_filter1:
-                symbol_filter = st.multiselect("Filter by Symbol", 
+                symbol_filter = st.multiselect(
+                    "Filter by Symbol",
                     options=st.session_state.tools_trade_journal['Symbol'].unique(),
-                    default=st.session_state.tools_trade_journal['Symbol'].unique())
+                    default=st.session_state.tools_trade_journal['Symbol'].unique()
+                )
             with col_filter2:
-                # Safely handle tags, default to empty list if 'Tags' is missing or empty
                 tag_options = []
                 if 'Tags' in st.session_state.tools_trade_journal.columns:
                     tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
                 tag_filter = st.multiselect("Filter by Tags", options=tag_options)
             with col_filter3:
                 bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
-            
+
             filtered_df = st.session_state.tools_trade_journal[
                 st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
             ]
@@ -1095,7 +1117,6 @@ elif st.session_state.current_page == 'backtesting':
             st.subheader("Performance Charts")
             col_chart1, col_chart2 = st.columns(2)
             with col_chart1:
-                # Fix: Compute mean R:R per symbol, handling lists and non-numeric values
                 def parse_rr(x):
                     try:
                         if isinstance(x, str) and ':' in x:
@@ -1118,9 +1139,11 @@ elif st.session_state.current_page == 'backtesting':
     with tab_replay:
         st.subheader("Trade Replay")
         if not st.session_state.tools_trade_journal.empty:
-            trade_id = st.selectbox("Select Trade to Replay",
-                                    options=st.session_state.tools_trade_journal.index,
-                                    format_func=lambda x: f"{st.session_state.tools_trade_journal.loc[x, 'Date'].strftime('%Y-%m-%d')} - {st.session_state.tools_trade_journal.loc[x, 'Symbol']}")
+            trade_id = st.selectbox(
+                "Select Trade to Replay",
+                options=st.session_state.tools_trade_journal.index,
+                format_func=lambda x: f"{st.session_state.tools_trade_journal.loc[x, 'Date'].strftime('%Y-%m-%d')} - {st.session_state.tools_trade_journal.loc[x, 'Symbol']}"
+            )
             selected_trade = st.session_state.tools_trade_journal.loc[trade_id]
             st.write("**Trade Details**")
             st.write(f"Symbol: {selected_trade['Symbol']}")
