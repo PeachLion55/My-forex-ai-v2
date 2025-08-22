@@ -903,16 +903,20 @@ elif st.session_state.current_page == 'backtesting':
         """
     )
 
-    # Ensure journal DataFrame is initialized with existing structure
+    # Ensure journal DataFrame is initialized with all columns, including 'Tags'
     if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
         st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
     else:
-        # Ensure existing journal matches structure
+        # Ensure existing journal has all columns, including 'Tags'
         current_journal = st.session_state.tools_trade_journal
         missing_cols = [col for col in journal_cols if col not in current_journal.columns]
         if missing_cols:
             for col in missing_cols:
                 current_journal[col] = pd.Series(dtype=journal_dtypes[col])
+        # Ensure 'Tags' column exists and is string type
+        if 'Tags' not in current_journal.columns:
+            current_journal['Tags'] = ''
+        current_journal['Tags'] = current_journal['Tags'].astype(str).fillna('')
         st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
 
     # Tabs for Journal Entry, Analytics, and Replay
@@ -1084,25 +1088,30 @@ elif st.session_state.current_page == 'backtesting':
     with tab_analytics:
         st.subheader("Trade Analytics")
         if not st.session_state.tools_trade_journal.empty:
+            # Filters
             col_filter1, col_filter2, col_filter3 = st.columns(3)
             with col_filter1:
                 symbol_filter = st.multiselect("Filter by Symbol", 
                     options=st.session_state.tools_trade_journal['Symbol'].unique(),
                     default=st.session_state.tools_trade_journal['Symbol'].unique())
             with col_filter2:
-                tag_filter = st.multiselect("Filter by Tags", 
-                    options=[tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag])
+                # Safely handle tags, default to empty list if 'Tags' is missing or empty
+                tag_options = []
+                if 'Tags' in st.session_state.tools_trade_journal.columns:
+                    tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
+                tag_filter = st.multiselect("Filter by Tags", options=tag_options)
             with col_filter3:
                 bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
             
             filtered_df = st.session_state.tools_trade_journal[
                 st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
             ]
-            if tag_filter:
-                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in x.split(',') for tag in tag_filter) if isinstance(x, str) else False)]
+            if tag_filter and 'Tags' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in x.split(',') for tag in tag_filter) if isinstance(x, str) and x else False)]
             if bias_filter != "All":
                 filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
 
+            # Metrics
             win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) else False)).mean() * 100 if not filtered_df.empty else 0
             avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) else 0).mean() if not filtered_df.empty else 0
             total_trades = len(filtered_df)
@@ -1111,6 +1120,7 @@ elif st.session_state.current_page == 'backtesting':
             col_metric2.metric("Average R:R", f"{avg_pl:.2f}")
             col_metric3.metric("Total Trades", total_trades)
 
+            # Visualizations
             st.subheader("Performance Charts")
             col_chart1, col_chart2 = st.columns(2)
             with col_chart1:
@@ -1140,7 +1150,7 @@ elif st.session_state.current_page == 'backtesting':
             st.write(f"Outcome / R:R Realised: {selected_trade['Outcome / R:R Realised']}")
             st.write(f"Entry Conditions: {selected_trade['Entry Conditions']}")
             st.write(f"Emotions: {selected_trade['Emotions']}")
-            st.write(f"Tags: {selected_trade['Tags']}")
+            st.write(f"Tags: {selected_trade.get('Tags', '')}")
             st.write(f"Notes: {selected_trade['Notes/Journal']}")
 
             if st.button("Replay Trade"):
