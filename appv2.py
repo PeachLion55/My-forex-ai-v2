@@ -588,7 +588,7 @@ if st.session_state.current_page == 'fundamentals':
         {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "2025-06-19", "Next Meeting": "2025-09-26"},
     ]
     boxes_per_row = 4
-    colors = ["#171447", "#471414", "#144714", "#474714"]
+    colors = ["#2d4646", "#4d7171", "#2d4646", "#4d7171"]
     for i in range(0, len(interest_rates), boxes_per_row):
         cols = st.columns(boxes_per_row)
         for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
