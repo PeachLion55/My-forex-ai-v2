@@ -408,6 +408,7 @@ def ta_update_xp(amount):
             st.session_state.xp = user_data['xp']
             st.session_state.level = user_data['level']
             st.session_state.badges = user_data['badges']
+            st.session_state.show_xp_notification = amount
 def ta_update_streak():
     if "logged_in_user" in st.session_state:
         username = st.session_state.logged_in_user
@@ -545,6 +546,40 @@ for page_key, page_name in nav_items:
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
+# Show XP notification if triggered
+if 'show_xp_notification' in st.session_state:
+    amount = st.session_state.show_xp_notification
+    notification_html = f"""
+    <style>
+    #xp-notification {{
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #58b3b1;
+        color: #ffffff;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-weight: bold;
+        z-index: 9999;
+        opacity: 1;
+        transition: opacity 0.5s ease-in-out;
+    }}
+    </style>
+    <div id="xp-notification">
+    You gained {amount} XP!
+    </div>
+    <script>
+    setTimeout(() => {{
+        document.getElementById('xp-notification').style.opacity = '0';
+        setTimeout(() => {{
+            document.getElementById('xp-notification').style.display = 'none';
+        }}, 500);
+    }}, 6000);
+    </script>
+    """
+    components.html(notification_html, height=100)
+    del st.session_state.show_xp_notification
 if st.session_state.current_page == 'fundamentals':
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -2035,7 +2070,7 @@ elif st.session_state.current_page == 'account':
             st.session_state.badges = []
             st.session_state.streak = 0
             st.success("Logged out successfully!")
-            logging.info("Logged out")
+            logging.info("User logged out")
             st.session_state.current_page = "account"  # Redirect back to account page
             st.rerun()
 elif st.session_state.current_page == 'community':
@@ -2528,3 +2563,15 @@ elif st.session_state.current_page == "Zenvo Academy":
         logging.info("User logged out")
         st.session_state.current_page = "login"
         st.rerun()
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (dt.datetime, dt.date)):
+            return obj.isoformat()
+        if pd.api.types.is_datetime64_any_dtype(obj):
+            return obj.isoformat()
+        if isinstance(obj, float) and math.isinf(obj):
+            return 'inf' if obj > 0 else '-inf'
+        if isinstance(obj, float) and math.isnan(obj):
+            return 'nan'
+        return super(CustomJSONEncoder, self).default(obj)
