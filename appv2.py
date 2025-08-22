@@ -692,6 +692,21 @@ if st.session_state.current_page == 'fundamentals':
             """,
             unsafe_allow_html=True,
         )
+import json
+from datetime import datetime, date
+import pandas as pd
+
+# Custom JSON encoder to handle datetime and other non-serializable types
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
+        if pd.isna(obj):
+            return None
+        return super().default(obj)
+
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
@@ -926,7 +941,7 @@ elif st.session_state.current_page == 'backtesting':
                     'Symbol': symbol,
                     'Weekly Bias': weekly_bias,
                     'Daily Bias': daily_bias,
-                    '4H Structure': '',  # Optional, can be added later
+                    '4H Structure': '',
                     '1H Structure': '',
                     'Positive Correlated Pair & Bias': '',
                     'Potential Entry Points': '',
@@ -943,17 +958,18 @@ elif st.session_state.current_page == 'backtesting':
                     'Entry Price': entry_price,
                     'Stop Loss Price': stop_loss_price,
                     'Take Profit Price': take_profit_price,
-                    'Lots': lots
+                    'Lots': lots,
+                    'Tags': ','.join(tags)
                 }
-                new_trade['Tags'] = ','.join(tags)  # Add Tags to match existing journal_cols
                 st.session_state.tools_trade_journal = pd.concat(
                     [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
                     ignore_index=True
                 ).astype(journal_dtypes, errors='ignore')
                 if 'logged_in_user' in st.session_state:
                     username = st.session_state.logged_in_user
+                    # Prepare user_data with serialization fixes
                     user_data = {
-                        'xp': st.session_state.get('xp', 0) + 10,
+                        'xp': st.session_state.get('xp', 0),
                         'level': st.session_state.get('level', 0),
                         'badges': st.session_state.get('badges', []),
                         'streak': st.session_state.get('streak', 0),
@@ -964,13 +980,27 @@ elif st.session_state.current_page == 'backtesting':
                         'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
                         'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
                     }
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", 
-                              (json.dumps(user_data), username))
-                    conn.commit()
-                    ta_update_xp(10)
-                    ta_update_streak()
-                st.success("Trade saved successfully!")
-                logging.info(f"Trade logged for user {st.session_state.get('logged_in_user', 'anonymous')}")
+                    # Convert last_journal_date to string if it's a datetime
+                    if user_data['last_journal_date'] is not None:
+                        if isinstance(user_data['last_journal_date'], (datetime, date, pd.Timestamp)):
+                            user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
+                    # Ensure DataFrames are JSON-serializable
+                    for key in ['tools_trade_journal', 'strategies', 'emotion_log', 'reflection_log']:
+                        user_data[key] = pd.DataFrame(user_data[key]).replace({pd.NA: None, float('nan'): None}).to_dict('records')
+                    try:
+                        c.execute("UPDATE users SET data = ? WHERE username = ?", 
+                                (json.dumps(user_data, cls=CustomJSONEncoder), username))
+                        conn.commit()
+                        ta_update_xp(10)
+                        ta_update_streak()
+                        st.success("Trade saved successfully!")
+                        logging.info(f"Trade logged for user {username}")
+                    except Exception as e:
+                        st.error(f"Failed to save trade: {str(e)}")
+                        logging.error(f"Error saving trade for {username}: {str(e)}")
+                else:
+                    st.success("Trade saved locally (not synced to account, please log in).")
+                    logging.info("Trade logged for anonymous user")
                 st.rerun()
 
         # Display current journal
@@ -1025,7 +1055,8 @@ elif st.session_state.current_page == 'backtesting':
                 \\midrule
                 """
                 for _, row in st.session_state.tools_trade_journal.iterrows():
-                    latex_content += f"{row['Date'].strftime('%Y-%m-%d')} & {row['Symbol']} & {row['Entry Price']:.5f} & {row['Stop Loss Price']:.5f} & {row['Take Profit Price']:.5f} & {row['Outcome / R:R Realised']} \\\\\n"
+                    date_str = row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else ''
+                    latex_content += f"{date_str} & {row['Symbol']} & {row['Entry Price']:.5f} & {row['Stop Loss Price']:.5f} & {row['Take Profit Price']:.5f} & {row['Outcome / R:R Realised']} \\\\\n"
                 latex_content += """
                 \\bottomrule
                 \\end{tabular}
