@@ -676,21 +676,33 @@ if st.session_state.current_page == 'fundamentals':
         },
     ]
     for ev in forex_high_impact_events:
-        positive_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_positive"].items()])
-        negative_impact = "<br>".join([f"{k}: {v}" for k, v in ev["impact_negative"].items()])
+        positive_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_positive"].items()])
+        negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
         st.markdown(
             f"""
-            <div style="background-color: #000000; padding: 10px; border-radius: 5px;">
-            <strong>{ev['event']}</strong><br>
-            What it is: {ev['description']}<br>
-            Why it matters: {ev['why_it_matters']}<br>
-            Positive →<br>
-            {positive_impact}<br>
-            Negative →<br>
-            {negative_impact}
+            <div style="
+                border-radius:12px;
+                padding:15px;
+                margin-bottom:18px;
+                background-color:#12121a;
+                color:white;
+                box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+            ">
+                <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
+                <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
+                <p style="margin:6px 0 12px 0;"><b>Why it matters:</b> {ev['why_it_matters']}</p>
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1; background-color:#0f2b0f; padding:12px; border-radius:10px;">
+                        <h5 style="margin:0 0 8px 0; color:#b7f2b7;">Positive →</h5>
+                        <div style="font-size:0.95rem;">{positive_impact}</div>
+                    </div>
+                    <div style="flex:1; background-color:#2b0f0f; padding:12px; border-radius:10px;">
+                        <h5 style="margin:0 0 8px 0; color:#f6b3b3;">Negative →</h5>
+                        <div style="font-size:0.95rem;">{negative_impact}</div>
+                    </div>
+                </div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """, unsafe_allow_html=True
         )
 from datetime import datetime, date
 import streamlit as st
