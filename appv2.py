@@ -1603,7 +1603,6 @@ if st.session_state.current_page == 'mt5':
                                     }
                                 }
                             }
-                            ```
 
                         # Trade Distribution
                         st.markdown("**Trade Distribution**")
@@ -1611,7 +1610,7 @@ if st.session_state.current_page == 'mt5':
                         with col_chart1:
                             type_counts = filtered_df["Type"].value_counts().reset_index()
                             type_counts.columns = ["Type", "Count"]
-                            ```chartjs
+                            chartjs
                             {
                                 "type": "pie",
                                 "data": {
@@ -1639,13 +1638,13 @@ if st.session_state.current_page == 'mt5':
                                     }
                                 }
                             }
-                            ```
+                
                         with col_chart2:
                             filtered_df["Weekday"] = filtered_df["Open Time"].dt.day_name()
                             weekday_counts = filtered_df.groupby(["Weekday", "Type"]).size().unstack(fill_value=0).reset_index()
                             weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
                             weekday_counts = weekday_counts.set_index("Weekday").reindex(weekdays, fill_value=0).reset_index()
-                            ```chartjs
+                            chartjs
                             {
                                 "type": "bar",
                                 "data": {
@@ -1723,7 +1722,7 @@ if st.session_state.current_page == 'mt5':
                                 use_container_width=True
                             )
                             top_n = st.slider("Show Top N Segments", 5, 50, 10, key="edge_topn")
-                            ```chartjs
+                            chartjs
                             {
                                 "type": "bar",
                                 "data": {
@@ -1768,7 +1767,7 @@ if st.session_state.current_page == 'mt5':
                                     }
                                 }
                             }
-                            ```
+                        
                         else:
                             st.warning("No valid data to compute edge metrics.")
 
