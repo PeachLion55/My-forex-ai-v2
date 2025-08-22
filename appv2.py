@@ -1191,6 +1191,8 @@ import logging
 
 import streamlit as st
 
+import streamlit as st
+
 # Custom CSS for theme consistency
 st.markdown(
     """
@@ -1218,15 +1220,16 @@ st.markdown(
     }
     .stTabs [data-baseweb="tab"] {
         color: #2c3e50 !important;
-        background-color: #ecf0f1 !important;
+        background-color: #000000 !important;
         border-radius: 8px 8px 0 0;
         padding: 10px 20px;
         margin-right: 5px;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #3498db !important;
+        background-color: #4d7171 !important;
         color: #ffffff !important;
         font-weight: 600;
+        border-bottom: 2px solid #4d7171 !important;
     }
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #7f8c8d !important;
@@ -1236,7 +1239,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 # Helper functions (assumed available from your existing code)
 def _ta_human_pct(x, nd=2):
     if pd.isna(x):
