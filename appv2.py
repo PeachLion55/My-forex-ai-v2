@@ -1,4 +1,4 @@
-import streamlit as st          st.rerunpd
+import streamlit as st          
 import feedparser
 from textblob import TextBlob
 import streamlit.components.v1 as components
