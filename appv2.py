@@ -697,21 +697,6 @@ elif st.session_state.current_page == 'backtesting':
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
     st.markdown('---')
 
-    # Apply custom CSS for theme
-    st.markdown("""
-    <style>
-        .main { background-color: #1E1E1E; color: #D3D3D3; }
-        .stTabs [data-baseweb="tab-list"] { background-color: #2A2A2A; }
-        .stTabs [data-baseweb="tab"] { color: #D3D3D3; }
-        .stTabs [data-baseweb="tab"]:hover { background-color: #1E90FF; color: #1E1E1E; }
-        .stTabs [data-baseweb="tab-highlight"] { background-color: #1E90FF; }
-        .metric-card { background-color: #2A2A2A; padding: 10px; border-radius: 5px; }
-        .stButton>button { background-color: #1E90FF; color: #1E1E1E; }
-        .stButton>button:hover { background-color: #FFD700; color: #1E1E1E; }
-        .stAlert { background-color: #FF4500; }
-    </style>
-    """, unsafe_allow_html=True)
-
     # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
@@ -777,7 +762,7 @@ elif st.session_state.current_page == 'backtesting':
         "theme": "dark",
         "style": "1",
         "locale": "en",
-        "toolbar_bg": "#2A2A2A",
+        "toolbar_bg": "#f1f3f6",
         "enable_publishing": false,
         "allow_symbol_change": true,
         "studies": [],
@@ -906,7 +891,7 @@ elif st.session_state.current_page == 'backtesting':
         st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
 
     # Tabs for Journal Entry, Analytics, and Replay
-    tab_entry, tab_analytics, tab_replay = st.tabs(["📝 Log Trade", "📈 Performance Dashboard", "🎥 Trade Replay"])
+    tab_entry, tab_analytics, tab_replay = st.tabs(["📝 Log Trade", "📈 Analytics", "🎥 Trade Replay"])
 
     # Log Trade Tab
     with tab_entry:
@@ -1070,6 +1055,100 @@ elif st.session_state.current_page == 'backtesting':
                     st.error(f"PDF generation failed: {str(e)}")
                     logging.error(f"PDF generation error: {str(e)}")
 
+    # Analytics Tab
+    with tab_analytics:
+        st.subheader("Trade Analytics")
+        if not st.session_state.tools_trade_journal.empty:
+            # Filters
+            col_filter1, col_filter2, col_filter3 = st.columns(3)
+            with col_filter1:
+                symbol_filter = st.multiselect("Filter by Symbol", 
+                    options=st.session_state.tools_trade_journal['Symbol'].unique(),
+                    default=st.session_state.tools_trade_journal['Symbol'].unique())
+            with col_filter2:
+                # Safely handle tags, default to empty list if 'Tags' is missing or empty
+                tag_options = []
+                if 'Tags' in st.session_state.tools_trade_journal.columns:
+                    tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
+                tag_filter = st.multiselect("Filter by Tags", options=tag_options)
+            with col_filter3:
+                bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
+            
+            filtered_df = st.session_state.tools_trade_journal[
+                st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
+            ]
+            if tag_filter and 'Tags' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in x.split(',') for tag in tag_filter) if isinstance(x, str) and x else False)]
+            if bias_filter != "All":
+                filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
+
+            # Metrics
+            win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) and ':' in x else False)).mean() * 100 if not filtered_df.empty else 0
+            avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else 0).mean() if not filtered_df.empty else 0
+            total_trades = len(filtered_df)
+            col_metric1, col_metric2, col_metric3 = st.columns(3)
+            col_metric1.metric("Win Rate (%)", f"{win_rate:.2f}")
+            col_metric2.metric("Average R:R", f"{avg_pl:.2f}")
+            col_metric3.metric("Total Trades", total_trades)
+
+            # Visualizations
+            st.subheader("Performance Charts")
+            col_chart1, col_chart2 = st.columns(2)
+            with col_chart1:
+                # Fix: Compute mean R:R per symbol, handling lists and non-numeric values
+                def parse_rr(x):
+                    try:
+                        if isinstance(x, str) and ':' in x:
+                            return float(x.split(':')[1])
+                        return 0.0
+                    except (ValueError, IndexError):
+                        return 0.0
+                rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
+                    lambda x: pd.Series([parse_rr(r) for r in x]).mean()
+                ).reset_index(name='Average R:R')
+                fig = px.bar(rr_values, x='Symbol', y='Average R:R', title="Average R:R by Symbol")
+                st.plotly_chart(fig, use_container_width=True)
+            with col_chart2:
+                fig = px.pie(filtered_df, names='Emotions', title="Trades by Emotional State")
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No trades logged yet. Add trades in the 'Log Trade' tab.")
+
+    # Trade Replay Tab
+    with tab_replay:
+        st.subheader("Trade Replay")
+        if not st.session_state.tools_trade_journal.empty:
+            trade_id = st.selectbox("Select Trade to Replay",
+                                    options=st.session_state.tools_trade_journal.index,
+                                    format_func=lambda x: f"{st.session_state.tools_trade_journal.loc[x, 'Date'].strftime('%Y-%m-%d')} - {st.session_state.tools_trade_journal.loc[x, 'Symbol']}")
+            selected_trade = st.session_state.tools_trade_journal.loc[trade_id]
+            st.write("**Trade Details**")
+            st.write(f"Symbol: {selected_trade['Symbol']}")
+            st.write(f"Weekly Bias: {selected_trade['Weekly Bias']}")
+            st.write(f"Entry Price: {selected_trade['Entry Price']:.5f}")
+            st.write(f"Stop Loss Price: {selected_trade['Stop Loss Price']:.5f}")
+            st.write(f"Take Profit Price: {selected_trade['Take Profit Price']:.5f}")
+            st.write(f"Outcome / R:R Realised: {selected_trade['Outcome / R:R Realised']}")
+            st.write(f"Entry Conditions: {selected_trade['Entry Conditions']}")
+            st.write(f"Emotions: {selected_trade['Emotions']}")
+            st.write(f"Tags: {selected_trade.get('Tags', '')}")
+            st.write(f"Notes: {selected_trade['Notes/Journal']}")
+
+            if st.button("Replay Trade"):
+                st.warning("Simulated MT5 chart replay. In a real implementation, connect to MT5 API to fetch historical data.")
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=[selected_trade['Date'], selected_trade['Date'] + pd.Timedelta(minutes=60)],
+                    y=[selected_trade['Entry Price'], selected_trade['Take Profit Price']],
+                    mode='lines+markers',
+                    name='Price Movement'
+                ))
+                fig.add_hline(y=selected_trade['Stop Loss Price'], line_dash="dash", line_color="red", name="Stop Loss")
+                fig.add_hline(y=selected_trade['Take Profit Price'], line_dash="dash", line_color="green", name="Take Profit")
+                fig.update_layout(title=f"Trade Replay: {selected_trade['Symbol']}", xaxis_title="Time", yaxis_title="Price")
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No trades available for replay.")
     # Performance Dashboard (Revamped Analytics Tab)
     with tab_analytics:
         st.subheader("Performance Dashboard")
