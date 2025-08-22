@@ -1,4 +1,5 @@
-import streamlit as st          
+import streamlit as st
+import pandas as pd
 import feedparser
 from textblob import TextBlob
 import streamlit.components.v1 as components
@@ -511,6 +512,7 @@ nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
     ('mt5', 'Performance Dashboard'),
+    ('psychology', 'Psychology'),
     ('strategy', 'Manage My Strategy'),
     ('account', 'My Account'),
     ('community', 'Community Trade Ideas'),
@@ -587,7 +589,7 @@ if st.session_state.current_page == 'fundamentals':
         {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "2025-06-19", "Next Meeting": "2025-09-26"},
     ]
     boxes_per_row = 4
-    colors = ["#2d4646", "#4d7171", "#2d4646", "#4d7171"]
+    colors = ["#171447", "#471414", "#144714", "#474714"]
     for i in range(0, len(interest_rates), boxes_per_row):
         cols = st.columns(boxes_per_row)
         for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
@@ -690,35 +692,6 @@ if st.session_state.current_page == 'fundamentals':
             """,
             unsafe_allow_html=True,
         )
-import json
-from datetime import datetime, date
-import pandas as pd
-
-# Custom JSON encoder to handle datetime and other non-serializable types
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, (datetime, date)):
-            return obj.isoformat()
-        if isinstance(obj, pd.Timestamp):
-            return obj.isoformat()
-        if pd.isna(obj):
-            return None
-        return super().default(obj)
-
-# ... other imports and global definitions (e.g., journal_cols, journal_dtypes, database setup) ...
-
-# Navigation structure (replace around line 710)
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'home'
-
-if st.session_state.current_page == 'home':
-    st.title("Home")
-    st.write("Welcome to the Forex Trading App")
-    # Add your existing Home page code here
-elif st.session_state.current_page == 'my_account':
-    st.title("My Account")
-    st.write("User account details")
-    # Add your existing My Account page code here
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
@@ -969,7 +942,7 @@ elif st.session_state.current_page == 'backtesting':
                     'Notes/Journal': notes,
                     'Entry Price': entry_price,
                     'Stop Loss Price': stop_loss_price,
-                    'Exit Price': take_profit_price,
+                    'Take Profit Price': take_profit_price,
                     'Lots': lots,
                     'Tags': ','.join(tags)
                 }
@@ -1110,8 +1083,8 @@ elif st.session_state.current_page == 'backtesting':
                 filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
 
             # Metrics
-            win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) and ':' in x else False)).mean() * 100 if not filtered_df.empty else 0
-            avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else 0).mean() if not filtered_df.empty else 0
+            win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) else False)).mean() * 100 if not filtered_df.empty else 0
+            avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) else 0).mean() if not filtered_df.empty else 0
             total_trades = len(filtered_df)
             col_metric1, col_metric2, col_metric3 = st.columns(3)
             col_metric1.metric("Win Rate (%)", f"{win_rate:.2f}")
@@ -1122,18 +1095,8 @@ elif st.session_state.current_page == 'backtesting':
             st.subheader("Performance Charts")
             col_chart1, col_chart2 = st.columns(2)
             with col_chart1:
-                # Fix: Compute mean R:R per symbol, handling lists and non-numeric values
-                def parse_rr(x):
-                    try:
-                        if isinstance(x, str) and ':' in x:
-                            return float(x.split(':')[1])
-                        return 0.0
-                    except (ValueError, IndexError):
-                        return 0.0
-                rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
-                    lambda x: pd.Series([parse_rr(r) for r in x]).mean()
-                ).reset_index(name='Average R:R')
-                fig = px.bar(rr_values, x='Symbol', y='Average R:R', title="Average R:R by Symbol")
+                fig = px.bar(filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(lambda x: [float(r.split(':')[1]) for r in x if isinstance(r, str)]).mean().reset_index(),
+                             x='Symbol', y='Outcome / R:R Realised', title="Average R:R by Symbol")
                 st.plotly_chart(fig, use_container_width=True)
             with col_chart2:
                 fig = px.pie(filtered_df, names='Emotions', title="Trades by Emotional State")
@@ -1176,6 +1139,7 @@ elif st.session_state.current_page == 'backtesting':
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trades available for replay.")
+
 # Performance Dashboard
 elif st.session_state.current_page == 'mt5':
     st.markdown("""
@@ -1405,6 +1369,73 @@ elif st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
+elif st.session_state.current_page == 'psychology':
+    st.title("🧠 Psychology")
+    st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
+    st.markdown('---')
+    st.subheader("📝 Emotion Tracker")
+    with st.form("emotion_form"):
+        emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
+        notes = st.text_area("Notes on Your Mindset")
+        submit_emotion = st.form_submit_button("Log Emotion")
+        if submit_emotion:
+            log_entry = {
+                "Date": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Emotion": emotion,
+                "Notes": notes
+            }
+            if "emotion_log" not in st.session_state:
+                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.emotion_log = pd.concat([st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True)
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["emotion_log"] = st.session_state.emotion_log.to_dict(orient="records")
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                except Exception as e:
+                    logging.error(f"Error saving emotion log: {str(e)}")
+            st.success("Emotion logged successfully!")
+            logging.info(f"Emotion logged: {emotion}")
+    if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
+        st.subheader("Your Emotion Log")
+        st.dataframe(st.session_state.emotion_log, use_container_width=True)
+        fig = px.histogram(st.session_state.emotion_log, x="Emotion", title="Emotion Distribution")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No emotions logged yet. Use the form above to start tracking.")
+    st.subheader("🧘 Mindset Tips")
+    tips = [
+        "Stick to your trading plan to avoid impulsive decisions.",
+        "Take breaks after losses to reset your mindset.",
+        "Focus on process, not profits, to stay disciplined.",
+        "Journal every trade to identify emotional patterns.",
+        "Practice mindfulness to manage stress during volatile markets."
+    ]
+    for tip in tips:
+        st.markdown(f"- {tip}")
+    # Curated Education Feeds
+    st.subheader("📚 Curated Trading Insights")
+    insights = [
+        "Risk Management: Always risk no more than 1-2% of your account per trade to preserve capital.",
+        "Psychology: Master your emotions; fear and greed are the biggest enemies of traders.",
+        "Setups: Focus on high-probability patterns like pin bars and engulfing candles in trending markets."
+    ]
+    week_num = dt.datetime.now().isocalendar()[1]
+    current_insight = insights[week_num % len(insights)]
+    st.info(f"Insight of the Week: {current_insight}")
+    # Challenge Mode
+    st.subheader("🏅 Challenge Mode")
+    st.write("30-Day Journaling Discipline Challenge")
+    streak = st.session_state.get('streak', 0)
+    progress = min(streak / 30.0, 1.0)
+    st.progress(progress)
+    if progress >= 1.0:
+        st.success("Challenge completed! Great job on your consistency.")
+        ta_update_xp(100) # Bonus XP for completion
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
