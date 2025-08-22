@@ -1197,6 +1197,8 @@ import streamlit as st
 
 import streamlit as st
 
+import streamlit as st
+
 # Custom CSS for theme consistency
 st.markdown(
     """
@@ -1228,7 +1230,6 @@ st.markdown(
         border-radius: 8px 8px 0 0;
         padding: 10px 20px;
         margin-right: 5px;
-        border: none !important;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
         background-color: #4d7171 !important;
@@ -1239,11 +1240,6 @@ st.markdown(
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #7f8c8d !important;
         color: #ffffff !important;
-    }
-    /* Ensure no other border colors interfere */
-    .stTabs [data-baseweb="tab"]::after,
-    .stTabs [data-baseweb="tab"]::before {
-        border: none !important;
     }
     </style>
     """,
