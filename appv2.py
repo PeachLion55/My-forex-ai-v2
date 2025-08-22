@@ -1112,8 +1112,8 @@ elif st.session_state.current_page == 'backtesting':
                 filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
 
             # Metrics
-            win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) else False)).mean() * 100 if not filtered_df.empty else 0
-            avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) else 0).mean() if not filtered_df.empty else 0
+            win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) and ':' in x else False)).mean() * 100 if not filtered_df.empty else 0
+            avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else 0).mean() if not filtered_df.empty else 0
             total_trades = len(filtered_df)
             col_metric1, col_metric2, col_metric3 = st.columns(3)
             col_metric1.metric("Win Rate (%)", f"{win_rate:.2f}")
@@ -1124,8 +1124,18 @@ elif st.session_state.current_page == 'backtesting':
             st.subheader("Performance Charts")
             col_chart1, col_chart2 = st.columns(2)
             with col_chart1:
-                fig = px.bar(filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(lambda x: [float(r.split(':')[1]) for r in x if isinstance(r, str)]).mean().reset_index(),
-                             x='Symbol', y='Outcome / R:R Realised', title="Average R:R by Symbol")
+                # Fix: Compute mean R:R per symbol, handling lists and non-numeric values
+                def parse_rr(x):
+                    try:
+                        if isinstance(x, str) and ':' in x:
+                            return float(x.split(':')[1])
+                        return 0.0
+                    except (ValueError, IndexError):
+                        return 0.0
+                rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
+                    lambda x: pd.Series([parse_rr(r) for r in x]).mean()
+                ).reset_index(name='Average R:R')
+                fig = px.bar(rr_values, x='Symbol', y='Average R:R', title="Average R:R by Symbol")
                 st.plotly_chart(fig, use_container_width=True)
             with col_chart2:
                 fig = px.pie(filtered_df, names='Emotions', title="Trades by Emotional State")
