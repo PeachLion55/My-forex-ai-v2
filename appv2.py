@@ -611,7 +611,7 @@ if st.session_state.current_page == 'fundamentals':
         if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
             styles = ['background-color: #4c7170; color: white' if col == 'Currency' else 'background-color: #4c7170' for col in row.index]
         if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
-            styles = ['background-color: #000000; color: white' if col == 'Currency' else 'background-color: #000000' for col in row.index]
+            styles = ['background-color: #2e4747; color: white' if col == 'Currency' else 'background-color: #2e4747' for col in row.index]
         return styles
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
     # Interest rate tiles
