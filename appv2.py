@@ -971,7 +971,7 @@ elif st.session_state.current_page == 'backtesting':
                     'Notes/Journal': notes,
                     'Entry Price': entry_price,
                     'Stop Loss Price': stop_loss_price,
-                    'Take Profit Price': take_profit_price,
+                    'Exit Price': take_profit_price,
                     'Lots': lots,
                     'Tags': ','.join(tags)
                 }
