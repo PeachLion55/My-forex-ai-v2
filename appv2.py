@@ -1189,41 +1189,48 @@ import uuid
 from datetime import datetime
 import logging
 
+import streamlit as st
+
 # Custom CSS for theme consistency
 st.markdown(
     """
     <style>
     .metric-box {
-        background-color: #1a1a1a;
-        padding: 15px;
-        border-radius: 8px;
+        background-color: #f5f5f5;
+        padding: 20px;
+        border-radius: 10px;
         text-align: center;
-        border: 1px solid #58b3b1;
-        color: #ffffff;
-        transition: all 0.3s ease;
+        border: 1px solid #3498db;
+        color: #2c3e50;
+        transition: all 0.3s ease-in-out;
     }
     .metric-box:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 8px rgba(88, 179, 177, 0.3);
+        transform: translateY(-5px);
+        box-shadow: 0 6px 12px rgba(52, 152, 219, 0.2);
     }
     .metric-box.positive {
-        background-color: #2e4747;
+        background-color: #dff0d8;
+        border-color: #3c763d;
     }
     .metric-box.negative {
-        background-color: #4c2e2e;
+        background-color: #f2dede;
+        border-color: #a94442;
     }
     .stTabs [data-baseweb="tab"] {
-        color: #ffffff !important;
-        background-color: #2d4646 !important;
-        border-radius: 5px 5px 0 0;
+        color: #2c3e50 !important;
+        background-color: #ecf0f1 !important;
+        border-radius: 8px 8px 0 0;
+        padding: 10px 20px;
+        margin-right: 5px;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #58b3b1 !important;
+        background-color: #3498db !important;
         color: #ffffff !important;
-        font-weight: bold;
+        font-weight: 600;
     }
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: #4d7171 !important;
+        background-color: #7f8c8d !important;
+        color: #ffffff !important;
     }
     </style>
     """,
