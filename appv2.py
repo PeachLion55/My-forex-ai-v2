@@ -990,6 +990,7 @@ elif st.session_state.current_page == 'backtesting':
                 except Exception as e:
                     st.error(f"Failed to load journal: {str(e)}")
                     logging.error(f"Error loading journal for {username}: {str(e)}")
+# Performance Dashboard
 elif st.session_state.current_page == 'mt5':
     st.markdown("""
     <style>
@@ -1009,10 +1010,9 @@ elif st.session_state.current_page == 'mt5':
     }
     </style>
     """, unsafe_allow_html=True)
-    st.markdown("""
-    📊 Performance Dashboard
-    Upload your MT5 trading history CSV to analyze your trading performance
-    """, unsafe_allow_html=True)
+    st.title("📊 Performance Dashboard")
+    st.caption("Upload your MT5 trading history CSV to analyze your trading performance.")
+    st.markdown('---')
     with st.container():
         st.markdown('<br>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
