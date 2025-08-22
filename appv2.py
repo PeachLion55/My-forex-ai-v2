@@ -229,11 +229,21 @@ st.markdown(
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         transition: all 0.3s ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+    /* Hover effects for sidebar buttons */
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        color: #f0f0f0 !important;
+        cursor: pointer !important;
     }
     /* Active page button style */
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
         background: rgba(88, 179, 177, 0.7) !important;
         color: #ffffff !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
     }
     /* Adjust button size dynamically */
     @media (max-height: 800px) {
@@ -241,71 +251,22 @@ st.markdown(
             font-size: 14px !important;
             padding: 8px !important;
         }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        }
     }
     @media (max-height: 600px) {
         section[data-testid="stSidebar"] div.stButton > button {
             font-size: 12px !important;
             padding: 6px !important;
         }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        }
     }
     </style>
-    <script>
-    // Ensure dynamically loaded buttons get the style applied and set active state
-    document.addEventListener("DOMContentLoaded", function() {
-        const applyButtonStyles = () => {
-            let buttons = document.querySelectorAll('section[data-testid="stSidebar"] div.stButton > button');
-            buttons.forEach(btn => {
-                btn.style.width = "200px";
-                btn.style.background = "linear-gradient(to right, rgba(0, 0, 0, 0.7), rgba(88, 179, 177, 0.7))";
-                btn.style.color = "#ffffff";
-                btn.style.border = "none";
-                btn.style.borderRadius = "5px";
-                btn.style.padding = "10px";
-                btn.style.margin = "5px 0";
-                btn.style.fontWeight = "bold";
-                btn.style.fontSize = "16px";
-                btn.style.textAlign = "left";
-                btn.style.display = "block";
-                btn.style.boxSizing = "border-box";
-                btn.style.whiteSpace = "nowrap";
-                btn.style.overflow = "hidden";
-                btn.style.textOverflow = "ellipsis";
-                btn.style.transition = "all 0.3s ease";
-                // Set active state based on current page
-                const page = window.location.hash || '#fundamentals';
-                if (btn.textContent.trim() === st.session_state.current_page.replace('_', ' ').replace(/^\w/, c => c.toUpperCase())) {
-                    btn.setAttribute('data-active', 'true');
-                } else {
-                    btn.removeAttribute('data-active');
-                }
-            });
-            // Adjust sidebar height to fit buttons without scrolling
-            const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-            if (sidebar) {
-                const buttonHeight = 40; // Approximate height of each button including margin
-                const buttonCount = buttons.length;
-                const totalHeight = buttonHeight * buttonCount;
-                if (totalHeight > window.innerHeight) {
-                    sidebar.style.height = `${window.innerHeight}px`;
-                    sidebar.style.overflowY = "hidden";
-                } else {
-                    sidebar.style.height = `${totalHeight}px`;
-                    sidebar.style.overflowY = "hidden";
-                }
-            }
-        };
-        // Initial apply
-        applyButtonStyles();
-        // Observe sidebar for dynamically added buttons
-        const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-        if(sidebar){
-            const observer = new MutationObserver(applyButtonStyles);
-            observer.observe(sidebar, { childList: true, subtree: true });
-        }
-        // Handle window resize
-        window.addEventListener('resize', applyButtonStyles);
-    });
-    </script>
     """,
     unsafe_allow_html=True,
 )
