@@ -1558,7 +1558,7 @@ if st.session_state.current_page == 'mt5':
                         st.markdown("**Equity Curve**")
                         if not daily_pnl.empty:
                             daily_pnl["Equity"] = daily_pnl["Profit"].cumsum()
-                            ```chartjs
+                            chartjs
                             {
                                 "type": "line",
                                 "data": {
