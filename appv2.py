@@ -1577,17 +1577,9 @@ elif st.session_state.current_page == 'community':
         st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
     else:
         st.info("No leaderboard data yet.")
+# Tools
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
-    st.caption("A suite of tools to enhance your trading workflow.")
-    st.markdown('---')
-    st.markdown("""
-    <style>
-    div[data-testid="stTabs"] div[role="tablist"] > div {
-        background-color: #58b3b1 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
     st.markdown("""
     ### Available Tools
     - **Profit/Loss Calculator**: Calculate potential profits or losses based on trade size, entry, and exit prices.
@@ -1598,7 +1590,27 @@ elif st.session_state.current_page == 'tools':
     - **Drawdown Recovery Planner**: Plan recovery strategies for account drawdowns with calculated targets.
     - **Pre-Trade Checklist**: Follow a structured checklist to ensure disciplined trade entries.
     - **Pre-Market Checklist**: Prepare for the trading day with a comprehensive market analysis checklist.
-    """)
+    """, unsafe_allow_html=True)
+    st.markdown('---')
+    st.markdown("""
+    <style>
+    div[data-testid="stTabs"] div[role="tablist"] > div {
+        background-color: #5bb4b0 !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        color: #ffffff !important;
+        transition: all 0.3s ease !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+        color: #5bb4b0 !important;
+        background-color: rgba(91, 180, 176, 0.2) !important;
+    }
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        color: #5bb4b0 !important;
+        font-weight: bold !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
@@ -1613,7 +1625,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
-        st.write('---')
+        st.markdown('---')
         col_calc1, col_calc2 = st.columns(2)
         with col_calc1:
             currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
@@ -1636,7 +1648,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[1]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
-        st.write('---')
+        st.markdown('---')
         forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
         if "price_alerts" not in st.session_state:
             st.session_state.price_alerts = pd.DataFrame(columns=["Pair", "Target Price", "Triggered"])
@@ -1716,7 +1728,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[2]:
         st.header("📊 Currency Correlation Heatmap")
         st.markdown("Understand how forex pairs move relative to each other.")
-        st.write('---')
+        st.markdown('---')
         pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
         data = np.array([
             [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
@@ -1732,7 +1744,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[3]:
         st.header("🛡️ Risk Management Calculator")
         st.markdown(""" Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. It helps prevent large losses, preserves capital, and allows you to stay in the game during drawdowns. Always risk no more than 1-2% per trade, use stop losses, and calculate position sizes based on your account size and risk tolerance. """)
-        st.write('---')
+        st.markdown('---')
         # 📊 Lot Size Calculator
         st.subheader('📊 Lot Size Calculator')
         col1, col2, col3, col4 = st.columns(4)
@@ -1776,7 +1788,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[4]:
         st.header("🕒 Forex Market Sessions")
         st.markdown(""" Stay aware of active trading sessions to trade when volatility is highest. Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. Track your performance per session to identify your edge. """)
-        st.write('---')
+        st.markdown('---')
         st.subheader('📊 Session Statistics')
         mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
         df = mt5_df if not mt5_df.empty else st.session_state.tools_trade_journal
@@ -1829,7 +1841,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[5]:
         st.header("📉 Drawdown Recovery Planner")
         st.markdown(""" Plan your recovery from a drawdown. Understand the percentage gain required to recover losses and simulate recovery based on your trading parameters. """)
-        st.write('---')
+        st.markdown('---')
         drawdown_pct = st.slider("Current Drawdown (%)", 1.0, 50.0, 10.0) / 100
         recovery_pct = _ta_percent_gain_to_recover(drawdown_pct)
         st.metric("Required Gain to Recover", f"{recovery_pct*100:.2f}%")
@@ -1855,7 +1867,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[6]:
         st.header("✅ Pre-Trade Checklist")
         st.markdown(""" Ensure discipline by running through this checklist before every trade. A structured approach reduces impulsive decisions and aligns trades with your strategy. """)
-        st.write('---')
+        st.markdown('---')
         checklist_items = [
             "Market structure aligns with my bias",
             "Key levels (S/R) identified",
@@ -1878,7 +1890,7 @@ elif st.session_state.current_page == 'tools':
     with tabs[7]:
         st.header("📅 Pre-Market Checklist")
         st.markdown(""" Build consistent habits with pre-market checklists and end-of-day reflections. These rituals help maintain discipline and continuous improvement. """)
-        st.write('---')
+        st.markdown('---')
         st.subheader("Pre-Market Routine Checklist")
         pre_market_items = [
             "Reviewed economic calendar",
