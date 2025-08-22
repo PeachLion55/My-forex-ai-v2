@@ -707,14 +707,27 @@ class CustomJSONEncoder(json.JSONEncoder):
             return None
         return super().default(obj)
 
+# ... other imports and global definitions (e.g., journal_cols, journal_dtypes, database setup) ...
+
+# Navigation structure (replace around line 710)
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'home'
+
+if st.session_state.current_page == 'home':
+    st.title("Home")
+    st.write("Welcome to the Forex Trading App")
+    # Add your existing Home page code here
+elif st.session_state.current_page == 'my_account':
+    st.title("My Account")
+    st.write("User account details")
+    # Add your existing My Account page code here
 elif st.session_state.current_page == 'backtesting':
     st.title("📊 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
     st.markdown('---')
 
-    # Pair selector & symbol map (28 major & minor pairs)
+    # Pair selector & symbol map
     pairs_map = {
-        # Majors
         "EUR/USD": "FX:EURUSD",
         "USD/JPY": "FX:USDJPY",
         "GBP/USD": "FX:GBPUSD",
@@ -722,7 +735,6 @@ elif st.session_state.current_page == 'backtesting':
         "AUD/USD": "FX:AUDUSD",
         "NZD/USD": "OANDA:NZDUSD",
         "USD/CAD": "CMCMARKETS:USDCAD",
-        # Crosses / Minors
         "EUR/GBP": "FX:EURGBP",
         "EUR/JPY": "FX:EURJPY",
         "GBP/JPY": "FX:GBPJPY",
@@ -906,15 +918,13 @@ elif st.session_state.current_page == 'backtesting':
     # Tabs for Journal Entry, Analytics, and Replay
     tab_entry, tab_analytics, tab_replay = st.tabs(["📝 Log Trade", "📈 Analytics", "🎥 Trade Replay"])
 
-    # --------------------------
     # Log Trade Tab
-    # --------------------------
     with tab_entry:
         st.subheader("Log a New Trade")
         with st.form("trade_entry_form"):
             col1, col2 = st.columns(2)
             with col1:
-                trade_date = st.date_input("Date", value=dt.datetime.now().date())
+                trade_date = st.date_input("Date", value=datetime.now().date())
                 symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
                 if symbol == "Other":
                     symbol = st.text_input("Custom Symbol")
@@ -967,7 +977,6 @@ elif st.session_state.current_page == 'backtesting':
                 ).astype(journal_dtypes, errors='ignore')
                 if 'logged_in_user' in st.session_state:
                     username = st.session_state.logged_in_user
-                    # Prepare user_data with serialization fixes
                     user_data = {
                         'xp': st.session_state.get('xp', 0),
                         'level': st.session_state.get('level', 0),
@@ -980,11 +989,9 @@ elif st.session_state.current_page == 'backtesting':
                         'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
                         'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
                     }
-                    # Convert last_journal_date to string if it's a datetime
                     if user_data['last_journal_date'] is not None:
                         if isinstance(user_data['last_journal_date'], (datetime, date, pd.Timestamp)):
                             user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
-                    # Ensure DataFrames are JSON-serializable
                     for key in ['tools_trade_journal', 'strategies', 'emotion_log', 'reflection_log']:
                         user_data[key] = pd.DataFrame(user_data[key]).replace({pd.NA: None, float('nan'): None}).to_dict('records')
                     try:
@@ -1073,13 +1080,10 @@ elif st.session_state.current_page == 'backtesting':
                     st.error(f"PDF generation failed: {str(e)}")
                     logging.error(f"PDF generation error: {str(e)}")
 
-    # --------------------------
     # Analytics Tab
-    # --------------------------
     with tab_analytics:
         st.subheader("Trade Analytics")
         if not st.session_state.tools_trade_journal.empty:
-            # Filters
             col_filter1, col_filter2, col_filter3 = st.columns(3)
             with col_filter1:
                 symbol_filter = st.multiselect("Filter by Symbol", 
@@ -1099,7 +1103,6 @@ elif st.session_state.current_page == 'backtesting':
             if bias_filter != "All":
                 filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
 
-            # Metrics
             win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) else False)).mean() * 100 if not filtered_df.empty else 0
             avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) else 0).mean() if not filtered_df.empty else 0
             total_trades = len(filtered_df)
@@ -1108,7 +1111,6 @@ elif st.session_state.current_page == 'backtesting':
             col_metric2.metric("Average R:R", f"{avg_pl:.2f}")
             col_metric3.metric("Total Trades", total_trades)
 
-            # Visualizations
             st.subheader("Performance Charts")
             col_chart1, col_chart2 = st.columns(2)
             with col_chart1:
@@ -1121,9 +1123,7 @@ elif st.session_state.current_page == 'backtesting':
         else:
             st.info("No trades logged yet. Add trades in the 'Log Trade' tab.")
 
-    # --------------------------
     # Trade Replay Tab
-    # --------------------------
     with tab_replay:
         st.subheader("Trade Replay")
         if not st.session_state.tools_trade_journal.empty:
@@ -1143,7 +1143,6 @@ elif st.session_state.current_page == 'backtesting':
             st.write(f"Tags: {selected_trade['Tags']}")
             st.write(f"Notes: {selected_trade['Notes/Journal']}")
 
-            # Simulated MT5 chart replay (placeholder)
             if st.button("Replay Trade"):
                 st.warning("Simulated MT5 chart replay. In a real implementation, connect to MT5 API to fetch historical data.")
                 fig = go.Figure()
