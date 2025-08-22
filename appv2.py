@@ -1,4 +1,4 @@
-import streamlit as st          
+import streamlit as st
 import pandas as pd
 import feedparser
 from textblob import TextBlob
@@ -1295,166 +1295,9 @@ def _ta_compute_sharpe(df, risk_free_rate=0.02):
     return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
 
 # Performance Dashboard
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import numpy as np
-import uuid
-from datetime import datetime
-import logging
-import sqlite3
-from streamlit_autorefresh import st_autorefresh
-
-# Custom CSS for theme consistency (same as original, extended for new elements)
-st.markdown(
-    """
-    <style>
-    .metric-box {
-        background-color: #1a1a1a;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid #58b3b1;
-        color: #ffffff;
-        transition: all 0.3s ease-in-out;
-    }
-    .metric-box:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 12px rgba(88, 179, 177, 0.2);
-    }
-    .metric-box.positive {
-        background-color: #2d4646;
-        border-color: #58b3b1;
-    }
-    .metric-box.negative {
-        background-color: #4d7171;
-        border-color: #a94442;
-    }
-    .stTabs [data-baseweb="tab"] {
-        color: #ffffff !important;
-        background-color: #000000 !important;
-        border-radius: 8px 8px 0 0;
-        padding: 10px 20px;
-        margin-right: 5px;
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #4d7171 !important;
-        color: #ffffff !important;
-        font-weight: 600;
-        border-bottom: 2px solid #58b4ae !important;
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #7f8c8d !important;
-        color: #ffffff !important;
-    }
-    .filter-box {
-        background-color: #1a1a1a;
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #58b3b1;
-        margin-bottom: 20px;
-    }
-    .insight-box {
-        background-color: #2d4646;
-        padding: 15px;
-        border-radius: 8px;
-        color: #ffffff;
-        border: 1px solid #58b3b1;
-        margin-top: 10px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# Helper functions (extended from original)
-def _ta_human_pct(x, nd=2):
-    if pd.isna(x):
-        return "—"
-    return f"{x*100:.{nd}f}%"
-
-def _ta_human_num(x, nd=2):
-    if pd.isna(x):
-        return "—"
-    return f"{x:.{nd}f}"
-
-def _ta_profit_factor(df):
-    if "Profit" not in df.columns:
-        return np.nan
-    gp = df.loc[df["Profit"] > 0, "Profit"].sum()
-    gl = -df.loc[df["Profit"] < 0, "Profit"].sum()
-    return np.nan if gl == 0 else (float("inf") if gp == 0 else gp / gl)
-
-def _ta_daily_pnl(df):
-    if "Open Time" in df.columns and "Profit" in df.columns:
-        tmp = df.dropna(subset=["Open Time"]).copy()
-        tmp["date"] = pd.to_datetime(tmp["Open Time"]).dt.date
-        return tmp.groupby("date", as_index=False)["Profit"].sum()
-    return pd.DataFrame(columns=["date", "Profit"])
-
-def _ta_expectancy_by_group(df, group_cols):
-    g = df.dropna(subset=["Profit"]).groupby(group_cols)
-    res = g["Profit"].agg(
-        trades="count",
-        winrate=lambda s: (s > 0).mean(),
-        avg_win=lambda s: s[s > 0].mean() if (s > 0).any() else 0.0,
-        avg_loss=lambda s: -s[s < 0].mean() if (s < 0).any() else 0.0,
-        expectancy=lambda s: (s > 0).mean() * (s[s > 0].mean() if (s > 0).any() else 0.0) - (1 - (s > 0).mean()) * (-s[s < 0].mean() if (s < 0).any() else 0.0)
-    ).reset_index()
-    return res
-
-def _ta_compute_sharpe(df, risk_free_rate=0.02):
-    if "Profit" not in df.columns:
-        return np.nan
-    daily_pnl = _ta_daily_pnl(df)
-    if daily_pnl.empty:
-        return np.nan
-    returns = daily_pnl["Profit"].pct_change().dropna()
-    if len(returns) < 2:
-        return np.nan
-    mean_return = returns.mean() * 252  # Annualized
-    std_return = returns.std() * np.sqrt(252)  # Annualized
-    return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
-
-def _ta_compute_sortino(df, risk_free_rate=0.02):
-    if "Profit" not in df.columns:
-        return np.nan
-    daily_pnl = _ta_daily_pnl(df)
-    if daily_pnl.empty:
-        return np.nan
-    returns = daily_pnl["Profit"].pct_change().dropna()
-    if len(returns) < 2:
-        return np.nan
-    mean_return = returns.mean() * 252  # Annualized
-    downside_std = returns[returns < 0].std() * np.sqrt(252)  # Downside deviation
-    return (mean_return - risk_free_rate) / downside_std if downside_std != 0 else np.nan
-
-def _ta_compute_calmar(df):
-    if "Profit" not in df.columns:
-        return np.nan
-    daily_pnl = _ta_daily_pnl(df)
-    if daily_pnl.empty:
-        return np.nan
-    equity = daily_pnl["Profit"].cumsum()
-    max_drawdown = (equity - equity.cummax()).min()
-    annual_return = daily_pnl["Profit"].mean() * 252 if not daily_pnl.empty else 0
-    return abs(annual_return / max_drawdown) if max_drawdown != 0 else np.nan
-
-def _ta_compute_recovery_factor(df):
-    if "Profit" not in df.columns:
-        return np.nan
-    daily_pnl = _ta_daily_pnl(df)
-    if daily_pnl.empty:
-        return np.nan
-    net_profit = daily_pnl["Profit"].sum()
-    max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min()
-    return abs(net_profit / max_drawdown) if max_drawdown != 0 else np.nan
-
-# Performance Dashboard
 if st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
-    st.caption("Dive deep into your MT5 trading history with advanced metrics, interactive visualizations, and actionable insights.")
+    st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
 
     # File Uploader
@@ -1476,67 +1319,11 @@ if st.session_state.current_page == 'mt5':
                     st.error(f"Missing required columns: {', '.join(missing_cols)}")
                     logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
                     st.stop()
-
+                
                 # Data preprocessing
                 df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                 df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
                 df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
-
-                # Advanced Filters
-                st.markdown("### 🔍 Advanced Filters")
-                with st.container(border=True):
-                    col_f1, col_f2, col_f3 = st.columns(3)
-                    with col_f1:
-                        start_date = st.date_input(
-                            "Start Date",
-                            value=df["Open Time"].min().date() if not df["Open Time"].isna().all() else datetime.now().date(),
-                            key="mt5_start_date"
-                        )
-                        symbol_filter = st.multiselect(
-                            "Filter by Symbol",
-                            options=df["Symbol"].unique(),
-                            default=df["Symbol"].unique(),
-                            key="mt5_symbol_filter"
-                        )
-                    with col_f2:
-                        end_date = st.date_input(
-                            "End Date",
-                            value=df["Open Time"].max().date() if not df["Open Time"].isna().all() else datetime.now().date(),
-                            key="mt5_end_date"
-                        )
-                        type_filter = st.multiselect(
-                            "Filter by Type",
-                            options=df["Type"].unique(),
-                            default=df["Type"].unique(),
-                            key="mt5_type_filter"
-                        )
-                    with col_f3:
-                        min_profit = st.number_input(
-                            "Min Profit ($)",
-                            min_value=float(df["Profit"].min()) if not df["Profit"].isna().all() else 0.0,
-                            value=None,
-                            step=10.0,
-                            key="mt5_min_profit"
-                        )
-                        max_duration = st.number_input(
-                            "Max Trade Duration (hours)",
-                            min_value=0.0,
-                            value=None,
-                            step=1.0,
-                            key="mt5_max_duration"
-                        )
-
-                # Apply filters
-                filtered_df = df[
-                    (df["Symbol"].isin(symbol_filter)) &
-                    (df["Type"].isin(type_filter)) &
-                    (df["Open Time"].dt.date >= start_date) &
-                    (df["Open Time"].dt.date <= end_date)
-                ]
-                if min_profit is not None:
-                    filtered_df = filtered_df[filtered_df["Profit"] >= min_profit]
-                if max_duration is not None:
-                    filtered_df = filtered_df[filtered_df["Trade Duration"] <= max_duration]
 
                 # Tabs for different sections
                 tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
@@ -1549,63 +1336,42 @@ if st.session_state.current_page == 'mt5':
                 # Summary Metrics Tab
                 with tab_summary:
                     st.subheader("Key Performance Metrics")
-                    total_trades = len(filtered_df)
-                    wins = filtered_df[filtered_df["Profit"] > 0]
-                    losses = filtered_df[filtered_df["Profit"] <= 0]
+                    total_trades = len(df)
+                    wins = df[df["Profit"] > 0]
+                    losses = df[df["Profit"] <= 0]
                     win_rate = len(wins) / total_trades if total_trades else 0
-                    net_profit = filtered_df["Profit"].sum()
-                    profit_factor = _ta_profit_factor(filtered_df)
+                    net_profit = df["Profit"].sum()
+                    profit_factor = _ta_profit_factor(df)
                     avg_win = wins["Profit"].mean() if not wins.empty else 0
                     avg_loss = losses["Profit"].mean() if not losses.empty else 0
-                    daily_pnl = _ta_daily_pnl(filtered_df)
+                    daily_pnl = _ta_daily_pnl(df)
                     max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
-                    sharpe_ratio = _ta_compute_sharpe(filtered_df)
-                    sortino_ratio = _ta_compute_sortino(filtered_df)
-                    calmar_ratio = _ta_compute_calmar(filtered_df)
-                    recovery_factor = _ta_compute_recovery_factor(filtered_df)
+                    sharpe_ratio = _ta_compute_sharpe(df)
                     expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0
-                    longest_win_streak = max((len(list(g)) for k, g in filtered_df.groupby(filtered_df["Profit"] > 0) if k), default=0)
-                    longest_loss_streak = max((len(list(g)) for k, g in filtered_df.groupby(filtered_df["Profit"] < 0) if k), default=0)
-
-                    # Customizable KPI selection and ordering
-                    all_kpis = [
-                        "Total Trades", "Win Rate", "Net Profit", "Profit Factor", "Max Drawdown",
-                        "Sharpe Ratio", "Sortino Ratio", "Calmar Ratio", "Recovery Factor",
-                        "Expectancy", "Avg Win", "Avg Loss", "Longest Win Streak",
-                        "Longest Loss Streak", "Avg Trade Duration"
+                    longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
+                    longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+                    
+                    metrics = [
+                        ("Total Trades", total_trades, "neutral"),
+                        ("Win Rate", _ta_human_pct(win_rate), "positive" if win_rate >= 0.5 else "negative"),
+                        ("Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
+                        ("Profit Factor", _ta_human_num(profit_factor), "positive" if profit_factor >= 1 else "negative"),
+                        ("Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
+                        ("Sharpe Ratio", _ta_human_num(sharpe_ratio), "positive" if sharpe_ratio >= 1 else "negative"),
+                        ("Expectancy", f"${expectancy:,.2f}", "positive" if expectancy >= 0 else "negative"),
+                        ("Avg Win", f"${avg_win:,.2f}", "positive"),
+                        ("Avg Loss", f"${avg_loss:,.2f}", "negative"),
+                        ("Longest Win Streak", longest_win_streak, "positive"),
+                        ("Longest Loss Streak", longest_loss_streak, "negative"),
+                        ("Avg Trade Duration", f"{df['Trade Duration'].mean():.2f}h", "neutral"),
                     ]
-                    selected_kpis = st.multiselect(
-                        "Select KPIs to Display",
-                        options=all_kpis,
-                        default=["Total Trades", "Win Rate", "Net Profit", "Profit Factor", "Max Drawdown", "Sharpe Ratio"],
-                        key="mt5_selected_kpis"
-                    )
 
-                    metrics = {
-                        "Total Trades": (total_trades, "neutral"),
-                        "Win Rate": (_ta_human_pct(win_rate), "positive" if win_rate >= 0.5 else "negative"),
-                        "Net Profit": (f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
-                        "Profit Factor": (_ta_human_num(profit_factor), "positive" if profit_factor >= 1 else "negative"),
-                        "Max Drawdown": (f"${max_drawdown:,.2f}", "negative"),
-                        "Sharpe Ratio": (_ta_human_num(sharpe_ratio), "positive" if sharpe_ratio >= 1 else "negative"),
-                        "Sortino Ratio": (_ta_human_num(sortino_ratio), "positive" if sortino_ratio >= 1 else "negative"),
-                        "Calmar Ratio": (_ta_human_num(calmar_ratio), "positive" if calmar_ratio >= 1 else "negative"),
-                        "Recovery Factor": (_ta_human_num(recovery_factor), "positive" if recovery_factor >= 1 else "negative"),
-                        "Expectancy": (f"${expectancy:,.2f}", "positive" if expectancy >= 0 else "negative"),
-                        "Avg Win": (f"${avg_win:,.2f}", "positive"),
-                        "Avg Loss": (f"${avg_loss:,.2f}", "negative"),
-                        "Longest Win Streak": (longest_win_streak, "positive"),
-                        "Longest Loss Streak": (longest_loss_streak, "negative"),
-                        "Avg Trade Duration": (f"{filtered_df['Trade Duration'].mean():.2f}h", "neutral"),
-                    }
-
-                    # Display selected metrics in a 4-column grid
-                    for row in range(0, len(selected_kpis), 4):
-                        row_metrics = [metrics[kpi] for kpi in selected_kpis[row:row+4]]
+                    # Display metrics in a 4-column grid
+                    for row in range(0, len(metrics), 4):
+                        row_metrics = metrics[row:row+4]
                         cols = st.columns(4)
-                        for i, (value, style) in enumerate(row_metrics):
+                        for i, (title, value, style) in enumerate(row_metrics):
                             with cols[i]:
-                                title = selected_kpis[row + i]
                                 st.markdown(
                                     f"""
                                     <div class="metric-box {style}">
@@ -1619,6 +1385,25 @@ if st.session_state.current_page == 'mt5':
                 # Visualizations Tab
                 with tab_charts:
                     st.subheader("Performance Visualizations")
+                    col_filter1, col_filter2 = st.columns(2)
+                    with col_filter1:
+                        symbol_filter = st.multiselect(
+                            "Filter by Symbol",
+                            options=df["Symbol"].unique(),
+                            default=df["Symbol"].unique()
+                        )
+                    with col_filter2:
+                        type_filter = st.multiselect(
+                            "Filter by Type",
+                            options=df["Type"].unique(),
+                            default=df["Type"].unique()
+                        )
+                    
+                    filtered_df = df[
+                        (df["Symbol"].isin(symbol_filter)) & 
+                        (df["Type"].isin(type_filter))
+                    ]
+
                     # Profit by Symbol
                     st.markdown("**Profit by Instrument**")
                     profit_symbol = filtered_df.groupby("Symbol")["Profit"].sum().reset_index()
@@ -1667,83 +1452,38 @@ if st.session_state.current_page == 'mt5':
                         )
                         st.plotly_chart(fig_equity, use_container_width=True)
 
-                    # Drawdown Chart
-                    st.markdown("**Drawdown Analysis**")
-                    if not daily_pnl.empty:
-                        equity = daily_pnl["Profit"].cumsum()
-                        drawdown = equity - equity.cummax()
-                        fig_drawdown = go.Figure()
-                        fig_drawdown.add_trace(
-                            go.Scatter(
-                                x=daily_pnl["date"],
-                                y=drawdown,
-                                mode="lines",
-                                name="Drawdown",
-                                line=dict(color="#a94442")
-                            )
-                        )
-                        fig_drawdown.update_layout(
-                            title="Drawdown Over Time",
-                            xaxis_title="Date",
-                            yaxis_title="Drawdown ($)",
+                    # Trade Distribution
+                    st.markdown("**Trade Distribution**")
+                    col_chart1, col_chart2 = st.columns(2)
+                    with col_chart1:
+                        fig_types = px.pie(
+                            filtered_df,
+                            names="Type",
+                            title="Buy vs Sell Distribution",
                             template="plotly_dark",
-                            title_font_size=18,
-                            title_x=0.5,
-                            font_color="#ffffff",
-                            plot_bgcolor="rgba(0,0,0,0)",
-                            paper_bgcolor="rgba(0,0,0,0)"
+                            color_discrete_sequence=["#58b3b1", "#4d7171"]
                         )
-                        st.plotly_chart(fig_drawdown, use_container_width=True)
-
-                    # Trade Duration Distribution
-                    st.markdown("**Trade Duration Distribution**")
-                    fig_duration = px.histogram(
-                        filtered_df,
-                        x="Trade Duration",
-                        nbins=30,
-                        title="Trade Duration Distribution (Hours)",
-                        template="plotly_dark",
-                        color_discrete_sequence=["#58b3b1"]
-                    )
-                    fig_duration.update_layout(
-                        title_font_size=18,
-                        title_x=0.5,
-                        font_color="#ffffff",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)"
-                    )
-                    st.plotly_chart(fig_duration, use_container_width=True)
-
-                    # Performance Timeline
-                    st.markdown("**Performance Timeline**")
-                    timeline_df = filtered_df.groupby(filtered_df["Open Time"].dt.date)["Profit"].sum().reset_index()
-                    fig_timeline = go.Figure()
-                    fig_timeline.add_trace(
-                        go.Bar(
-                            x=timeline_df["Open Time"],
-                            y=timeline_df["Profit"],
-                            marker_color=["#58b3b1" if x > 0 else "#a94442" for x in timeline_df["Profit"]]
+                        fig_types.update_layout(title_font_size=16, title_x=0.5)
+                        st.plotly_chart(fig_types, use_container_width=True)
+                    with col_chart2:
+                        filtered_df["Weekday"] = filtered_df["Open Time"].dt.day_name()
+                        fig_weekday = px.histogram(
+                            filtered_df,
+                            x="Weekday",
+                            color="Type",
+                            title="Trades by Day of Week",
+                            template="plotly_dark",
+                            color_discrete_sequence=["#58b3b1", "#4d7171"]
                         )
-                    )
-                    fig_timeline.update_layout(
-                        title="Daily Profit/Loss Timeline",
-                        xaxis_title="Date",
-                        yaxis_title="Profit ($)",
-                        template="plotly_dark",
-                        title_font_size=18,
-                        title_x=0.5,
-                        font_color="#ffffff",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)"
-                    )
-                    st.plotly_chart(fig_timeline, use_container_width=True)
+                        fig_weekday.update_layout(title_font_size=16, title_x=0.5)
+                        st.plotly_chart(fig_weekday, use_container_width=True)
 
                 # Edge Finder Tab
                 with tab_edge:
                     st.subheader("Edge Finder – Highest Expectancy Segments")
-                    group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in filtered_df.columns]
+                    group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in df.columns]
                     if group_cols:
-                        agg = _ta_expectancy_by_group(filtered_df, group_cols).sort_values("expectancy", ascending=False)
+                        agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
                         st.dataframe(
                             agg.style.format({
                                 "winrate": "{:.2%}",
@@ -1775,28 +1515,17 @@ if st.session_state.current_page == 'mt5':
                     else:
                         st.warning("Edge Finder requires columns: timeframe, symbol, or setup.")
 
-                    # Insight Generator
-                    st.markdown("**Actionable Insights**")
-                    if not agg.empty:
-                        top_segment = agg.iloc[0]
-                        insight = f"Your highest expectancy setup is {' '.join([str(top_segment[col]) for col in group_cols])} with an expectancy of ${top_segment['expectancy']:.2f} and {top_segment['winrate']*100:.1f}% win rate."
-                        st.markdown(f'<div class="insight-box">{insight}</div>', unsafe_allow_html=True)
-                        if st.button("Share Insight"):
-                            st.success("Insight copied to clipboard! Share with your trading community.")
-                            logging.info(f"Shared insight: {insight}")
-
                 # Export Reports Tab
                 with tab_export:
                     st.subheader("Export Performance Reports")
                     report_types = st.multiselect(
                         "Select Report Formats",
                         ["CSV", "HTML", "PDF"],
-                        default=["CSV"],
-                        key="mt5_report_types"
+                        default=["CSV"]
                     )
                     if st.button("Generate Reports"):
                         if "CSV" in report_types:
-                            csv = filtered_df.to_csv(index=False)
+                            csv = df.to_csv(index=False)
                             st.download_button(
                                 label="Download CSV",
                                 data=csv,
@@ -1821,9 +1550,6 @@ if st.session_state.current_page == 'mt5':
                                 <div class="metric">Profit Factor: {_ta_human_num(profit_factor)}</div>
                                 <div class="metric">Max Drawdown: ${max_drawdown:,.2f}</div>
                                 <div class="metric">Sharpe Ratio: {_ta_human_num(sharpe_ratio)}</div>
-                                <div class="metric">Sortino Ratio: {_ta_human_num(sortino_ratio)}</div>
-                                <div class="metric">Calmar Ratio: {_ta_human_num(calmar_ratio)}</div>
-                                <div class="metric">Recovery Factor: {_ta_human_num(recovery_factor)}</div>
                                 <div class="metric">Expectancy: ${expectancy:,.2f}</div>
                             </body>
                             </html>
@@ -1835,60 +1561,39 @@ if st.session_state.current_page == 'mt5':
                                 mime="text/html"
                             )
                         if "PDF" in report_types:
-                            # Generate base64-encoded images for LaTeX
-                            def fig_to_base64(fig):
-                                import io
-                                import base64
-                                buf = io.BytesIO()
-                                fig.write_image(buf, format="png")
-                                return base64.b64encode(buf.getvalue()).decode()
-
-                            equity_fig_base64 = fig_to_base64(fig_equity) if not daily_pnl.empty else ""
-                            drawdown_fig_base64 = fig_to_base64(fig_drawdown) if not daily_pnl.empty else ""
-
-                            latex_content = f"""
-                            \\documentclass{{article}}
-                            \\usepackage{{booktabs}}
-                            \\usepackage{{geometry}}
-                            \\usepackage{{pdflscape}}
-                            \\usepackage{{xcolor}}
-                            \\usepackage{{graphicx}}
-                            \\definecolor{{teal}}{{RGB}}{{88,179,177}}
-                            \\geometry{{a4paper, margin=1in}}
-                            \\begin{{document}}
-                            \\section*{{\\textcolor{{teal}}{{MT5 Performance Report}}}}
-                            \\begin{{tabular}}{{ll}}
+                            latex_content = """
+                            \\documentclass{article}
+                            \\usepackage{booktabs}
+                            \\usepackage{geometry}
+                            \\geometry{a4paper, margin=1in}
+                            \\usepackage{pdflscape}
+                            \\usepackage{xcolor}
+                            \\definecolor{teal}{RGB}{88,179,177}
+                            \\begin{document}
+                            \\section*{\\textcolor{teal}{MT5 Performance Report}}
+                            \\begin{tabular}{ll}
                             \\toprule
-                            \\textbf{{Metric}} & \\textbf{{Value}} \\\\
+                            \\textbf{Metric} & \\textbf{Value} \\\\
                             \\midrule
-                            Total Trades & {total_trades} \\\\
-                            Win Rate & {_ta_human_pct(win_rate)} \\\\
-                            Net Profit & \\${net_profit:,.2f} \\\\
-                            Profit Factor & {_ta_human_num(profit_factor)} \\\\
-                            Max Drawdown & \\${max_drawdown:,.2f} \\\\
-                            Sharpe Ratio & {_ta_human_num(sharpe_ratio)} \\\\
-                            Sortino Ratio & {_ta_human_num(sortino_ratio)} \\\\
-                            Calmar Ratio & {_ta_human_num(calmar_ratio)} \\\\
-                            Recovery Factor & {_ta_human_num(recovery_factor)} \\\\
-                            Expectancy & \\${expectancy:,.2f} \\\\
+                            Total Trades & %s \\\\
+                            Win Rate & %s \\\\
+                            Net Profit & \\$%s \\\\
+                            Profit Factor & %s \\\\
+                            Max Drawdown & \\$%s \\\\
+                            Sharpe Ratio & %s \\\\
+                            Expectancy & \\$%s \\\\
                             \\bottomrule
-                            \\end{{tabular}}
-                            \\newpage
-                            \\section*{{\\textcolor{{teal}}{{Visualizations}}}}
-                            """
-                            if equity_fig_base64:
-                                latex_content += f"""
-                                \\subsection*{{\\textcolor{{teal}}{{Equity Curve}}}}
-                                \\includegraphics[width=\\textwidth]{{data:image/png;base64,{equity_fig_base64}}}
-                                """
-                            if drawdown_fig_base64:
-                                latex_content += f"""
-                                \\subsection*{{\\textcolor{{teal}}{{Drawdown Analysis}}}}
-                                \\includegraphics[width=\\textwidth]{{data:image/png;base64,{drawdown_fig_base64}}}
-                                """
-                            latex_content += """
+                            \\end{tabular}
                             \\end{document}
-                            """
+                            """ % (
+                                total_trades,
+                                _ta_human_pct(win_rate),
+                                f"{net_profit:,.2f}",
+                                _ta_human_num(profit_factor),
+                                f"{max_drawdown:,.2f}",
+                                _ta_human_num(sharpe_ratio),
+                                f"{expectancy:,.2f}"
+                            )
                             try:
                                 with open("mt5_report.tex", "w") as f:
                                     f.write(latex_content)
@@ -1905,6 +1610,16 @@ if st.session_state.current_page == 'mt5':
                                 st.error(f"PDF generation failed: {str(e)}")
                                 logging.error(f"PDF generation error: {str(e)}")
 
+                    # Shareable Insights
+                    st.markdown("**Shareable Insights**")
+                    if not daily_pnl.empty:
+                        top_symbol = profit_symbol.loc[profit_symbol["Profit"].idxmax(), "Symbol"] if not profit_symbol.empty else "N/A"
+                        insight = f"Top performing symbol: {top_symbol} with ${_ta_human_num(profit_symbol['Profit'].max())} profit."
+                        st.info(insight)
+                        if st.button("Share Insight"):
+                            st.success("Insight copied to clipboard! Share with your trading community.")
+                            logging.info(f"Shared insight: {insight}")
+
             except Exception as e:
                 st.error(f"Error processing CSV: {str(e)}")
                 logging.error(f"MT5 CSV processing error: {str(e)}")
@@ -1917,63 +1632,174 @@ if st.session_state.current_page == 'mt5':
             _ta_show_badges(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
-
-# Dynamic Performance Reports
-st.markdown("### 🧩 Customizable Dashboard")
-if "mt5_df" not in st.session_state or st.session_state.mt5_df.empty:
-    st.info("Upload trades to customize KPIs.")
-else:
-    df = st.session_state.mt5_df
-    all_kpis = [
-        "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
-        "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe",
-        "Sortino Ratio", "Calmar Ratio", "Recovery Factor"
-    ]
-    chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Profit Factor", "Max Drawdown (PnL)"], key="mt5_kpis")
-    cols = st.columns(4)
-    i = 0
-    best_sym = filtered_df.groupby("Symbol")["Profit"].sum().idxmax() if "Symbol" in filtered_df.columns else "—"
-    worst_sym = filtered_df.groupby("Symbol")["Profit"].sum().idxmin() if "Symbol" in filtered_df.columns else "—"
-    best_tf = filtered_df.groupby("timeframe")["Profit"].mean().idxmax() if "timeframe" in filtered_df.columns else "—"
-    worst_tf = filtered_df.groupby("timeframe")["Profit"].mean().idxmin() if "timeframe" in filtered_df.columns else "—"
-    
-    def _metric_map():
-        return {
-            "Total Trades": len(filtered_df),
-            "Win Rate": _ta_human_pct((filtered_df["Profit"] > 0).mean()) if "Profit" in filtered_df.columns else "—",
-            "Avg R": _ta_human_num(filtered_df["Profit"].mean()) if "Profit" in filtered_df.columns else "—",
-            "Profit Factor": _ta_human_num(_ta_profit_factor(filtered_df)) if "Profit" in filtered_df.columns else "—",
-            "Max Drawdown (PnL)": _ta_human_num((filtered_df["Profit"].fillna(0).cumsum() - filtered_df["Profit"].fillna(0).cumsum().cummax()).min()) if "Profit" in filtered_df.columns else "—",
-            "Best Symbol": best_sym,
-            "Worst Symbol": worst_sym,
-            "Best Timeframe": best_tf,
-            "Worst Timeframe": worst_tf,
-            "Sortino Ratio": _ta_human_num(_ta_compute_sortino(filtered_df)),
-            "Calmar Ratio": _ta_human_num(_ta_compute_calmar(filtered_df)),
-            "Recovery Factor": _ta_human_num(_ta_compute_recovery_factor(filtered_df)),
-        }
-    
-    for k in chosen:
-        with cols[i % 4]:
-            st.metric(k, _metric_map().get(k, "—"))
-        i += 1
-
-    try:
-        _ta_show_badges(filtered_df)
-    except Exception:
-        pass
-
-    # Dynamic Insights
-    st.markdown("### 📈 Dynamic Performance Insights")
-    if not filtered_df.empty:
-        group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in filtered_df.columns]
+    st.markdown("### 🧭 Edge Finder – Highest Expectancy Segments")
+    df = st.session_state.get("mt5_df", pd.DataFrame())
+    if df.empty:
+        st.info("Upload trades with at least one of: timeframe, symbol, setup and 'r' (R-multiple).")
+    else:
+        group_cols = []
+        if "timeframe" in df.columns:
+            group_cols.append("timeframe")
+        if "symbol" in df.columns:
+            group_cols.append("symbol")
+        if "setup" in df.columns:
+            group_cols.append("setup")
         if group_cols:
-            agg = _ta_expectancy_by_group(filtered_df, group_cols).sort_values("winrate", ascending=False)
+            agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
+            st.dataframe(agg, use_container_width=True)
+            top_n = st.slider("Show Top N", 5, 50, 15, key="edge_topn")
+            st.plotly_chart(px.bar(agg.head(top_n), x="expectancy", y=group_cols, orientation="h"), use_container_width=True)
+        else:
+            st.warning("Edge Finder needs timeframe/symbol/setup columns.")
+    st.markdown("### 🧩 Customisable Dashboard")
+    if df.empty:
+        st.info("Upload trades to customise KPIs.")
+    else:
+        all_kpis = [
+            "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
+            "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
+        ]
+        chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades","Win Rate","Avg R","Profit Factor"], key="mt5_kpis")
+        cols = st.columns(4)
+        i = 0
+        best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        def _metric_map():
+            return {
+                "Total Trades": len(df),
+                "Win Rate": ta_human_pct((df["r"]>0).mean()) if "r" in df.columns else "—",
+                "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
+                "Profit Factor": _ta_human_num(_ta_profit_factor(df)) if "pnl" in df.columns else "—",
+                "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
+                "Best Symbol": best_sym,
+                "Worst Symbol": worst_sym,
+                "Best Timeframe": best_tf,
+                "Worst Timeframe": worst_tf,
+            }
+        for k in chosen:
+            with cols[i % 4]:
+                st.metric(k, _metric_map().get(k, "—"))
+            i += 1
+        try:
+            _ta_show_badges(df)
+        except Exception:
+            pass
+    # Dynamic Performance Reports
+    st.subheader("📈 Dynamic Performance Reports")
+    if not df.empty:
+        group_cols = []
+        if "timeframe" in df.columns:
+            group_cols.append("timeframe")
+        if "symbol" in df.columns:
+            group_cols.append("symbol")
+        if "setup" in df.columns:
+            group_cols.append("setup")
+        if group_cols:
+            agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
             if not agg.empty:
                 top_row = agg.iloc[0]
-                insight = f"This period, your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% win rate."
-                st.markdown(f'<div class="insight-box">{insight}</div>', unsafe_allow_html=True)
-
+                insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
+                st.info(insight)
+        else:
+            st.info("Upload trades to generate insights.")
+    # Report Export & Sharing
+    if not df.empty:
+        if st.button("📄 Generate Performance Report"):
+            report_html = f"""
+            <html>
+            <body>
+            <h2>Performance Report</h2>
+            <p>Total Trades: {total_trades}</p>
+            <p>Win Rate: {win_rate:.2f}%</p>
+            <p>Net Profit: ${net_profit:,.2f}</p>
+            <p>Profit Factor: {profit_factor}</p>
+            <p>Biggest Win: ${biggest_win:,.2f}</p>
+            <p>Biggest Loss: ${biggest_loss:,.2f}</p>
+            <p>Longest Win Streak: {longest_win_streak}</p>
+            <p>Longest Loss Streak: {longest_loss_streak}</p>
+            <p>Avg Trade Duration: {avg_trade_duration:.2f}h</p>
+            <p>Total Volume: {total_volume:,.2f}</p>
+            <p>Avg Volume: {avg_volume:.2f}</p>
+            <p>Profit / Trade: ${profit_per_trade:.2f}</p>
+            </body>
+            </html>
+            """
+            st.download_button(
+                label="Download HTML Report",
+                data=report_html,
+                file_name="performance_report.html",
+                mime="text/html"
+            )
+            st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
+elif st.session_state.current_page == 'psychology':
+    st.title("🧠 Psychology")
+    st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
+    st.markdown('---')
+    st.subheader("📝 Emotion Tracker")
+    with st.form("emotion_form"):
+        emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
+        notes = st.text_area("Notes on Your Mindset")
+        submit_emotion = st.form_submit_button("Log Emotion")
+        if submit_emotion:
+            log_entry = {
+                "Date": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Emotion": emotion,
+                "Notes": notes
+            }
+            if "emotion_log" not in st.session_state:
+                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.emotion_log = pd.concat([st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True)
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["emotion_log"] = st.session_state.emotion_log.to_dict(orient="records")
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                except Exception as e:
+                    logging.error(f"Error saving emotion log: {str(e)}")
+            st.success("Emotion logged successfully!")
+            logging.info(f"Emotion logged: {emotion}")
+    if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
+        st.subheader("Your Emotion Log")
+        st.dataframe(st.session_state.emotion_log, use_container_width=True)
+        fig = px.histogram(st.session_state.emotion_log, x="Emotion", title="Emotion Distribution")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No emotions logged yet. Use the form above to start tracking.")
+    st.subheader("🧘 Mindset Tips")
+    tips = [
+        "Stick to your trading plan to avoid impulsive decisions.",
+        "Take breaks after losses to reset your mindset.",
+        "Focus on process, not profits, to stay disciplined.",
+        "Journal every trade to identify emotional patterns.",
+        "Practice mindfulness to manage stress during volatile markets."
+    ]
+    for tip in tips:
+        st.markdown(f"- {tip}")
+    # Curated Education Feeds
+    st.subheader("📚 Curated Trading Insights")
+    insights = [
+        "Risk Management: Always risk no more than 1-2% of your account per trade to preserve capital.",
+        "Psychology: Master your emotions; fear and greed are the biggest enemies of traders.",
+        "Setups: Focus on high-probability patterns like pin bars and engulfing candles in trending markets."
+    ]
+    week_num = dt.datetime.now().isocalendar()[1]
+    current_insight = insights[week_num % len(insights)]
+    st.info(f"Insight of the Week: {current_insight}")
+    # Challenge Mode
+    st.subheader("🏅 Challenge Mode")
+    st.write("30-Day Journaling Discipline Challenge")
+    streak = st.session_state.get('streak', 0)
+    progress = min(streak / 30.0, 1.0)
+    st.progress(progress)
+    if progress >= 1.0:
+        st.success("Challenge completed! Great job on your consistency.")
+        ta_update_xp(100) # Bonus XP for completion
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
@@ -2678,7 +2504,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         if 'logged_in_user' in st.session_state:
             del st.session_state.logged_in_user
         st.session_state.drawings = {}
-        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        st.session_state.tools_st.rerunurnal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
         st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
         st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
