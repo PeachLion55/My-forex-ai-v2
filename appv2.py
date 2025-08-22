@@ -2527,4 +2527,21 @@ elif st.session_state.current_page == "Zenvo Academy":
         st.success("Logged out successfully!")
         logging.info("User logged out")
         st.session_state.current_page = "login"
+
+        import json
+import datetime as dt
+import math
+import pandas as pd
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (dt.datetime, dt.date)):
+            return obj.isoformat()
+        if pd.api.types.is_datetime64_any_dtype(obj):
+            return obj.isoformat()
+        if isinstance(obj, float) and math.isinf(obj):
+            return 'inf' if obj > 0 else '-inf'
+        if isinstance(obj, float) and math.isnan(obj):
+            return 'nan'
+        return super(CustomJSONEncoder, self).default(obj)
         st.rerun()
