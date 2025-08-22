@@ -1918,49 +1918,50 @@ if st.session_state.current_page == 'mt5':
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
 
-    # Dynamic Performance Reports
-    st.markdown("### 🧩 Customizable Dashboard")
-    if df.empty:
-        st.info("Upload trades to customize KPIs.")
-    else:
-        all_kpis = [
-            "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
-            "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe",
-            "Sortino Ratio", "Calmar Ratio", "Recovery Factor"
-        ]
-        chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Profit Factor", "Max Drawdown (PnL)"], key="mt5_kpis")
-        cols = st.columns(4)
-        i = 0
-        best_sym = filtered_df.groupby("symbol")["Profit"].sum().idxmax() if "symbol" in filtered_df.columns else "—"
-        worst_sym = filtered_df.groupby("symbol")["Profit"].sum().idxmin() if "symbol" in filtered_df.columns else "—"
-        best_tf = filtered_df.groupby("timeframe")["Profit"].mean().idxmax() if "timeframe" in filtered_df.columns else "—"
-        worst_tf = filtered_df.groupby("timeframe")["Profit"].mean().idxmin() if "timeframe" in filtered_df.columns else "—"
-        
-        def _metric_map():
-            return {
-                "Total Trades": len(filtered_df),
-                "Win Rate": _ta_human_pct((filtered_df["Profit"] > 0).mean()) if "Profit" in filtered_df.columns else "—",
-                "Avg R": _ta_human_num(filtered_df["Profit"].mean()) if "Profit" in filtered_df.columns else "—",
-                "Profit Factor": _ta_human_num(_ta_profit_factor(filtered_df)) if "Profit" in filtered_df.columns else "—",
-                "Max Drawdown (PnL)": _ta_human_num((filtered_df["Profit"].fillna(0).cumsum() - filtered_df["Profit"].fillna(0).cumsum().cummax()).min()) if "Profit" in filtered_df.columns else "—",
-                "Best Symbol": best_sym,
-                "Worst Symbol": worst_sym,
-                "Best Timeframe": best_tf,
-                "Worst Timeframe": worst_tf,
-                "Sortino Ratio": _ta_human_num(_ta_compute_sortino(filtered_df)),
-                "Calmar Ratio": _ta_human_num(_ta_compute_calmar(filtered_df)),
-                "Recovery Factor": _ta_human_num(_ta_compute_recovery_factor(filtered_df)),
-            }
-        
-        for k in chosen:
-            with cols[i % 4]:
-                st.metric(k, _metric_map().get(k, "—"))
-            i += 1
+# Dynamic Performance Reports
+st.markdown("### 🧩 Customizable Dashboard")
+if "mt5_df" not in st.session_state or st.session_state.mt5_df.empty:
+    st.info("Upload trades to customize KPIs.")
+else:
+    df = st.session_state.mt5_df
+    all_kpis = [
+        "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
+        "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe",
+        "Sortino Ratio", "Calmar Ratio", "Recovery Factor"
+    ]
+    chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Profit Factor", "Max Drawdown (PnL)"], key="mt5_kpis")
+    cols = st.columns(4)
+    i = 0
+    best_sym = filtered_df.groupby("Symbol")["Profit"].sum().idxmax() if "Symbol" in filtered_df.columns else "—"
+    worst_sym = filtered_df.groupby("Symbol")["Profit"].sum().idxmin() if "Symbol" in filtered_df.columns else "—"
+    best_tf = filtered_df.groupby("timeframe")["Profit"].mean().idxmax() if "timeframe" in filtered_df.columns else "—"
+    worst_tf = filtered_df.groupby("timeframe")["Profit"].mean().idxmin() if "timeframe" in filtered_df.columns else "—"
+    
+    def _metric_map():
+        return {
+            "Total Trades": len(filtered_df),
+            "Win Rate": _ta_human_pct((filtered_df["Profit"] > 0).mean()) if "Profit" in filtered_df.columns else "—",
+            "Avg R": _ta_human_num(filtered_df["Profit"].mean()) if "Profit" in filtered_df.columns else "—",
+            "Profit Factor": _ta_human_num(_ta_profit_factor(filtered_df)) if "Profit" in filtered_df.columns else "—",
+            "Max Drawdown (PnL)": _ta_human_num((filtered_df["Profit"].fillna(0).cumsum() - filtered_df["Profit"].fillna(0).cumsum().cummax()).min()) if "Profit" in filtered_df.columns else "—",
+            "Best Symbol": best_sym,
+            "Worst Symbol": worst_sym,
+            "Best Timeframe": best_tf,
+            "Worst Timeframe": worst_tf,
+            "Sortino Ratio": _ta_human_num(_ta_compute_sortino(filtered_df)),
+            "Calmar Ratio": _ta_human_num(_ta_compute_calmar(filtered_df)),
+            "Recovery Factor": _ta_human_num(_ta_compute_recovery_factor(filtered_df)),
+        }
+    
+    for k in chosen:
+        with cols[i % 4]:
+            st.metric(k, _metric_map().get(k, "—"))
+        i += 1
 
-        try:
-            _ta_show_badges(filtered_df)
-        except Exception:
-            pass
+    try:
+        _ta_show_badges(filtered_df)
+    except Exception:
+        pass
 
     # Dynamic Insights
     st.markdown("### 📈 Dynamic Performance Insights")
