@@ -1380,7 +1380,7 @@ elif st.session_state.current_page == 'account':
     st.write('---')
     if "logged_in_user" not in st.session_state:
         # Tabs for Sign In and Sign Up
-        tab_signin, tab_signup = st.tabs(["🔑 Sign In", "📝 Sign Up"])
+        tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
         # --------------------------
         # SIGN IN TAB
         # --------------------------
@@ -1445,27 +1445,73 @@ elif st.session_state.current_page == 'account':
                             logging.warning(f"Registration failed: Username {new_username} already exists")
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0})
-                            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                            conn.commit()
-                            st.session_state.logged_in_user = new_username
-                            st.session_state.drawings = {}
-                            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-                            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-                            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-                            st.session_state.xp = 0
-                            st.session_state.level = 0
-                            st.session_state.badges = []
-                            st.session_state.streak = 0
-                            st.success(f"Account created for {new_username}!")
-                            logging.info(f"User {new_username} registered successfully")
-                            st.rerun()
+                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "tools_trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
+                            try:
+                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                                conn.commit()
+                                st.session_state.logged_in_user = new_username
+                                st.session_state.drawings = {}
+                                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+                                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+                                st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+                                st.session_state.xp = 0
+                                st.session_state.level = 0
+                                st.session_state.badges = []
+                                st.session_state.streak = 0
+                                st.success(f"Account created for {new_username}!")
+                                logging.info(f"User {new_username} registered successfully")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Failed to create account: {str(e)}")
+                                logging.error(f"Registration error for {new_username}: {str(e)}")
+        # --------------------------
+        # DEBUG TAB
+        # --------------------------
+        with tab_debug:
+            st.subheader("Debug: Inspect Users Database")
+            st.warning("This is for debugging only. Remove in production.")
+            try:
+                c.execute("SELECT username, password, data FROM users")
+                users = c.fetchall()
+                if users:
+                    debug_df = pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"])
+                    st.dataframe(debug_df, use_container_width=True)
+                else:
+                    st.info("No users found in the database.")
+                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = c.fetchall()
+                st.write("Database Tables:", tables)
+            except Exception as e:
+                st.error(f"Error accessing database: {str(e)}")
+                logging.error(f"Debug error: {str(e)}")
     else:
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
         st.subheader(f"Welcome, {st.session_state.logged_in_user}!")
+        st.markdown("### Account Details")
+        st.write(f"**Username**: {st.session_state.logged_in_user}")
+        st.write(f"**XP**: {st.session_state.get('xp', 0)}")
+        st.write(f"**Level**: {st.session_state.get('level', 0)}")
+        st.write(f"**Badges**: {', '.join(st.session_state.get('badges', [])) or 'None'}")
+        st.write(f"**Journaling Streak**: {st.session_state.get('streak', 0)} days")
+        if st.button("Log Out", key="logout_account_page"):
+            if 'logged_in_user' in st.session_state:
+                del st.session_state.logged_in_user
+            st.session_state.drawings = {}
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+            st.session_state.xp = 0
+            st.session_state.level = 0
+            st.session_state.badges = []
+            st.session_state.streak = 0
+            st.success("Logged out successfully!")
+            logging.info("User logged out")
+            st.session_state.current_page = "account"  # Redirect back to account page
+            st.rerun()
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
