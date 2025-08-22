@@ -1128,7 +1128,14 @@ if st.session_state.get('current_page') == 'backtesting':
             with col_filter2:
                 tag_options = []
                 if 'Tags' in st.session_state.tools_trade_journal.columns:
-                    tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
+                    tag_options = [
+    tag.strip()
+    for tag in st.session_state.tools_trade_journal['Tags']
+        .str.split(',')
+        .explode()
+        .unique()
+    if tag and pd.notna(tag)
+]
                 tag_filter = st.multiselect("Filter by Tags", options=tag_options)
             with col_filter3:
                 bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
