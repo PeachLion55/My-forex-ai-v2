@@ -1973,73 +1973,7 @@ else:
                 top_row = agg.iloc[0]
                 insight = f"This period, your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% win rate."
                 st.markdown(f'<div class="insight-box">{insight}</div>', unsafe_allow_html=True)
-elif st.session_state.current_page == 'psychology':
-    st.title("🧠 Psychology")
-    st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
-    st.markdown('---')
-    st.subheader("📝 Emotion Tracker")
-    with st.form("emotion_form"):
-        emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
-        notes = st.text_area("Notes on Your Mindset")
-        submit_emotion = st.form_submit_button("Log Emotion")
-        if submit_emotion:
-            log_entry = {
-                "Date": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Emotion": emotion,
-                "Notes": notes
-            }
-            if "emotion_log" not in st.session_state:
-                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-            st.session_state.emotion_log = pd.concat([st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True)
-            if "logged_in_user" in st.session_state:
-                username = st.session_state.logged_in_user
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
-                    user_data["emotion_log"] = st.session_state.emotion_log.to_dict(orient="records")
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
-                    conn.commit()
-                except Exception as e:
-                    logging.error(f"Error saving emotion log: {str(e)}")
-            st.success("Emotion logged successfully!")
-            logging.info(f"Emotion logged: {emotion}")
-    if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
-        st.subheader("Your Emotion Log")
-        st.dataframe(st.session_state.emotion_log, use_container_width=True)
-        fig = px.histogram(st.session_state.emotion_log, x="Emotion", title="Emotion Distribution")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No emotions logged yet. Use the form above to start tracking.")
-    st.subheader("🧘 Mindset Tips")
-    tips = [
-        "Stick to your trading plan to avoid impulsive decisions.",
-        "Take breaks after losses to reset your mindset.",
-        "Focus on process, not profits, to stay disciplined.",
-        "Journal every trade to identify emotional patterns.",
-        "Practice mindfulness to manage stress during volatile markets."
-    ]
-    for tip in tips:
-        st.markdown(f"- {tip}")
-    # Curated Education Feeds
-    st.subheader("📚 Curated Trading Insights")
-    insights = [
-        "Risk Management: Always risk no more than 1-2% of your account per trade to preserve capital.",
-        "Psychology: Master your emotions; fear and greed are the biggest enemies of traders.",
-        "Setups: Focus on high-probability patterns like pin bars and engulfing candles in trending markets."
-    ]
-    week_num = dt.datetime.now().isocalendar()[1]
-    current_insight = insights[week_num % len(insights)]
-    st.info(f"Insight of the Week: {current_insight}")
-    # Challenge Mode
-    st.subheader("🏅 Challenge Mode")
-    st.write("30-Day Journaling Discipline Challenge")
-    streak = st.session_state.get('streak', 0)
-    progress = min(streak / 30.0, 1.0)
-    st.progress(progress)
-    if progress >= 1.0:
-        st.success("Challenge completed! Great job on your consistency.")
-        ta_update_xp(100) # Bonus XP for completion
+
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
