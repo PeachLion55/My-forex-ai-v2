@@ -1934,11 +1934,11 @@ elif st.session_state.current_page == 'tools':
             st.dataframe(st.session_state.reflection_log)
 
 elif st.session_state.current_page == "Zenvo Academy":
-    st.title("🧪 Test")
+    st.title("Zenvo Academy")
     st.caption("Explore experimental features and tools for your trading journey.")
     st.markdown('---')
-    st.markdown("### Welcome to the Test Page")
-    st.write("This is a placeholder for experimental features. Add your custom tools, visualizations, or tests here.")
+    st.markdown("### Welcome to Zenvo Academy")
+    st.write("Our Academy provides beginner traders with a clear learning path – covering Forex basics, chart analysis, risk management, and trading psychology. Build a solid foundation before stepping into live markets.")
     st.info("This page is under development. Stay tuned for new features!")
     if st.button("Log Out", key="logout_test_page"):
         if 'logged_in_user' in st.session_state:
