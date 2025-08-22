@@ -1696,7 +1696,7 @@ if st.session_state.current_page == 'mt5':
                                     }
                                 }
                             }
-                            ```
+                            
 
                     # Edge Finder Tab
                     with tab_edge:
