@@ -2035,7 +2035,7 @@ elif st.session_state.current_page == 'account':
             st.session_state.badges = []
             st.session_state.streak = 0
             st.success("Logged out successfully!")
-            logging.info("User logged out")
+            logging.info("Logged out")
             st.session_state.current_page = "account"  # Redirect back to account page
             st.rerun()
 elif st.session_state.current_page == 'community':
@@ -2516,7 +2516,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         if 'logged_in_user' in st.session_state:
             del st.session_state.logged_in_user
         st.session_state.drawings = {}
-        st.session_state.tools_st.rerunurnal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
         st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
         st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
