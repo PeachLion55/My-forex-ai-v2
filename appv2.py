@@ -1506,7 +1506,7 @@ if st.session_state.current_page == 'mt5':
                         # Profit by Symbol
                         st.markdown("**Profit by Instrument**")
                         profit_symbol = filtered_df.groupby("Symbol")["Profit"].sum().reset_index()
-                        ```chartjs
+                        chartjs
                         {
                             "type": "bar",
                             "data": {
