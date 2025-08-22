@@ -1553,7 +1553,6 @@ if st.session_state.current_page == 'mt5':
                                 }
                             }
                         }
-                        ```
 
                         # Equity Curve
                         st.markdown("**Equity Curve**")
