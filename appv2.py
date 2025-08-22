@@ -517,7 +517,7 @@ nav_items = [
     ('account', 'My Account'),
     ('community', 'Community Trade Ideas'),
     ('tools', 'Tools'),
-    #('settings', 'Settings')
+    ('Zenvo Academy', 'Zenvo Academy')
 ]
 for page_key, page_name in nav_items:
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
@@ -1932,3 +1932,27 @@ elif st.session_state.current_page == 'tools':
                 st.success("Reflection logged!")
         if "reflection_log" in st.session_state and not st.session_state.reflection_log.empty:
             st.dataframe(st.session_state.reflection_log)
+
+elif st.session_state.current_page == "Zenvo Academy":
+    st.title("🧪 Test")
+    st.caption("Explore experimental features and tools for your trading journey.")
+    st.markdown('---')
+    st.markdown("### Welcome to the Test Page")
+    st.write("This is a placeholder for experimental features. Add your custom tools, visualizations, or tests here.")
+    st.info("This page is under development. Stay tuned for new features!")
+    if st.button("Log Out", key="logout_test_page"):
+        if 'logged_in_user' in st.session_state:
+            del st.session_state.logged_in_user
+        st.session_state.drawings = {}
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+        st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+        st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+        st.session_state.xp = 0
+        st.session_state.level = 0
+        st.session_state.badges = []
+        st.session_state.streak = 0
+        st.success("Logged out successfully!")
+        logging.info("User logged out")
+        st.session_state.current_page = "login"
+        st.rerun()
