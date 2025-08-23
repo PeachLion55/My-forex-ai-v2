@@ -1910,7 +1910,7 @@ if uploaded_file:
 
 else:
     st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
-elif st.session_state.current_page == 'psychology':
+    elif st.session_state.current_page == 'psychology':
     st.title("🧠 Psychology")
     st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
     st.markdown('---')
