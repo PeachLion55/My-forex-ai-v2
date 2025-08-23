@@ -2329,7 +2329,7 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # SIGN IN TAB
         # --------------------------
-                with tab_signup:
+            with tab_signup:
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
                 new_username = st.text_input("New Username")
