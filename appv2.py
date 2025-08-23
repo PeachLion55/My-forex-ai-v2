@@ -636,31 +636,25 @@ for page_key, page_name in nav_items:
 if st.session_state.current_page == 'fundamentals':
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.title("📊 Forex Fundamentals")
+        st.title("📅 Forex Fundamentals")
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
         st.markdown('---')
     with col2:
         st.info("See the Backtesting tab for live charts + detailed news.")
-
     # Economic Calendar
-    st.markdown("### 📅 Upcoming Economic Events")
-    
+    st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
         st.session_state.selected_currency_1 = None
     if 'selected_currency_2' not in st.session_state:
         st.session_state.selected_currency_2 = None
-
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
-    
     with col_filter1:
         currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1")
         st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
-    
     with col_filter2:
         currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
         st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-
     def highlight_currency(row):
         styles = [''] * len(row)
         if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
@@ -668,13 +662,10 @@ if st.session_state.current_page == 'fundamentals':
         if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
             styles = ['background-color: #2e4747; color: white' if col == 'Currency' else 'background-color: #2e4747' for col in row.index]
         return styles
-
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-
     # Interest rate tiles
-    st.markdown("### 💰 Major Central Bank Interest Rates")
+    st.markdown("### 💹 Major Central Bank Interest Rates")
     st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
-
     interest_rates = [
         {"Currency": "USD", "Current": "3.78%", "Previous": "4.00%", "Changed": "2025-07-17", "Next Meeting": "2025-09-18"},
         {"Currency": "GBP", "Current": "3.82%", "Previous": "4.00%", "Changed": "2025-08-07", "Next Meeting": "2025-09-19"},
@@ -685,10 +676,8 @@ if st.session_state.current_page == 'fundamentals':
         {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "2025-05-28", "Next Meeting": "2025-10-09"},
         {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "2025-06-19", "Next Meeting": "2025-09-26"},
     ]
-
     boxes_per_row = 4
     colors = ["#2d4646", "#4d7171", "#2d4646", "#4d7171"]
-
     for i in range(0, len(interest_rates), boxes_per_row):
         cols = st.columns(boxes_per_row)
         for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
@@ -697,25 +686,22 @@ if st.session_state.current_page == 'fundamentals':
                 st.markdown(
                     f"""
                     <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
-                        {rate['Currency']}<br>
-                        Current: {rate['Current']}<br>
-                        Previous: {rate['Previous']}<br>
-                        Changed On: {rate['Changed']}<br>
-                        Next Meeting: {rate['Next Meeting']}
+                    {rate['Currency']}<br>
+                    Current: {rate['Current']}<br>
+                    Previous: {rate['Previous']}<br>
+                    Changed On: {rate['Changed']}<br>
+                    Next Meeting: {rate['Next Meeting']}
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
+                st.markdown("<br>", unsafe_allow_html=True)
     # Major High-Impact Events
-    st.markdown("### 🚨 Major High-Impact Forex Events")
-    
+    st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
         {
             "event": "Non-Farm Payrolls (NFP)",
-            "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and nonprofits.",
+            "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
             "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
             "impact_positive": {
                 "USD": "↑ Stronger USD due to strong labor market",
@@ -777,19 +763,18 @@ if st.session_state.current_page == 'fundamentals':
             },
         },
     ]
-
     for ev in forex_high_impact_events:
         positive_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_positive"].items()])
         negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
         st.markdown(
             f"""
             <div style="
-            border-radius:12px;
-            padding:15px;
-            margin-bottom:18px;
-            background-color:#12121a;
-            color:white;
-            box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+                border-radius:12px;
+                padding:15px;
+                margin-bottom:18px;
+                background-color:#12121a;
+                color:white;
+                box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
             ">
                 <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
                 <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
