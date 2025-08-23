@@ -22,11 +22,7 @@ import time
 import scipy.stats
 import streamlit as st
 
-# Add this CustomJSONEncoder class after your imports
-import json
-import pandas as pd
-import datetime as dt
-
+# 1. ADD THIS CLASS RIGHT AFTER YOUR IMPORTS (around line 20)
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (dt.date, dt.datetime, pd.Timestamp)):
@@ -39,8 +35,7 @@ class CustomJSONEncoder(json.JSONEncoder):
             return float(obj)
         return super().default(obj)
 
-# Replace your existing data loading/saving functions with these improved versions:
-
+# 2. ADD THESE FUNCTIONS AFTER YOUR EXISTING HELPER FUNCTIONS (around line 100)
 def load_user_data():
     """Load user data on every page refresh if logged in"""
     if "logged_in_user" in st.session_state:
@@ -138,7 +133,7 @@ def save_user_data():
         st.error(f"Error saving your data: {str(e)}")
         return False
 
-# Add this near the top of your main app, right after session state initialization:
+# 3. ADD THIS RIGHT AFTER YOUR SESSION STATE INITIALIZATION (around line 300)
 # Load user data on every page refresh
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
@@ -147,8 +142,26 @@ if "logged_in_user" in st.session_state and not st.session_state.data_loaded:
     if load_user_data():
         st.session_state.data_loaded = True
 
-# Modified trade entry form submission (replace your existing one):
-if submit_button:  # In your trade entry form
+# 4. FIND YOUR EXISTING TRADE ENTRY FORM SUBMISSION AND REPLACE THE SAVE LOGIC
+# Look for this section in your backtesting page (around line 950):
+# Replace this existing block:
+"""
+if submit_button:
+    # ... your existing trade creation code ...
+    if 'logged_in_user' in st.session_state:
+        username = st.session_state.logged_in_user
+        user_data = {
+            # ... existing code ...
+        }
+        try:
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            conn.commit()
+            # ... rest of existing code ...
+"""
+
+# WITH THIS:
+"""
+if submit_button:
     pip_multiplier = 100 if "JPY" in symbol else 10000
     pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
     rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
@@ -185,7 +198,7 @@ if submit_button:  # In your trade entry form
         ignore_index=True
     ).astype(journal_dtypes, errors='ignore')
     
-    # Save to database immediately
+    # Save to database using the new function
     if save_user_data():
         ta_update_xp(10)
         ta_update_streak()
@@ -195,21 +208,17 @@ if submit_button:  # In your trade entry form
         st.error("Failed to save trade to database")
     
     st.rerun()
+"""
 
-# Add periodic auto-save (add this to your main app flow):
-def auto_save():
-    """Auto-save user data periodically"""
-    if "logged_in_user" in st.session_state:
-        if "last_save_time" not in st.session_state:
-            st.session_state.last_save_time = dt.datetime.now()
-        
-        # Auto-save every 5 minutes
-        if (dt.datetime.now() - st.session_state.last_save_time).seconds > 300:
-            if save_user_data():
-                st.session_state.last_save_time = dt.datetime.now()
+# 5. ALSO REPLACE ANY OTHER SAVE OPERATIONS (emotions, strategies) with calls to save_user_data()
 
-# Call auto_save() in your main app loop
-auto_save()
+# 6. REMOVE DUPLICATE STREAMLIT IMPORTS
+# Remove this line (around line 33):
+# import streamlit as st
+
+# 7. RESET DATA_LOADED FLAG ON LOGOUT
+# In your logout function, add this line:
+# st.session_state.data_loaded = False
 
 st.markdown(
     """
