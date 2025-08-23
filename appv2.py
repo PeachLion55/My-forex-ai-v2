@@ -2329,46 +2329,6 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # SIGN IN TAB
         # --------------------------
-        with tab_signin:
-            st.subheader("Welcome back! Please sign in to access your account.")
-            with st.form("login_form"):
-                username = st.text_input("Username")
-                password = st.text_input("Password", type="password")
-                login_button = st.form_submit_button("Login")
-                if login_button:
-                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result and result[0] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        user_data = json.loads(result[1]) if result[1] else {}
-                        st.session_state.drawings = user_data.get("drawings", {})
-                        if "tools_trade_journal" in user_data:
-                            loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
-                            for col in journal_cols:
-                                if col not in loaded_df.columns:
-                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                        if "strategies" in user_data:
-                            st.session_state.strategies = pd.DataFrame(user_data["strategies"])
-                        if "emotion_log" in user_data:
-                            st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
-                        if "reflection_log" in user_data:
-                            st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
-                        st.session_state.xp = user_data.get('xp', 0)
-                        st.session_state.level = user_data.get('level', 0)
-                        st.session_state.badges = user_data.get('badges', [])
-                        st.session_state.streak = user_data.get('streak', 0)
-                        st.session_state.last_journal_date = user_data.get('last_journal_date', None)
-                        st.success(f"Welcome back, {username}!")
-                        logging.info(f"User {username} logged in successfully")
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password.")
-                        logging.warning(f"Failed login attempt for {username}")
-        # --------------------------
-        # SIGN UP TAB
-        # --------------------------
                 with tab_signup:
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
@@ -2439,6 +2399,7 @@ elif st.session_state.current_page == 'account':
                         except Exception as e:
                             st.error("An unexpected error occurred. Please try again.")
                             logging.error(f"Unexpected error during registration for {new_username}: {str(e)}")
+
         # --------------------------
         # DEBUG TAB
         # --------------------------
@@ -2459,7 +2420,6 @@ elif st.session_state.current_page == 'account':
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
-    else:
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
