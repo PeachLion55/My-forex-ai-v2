@@ -1196,8 +1196,7 @@ with tab_analytics:
             rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
                 lambda x: pd.Series([parse_rr(r) for r in x]).mean()
             ).reset_index(name='Average R:R')
-            fig = px.bar(rr_values, x='Symbol', y='Averagesummary
- R:R', title="Average R:R by Symbol")
+            fig = px.bar(rr_values, x='Symbol', y='Average R:R', title="Average R:R by Symbol")
             st.plotly_chart(fig, use_container_width=True)
         with col_chart2:
             fig = px.pie(filtered_df, names='Emotions', title="Trades by Emotional State")
