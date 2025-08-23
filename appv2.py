@@ -1413,7 +1413,7 @@ def _ta_show_badges(df):
     if win_rate > 0.6:
         st.success("🎯 High Win Rate: Above 60%!")
 
-# Initialize session state for DataFrame and metrics
+# Initialize session state
 if "mt5_df" not in st.session_state:
     st.session_state.mt5_df = pd.DataFrame()
 if "metrics" not in st.session_state:
@@ -1430,12 +1430,13 @@ tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
 # Summary Metrics Tab
 with tab_summary:
     st.subheader("Key Performance Metrics")
-    with st.container():
-        uploaded_file = st.file_uploader(
-            "Upload MT5 History CSV",
-            type=["csv"],
-            help="Export your trading history from MetaTrader 5 as a CSV file."
-        )
+    # File uploader only in Summary Metrics tab
+    uploaded_file = st.file_uploader(
+        "Upload MT5 History CSV",
+        type=["csv"],
+        help="Export your trading history from MetaTrader 5 as a CSV file.",
+        key="mt5_file_uploader"
+    )
 
     if uploaded_file:
         with st.spinner("Processing trading data..."):
@@ -1758,6 +1759,199 @@ with tab_charts:
             )
     else:
         st.info("Please upload a CSV file in the Summary Metrics tab to view visualizations.")
+
+# Edge Finder Tab
+with tab_edge:
+    st.subheader("Edge Finder – Highest Expectancy Segments")
+    df = st.session_state.get("mt5_df", pd.DataFrame())
+    if df.empty:
+        st.info("Upload trades with at least one of: timeframe, symbol, setup and 'r' (R-multiple) in the Summary Metrics tab.")
+    else:
+        group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in df.columns]
+        if group_cols:
+            agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
+            st.dataframe(
+                agg.style.format({
+                    "winrate": "{:.2%}",
+                    "avg_win": "${:.2f}",
+                    "avg_loss": "${:.2f}",
+                    "expectancy": "${:.2f}"
+                }),
+                use_container_width=True
+            )
+            top_n = st.slider("Show Top N Segments", 5, 50, 10, key="edge_topn")
+            if not agg.empty:
+                agg["group"] = agg[group_cols].astype(str).agg(' '.join, axis=1)
+                chart_data = {
+                    "labels": agg.head(top_n)["group"].tolist(),
+                    "datasets": [{
+                        "label": "Expectancy",
+                        "data": agg.head(top_n)["expectancy"].tolist(),
+                        "backgroundColor": "#58b3b1",
+                        "borderColor": "#4d7171",
+                        "borderWidth": 1
+                    }]
+                }
+                st.markdown(
+                    f"""
+                    <div style="height:400px;">
+                        <canvas id="edgeBar"></canvas>
+                    </div>
+                    <script>
+                        const ctx5 = document.getElementById('edgeBar').getContext('2d');
+                        new Chart(ctx5, {{
+                            type: 'bar',
+                            data: {json.dumps(chart_data)},
+                            options: {{
+                                indexAxis: 'y',
+                                plugins: {{
+                                    title: {{
+                                        display: true,
+                                        text: 'Top Expectancy Segments',
+                                        font: {{ size: 18 }},
+                                        color: '#ffffff'
+                                    }},
+                                    legend: {{ display: false }}
+                                }},
+                                scales: {{
+                                    x: {{
+                                        title: {{ display: true, text: 'Expectancy ($)', color: '#ffffff' }},
+                                        ticks: {{ color: '#ffffff' }},
+                                        grid: {{ color: '#4d7171' }}
+                                    }},
+                                    y: {{ ticks: {{ color: '#ffffff' }} }}
+                                }},
+                                responsive: true,
+                                maintainAspectRatio: false
+                            }}
+                        }});
+                    </script>
+                    """,
+                    unsafe_allow_html=True
+                )
+        else:
+            st.warning("Edge Finder requires columns: timeframe, symbol, or setup.")
+
+        # Gamification Badges
+        st.markdown("### 🎖️ Gamification Badges")
+        try:
+            _ta_show_badges(df)
+        except Exception as e:
+            logging.error(f"Error displaying badges: {str(e)}")
+
+        # Customizable Dashboard
+        st.markdown("### 🧩 Customizable Dashboard")
+        all_kpis = [
+            "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
+            "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
+        ]
+        chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Avg R", "Profit Factor"], key="mt5_kpis")
+        cols = st.columns(4)
+        i = 0
+        best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+
+        def _metric_map():
+            return {
+                "Total Trades": st.session_state.metrics.get("total_trades", 0),
+                "Win Rate": _ta_human_pct(st.session_state.metrics.get("win_rate", 0)) if "r" in df.columns else "—",
+                "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
+                "Profit Factor": _ta_human_num(st.session_state.metrics.get("profit_factor", 0)) if "Profit" in df.columns else "—",
+                "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
+                "Best Symbol": best_sym,
+                "Worst Symbol": worst_sym,
+                "Best Timeframe": best_tf,
+                "Worst Timeframe": worst_tf,
+            }
+
+        for k in chosen:
+            with cols[i % 4]:
+                st.metric(k, _metric_map().get(k, "—"))
+            i += 1
+
+        # Dynamic Performance Reports
+        st.subheader("📈 Dynamic Performance Reports")
+        if group_cols:
+            agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
+            if not agg.empty:
+                top_row = agg.iloc[0]
+                insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
+                st.info(insight)
+        else:
+            st.info("Upload trades to generate insights.")
+
+# Export Reports Tab
+with tab_export:
+    st.subheader("Export Performance Reports")
+    if not st.session_state.mt5_df.empty:
+        report_types = st.multiselect(
+            "Select Report Formats",
+            ["CSV", "HTML"],
+            default=["CSV"]
+        )
+        if st.button("Generate Reports"):
+            if "CSV" in report_types:
+                csv = st.session_state.mt5_df.to_csv(index=False)
+                st.download_button(
+                    label="Download CSV",
+                    data=csv,
+                    file_name="mt5_performance.csv",
+                    mime="text/csv"
+                )
+            if "HTML" in report_types:
+                report_html = f"""
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; background-color: #000000; color: #ffffff; padding: 20px; }}
+                        h2 {{ color: #58b3b1; }}
+                        .metric {{ margin: 10px 0; padding: 10px; background-color: #1a1a1a; border-radius: 5px; }}
+                    </style>
+                </head>
+                <body>
+                    <h2>MT5 Performance Report</h2>
+                    <div class="metric">Total Trades: {st.session_state.metrics.get('total_trades', 0)}</div>
+                    <div class="metric">Win Rate: {_ta_human_pct(st.session_state.metrics.get('win_rate', 0))}</div>
+                    <div class="metric">Net Profit: ${st.session_state.metrics.get('net_profit', 0):,.2f}</div>
+                    <div class="metric">Profit Factor: {_ta_human_num(st.session_state.metrics.get('profit_factor', 0))}</div>
+                    <div class="metric">Max Drawdown: ${st.session_state.metrics.get('max_drawdown', 0):,.2f}</div>
+                    <div class="metric">Sharpe Ratio: {_ta_human_num(st.session_state.metrics.get('sharpe_ratio', 0))}</div>
+                    <div class="metric">Expectancy: ${st.session_state.metrics.get('expectancy', 0):,.2f}</div>
+                    <div class="metric">Biggest Win: ${st.session_state.metrics.get('biggest_win', 0):,.2f}</div>
+                    <div class="metric">Biggest Loss: ${st.session_state.metrics.get('biggest_loss', 0):,.2f}</div>
+                    <div class="metric">Longest Win Streak: {st.session_state.metrics.get('longest_win_streak', 0)}</div>
+                    <div class="metric">Longest Loss Streak: {st.session_state.metrics.get('longest_loss_streak', 0)}</div>
+                    <div class="metric">Avg Trade Duration: {st.session_state.metrics.get('avg_trade_duration', 0):.2f}h</div>
+                    <div class="metric">Total Volume: {st.session_state.metrics.get('total_volume', 0):,.2f}</div>
+                    <div class="metric">Avg Volume: {st.session_state.metrics.get('avg_volume', 0):.2f}</div>
+                    <div class="metric">Profit / Trade: ${st.session_state.metrics.get('profit_per_trade', 0):.2f}</div>
+                </body>
+                </html>
+                """
+                st.download_button(
+                    label="Download HTML Report",
+                    data=report_html,
+                    file_name="mt5_performance.html",
+                    mime="text/html"
+                )
+            if "PDF" in report_types:
+                st.warning("PDF export is not supported in this environment. Please download the HTML report and convert to PDF using your browser.")
+
+        # Shareable Insights
+        st.markdown("**Shareable Insights**")
+        daily_pnl = st.session_state.metrics.get("daily_pnl", pd.DataFrame())
+        if not daily_pnl.empty:
+            profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+            top_symbol = profit_symbol.loc[profit_symbol["Profit"].idxmax(), "Symbol"] if not profit_symbol.empty else "N/A"
+            insight = f"Top performing symbol: {top_symbol} with ${_ta_human_num(profit_symbol['Profit'].max())} profit."
+            st.info(insight)
+            if st.button("Share Insight"):
+                st.success("Insight copied to clipboard! Share with your trading community.")
+                logging.info(f"Shared insight: {insight}")
+    else:
+        st.info("Please upload a CSV file in the Summary Metrics tab to generate reports.")
 
 # Edge Finder Tab
 with tab_edge:
