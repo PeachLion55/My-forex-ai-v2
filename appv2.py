@@ -964,6 +964,60 @@ def ta_update_xp(points):
 def ta_update_streak():
     st.session_state['streak'] = st.session_state.get('streak', 0) + 1
 
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
+from datetime import datetime, timezone, date
+import json
+import time
+import sqlite3
+
+# Define database connection
+conn = sqlite3.connect('trading_app.db')
+c = conn.cursor()
+
+# Define CustomJSONEncoder for serializing datetime objects
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date, pd.Timestamp)):
+            return obj.isoformat()
+        return super().default(obj)
+
+# Define journal columns and data types
+journal_cols = [
+    'Date', 'Symbol', 'Trade Type', 'Market Structure', 'Setup Type', 'Timeframes',
+    'Technical Indicators', 'Entry Price', 'Stop Loss Price', 'Take Profit Price',
+    'Lots', 'Risk:Reward', 'Entry Conditions', 'Confluence Score', 'Emotions',
+    'Stress Level', 'Confidence Level', 'Discipline Score', 'Notes/Journal', 'Tags'
+]
+journal_dtypes = {
+    'Date': 'datetime64[ns]', 'Symbol': 'string', 'Trade Type': 'string',
+    'Market Structure': 'string', 'Setup Type': 'string', 'Timeframes': 'string',
+    'Technical Indicators': 'string', 'Entry Price': 'float64', 'Stop Loss Price': 'float64',
+    'Take Profit Price': 'float64', 'Lots': 'float64', 'Risk:Reward': 'string',
+    'Entry Conditions': 'string', 'Confluence Score': 'int64', 'Emotions': 'string',
+    'Stress Level': 'int64', 'Confidence Level': 'int64', 'Discipline Score': 'int64',
+    'Notes/Journal': 'string', 'Tags': 'string'
+}
+
+# Define pairs_map for trading pairs
+pairs_map = {
+    "EUR/USD": "Euro/US Dollar",
+    "GBP/USD": "British Pound/US Dollar",
+    "USD/JPY": "US Dollar/Japanese Yen",
+    "AUD/USD": "Australian Dollar/US Dollar",
+    "USD/CAD": "US Dollar/Canadian Dollar"
+}
+
+# Define placeholder functions for XP and streak updates (replace with actual implementations)
+def ta_update_xp(points):
+    st.session_state['xp'] = st.session_state.get('xp', 0) + points
+
+def ta_update_streak():
+    st.session_state['streak'] = st.session_state.get('streak', 0) + 1
+
 # Backtesting Journal
 st.markdown("### 📝 Trading Journal")
 st.markdown(
@@ -1144,32 +1198,33 @@ with tab_analytics:
                     st.session_state.tools_trade_journal['Date'].max().date()
                 )
             )
-with col_filter2:
-    # Filter out NaN/NaT from Symbol column
-    symbol_options = st.session_state.tools_trade_journal['Symbol'].dropna().unique()
-    symbol_filter = st.multiselect(
-        "Filter by Symbol",
-        options=symbol_options,
-        default=symbol_options  # Keep default as all unique symbols
-    )
+        with col_filter2:
+            # Filter out NaN/NaT from Symbol column
+            symbol_options = st.session_state.tools_trade_journal['Symbol'].dropna().unique()
+            symbol_filter = st.multiselect(
+                "Filter by Symbol",
+                options=symbol_options,
+                default=symbol_options  # Keep default as all unique symbols
+            )
 
-with col_filter3:
-    # Filter out NaT/NaN from Setup Type column
-    setup_types = st.session_state.tools_trade_journal['Setup Type'].dropna().unique()
-    setup_filter = st.multiselect(
-        "Filter by Setup Type",
-        options=setup_types
-    )
+        with col_filter3:
+            # Filter out NaT/NaN from Setup Type column
+            setup_types = st.session_state.tools_trade_journal['Setup Type'].dropna().unique()
+            setup_filter = st.multiselect(
+                "Filter by Setup Type",
+                options=setup_types
+            )
 
-# Apply filters
-filtered_df = st.session_state.tools_trade_journal.copy()
-filtered_df = filtered_df[
-    (filtered_df['Date'].dt.date >= date_range[0]) &
-    (filtered_df['Date'].dt.date <= date_range[1]) &
-    (filtered_df['Symbol'].isin(symbol_filter))
-]
-if setup_filter:
-    filtered_df = filtered_df[filtered_df['Setup Type'].isin(setup_filter)]
+        # Apply filters
+        filtered_df = st.session_state.tools_trade_journal.copy()
+        filtered_df = filtered_df[
+            (filtered_df['Date'].dt.date >= date_range[0]) &
+            (filtered_df['Date'].dt.date <= date_range[1]) &
+            (filtered_df['Symbol'].isin(symbol_filter))
+        ]
+        if setup_filter:
+            filtered_df = filtered_df[filtered_df['Setup Type'].isin(setup_filter)]
+
         # Key Metrics
         st.markdown("#### Key Performance Metrics")
         col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
