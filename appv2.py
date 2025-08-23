@@ -1455,6 +1455,10 @@ if uploaded_file:
             avg_volume = df["Volume"].mean() if "Volume" in df.columns and not df.empty else 0
             profit_per_trade = net_profit / total_trades if total_trades else 0
             avg_trade_duration = df["Trade Duration"].mean() if not df["Trade Duration"].isna().all() else 0
+            daily_pnl = _ta_daily_pnl(df)
+            max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
+            sharpe_ratio = _ta_compute_sharpe(df)
+            expectancy = win_rate * (wins["Profit"].mean() if not wins.empty else 0) - (1 - win_rate) * abs(losses["Profit"].mean() if not losses.empty else 0) if total_trades else 0
 
             # Tabs for different sections
             tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
@@ -1467,13 +1471,6 @@ if uploaded_file:
             # Summary Metrics Tab
             with tab_summary:
                 st.subheader("Key Performance Metrics")
-                avg_win = wins["Profit"].mean() if not wins.empty else 0
-                avg_loss = losses["Profit"].mean() if not losses.empty else 0
-                daily_pnl = _ta_daily_pnl(df)
-                max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
-                sharpe_ratio = _ta_compute_sharpe(df)
-                expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0
-
                 metrics = [
                     ("Total Trades", total_trades, "neutral"),
                     ("Win Rate", _ta_human_pct(win_rate), "positive" if win_rate >= 0.5 else "negative"),
@@ -1482,8 +1479,8 @@ if uploaded_file:
                     ("Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
                     ("Sharpe Ratio", _ta_human_num(sharpe_ratio), "positive" if sharpe_ratio >= 1 else "negative"),
                     ("Expectancy", f"${expectancy:,.2f}", "positive" if expectancy >= 0 else "negative"),
-                    ("Avg Win", f"${avg_win:,.2f}", "positive"),
-                    ("Avg Loss", f"${avg_loss:,.2f}", "negative"),
+                    ("Avg Win", f"${wins['Profit'].mean() if not wins.empty else 0:,.2f}", "positive"),
+                    ("Avg Loss", f"${losses['Profit'].mean() if not losses.empty else 0:,.2f}", "negative"),
                     ("Longest Win Streak", longest_win_streak, "positive"),
                     ("Longest Loss Streak", longest_loss_streak, "negative"),
                     ("Avg Trade Duration", f"{avg_trade_duration:.2f}h", "neutral"),
@@ -1791,6 +1788,56 @@ if uploaded_file:
                 else:
                     st.warning("Edge Finder requires columns: timeframe, symbol, or setup.")
 
+                # Gamification Badges
+                st.markdown("### 🎖️ Gamification Badges")
+                try:
+                    _ta_show_badges(df)
+                except Exception as e:
+                    logging.error(f"Error displaying badges: {str(e)}")
+
+                # Customizable Dashboard
+                st.markdown("### 🧩 Customizable Dashboard")
+                all_kpis = [
+                    "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
+                    "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
+                ]
+                chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Avg R", "Profit Factor"], key="mt5_kpis")
+                cols = st.columns(4)
+                i = 0
+                best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+                worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+                best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+                worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+
+                def _metric_map():
+                    return {
+                        "Total Trades": len(df),
+                        "Win Rate": _ta_human_pct((df["r"] > 0).mean()) if "r" in df.columns else "—",
+                        "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
+                        "Profit Factor": _ta_human_num(_ta_profit_factor(df)) if "Profit" in df.columns else "—",
+                        "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
+                        "Best Symbol": best_sym,
+                        "Worst Symbol": worst_sym,
+                        "Best Timeframe": best_tf,
+                        "Worst Timeframe": worst_tf,
+                    }
+
+                for k in chosen:
+                    with cols[i % 4]:
+                        st.metric(k, _metric_map().get(k, "—"))
+                    i += 1
+
+                # Dynamic Performance Reports
+                st.subheader("📈 Dynamic Performance Reports")
+                if group_cols:
+                    agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
+                    if not agg.empty:
+                        top_row = agg.iloc[0]
+                        insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
+                        st.info(insight)
+                else:
+                    st.info("Upload trades to generate insights.")
+
             # Export Reports Tab
             with tab_export:
                 st.subheader("Export Performance Reports")
@@ -1863,166 +1910,6 @@ if uploaded_file:
 
 else:
     st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
-
-# Gamification Badges
-if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
-    try:
-        _ta_show_badges(st.session_state.mt5_df)
-    except Exception as e:
-        logging.error(f"Error displaying badges: {str(e)}")
-
-# Edge Finder – Highest Expectancy Segments
-st.markdown("### 🧭 Edge Finder – Highest Expectancy Segments")
-df = st.session_state.get("mt5_df", pd.DataFrame())
-if df.empty:
-    st.info("Upload trades with at least one of: timeframe, symbol, setup and 'r' (R-multiple).")
-else:
-    group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in df.columns]
-    if group_cols:
-        agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
-        st.dataframe(
-            agg.style.format({
-                "winrate": "{:.2%}",
-                "avg_win": "${:.2f}",
-                "avg_loss": "${:.2f}",
-                "expectancy": "${:.2f}"
-            }),
-            use_container_width=True
-        )
-        top_n = st.slider("Show Top N", 5, 50, 15, key="edge_topn")
-        if not agg.empty:
-            agg["group"] = agg[group_cols].astype(str).agg(' '.join, axis=1)
-            chart_data = {
-                "labels": agg.head(top_n)["group"].tolist(),
-                "datasets": [{
-                    "label": "Expectancy",
-                    "data": agg.head(top_n)["expectancy"].tolist(),
-                    "backgroundColor": "#58b3b1",
-                    "borderColor": "#4d7171",
-                    "borderWidth": 1
-                }]
-            }
-            st.markdown(
-                f"""
-                <div style="height:400px;">
-                    <canvas id="edgeTopN"></canvas>
-                </div>
-                <script>
-                    const ctx6 = document.getElementById('edgeTopN').getContext('2d');
-                    new Chart(ctx6, {{
-                        type: 'bar',
-                        data: {json.dumps(chart_data)},
-                        options: {{
-                            indexAxis: 'y',
-                            plugins: {{
-                                title: {{
-                                    display: true,
-                                    text: 'Top Expectancy Segments',
-                                    font: {{ size: 18 }},
-                                    color: '#ffffff'
-                                }},
-                                legend: {{ display: false }}
-                            }},
-                            scales: {{
-                                x: {{
-                                    title: {{ display: true, text: 'Expectancy ($)', color: '#ffffff' }},
-                                    ticks: {{ color: '#ffffff' }},
-                                    grid: {{ color: '#4d7171' }}
-                                }},
-                                y: {{ ticks: {{ color: '#ffffff' }} }}
-                            }},
-                            responsive: true,
-                            maintainAspectRatio: false
-                        }}
-                    }});
-                </script>
-                """,
-                unsafe_allow_html=True
-            )
-    else:
-        st.warning("Edge Finder needs timeframe/symbol/setup columns.")
-
-# Customizable Dashboard
-st.markdown("### 🧩 Customizable Dashboard")
-if df.empty:
-    st.info("Upload trades to customize KPIs.")
-else:
-    all_kpis = [
-        "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
-        "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
-    ]
-    chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Avg R", "Profit Factor"], key="mt5_kpis")
-    cols = st.columns(4)
-    i = 0
-    best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-    worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-    best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-    worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-
-    def _metric_map():
-        return {
-            "Total Trades": len(df),
-            "Win Rate": _ta_human_pct((df["r"] > 0).mean()) if "r" in df.columns else "—",
-            "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
-            "Profit Factor": _ta_human_num(_ta_profit_factor(df)) if "Profit" in df.columns else "—",
-            "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
-            "Best Symbol": best_sym,
-            "Worst Symbol": worst_sym,
-            "Best Timeframe": best_tf,
-            "Worst Timeframe": worst_tf,
-        }
-
-    for k in chosen:
-        with cols[i % 4]:
-            st.metric(k, _metric_map().get(k, "—"))
-        i += 1
-    try:
-        _ta_show_badges(df)
-    except Exception:
-        pass
-
-# Dynamic Performance Reports
-st.subheader("📈 Dynamic Performance Reports")
-if not df.empty:
-    group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in df.columns]
-    if group_cols:
-        agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
-        if not agg.empty:
-            top_row = agg.iloc[0]
-            insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
-            st.info(insight)
-    else:
-        st.info("Upload trades to generate insights.")
-
-# Report Export & Sharing
-if not df.empty:
-    if st.button("📄 Generate Performance Report"):
-        report_html = f"""
-        <html>
-        <body>
-        <h2>Performance Report</h2>
-        <p>Total Trades: {total_trades}</p>
-        <p>Win Rate: {_ta_human_pct(win_rate)}</p>
-        <p>Net Profit: ${net_profit:,.2f}</p>
-        <p>Profit Factor: {_ta_human_num(profit_factor)}</p>
-        <p>Biggest Win: ${biggest_win:,.2f}</p>
-        <p>Biggest Loss: ${biggest_loss:,.2f}</p>
-        <p>Longest Win Streak: {longest_win_streak}</p>
-        <p>Longest Loss Streak: {longest_loss_streak}</p>
-        <p>Avg Trade Duration: {avg_trade_duration:.2f}h</p>
-        <p>Total Volume: {total_volume:,.2f}</p>
-        <p>Avg Volume: {avg_volume:.2f}</p>
-        <p>Profit / Trade: ${profit_per_trade:.2f}</p>
-        </body>
-        </html>
-        """
-        st.download_button(
-            label="Download HTML Report",
-            data=report_html,
-            file_name="performance_report.html",
-            mime="text/html"
-        )
-        st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
 elif st.session_state.current_page == 'psychology':
     st.title("🧠 Psychology")
     st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
