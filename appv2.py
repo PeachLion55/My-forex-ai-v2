@@ -21,6 +21,10 @@ import glob
 import time
 import scipy.stats
 import streamlit as st
+import sqlite3
+import json
+import logging
+from pathlib import Path
 st.markdown(
     """
     <style>
@@ -163,20 +167,110 @@ def _ta_show_badges(df):
             emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
             st.caption(f"🧠 Emotion-logged trades: {emo_logged}")
 # === TA_PRO HELPERS END ===
+import sqlite3
+import json
+import logging
+from pathlib import Path
+
+# Ensure the data directory exists
+data_dir = Path("data")
+data_dir.mkdir(exist_ok=True)
+
 # Path to SQLite DB
-DB_FILE = "users.db"
-# Connect to SQLite with error handling
+DB_FILE = data_dir / "users.db"
+
+def init_db():
+    """Initialize the database and create tables if they don't exist"""
+    try:
+        conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+        c = conn.cursor()
+        
+        # Create users table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT NOT NULL,
+                data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Create community_data table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS community_data (
+                key TEXT PRIMARY KEY,
+                data TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        return conn, c
+    except Exception as e:
+        logging.error(f"Database initialization failed: {str(e)}")
+        raise
+
+# Initialize database connection
 try:
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS community_data (key TEXT PRIMARY KEY, data TEXT)''')
-    conn.commit()
-    logging.info("SQLite database initialized successfully")
+    conn, c = init_db()
+    logging.info("Database initialized successfully")
 except Exception as e:
-    logging.error(f"Failed to initialize SQLite database: {str(e)}")
-    st.error(f"Database initialization failed: {str(e)}")
+    st.error("Failed to initialize database. Please check logs for details.")
+    logging.error(f"Database initialization error: {str(e)}")
+
+def save_user_data(username, data):
+    """Save user data to database"""
+    try:
+        json_data = json.dumps(data)
+        c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
+        conn.commit()
+        logging.info(f"Data saved for user: {username}")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save data for user {username}: {str(e)}")
+        return False
+
+def load_user_data(username):
+    """Load user data from database"""
+    try:
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result and result[0]:
+            return json.loads(result[0])
+        return {}
+    except Exception as e:
+        logging.error(f"Failed to load data for user {username}: {str(e)}")
+        return {}
+
+def create_user(username, password):
+    """Create a new user"""
+    try:
+        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
+                 (username, password, json.dumps({})))
+        conn.commit()
+        logging.info(f"New user created: {username}")
+        return True
+    except sqlite3.IntegrityError:
+        logging.warning(f"Username already exists: {username}")
+        return False
+    except Exception as e:
+        logging.error(f"Failed to create user {username}: {str(e)}")
+        return False
+
+def verify_user(username, password):
+    """Verify user credentials"""
+    try:
+        c.execute("SELECT password FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result and result[0] == password:
+            return True
+        return False
+    except Exception as e:
+        logging.error(f"Failed to verify user {username}: {str(e)}")
+        return False
+
 def _ta_load_community(key, default=[]):
+    """Load community data from database"""
     try:
         c.execute("SELECT data FROM community_data WHERE key = ?", (key,))
         result = c.fetchone()
@@ -186,7 +280,9 @@ def _ta_load_community(key, default=[]):
     except Exception as e:
         logging.error(f"Failed to load community data for {key}: {str(e)}")
         return default
+
 def _ta_save_community(key, data):
+    """Save community data to database"""
     try:
         json_data = json.dumps(data)
         c.execute("INSERT OR REPLACE INTO community_data (key, data) VALUES (?, ?)", (key, json_data))
@@ -1151,20 +1247,27 @@ with tab_entry:
             ).astype(journal_dtypes, errors='ignore')
            
             # Update user data in database
-            if 'logged_in_user' in st.session_state:
-                username = st.session_state.logged_in_user
-                user_data = {
-                    'xp': st.session_state.get('xp', 0),
-                    'level': st.session_state.get('level', 0),
-                    'badges': st.session_state.get('badges', []),
-                    'streak': st.session_state.get('streak', 0),
-                    'last_journal_date': st.session_state.get('last_journal_date', None),
-                    'drawings': st.session_state.get('drawings', {}),
-                    'tools_trade_journal': st.session_state.tools_trade_journal.to_dict('records'),
-                    'strategies': st.session_state.get('strategies', pd.DataFrame()).to_dict('records'),
-                    'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
-                    'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
-                }
+if 'logged_in_user' in st.session_state:
+    username = st.session_state.logged_in_user
+    try:
+        user_data = {
+            'xp': st.session_state.get('xp', 0),
+            'level': st.session_state.get('level', 0),
+            'badges': st.session_state.get('badges', []),
+            'streak': st.session_state.get('streak', 0),
+            'last_journal_date': st.session_state.get('last_journal_date', None),
+            'drawings': st.session_state.get('drawings', {}),
+            'tools_trade_journal': st.session_state.tools_trade_journal.to_dict('records') if hasattr(st.session_state, 'tools_trade_journal') else [],
+            'strategies': st.session_state.get('strategies', pd.DataFrame()).to_dict('records'),
+            'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
+            'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
+        }
+        if save_user_data(username, user_data):
+            logging.info(f"Successfully saved data for user: {username}")
+        else:
+            logging.error(f"Failed to save data for user: {username}")
+    except Exception as e:
+        logging.error(f"Error saving user data: {str(e)}")
                
                 if user_data['last_journal_date'] is not None:
                     if isinstance(user_data['last_journal_date'], (datetime, date, pd.Timestamp)):
