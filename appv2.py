@@ -920,6 +920,60 @@ elif st.session_state.current_page == 'backtesting':
         st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
 
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import numpy as np
+from datetime import datetime, timezone, date
+import json
+import time
+import sqlite3
+
+# Define database connection
+conn = sqlite3.connect('trading_app.db')
+c = conn.cursor()
+
+# Define CustomJSONEncoder for serializing datetime objects
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date, pd.Timestamp)):
+            return obj.isoformat()
+        return super().default(obj)
+
+# Define journal columns and data types
+journal_cols = [
+    'Date', 'Symbol', 'Trade Type', 'Market Structure', 'Setup Type', 'Timeframes',
+    'Technical Indicators', 'Entry Price', 'Stop Loss Price', 'Take Profit Price',
+    'Lots', 'Risk:Reward', 'Entry Conditions', 'Confluence Score', 'Emotions',
+    'Stress Level', 'Confidence Level', 'Discipline Score', 'Notes/Journal', 'Tags'
+]
+journal_dtypes = {
+    'Date': 'datetime64[ns]', 'Symbol': 'string', 'Trade Type': 'string',
+    'Market Structure': 'string', 'Setup Type': 'string', 'Timeframes': 'string',
+    'Technical Indicators': 'string', 'Entry Price': 'float64', 'Stop Loss Price': 'float64',
+    'Take Profit Price': 'float64', 'Lots': 'float64', 'Risk:Reward': 'string',
+    'Entry Conditions': 'string', 'Confluence Score': 'int64', 'Emotions': 'string',
+    'Stress Level': 'int64', 'Confidence Level': 'int64', 'Discipline Score': 'int64',
+    'Notes/Journal': 'string', 'Tags': 'string'
+}
+
+# Define pairs_map for trading pairs
+pairs_map = {
+    "EUR/USD": "Euro/US Dollar",
+    "GBP/USD": "British Pound/US Dollar",
+    "USD/JPY": "US Dollar/Japanese Yen",
+    "AUD/USD": "Australian Dollar/US Dollar",
+    "USD/CAD": "US Dollar/Canadian Dollar"
+}
+
+# Define placeholder functions for XP and streak updates (replace with actual implementations)
+def ta_update_xp(points):
+    st.session_state['xp'] = st.session_state.get('xp', 0) + points
+
+def ta_update_streak():
+    st.session_state['streak'] = st.session_state.get('streak', 0) + 1
+
 # Backtesting Journal
 st.markdown("### 📝 Trading Journal")
 st.markdown(
@@ -955,48 +1009,50 @@ with tab_entry:
         # Trade Setup Section
         st.markdown("#### Trade Setup")
         col1, col2, col3 = st.columns(3)
-        
+       
         with col1:
             trade_date = st.date_input("Date", value=datetime.now(timezone.utc).date())
-            symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
+            symbol_options = list(pairs_map.keys()) + ["Other"]
+            symbol = st.selectbox("Symbol", symbol_options, index=0)
             if symbol == "Other":
                 symbol = st.text_input("Custom Symbol")
             trade_type = st.selectbox("Trade Type", ["Long", "Short"])
-            
+           
         with col2:
             entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, format="%.5f")
             stop_loss = st.number_input("Stop Loss", min_value=0.0, step=0.0001, format="%.5f")
             take_profit = st.number_input("Take Profit", min_value=0.0, step=0.0001, format="%.5f")
-            
+           
         with col3:
             lots = st.number_input("Position Size (Lots)", min_value=0.01, step=0.01, format="%.2f")
-            risk_reward = abs((take_profit - entry_price) / (entry_price - stop_loss)) if stop_loss != 0 else 0
+            # Prevent division by zero in risk-reward calculation
+            risk_reward = abs((take_profit - entry_price) / (entry_price - stop_loss)) if stop_loss != 0 and entry_price != stop_loss else 0
             st.metric("Risk:Reward Ratio", f"1:{risk_reward:.2f}")
-            
+           
         # Market Analysis Section
         st.markdown("#### Market Analysis")
         col4, col5 = st.columns(2)
-        
+       
         with col4:
-            market_structure = st.selectbox("Market Structure", 
+            market_structure = st.selectbox("Market Structure",
                 ["Uptrend", "Downtrend", "Range", "Breakout", "Reversal"])
             timeframes_analyzed = st.multiselect("Timeframes Analyzed",
                 ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"])
-            
+           
         with col5:
-            setup_type = st.selectbox("Setup Type", 
+            setup_type = st.selectbox("Setup Type",
                 ["Price Action", "Support/Resistance", "Trend Following", "Counter-Trend", "Breakout", "Pattern"])
             confluence_score = st.slider("Confluence Score (1-7)", 1, 7, 4)
-            
+           
         # Technical Analysis Section
         st.markdown("#### Technical Analysis")
         col6, col7 = st.columns(2)
-        
+       
         with col6:
             entry_conditions = st.text_area("Entry Conditions")
             technical_indicators = st.multiselect("Technical Indicators Used",
                 ["Moving Average", "RSI", "MACD", "Bollinger Bands", "Fibonacci", "Support/Resistance"])
-            
+           
         with col7:
             trade_notes = st.text_area("Trade Notes/Analysis")
             trade_tags = st.multiselect("Tags", [
@@ -1005,22 +1061,22 @@ with tab_entry:
                 "Mistake: Late Entry", "Mistake: Early Exit", "Mistake: Position Size",
                 "Success: Perfect Execution", "Success: Good Management", "Success: Followed Plan"
             ])
-            
+           
         # Psychology Section
         st.markdown("#### Psychology")
         col8, col9 = st.columns(2)
-        
+       
         with col8:
-            emotions = st.selectbox("Emotional State", 
+            emotions = st.selectbox("Emotional State",
                 ["Confident", "Neutral", "Anxious", "FOMO", "Fearful", "Excited", "Frustrated"])
             stress_level = st.slider("Stress Level (1-10)", 1, 10, 5)
-            
+           
         with col9:
             confidence_level = st.slider("Confidence Level (1-10)", 1, 10, 5)
             discipline_score = st.slider("Trade Plan Adherence (1-10)", 1, 10, 5)
-            
+           
         submit_button = st.form_submit_button("Save Trade")
-        
+       
         if submit_button:
             new_trade = {
                 'Date': pd.to_datetime(trade_date),
@@ -1044,12 +1100,12 @@ with tab_entry:
                 'Notes/Journal': trade_notes,
                 'Tags': ','.join(trade_tags)
             }
-            
+           
             st.session_state.tools_trade_journal = pd.concat(
                 [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
                 ignore_index=True
             ).astype(journal_dtypes, errors='ignore')
-            
+           
             # Update user data in database
             if 'logged_in_user' in st.session_state:
                 username = st.session_state.logged_in_user
@@ -1065,11 +1121,11 @@ with tab_entry:
                     'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
                     'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
                 }
-                
+               
                 if user_data['last_journal_date'] is not None:
                     if isinstance(user_data['last_journal_date'], (datetime, date, pd.Timestamp)):
                         user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
-                
+               
                 try:
                     c.execute("UPDATE users SET data = ? WHERE username = ?",
                              (json.dumps(user_data, cls=CustomJSONEncoder), username))
@@ -1109,7 +1165,7 @@ with tab_analytics:
                 "Filter by Setup Type",
                 options=st.session_state.tools_trade_journal['Setup Type'].unique()
             )
-            
+           
         # Apply filters
         filtered_df = st.session_state.tools_trade_journal.copy()
         filtered_df = filtered_df[
@@ -1119,32 +1175,32 @@ with tab_analytics:
         ]
         if setup_filter:
             filtered_df = filtered_df[filtered_df['Setup Type'].isin(setup_filter)]
-            
+           
         # Key Metrics
         st.markdown("#### Key Performance Metrics")
         col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
-        
+       
         total_trades = len(filtered_df)
         avg_rr = filtered_df['Risk:Reward'].apply(lambda x: float(x.split(':')[1]) if ':' in str(x) else 0).mean()
         avg_confidence = filtered_df['Confidence Level'].mean()
         avg_discipline = filtered_df['Discipline Score'].mean()
-        
+       
         col_metric1.metric("Total Trades", total_trades)
         col_metric2.metric("Average R:R", f"{avg_rr:.2f}")
         col_metric3.metric("Avg Confidence", f"{avg_confidence:.1f}/10")
         col_metric4.metric("Avg Discipline", f"{avg_discipline:.1f}/10")
-        
+       
         # Charts
         st.markdown("#### Performance Analysis")
         col_chart1, col_chart2 = st.columns(2)
-        
+       
         with col_chart1:
             # Setup Performance Chart
             setup_performance = filtered_df.groupby('Setup Type').size().reset_index(name='count')
             fig_setup = px.pie(setup_performance, names='Setup Type', values='count',
                              title="Trade Distribution by Setup Type")
             st.plotly_chart(fig_setup, use_container_width=True)
-            
+           
         with col_chart2:
             # Emotion Impact Chart
             emotion_performance = filtered_df.groupby('Emotions').agg({
@@ -1156,11 +1212,11 @@ with tab_analytics:
                                title="Emotional Impact on Trade Quality",
                                barmode='group')
             st.plotly_chart(fig_emotion, use_container_width=True)
-            
+           
         # Advanced Analytics
         st.markdown("#### Advanced Analytics")
         col_adv1, col_adv2 = st.columns(2)
-        
+       
         with col_adv1:
             # Time-based analysis
             filtered_df['Hour'] = filtered_df['Date'].dt.hour
@@ -1169,10 +1225,10 @@ with tab_analytics:
                              title="Trade Distribution by Hour",
                              labels={'x': 'Hour of Day', 'y': 'Number of Trades'})
             st.plotly_chart(fig_time, use_container_width=True)
-            
+           
         with col_adv2:
             # Psychology correlation
-            psychology_corr = filtered_df[['Confidence Level', 'Stress Level', 
+            psychology_corr = filtered_df[['Confidence Level', 'Stress Level',
                                          'Discipline Score', 'Confluence Score']].corr()
             fig_corr = px.imshow(psychology_corr, title="Psychology Correlation Matrix")
             st.plotly_chart(fig_corr, use_container_width=True)
@@ -1193,12 +1249,12 @@ with tab_replay:
                 f"{st.session_state.tools_trade_journal.loc[x, 'Setup Type']}"
             )
         )
-        
+       
         selected_trade = st.session_state.tools_trade_journal.loc[selected_trade_idx]
-        
+       
         # Trade Details
         col_detail1, col_detail2 = st.columns(2)
-        
+       
         with col_detail1:
             st.markdown("#### Trade Setup")
             st.write(f"**Symbol:** {selected_trade['Symbol']}")
@@ -1207,7 +1263,7 @@ with tab_replay:
             st.write(f"**Entry Price:** {selected_trade['Entry Price']:.5f}")
             st.write(f"**Stop Loss:** {selected_trade['Stop Loss Price']:.5f}")
             st.write(f"**Take Profit:** {selected_trade['Take Profit Price']:.5f}")
-            
+           
         with col_detail2:
             st.markdown("#### Trade Psychology")
             st.write(f"**Emotional State:** {selected_trade['Emotions']}")
@@ -1215,52 +1271,52 @@ with tab_replay:
             st.write(f"**Stress Level:** {selected_trade['Stress Level']}/10")
             st.write(f"**Discipline Score:** {selected_trade['Discipline Score']}/10")
             st.write(f"**Confluence Score:** {selected_trade['Confluence Score']}/7")
-            
+           
         # Trade Notes
         st.markdown("#### Trade Analysis")
         st.write("**Entry Conditions:**")
         st.write(selected_trade['Entry Conditions'])
         st.write("**Trade Notes:**")
         st.write(selected_trade['Notes/Journal'])
-        
+       
         # Trade Chart Simulation
         if st.button("Simulate Trade Replay"):
             st.markdown("#### Trade Chart Replay")
             # Create a simulated chart using plotly
             fig = go.Figure()
-            
+           
             # Generate some sample price data
             base_price = selected_trade['Entry Price']
             times = pd.date_range(start=selected_trade['Date'], periods=100, freq='1min')
             prices = [base_price]
             for i in range(1, 100):
                 prices.append(prices[-1] * (1 + np.random.normal(0, 0.0002)))
-            
+           
             # Plot price action
             fig.add_trace(go.Scatter(x=times, y=prices, mode='lines', name='Price Action'))
-            
+           
             # Add entry point
             fig.add_trace(go.Scatter(
-                x=[times[0]], 
+                x=[times[0]],
                 y=[selected_trade['Entry Price']],
                 mode='markers',
                 marker=dict(size=12, symbol='triangle-up', color='green'),
                 name='Entry'
             ))
-            
+           
             # Add stop loss and take profit lines
-            fig.add_hline(y=selected_trade['Stop Loss Price'], line_dash="dash", 
+            fig.add_hline(y=selected_trade['Stop Loss Price'], line_dash="dash",
                          line_color="red", annotation_text="Stop Loss")
-            fig.add_hline(y=selected_trade['Take Profit Price'], line_dash="dash", 
+            fig.add_hline(y=selected_trade['Take Profit Price'], line_dash="dash",
                          line_color="green", annotation_text="Take Profit")
-            
+           
             fig.update_layout(
                 title=f"Trade Replay: {selected_trade['Symbol']}",
                 xaxis_title="Time",
                 yaxis_title="Price",
                 hovermode='x unified'
             )
-            
+           
             st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No trades available for replay. Add trades in the 'Log Trade' tab.")
@@ -1271,7 +1327,7 @@ with tab_psychology:
     if not st.session_state.tools_trade_journal.empty:
         # Emotional Impact Analysis
         st.markdown("#### Emotional Impact on Trading")
-        
+       
         # Emotion correlation with trade quality
         emotion_analysis = st.session_state.tools_trade_journal.groupby('Emotions').agg({
             'Confluence Score': ['mean', 'count'],
@@ -1279,26 +1335,26 @@ with tab_psychology:
             'Confidence Level': 'mean',
             'Stress Level': 'mean'
         }).round(2)
-        
+       
         st.write("Emotional State Analysis:")
         st.dataframe(emotion_analysis, use_container_width=True)
-        
+       
         # Psychological Metrics Correlation
         st.markdown("#### Psychological Metrics Correlation")
         psych_metrics = ['Confidence Level', 'Stress Level', 'Discipline Score', 'Confluence Score']
         psych_corr = st.session_state.tools_trade_journal[psych_metrics].corr()
-        
+       
         fig_corr = px.imshow(
             psych_corr,
             title="Psychological Metrics Correlation Matrix",
             color_continuous_scale='RdBu'
         )
         st.plotly_chart(fig_corr, use_container_width=True)
-        
+       
         # Trading Psychology Patterns
         st.markdown("#### Trading Psychology Patterns")
         col_pattern1, col_pattern2 = st.columns(2)
-        
+       
         with col_pattern1:
             # Stress vs Performance
             fig_stress = px.scatter(
@@ -1309,7 +1365,7 @@ with tab_psychology:
                 title="Stress Level vs Trade Quality"
             )
             st.plotly_chart(fig_stress, use_container_width=True)
-            
+           
         with col_pattern2:
             # Confidence vs Discipline
             fig_confidence = px.scatter(
@@ -1320,36 +1376,36 @@ with tab_psychology:
                 title="Confidence vs Discipline"
             )
             st.plotly_chart(fig_confidence, use_container_width=True)
-        
+       
         # Psychological Insights
         st.markdown("#### Trading Psychology Insights")
-        
+       
         # Calculate key insights
         best_emotion = emotion_analysis['Confluence Score']['mean'].idxmax()
         worst_emotion = emotion_analysis['Confluence Score']['mean'].idxmin()
         avg_discipline = st.session_state.tools_trade_journal['Discipline Score'].mean()
         avg_confidence = st.session_state.tools_trade_journal['Confidence Level'].mean()
-        
+       
         col_insight1, col_insight2, col_insight3, col_insight4 = st.columns(4)
-        
+       
         col_insight1.metric("Best Performing Emotion", best_emotion)
         col_insight2.metric("Challenging Emotion", worst_emotion)
         col_insight3.metric("Average Discipline", f"{avg_discipline:.1f}/10")
         col_insight4.metric("Average Confidence", f"{avg_confidence:.1f}/10")
-        
+       
         # Recommendations based on analysis
         st.markdown("#### Recommendations")
-        
+       
         # Generate personalized recommendations based on the data
         recommendations = []
-        
+       
         if avg_discipline < 7:
             recommendations.append("Focus on improving trade plan adherence through structured pre-trade checklists.")
         if avg_confidence < 7:
             recommendations.append("Build confidence through paper trading and smaller position sizes.")
         if st.session_state.tools_trade_journal['Stress Level'].mean() > 6:
             recommendations.append("Consider stress management techniques before trading sessions.")
-            
+           
         for i, rec in enumerate(recommendations, 1):
             st.write(f"{i}. {rec}")
     else:
@@ -1359,7 +1415,7 @@ with tab_psychology:
 if not st.session_state.tools_trade_journal.empty:
     st.markdown("### Export Options")
     col_export1, col_export2 = st.columns(2)
-    
+   
     with col_export1:
         csv = st.session_state.tools_trade_journal.to_csv(index=False)
         st.download_button(
@@ -1369,7 +1425,7 @@ if not st.session_state.tools_trade_journal.empty:
             "text/csv",
             help="Download your trading journal as a CSV file"
         )
-        
+       
     with col_export2:
         # Generate PDF report
         if st.button("Generate PDF Report"):
@@ -1378,21 +1434,21 @@ if not st.session_state.tools_trade_journal.empty:
                 pdf_content = f"""
                 Trading Journal Report
                 Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
-                
+               
                 Summary Statistics:
                 Total Trades: {len(st.session_state.tools_trade_journal)}
                 Average R:R: {avg_rr:.2f}
                 Average Confidence: {avg_confidence:.1f}/10
                 Average Discipline: {avg_discipline:.1f}/10
-                
+               
                 Most Used Setup: {st.session_state.tools_trade_journal['Setup Type'].mode().iloc[0]}
                 Best Performing Emotion: {best_emotion}
                 """
-                
+               
                 # Save PDF content
                 with open("trading_journal_report.txt", "w") as f:
                     f.write(pdf_content)
-                
+               
                 # Offer download
                 with open("trading_journal_report.txt", "rb") as f:
                     st.download_button(
@@ -1404,6 +1460,9 @@ if not st.session_state.tools_trade_journal.empty:
                     )
             except Exception as e:
                 st.error(f"Failed to generate report: {str(e)}")
+
+# Close database connection (optional, depending on your app's lifecycle)
+# conn.close()
 import streamlit as st
 import pandas as pd
 import plotly.express as px
