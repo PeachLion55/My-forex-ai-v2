@@ -65,7 +65,7 @@ try:
 except Exception as e:
     logging.error(f"Database initialization error: {str(e)}")
     raise
-        with tab_signup:
+    with tab_signup:
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
                 new_username = st.text_input("New Username")
