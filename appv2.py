@@ -967,14 +967,14 @@ def ta_update_xp(points):
 def ta_update_streak():
     st.session_state['streak'] = st.session_state.get('streak', 0) + 1
 
-# Backtesting Journal
 if selected_page == "Backtesting":
-st.markdown("### 📝 Trading Journal")
-st.markdown(
-    """
-    Log your trades with detailed analysis, track psychological factors, and review performance with advanced analytics and trade replay.
-    """
-)
+    st.markdown("### 📝 Trading Journal")
+    st.markdown(
+        """
+        Log your trades with detailed analysis, track psychological factors, 
+        and review performance with advanced analytics and trade replay.
+        """
+    )
 
 # Initialize session state for journal
 if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
