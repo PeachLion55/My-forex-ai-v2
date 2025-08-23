@@ -1413,503 +1413,544 @@ def _ta_show_badges(df):
     if win_rate > 0.6:
         st.success("🎯 High Win Rate: Above 60%!")
 
-# File Uploader
-with st.container():
-    uploaded_file = st.file_uploader(
-        "Upload MT5 History CSV",
-        type=["csv"],
-        help="Export your trading history from MetaTrader 5 as a CSV file."
-    )
+# Initialize session state for DataFrame and metrics
+if "mt5_df" not in st.session_state:
+    st.session_state.mt5_df = pd.DataFrame()
+if "metrics" not in st.session_state:
+    st.session_state.metrics = {}
 
-if uploaded_file:
-    with st.spinner("Processing trading data..."):
-        try:
-            df = pd.read_csv(uploaded_file)
-            st.session_state.mt5_df = df
+# Tabs for different sections
+tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
+    "📈 Summary Metrics",
+    "📊 Visualizations",
+    "🔍 Edge Finder",
+    "📤 Export Reports"
+])
 
-            required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
-            missing_cols = [col for col in required_cols if col not in df.columns]
+# Summary Metrics Tab
+with tab_summary:
+    st.subheader("Key Performance Metrics")
+    with st.container():
+        uploaded_file = st.file_uploader(
+            "Upload MT5 History CSV",
+            type=["csv"],
+            help="Export your trading history from MetaTrader 5 as a CSV file."
+        )
 
-            if missing_cols:
-                st.error(f"Missing required columns: {', '.join(missing_cols)}")
-                logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
+    if uploaded_file:
+        with st.spinner("Processing trading data..."):
+            try:
+                df = pd.read_csv(uploaded_file)
+                st.session_state.mt5_df = df
+
+                required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
+                missing_cols = [col for col in required_cols if col not in df.columns]
+
+                if missing_cols:
+                    st.error(f"Missing required columns: {', '.join(missing_cols)}")
+                    logging.error(f"Missing columns in MT5 CSV: {missing_cols}")
+                    st.stop()
+
+                # Data preprocessing
+                df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+                df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
+
+                # Calculate metrics
+                total_trades = len(df)
+                wins = df[df["Profit"] > 0]
+                losses = df[df["Profit"] <= 0]
+                win_rate = len(wins) / total_trades if total_trades else 0
+                net_profit = df["Profit"].sum()
+                profit_factor = _ta_profit_factor(df)
+                biggest_win = wins["Profit"].max() if not wins.empty else 0
+                biggest_loss = losses["Profit"].min() if not losses.empty else 0
+                longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
+                longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+                total_volume = df["Volume"].sum() if "Volume" in df.columns else 0
+                avg_volume = df["Volume"].mean() if "Volume" in df.columns and not df.empty else 0
+                profit_per_trade = net_profit / total_trades if total_trades else 0
+                avg_trade_duration = df["Trade Duration"].mean() if not df["Trade Duration"].isna().all() else 0
+                daily_pnl = _ta_daily_pnl(df)
+                max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
+                sharpe_ratio = _ta_compute_sharpe(df)
+                expectancy = win_rate * (wins["Profit"].mean() if not wins.empty else 0) - (1 - win_rate) * abs(losses["Profit"].mean() if not losses.empty else 0) if total_trades else 0
+
+                # Store metrics in session state
+                st.session_state.metrics = {
+                    "total_trades": total_trades,
+                    "win_rate": win_rate,
+                    "net_profit": net_profit,
+                    "profit_factor": profit_factor,
+                    "biggest_win": biggest_win,
+                    "biggest_loss": biggest_loss,
+                    "longest_win_streak": longest_win_streak,
+                    "longest_loss_streak": longest_loss_streak,
+                    "total_volume": total_volume,
+                    "avg_volume": avg_volume,
+                    "profit_per_trade": profit_per_trade,
+                    "avg_trade_duration": avg_trade_duration,
+                    "daily_pnl": daily_pnl,
+                    "max_drawdown": max_drawdown,
+                    "sharpe_ratio": sharpe_ratio,
+                    "expectancy": expectancy
+                }
+
+            except Exception as e:
+                st.error(f"Error processing CSV: {str(e)}")
+                logging.error(f"MT5 CSV processing error: {str(e)}")
                 st.stop()
 
-            # Data preprocessing
-            df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
-            df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-            df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
+    # Display metrics if available
+    if not st.session_state.mt5_df.empty:
+        metrics = [
+            ("Total Trades", st.session_state.metrics.get("total_trades", 0), "neutral"),
+            ("Win Rate", _ta_human_pct(st.session_state.metrics.get("win_rate", 0)), "positive" if st.session_state.metrics.get("win_rate", 0) >= 0.5 else "negative"),
+            ("Net Profit", f"${st.session_state.metrics.get('net_profit', 0):,.2f}", "positive" if st.session_state.metrics.get("net_profit", 0) >= 0 else "negative"),
+            ("Profit Factor", _ta_human_num(st.session_state.metrics.get("profit_factor", 0)), "positive" if st.session_state.metrics.get("profit_factor", 0) >= 1 else "negative"),
+            ("Max Drawdown", f"${st.session_state.metrics.get('max_drawdown', 0):,.2f}", "negative"),
+            ("Sharpe Ratio", _ta_human_num(st.session_state.metrics.get("sharpe_ratio", 0)), "positive" if st.session_state.metrics.get("sharpe_ratio", 0) >= 1 else "negative"),
+            ("Expectancy", f"${st.session_state.metrics.get('expectancy', 0):,.2f}", "positive" if st.session_state.metrics.get("expectancy", 0) >= 0 else "negative"),
+            ("Avg Win", f"${st.session_state.mt5_df[st.session_state.mt5_df['Profit'] > 0]['Profit'].mean() if not st.session_state.mt5_df[st.session_state.mt5_df['Profit'] > 0].empty else 0:,.2f}", "positive"),
+            ("Avg Loss", f"${st.session_state.mt5_df[st.session_state.mt5_df['Profit'] <= 0]['Profit'].mean() if not st.session_state.mt5_df[st.session_state.mt5_df['Profit'] <= 0].empty else 0:,.2f}", "negative"),
+            ("Longest Win Streak", st.session_state.metrics.get("longest_win_streak", 0), "positive"),
+            ("Longest Loss Streak", st.session_state.metrics.get("longest_loss_streak", 0), "negative"),
+            ("Avg Trade Duration", f"{st.session_state.metrics.get('avg_trade_duration', 0):.2f}h", "neutral"),
+        ]
 
-            # Calculate metrics for report
-            total_trades = len(df)
-            wins = df[df["Profit"] > 0]
-            losses = df[df["Profit"] <= 0]
-            win_rate = len(wins) / total_trades if total_trades else 0
-            net_profit = df["Profit"].sum()
-            profit_factor = _ta_profit_factor(df)
-            biggest_win = wins["Profit"].max() if not wins.empty else 0
-            biggest_loss = losses["Profit"].min() if not losses.empty else 0
-            longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
-            longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
-            total_volume = df["Volume"].sum() if "Volume" in df.columns else 0
-            avg_volume = df["Volume"].mean() if "Volume" in df.columns and not df.empty else 0
-            profit_per_trade = net_profit / total_trades if total_trades else 0
-            avg_trade_duration = df["Trade Duration"].mean() if not df["Trade Duration"].isna().all() else 0
-            daily_pnl = _ta_daily_pnl(df)
-            max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
-            sharpe_ratio = _ta_compute_sharpe(df)
-            expectancy = win_rate * (wins["Profit"].mean() if not wins.empty else 0) - (1 - win_rate) * abs(losses["Profit"].mean() if not losses.empty else 0) if total_trades else 0
-
-            # Tabs for different sections
-            tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
-                "📈 Summary Metrics",
-                "📊 Visualizations",
-                "🔍 Edge Finder",
-                "📤 Export Reports"
-            ])
-
-            # Summary Metrics Tab
-            with tab_summary:
-                st.subheader("Key Performance Metrics")
-                metrics = [
-                    ("Total Trades", total_trades, "neutral"),
-                    ("Win Rate", _ta_human_pct(win_rate), "positive" if win_rate >= 0.5 else "negative"),
-                    ("Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
-                    ("Profit Factor", _ta_human_num(profit_factor), "positive" if profit_factor >= 1 else "negative"),
-                    ("Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
-                    ("Sharpe Ratio", _ta_human_num(sharpe_ratio), "positive" if sharpe_ratio >= 1 else "negative"),
-                    ("Expectancy", f"${expectancy:,.2f}", "positive" if expectancy >= 0 else "negative"),
-                    ("Avg Win", f"${wins['Profit'].mean() if not wins.empty else 0:,.2f}", "positive"),
-                    ("Avg Loss", f"${losses['Profit'].mean() if not losses.empty else 0:,.2f}", "negative"),
-                    ("Longest Win Streak", longest_win_streak, "positive"),
-                    ("Longest Loss Streak", longest_loss_streak, "negative"),
-                    ("Avg Trade Duration", f"{avg_trade_duration:.2f}h", "neutral"),
-                ]
-
-                # Display metrics in a 4-column grid
-                for row in range(0, len(metrics), 4):
-                    row_metrics = metrics[row:row+4]
-                    cols = st.columns(4)
-                    for i, (title, value, style) in enumerate(row_metrics):
-                        with cols[i]:
-                            st.markdown(
-                                f"""
-                                <div class="metric-box {style}">
-                                    <strong>{title}</strong><br>
-                                    {value}
-                                </div>
-                                """,
-                                unsafe_allow_html=True
-                            )
-
-            # Visualizations Tab
-            with tab_charts:
-                st.subheader("Performance Visualizations")
-                col_filter1, col_filter2 = st.columns(2)
-                with col_filter1:
-                    symbol_filter = st.multiselect(
-                        "Filter by Symbol",
-                        options=df["Symbol"].unique(),
-                        default=df["Symbol"].unique()
-                    )
-                with col_filter2:
-                    type_filter = st.multiselect(
-                        "Filter by Type",
-                        options=df["Type"].unique(),
-                        default=df["Type"].unique()
-                    )
-
-                filtered_df = df[
-                    (df["Symbol"].isin(symbol_filter)) &
-                    (df["Type"].isin(type_filter))
-                ]
-
-                # Profit by Symbol
-                st.markdown("**Profit by Instrument**")
-                profit_symbol = filtered_df.groupby("Symbol")["Profit"].sum().reset_index()
-                if not profit_symbol.empty:
-                    chart_data = {
-                        "labels": profit_symbol["Symbol"].tolist(),
-                        "datasets": [{
-                            "label": "Profit",
-                            "data": profit_symbol["Profit"].tolist(),
-                            "backgroundColor": ["#58b3b1" if p >= 0 else "#a94442" for p in profit_symbol["Profit"]],
-                            "borderColor": "#4d7171",
-                            "borderWidth": 1
-                        }]
-                    }
+        # Display metrics in a 4-column grid
+        for row in range(0, len(metrics), 4):
+            row_metrics = metrics[row:row+4]
+            cols = st.columns(4)
+            for i, (title, value, style) in enumerate(row_metrics):
+                with cols[i]:
                     st.markdown(
                         f"""
-                        <div style="height:400px;">
-                            <canvas id="profitBySymbol"></canvas>
+                        <div class="metric-box {style}">
+                            <strong>{title}</strong><br>
+                            {value}
                         </div>
-                        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-                        <script>
-                            const ctx1 = document.getElementById('profitBySymbol').getContext('2d');
-                            new Chart(ctx1, {{
-                                type: 'bar',
-                                data: {json.dumps(chart_data)},
-                                options: {{
-                                    plugins: {{
-                                        title: {{
-                                            display: true,
-                                            text: 'Profit by Instrument',
-                                            font: {{ size: 18 }},
-                                            color: '#ffffff'
-                                        }},
-                                        legend: {{ display: false }}
-                                    }},
-                                    scales: {{
-                                        x: {{ ticks: {{ color: '#ffffff' }} }},
-                                        y: {{
-                                            title: {{ display: true, text: 'Profit ($)', color: '#ffffff' }},
-                                            ticks: {{ color: '#ffffff' }},
-                                            grid: {{ color: '#4d7171' }}
-                                        }}
-                                    }},
-                                    layout: {{ padding: 10 }},
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }}
-                            }});
-                        </script>
                         """,
                         unsafe_allow_html=True
                     )
+    else:
+        st.info("Please upload a CSV file to view metrics.")
 
-                # Equity Curve
-                st.markdown("**Equity Curve**")
-                if not daily_pnl.empty:
-                    daily_pnl["Equity"] = daily_pnl["Profit"].cumsum()
-                    chart_data = {
-                        "labels": daily_pnl["date"].astype(str).tolist(),
-                        "datasets": [{
-                            "label": "Equity",
-                            "data": daily_pnl["Equity"].tolist(),
-                            "borderColor": "#58b3b1",
-                            "fill": False,
-                            "tension": 0.1
-                        }]
-                    }
-                    st.markdown(
-                        f"""
-                        <div style="height:400px;">
-                            <canvas id="equityCurve"></canvas>
-                        </div>
-                        <script>
-                            const ctx2 = document.getElementById('equityCurve').getContext('2d');
-                            new Chart(ctx2, {{
-                                type: 'line',
-                                data: {json.dumps(chart_data)},
-                                options: {{
-                                    plugins: {{
-                                        title: {{
-                                            display: true,
-                                            text: 'Equity Curve',
-                                            font: {{ size: 18 }},
-                                            color: '#ffffff'
-                                        }},
-                                        legend: {{ display: false }}
-                                    }},
-                                    scales: {{
-                                        x: {{ ticks: {{ color: '#ffffff' }} }},
-                                        y: {{
-                                            title: {{ display: true, text: 'Equity ($)', color: '#ffffff' }},
-                                            ticks: {{ color: '#ffffff' }},
-                                            grid: {{ color: '#4d7171' }}
-                                        }}
-                                    }},
-                                    layout: {{ padding: 10 }},
-                                    responsive: true,
-                                    maintainAspectRatio: false
+# Visualizations Tab
+with tab_charts:
+    st.subheader("Performance Visualizations")
+    if not st.session_state.mt5_df.empty:
+        df = st.session_state.mt5_df
+        col_filter1, col_filter2 = st.columns(2)
+        with col_filter1:
+            symbol_filter = st.multiselect(
+                "Filter by Symbol",
+                options=df["Symbol"].unique(),
+                default=df["Symbol"].unique()
+            )
+        with col_filter2:
+            type_filter = st.multiselect(
+                "Filter by Type",
+                options=df["Type"].unique(),
+                default=df["Type"].unique()
+            )
+
+        filtered_df = df[
+            (df["Symbol"].isin(symbol_filter)) &
+            (df["Type"].isin(type_filter))
+        ]
+
+        # Profit by Symbol
+        st.markdown("**Profit by Instrument**")
+        profit_symbol = filtered_df.groupby("Symbol")["Profit"].sum().reset_index()
+        if not profit_symbol.empty:
+            chart_data = {
+                "labels": profit_symbol["Symbol"].tolist(),
+                "datasets": [{
+                    "label": "Profit",
+                    "data": profit_symbol["Profit"].tolist(),
+                    "backgroundColor": ["#58b3b1" if p >= 0 else "#a94442" for p in profit_symbol["Profit"]],
+                    "borderColor": "#4d7171",
+                    "borderWidth": 1
+                }]
+            }
+            st.markdown(
+                f"""
+                <div style="height:400px;">
+                    <canvas id="profitBySymbol"></canvas>
+                </div>
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <script>
+                    const ctx1 = document.getElementById('profitBySymbol').getContext('2d');
+                    new Chart(ctx1, {{
+                        type: 'bar',
+                        data: {json.dumps(chart_data)},
+                        options: {{
+                            plugins: {{
+                                title: {{
+                                    display: true,
+                                    text: 'Profit by Instrument',
+                                    font: {{ size: 18 }},
+                                    color: '#ffffff'
+                                }},
+                                legend: {{ display: false }}
+                            }},
+                            scales: {{
+                                x: {{ ticks: {{ color: '#ffffff' }} }},
+                                y: {{
+                                    title: {{ display: true, text: 'Profit ($)', color: '#ffffff' }},
+                                    ticks: {{ color: '#ffffff' }},
+                                    grid: {{ color: '#4d7171' }}
                                 }}
-                            }});
-                        </script>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                            }},
+                            layout: {{ padding: 10 }},
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }}
+                    }});
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
 
-                # Trade Distribution
-                st.markdown("**Trade Distribution**")
-                col_chart1, col_chart2 = st.columns(2)
-                with col_chart1:
-                    type_counts = filtered_df["Type"].value_counts().reset_index()
-                    type_counts.columns = ["Type", "Count"]
-                    if not type_counts.empty:
-                        chart_data = {
-                            "labels": type_counts["Type"].tolist(),
-                            "datasets": [{
-                                "data": type_counts["Count"].tolist(),
-                                "backgroundColor": ["#58b3b1", "#4d7171"]
-                            }]
-                        }
-                        st.markdown(
-                            f"""
-                            <div style="height:300px;">
-                                <canvas id="buySellPie"></canvas>
-                            </div>
-                            <script>
-                                const ctx3 = document.getElementById('buySellPie').getContext('2d');
-                                new Chart(ctx3, {{
-                                    type: 'pie',
-                                    data: {json.dumps(chart_data)},
-                                    options: {{
-                                        plugins: {{
-                                            title: {{
-                                                display: true,
-                                                text: 'Buy vs Sell Distribution',
-                                                font: {{ size: 16 }},
-                                                color: '#ffffff'
-                                            }}
-                                        }},
-                                        responsive: true,
-                                        maintainAspectRatio: false
+        # Equity Curve
+        st.markdown("**Equity Curve**")
+        daily_pnl = st.session_state.metrics.get("daily_pnl", pd.DataFrame())
+        if not daily_pnl.empty:
+            daily_pnl["Equity"] = daily_pnl["Profit"].cumsum()
+            chart_data = {
+                "labels": daily_pnl["date"].astype(str).tolist(),
+                "datasets": [{
+                    "label": "Equity",
+                    "data": daily_pnl["Equity"].tolist(),
+                    "borderColor": "#58b3b1",
+                    "fill": False,
+                    "tension": 0.1
+                }]
+            }
+            st.markdown(
+                f"""
+                <div style="height:400px;">
+                    <canvas id="equityCurve"></canvas>
+                </div>
+                <script>
+                    const ctx2 = document.getElementById('equityCurve').getContext('2d');
+                    new Chart(ctx2, {{
+                        type: 'line',
+                        data: {json.dumps(chart_data)},
+                        options: {{
+                            plugins: {{
+                                title: {{
+                                    display: true,
+                                    text: 'Equity Curve',
+                                    font: {{ size: 18 }},
+                                    color: '#ffffff'
+                                }},
+                                legend: {{ display: false }}
+                            }},
+                            scales: {{
+                                x: {{ ticks: {{ color: '#ffffff' }} }},
+                                y: {{
+                                    title: {{ display: true, text: 'Equity ($)', color: '#ffffff' }},
+                                    ticks: {{ color: '#ffffff' }},
+                                    grid: {{ color: '#4d7171' }}
+                                }}
+                            }},
+                            layout: {{ padding: 10 }},
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }}
+                    }});
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Trade Distribution
+        st.markdown("**Trade Distribution**")
+        col_chart1, col_chart2 = st.columns(2)
+        with col_chart1:
+            type_counts = filtered_df["Type"].value_counts().reset_index()
+            type_counts.columns = ["Type", "Count"]
+            if not type_counts.empty:
+                chart_data = {
+                    "labels": type_counts["Type"].tolist(),
+                    "datasets": [{
+                        "data": type_counts["Count"].tolist(),
+                        "backgroundColor": ["#58b3b1", "#4d7171"]
+                    }]
+                }
+                st.markdown(
+                    f"""
+                    <div style="height:300px;">
+                        <canvas id="buySellPie"></canvas>
+                    </div>
+                    <script>
+                        const ctx3 = document.getElementById('buySellPie').getContext('2d');
+                        new Chart(ctx3, {{
+                            type: 'pie',
+                            data: {json.dumps(chart_data)},
+                            options: {{
+                                plugins: {{
+                                    title: {{
+                                        display: true,
+                                        text: 'Buy vs Sell Distribution',
+                                        font: {{ size: 16 }},
+                                        color: '#ffffff'
                                     }}
-                                }});
-                            </script>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                with col_chart2:
-                    filtered_df = filtered_df.copy()
-                    filtered_df["Weekday"] = filtered_df["Open Time"].dt.day_name()
-                    weekday_counts = filtered_df.groupby(["Weekday", "Type"]).size().unstack(fill_value=0).reset_index()
-                    chart_data = {
-                        "labels": weekday_counts["Weekday"].tolist(),
-                        "datasets": [
-                            {
-                                "label": t,
-                                "data": weekday_counts[t].tolist(),
-                                "backgroundColor": "#58b3b1" if i == 0 else "#4d7171"
-                            } for i, t in enumerate(weekday_counts.columns[1:])
-                        ]
-                    }
-                    st.markdown(
-                        f"""
-                        <div style="height:300px;">
-                            <canvas id="weekdayHistogram"></canvas>
-                        </div>
-                        <script>
-                            const ctx4 = document.getElementById('weekdayHistogram').getContext('2d');
-                            new Chart(ctx4, {{
-                                type: 'bar',
-                                data: {json.dumps(chart_data)},
-                                options: {{
-                                    plugins: {{
-                                        title: {{
-                                            display: true,
-                                            text: 'Trades by Day of Week',
-                                            font: {{ size: 16 }},
-                                            color: '#ffffff'
-                                        }}
-                                    }},
-                                    scales: {{
-                                        x: {{ ticks: {{ color: '#ffffff' }} }},
-                                        y: {{
-                                            title: {{ display: true, text: 'Number of Trades', color: '#ffffff' }},
-                                            ticks: {{ color: '#ffffff' }},
-                                            grid: {{ color: '#4d7171' }}
-                                        }}
-                                    }},
-                                    responsive: true,
-                                    maintainAspectRatio: false
-                                }}
-                            }});
-                        </script>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-            # Edge Finder Tab
-            with tab_edge:
-                st.subheader("Edge Finder – Highest Expectancy Segments")
-                group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in df.columns]
-                if group_cols:
-                    agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
-                    st.dataframe(
-                        agg.style.format({
-                            "winrate": "{:.2%}",
-                            "avg_win": "${:.2f}",
-                            "avg_loss": "${:.2f}",
-                            "expectancy": "${:.2f}"
-                        }),
-                        use_container_width=True
-                    )
-                    top_n = st.slider("Show Top N Segments", 5, 50, 10, key="edge_topn")
-                    if not agg.empty:
-                        agg["group"] = agg[group_cols].astype(str).agg(' '.join, axis=1)
-                        chart_data = {
-                            "labels": agg.head(top_n)["group"].tolist(),
-                            "datasets": [{
-                                "label": "Expectancy",
-                                "data": agg.head(top_n)["expectancy"].tolist(),
-                                "backgroundColor": "#58b3b1",
-                                "borderColor": "#4d7171",
-                                "borderWidth": 1
-                            }]
-                        }
-                        st.markdown(
-                            f"""
-                            <div style="height:400px;">
-                                <canvas id="edgeBar"></canvas>
-                            </div>
-                            <script>
-                                const ctx5 = document.getElementById('edgeBar').getContext('2d');
-                                new Chart(ctx5, {{
-                                    type: 'bar',
-                                    data: {json.dumps(chart_data)},
-                                    options: {{
-                                        indexAxis: 'y',
-                                        plugins: {{
-                                            title: {{
-                                                display: true,
-                                                text: 'Top Expectancy Segments',
-                                                font: {{ size: 18 }},
-                                                color: '#ffffff'
-                                            }},
-                                            legend: {{ display: false }}
-                                        }},
-                                        scales: {{
-                                            x: {{
-                                                title: {{ display: true, text: 'Expectancy ($)', color: '#ffffff' }},
-                                                ticks: {{ color: '#ffffff' }},
-                                                grid: {{ color: '#4d7171' }}
-                                            }},
-                                            y: {{ ticks: {{ color: '#ffffff' }} }}
-                                        }},
-                                        responsive: true,
-                                        maintainAspectRatio: false
-                                    }}
-                                }});
-                            </script>
-                            """,
-                            unsafe_allow_html=True
-                        )
-                else:
-                    st.warning("Edge Finder requires columns: timeframe, symbol, or setup.")
-
-                # Gamification Badges
-                st.markdown("### 🎖️ Gamification Badges")
-                try:
-                    _ta_show_badges(df)
-                except Exception as e:
-                    logging.error(f"Error displaying badges: {str(e)}")
-
-                # Customizable Dashboard
-                st.markdown("### 🧩 Customizable Dashboard")
-                all_kpis = [
-                    "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
-                    "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
-                ]
-                chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Avg R", "Profit Factor"], key="mt5_kpis")
-                cols = st.columns(4)
-                i = 0
-                best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-                worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-                best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-                worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-
-                def _metric_map():
-                    return {
-                        "Total Trades": len(df),
-                        "Win Rate": _ta_human_pct((df["r"] > 0).mean()) if "r" in df.columns else "—",
-                        "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
-                        "Profit Factor": _ta_human_num(_ta_profit_factor(df)) if "Profit" in df.columns else "—",
-                        "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
-                        "Best Symbol": best_sym,
-                        "Worst Symbol": worst_sym,
-                        "Best Timeframe": best_tf,
-                        "Worst Timeframe": worst_tf,
-                    }
-
-                for k in chosen:
-                    with cols[i % 4]:
-                        st.metric(k, _metric_map().get(k, "—"))
-                    i += 1
-
-                # Dynamic Performance Reports
-                st.subheader("📈 Dynamic Performance Reports")
-                if group_cols:
-                    agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
-                    if not agg.empty:
-                        top_row = agg.iloc[0]
-                        insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
-                        st.info(insight)
-                else:
-                    st.info("Upload trades to generate insights.")
-
-            # Export Reports Tab
-            with tab_export:
-                st.subheader("Export Performance Reports")
-                report_types = st.multiselect(
-                    "Select Report Formats",
-                    ["CSV", "HTML"],
-                    default=["CSV"]
+                                }},
+                                responsive: true,
+                                maintainAspectRatio: false
+                            }}
+                        }});
+                    </script>
+                    """,
+                    unsafe_allow_html=True
                 )
-                if st.button("Generate Reports"):
-                    if "CSV" in report_types:
-                        csv = df.to_csv(index=False)
-                        st.download_button(
-                            label="Download CSV",
-                            data=csv,
-                            file_name="mt5_performance.csv",
-                            mime="text/csv"
-                        )
-                    if "HTML" in report_types:
-                        report_html = f"""
-                        <html>
-                        <head>
-                            <style>
-                                body {{ font-family: Arial, sans-serif; background-color: #000000; color: #ffffff; padding: 20px; }}
-                                h2 {{ color: #58b3b1; }}
-                                .metric {{ margin: 10px 0; padding: 10px; background-color: #1a1a1a; border-radius: 5px; }}
-                            </style>
-                        </head>
-                        <body>
-                            <h2>MT5 Performance Report</h2>
-                            <div class="metric">Total Trades: {total_trades}</div>
-                            <div class="metric">Win Rate: {_ta_human_pct(win_rate)}</div>
-                            <div class="metric">Net Profit: ${net_profit:,.2f}</div>
-                            <div class="metric">Profit Factor: {_ta_human_num(profit_factor)}</div>
-                            <div class="metric">Max Drawdown: ${max_drawdown:,.2f}</div>
-                            <div class="metric">Sharpe Ratio: {_ta_human_num(sharpe_ratio)}</div>
-                            <div class="metric">Expectancy: ${expectancy:,.2f}</div>
-                            <div class="metric">Biggest Win: ${biggest_win:,.2f}</div>
-                            <div class="metric">Biggest Loss: ${biggest_loss:,.2f}</div>
-                            <div class="metric">Longest Win Streak: {longest_win_streak}</div>
-                            <div class="metric">Longest Loss Streak: {longest_loss_streak}</div>
-                            <div class="metric">Avg Trade Duration: {avg_trade_duration:.2f}h</div>
-                            <div class="metric">Total Volume: {total_volume:,.2f}</div>
-                            <div class="metric">Avg Volume: {avg_volume:.2f}</div>
-                            <div class="metric">Profit / Trade: ${profit_per_trade:.2f}</div>
-                        </body>
-                        </html>
-                        """
-                        st.download_button(
-                            label="Download HTML Report",
-                            data=report_html,
-                            file_name="mt5_performance.html",
-                            mime="text/html"
-                        )
-                    if "PDF" in report_types:
-                        st.warning("PDF export is not supported in this environment. Please download the HTML report and convert to PDF using your browser.")
+        with col_chart2:
+            filtered_df = filtered_df.copy()
+            filtered_df["Weekday"] = filtered_df["Open Time"].dt.day_name()
+            weekday_counts = filtered_df.groupby(["Weekday", "Type"]).size().unstack(fill_value=0).reset_index()
+            chart_data = {
+                "labels": weekday_counts["Weekday"].tolist(),
+                "datasets": [
+                    {
+                        "label": t,
+                        "data": weekday_counts[t].tolist(),
+                        "backgroundColor": "#58b3b1" if i == 0 else "#4d7171"
+                    } for i, t in enumerate(weekday_counts.columns[1:])
+                ]
+            }
+            st.markdown(
+                f"""
+                <div style="height:300px;">
+                    <canvas id="weekdayHistogram"></canvas>
+                </div>
+                <script>
+                    const ctx4 = document.getElementById('weekdayHistogram').getContext('2d');
+                    new Chart(ctx4, {{
+                        type: 'bar',
+                        data: {json.dumps(chart_data)},
+                        options: {{
+                            plugins: {{
+                                title: {{
+                                    display: true,
+                                    text: 'Trades by Day of Week',
+                                    font: {{ size: 16 }},
+                                    color: '#ffffff'
+                                }}
+                            }},
+                            scales: {{
+                                x: {{ ticks: {{ color: '#ffffff' }} }},
+                                y: {{
+                                    title: {{ display: true, text: 'Number of Trades', color: '#ffffff' }},
+                                    ticks: {{ color: '#ffffff' }},
+                                    grid: {{ color: '#4d7171' }}
+                                }}
+                            }},
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }}
+                    }});
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("Please upload a CSV file in the Summary Metrics tab to view visualizations.")
 
-                # Shareable Insights
-                st.markdown("**Shareable Insights**")
-                if not daily_pnl.empty:
-                    top_symbol = profit_symbol.loc[profit_symbol["Profit"].idxmax(), "Symbol"] if not profit_symbol.empty else "N/A"
-                    insight = f"Top performing symbol: {top_symbol} with ${_ta_human_num(profit_symbol['Profit'].max())} profit."
-                    st.info(insight)
-                    if st.button("Share Insight"):
-                        st.success("Insight copied to clipboard! Share with your trading community.")
-                        logging.info(f"Shared insight: {insight}")
+# Edge Finder Tab
+with tab_edge:
+    st.subheader("Edge Finder – Highest Expectancy Segments")
+    df = st.session_state.get("mt5_df", pd.DataFrame())
+    if df.empty:
+        st.info("Upload trades with at least one of: timeframe, symbol, setup and 'r' (R-multiple) in the Summary Metrics tab.")
+    else:
+        group_cols = [col for col in ["timeframe", "symbol", "setup"] if col in df.columns]
+        if group_cols:
+            agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
+            st.dataframe(
+                agg.style.format({
+                    "winrate": "{:.2%}",
+                    "avg_win": "${:.2f}",
+                    "avg_loss": "${:.2f}",
+                    "expectancy": "${:.2f}"
+                }),
+                use_container_width=True
+            )
+            top_n = st.slider("Show Top N Segments", 5, 50, 10, key="edge_topn")
+            if not agg.empty:
+                agg["group"] = agg[group_cols].astype(str).agg(' '.join, axis=1)
+                chart_data = {
+                    "labels": agg.head(top_n)["group"].tolist(),
+                    "datasets": [{
+                        "label": "Expectancy",
+                        "data": agg.head(top_n)["expectancy"].tolist(),
+                        "backgroundColor": "#58b3b1",
+                        "borderColor": "#4d7171",
+                        "borderWidth": 1
+                    }]
+                }
+                st.markdown(
+                    f"""
+                    <div style="height:400px;">
+                        <canvas id="edgeBar"></canvas>
+                    </div>
+                    <script>
+                        const ctx5 = document.getElementById('edgeBar').getContext('2d');
+                        new Chart(ctx5, {{
+                            type: 'bar',
+                            data: {json.dumps(chart_data)},
+                            options: {{
+                                indexAxis: 'y',
+                                plugins: {{
+                                    title: {{
+                                        display: true,
+                                        text: 'Top Expectancy Segments',
+                                        font: {{ size: 18 }},
+                                        color: '#ffffff'
+                                    }},
+                                    legend: {{ display: false }}
+                                }},
+                                scales: {{
+                                    x: {{
+                                        title: {{ display: true, text: 'Expectancy ($)', color: '#ffffff' }},
+                                        ticks: {{ color: '#ffffff' }},
+                                        grid: {{ color: '#4d7171' }}
+                                    }},
+                                    y: {{ ticks: {{ color: '#ffffff' }} }}
+                                }},
+                                responsive: true,
+                                maintainAspectRatio: false
+                            }}
+                        }});
+                    </script>
+                    """,
+                    unsafe_allow_html=True
+                )
+        else:
+            st.warning("Edge Finder requires columns: timeframe, symbol, or setup.")
 
+        # Gamification Badges
+        st.markdown("### 🎖️ Gamification Badges")
+        try:
+            _ta_show_badges(df)
         except Exception as e:
-            st.error(f"Error processing CSV: {str(e)}")
-            logging.error(f"MT5 CSV processing error: {str(e)}")
+            logging.error(f"Error displaying badges: {str(e)}")
 
-else:
-    st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
+        # Customizable Dashboard
+        st.markdown("### 🧩 Customizable Dashboard")
+        all_kpis = [
+            "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
+            "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
+        ]
+        chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades", "Win Rate", "Avg R", "Profit Factor"], key="mt5_kpis")
+        cols = st.columns(4)
+        i = 0
+        best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+        worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
+
+        def _metric_map():
+            return {
+                "Total Trades": st.session_state.metrics.get("total_trades", 0),
+                "Win Rate": _ta_human_pct(st.session_state.metrics.get("win_rate", 0)) if "r" in df.columns else "—",
+                "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
+                "Profit Factor": _ta_human_num(st.session_state.metrics.get("profit_factor", 0)) if "Profit" in df.columns else "—",
+                "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
+                "Best Symbol": best_sym,
+                "Worst Symbol": worst_sym,
+                "Best Timeframe": best_tf,
+                "Worst Timeframe": worst_tf,
+            }
+
+        for k in chosen:
+            with cols[i % 4]:
+                st.metric(k, _metric_map().get(k, "—"))
+            i += 1
+
+        # Dynamic Performance Reports
+        st.subheader("📈 Dynamic Performance Reports")
+        if group_cols:
+            agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
+            if not agg.empty:
+                top_row = agg.iloc[0]
+                insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
+                st.info(insight)
+        else:
+            st.info("Upload trades to generate insights.")
+
+# Export Reports Tab
+with tab_export:
+    st.subheader("Export Performance Reports")
+    if not st.session_state.mt5_df.empty:
+        report_types = st.multiselect(
+            "Select Report Formats",
+            ["CSV", "HTML"],
+            default=["CSV"]
+        )
+        if st.button("Generate Reports"):
+            if "CSV" in report_types:
+                csv = st.session_state.mt5_df.to_csv(index=False)
+                st.download_button(
+                    label="Download CSV",
+                    data=csv,
+                    file_name="mt5_performance.csv",
+                    mime="text/csv"
+                )
+            if "HTML" in report_types:
+                report_html = f"""
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; background-color: #000000; color: #ffffff; padding: 20px; }}
+                        h2 {{ color: #58b3b1; }}
+                        .metric {{ margin: 10px 0; padding: 10px; background-color: #1a1a1a; border-radius: 5px; }}
+                    </style>
+                </head>
+                <body>
+                    <h2>MT5 Performance Report</h2>
+                    <div class="metric">Total Trades: {st.session_state.metrics.get('total_trades', 0)}</div>
+                    <div class="metric">Win Rate: {_ta_human_pct(st.session_state.metrics.get('win_rate', 0))}</div>
+                    <div class="metric">Net Profit: ${st.session_state.metrics.get('net_profit', 0):,.2f}</div>
+                    <div class="metric">Profit Factor: {_ta_human_num(st.session_state.metrics.get('profit_factor', 0))}</div>
+                    <div class="metric">Max Drawdown: ${st.session_state.metrics.get('max_drawdown', 0):,.2f}</div>
+                    <div class="metric">Sharpe Ratio: {_ta_human_num(st.session_state.metrics.get('sharpe_ratio', 0))}</div>
+                    <div class="metric">Expectancy: ${st.session_state.metrics.get('expectancy', 0):,.2f}</div>
+                    <div class="metric">Biggest Win: ${st.session_state.metrics.get('biggest_win', 0):,.2f}</div>
+                    <div class="metric">Biggest Loss: ${st.session_state.metrics.get('biggest_loss', 0):,.2f}</div>
+                    <div class="metric">Longest Win Streak: {st.session_state.metrics.get('longest_win_streak', 0)}</div>
+                    <div class="metric">Longest Loss Streak: {st.session_state.metrics.get('longest_loss_streak', 0)}</div>
+                    <div class="metric">Avg Trade Duration: {st.session_state.metrics.get('avg_trade_duration', 0):.2f}h</div>
+                    <div class="metric">Total Volume: {st.session_state.metrics.get('total_volume', 0):,.2f}</div>
+                    <div class="metric">Avg Volume: {st.session_state.metrics.get('avg_volume', 0):.2f}</div>
+                    <div class="metric">Profit / Trade: ${st.session_state.metrics.get('profit_per_trade', 0):.2f}</div>
+                </body>
+                </html>
+                """
+                st.download_button(
+                    label="Download HTML Report",
+                    data=report_html,
+                    file_name="mt5_performance.html",
+                    mime="text/html"
+                )
+            if "PDF" in report_types:
+                st.warning("PDF export is not supported in this environment. Please download the HTML report and convert to PDF using your browser.")
+
+        # Shareable Insights
+        st.markdown("**Shareable Insights**")
+        daily_pnl = st.session_state.metrics.get("daily_pnl", pd.DataFrame())
+        if not daily_pnl.empty:
+            profit_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+            top_symbol = profit_symbol.loc[profit_symbol["Profit"].idxmax(), "Symbol"] if not profit_symbol.empty else "N/A"
+            insight = f"Top performing symbol: {top_symbol} with ${_ta_human_num(profit_symbol['Profit'].max())} profit."
+            st.info(insight)
+            if st.button("Share Insight"):
+                st.success("Insight copied to clipboard! Share with your trading community.")
+                logging.info(f"Shared insight: {insight}")
+    else:
+        st.info("Please upload a CSV file in the Summary Metrics tab to generate reports.")
 
 import streamlit as st
 import pandas as pd
