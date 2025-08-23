@@ -2423,29 +2423,47 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
-        st.subheader(f"Welcome, {st.session_state.logged_in_user}!")
-        st.markdown("### Account Details")
-        st.write(f"**Username**: {st.session_state.logged_in_user}")
-        st.write(f"**XP**: {st.session_state.get('xp', 0)}")
-        st.write(f"**Level**: {st.session_state.get('level', 0)}")
-        st.write(f"**Badges**: {', '.join(st.session_state.get('badges', [])) or 'None'}")
-        st.write(f"**Journaling Streak**: {st.session_state.get('streak', 0)} days")
-        if st.button("Log Out", key="logout_account_page"):
-            if 'logged_in_user' in st.session_state:
-                del st.session_state.logged_in_user
-            st.session_state.drawings = {}
-            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-            st.session_state.xp = 0
-            st.session_state.level = 0
-            st.session_state.badges = []
-            st.session_state.streak = 0
-            st.success("Logged out successfully!")
-            logging.info("User logged out")
-            st.session_state.current_page = "account"  # Redirect back to account page
-            st.rerun()
+        if 'logged_in_user' in st.session_state:
+            st.subheader(f"Welcome, {st.session_state.logged_in_user}!")
+            st.markdown("### Account Details")
+            st.write(f"**Username**: {st.session_state.logged_in_user}")
+            st.write(f"**XP**: {st.session_state.get('xp', 0)}")
+            st.write(f"**Level**: {st.session_state.get('level', 0)}")
+            st.write(f"**Badges**: {', '.join(st.session_state.get('badges', [])) or 'None'}")
+            st.write(f"**Journaling Streak**: {st.session_state.get('streak', 0)} days")
+            
+            if st.button("Log Out", key="logout_account_page"):
+                try:
+                    # Clear user-specific session state
+                    st.session_state.update({
+                        'drawings': {},
+                        'tools_trade_journal': pd.DataFrame(columns=journal_cols).astype(journal_dtypes),
+                        'strategies': pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]),
+                        'emotion_log': pd.DataFrame(columns=["Date", "Emotion", "Notes"]),
+                        'reflection_log': pd.DataFrame(columns=["Date", "Reflection"]),
+                        'xp': 0,
+                        'level': 0,
+                        'badges': [],
+                        'streak': 0,
+                        'current_page': "account"
+                    })
+                    
+                    # Remove logged_in_user last to ensure clean logout
+                    if 'logged_in_user' in st.session_state:
+                        del st.session_state['logged_in_user']
+                    
+                    st.success("Logged out successfully!")
+                    logging.info("User logged out")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    logging.error(f"Logout error: {str(e)}")
+                    st.error("Error during logout. Please try again.")
+        else:
+            st.info("Please log in to view your account details.")
+            if st.button("Return to Login"):
+                st.session_state.current_page = "account"
+                st.rerun()
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
