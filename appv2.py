@@ -968,6 +968,7 @@ def ta_update_streak():
     st.session_state['streak'] = st.session_state.get('streak', 0) + 1
 
 # Backtesting Journal
+if selected_page == "Backtesting":
 st.markdown("### 📝 Trading Journal")
 st.markdown(
     """
