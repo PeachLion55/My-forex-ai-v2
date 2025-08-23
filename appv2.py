@@ -1114,18 +1114,19 @@ def ta_update_xp(points):
 def ta_update_streak():
     st.session_state['streak'] = st.session_state.get('streak', 0) + 1
 
-# Backtesting Journal
-st.markdown("### 📝 Trading Journal")
-st.markdown(
-    """
-    Advanced trading journal for detailed trade analysis, performance tracking, and psychological insights.
-    Track your trades with comprehensive metrics and gain valuable insights into your trading patterns.
-    """
-)
+# Only show trading journal on backtesting page
+if st.session_state.current_page == 'backtest':
+    st.markdown("### 📝 Trading Journal")
+    st.markdown(
+        """
+        Advanced trading journal for detailed trade analysis, performance tracking, and psychological insights.
+        Track your trades with comprehensive metrics and gain valuable insights into your trading patterns.
+        """
+    )
 
-# Initialize session state for journal
-if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+    # Initialize session state for journal
+    if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
 else:
     current_journal = st.session_state.tools_trade_journal
     missing_cols = [col for col in journal_cols if col not in current_journal.columns]
@@ -2368,13 +2369,14 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # SIGN UP TAB
         # --------------------------
-        with tab_signup:
+                with tab_signup:
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
                 new_username = st.text_input("New Username")
                 new_password = st.text_input("New Password", type="password")
                 confirm_password = st.text_input("Confirm Password", type="password")
                 register_button = st.form_submit_button("Register")
+                
                 if register_button:
                     if new_password != confirm_password:
                         st.error("Passwords do not match.")
@@ -2383,32 +2385,60 @@ elif st.session_state.current_page == 'account':
                         st.error("Username and password cannot be empty.")
                         logging.warning(f"Registration failed: Empty username or password")
                     else:
-                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                        if c.fetchone():
-                            st.error("Username already exists.")
-                            logging.warning(f"Registration failed: Username {new_username} already exists")
-                        else:
-                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "tools_trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
-                            try:
-                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                        try:
+                            # Check if username exists
+                            c.execute("SELECT COUNT(*) FROM users WHERE username = ?", (new_username,))
+                            if c.fetchone()[0] > 0:
+                                st.error("Username already exists.")
+                                logging.warning(f"Registration failed: Username {new_username} already exists")
+                            else:
+                                # Hash password and prepare initial user data
+                                hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                                initial_data = {
+                                    "xp": 0,
+                                    "level": 0,
+                                    "badges": [],
+                                    "streak": 0,
+                                    "drawings": {},
+                                    "tools_trade_journal": [],
+                                    "strategies": [],
+                                    "emotion_log": [],
+                                    "reflection_log": [],
+                                    "created_at": datetime.now(timezone.utc).isoformat()
+                                }
+
+                                # Insert new user into database
+                                c.execute(
+                                    "INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
+                                    (new_username, hashed_password, json.dumps(initial_data))
+                                )
                                 conn.commit()
-                                st.session_state.logged_in_user = new_username
-                                st.session_state.drawings = {}
-                                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-                                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-                                st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-                                st.session_state.xp = 0
-                                st.session_state.level = 0
-                                st.session_state.badges = []
-                                st.session_state.streak = 0
+
+                                # Initialize session state
+                                st.session_state.update({
+                                    'logged_in_user': new_username,
+                                    'drawings': {},
+                                    'tools_trade_journal': pd.DataFrame(columns=journal_cols).astype(journal_dtypes),
+                                    'strategies': pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]),
+                                    'emotion_log': pd.DataFrame(columns=["Date", "Emotion", "Notes"]),
+                                    'reflection_log': pd.DataFrame(columns=["Date", "Reflection"]),
+                                    'xp': 0,
+                                    'level': 0,
+                                    'badges': [],
+                                    'streak': 0
+                                })
+
                                 st.success(f"Account created for {new_username}!")
                                 logging.info(f"User {new_username} registered successfully")
+                                time.sleep(1)  # Brief pause to show success message
                                 st.rerun()
-                            except Exception as e:
-                                st.error(f"Failed to create account: {str(e)}")
-                                logging.error(f"Registration error for {new_username}: {str(e)}")
+
+                        except sqlite3.Error as e:
+                            st.error("Database error occurred. Please try again.")
+                            logging.error(f"SQLite error during registration for {new_username}: {str(e)}")
+                        except Exception as e:
+                            st.error("An unexpected error occurred. Please try again.")
+                            logging.error(f"Unexpected error during registration for {new_username}: {str(e)}")
         # --------------------------
         # DEBUG TAB
         # --------------------------
