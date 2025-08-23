@@ -21,6 +21,196 @@ import glob
 import time
 import scipy.stats
 import streamlit as st
+
+# Add this CustomJSONEncoder class after your imports
+import json
+import pandas as pd
+import datetime as dt
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (dt.date, dt.datetime, pd.Timestamp)):
+            return obj.isoformat()
+        if pd.isna(obj):
+            return None
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        return super().default(obj)
+
+# Replace your existing data loading/saving functions with these improved versions:
+
+def load_user_data():
+    """Load user data on every page refresh if logged in"""
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        try:
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result and result[0]:
+                user_data = json.loads(result[0])
+                
+                # Load drawings
+                st.session_state.drawings = user_data.get("drawings", {})
+                
+                # Load trade journal
+                if "tools_trade_journal" in user_data and user_data["tools_trade_journal"]:
+                    loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
+                    # Ensure all required columns exist
+                    for col in journal_cols:
+                        if col not in loaded_df.columns:
+                            loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                    # Convert date columns properly
+                    if 'Date' in loaded_df.columns:
+                        loaded_df['Date'] = pd.to_datetime(loaded_df['Date'], errors='coerce')
+                    st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                
+                # Load other data
+                if "strategies" in user_data and user_data["strategies"]:
+                    st.session_state.strategies = pd.DataFrame(user_data["strategies"])
+                if "emotion_log" in user_data and user_data["emotion_log"]:
+                    st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
+                if "reflection_log" in user_data and user_data["reflection_log"]:
+                    st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
+                    
+                # Load gamification data
+                st.session_state.xp = user_data.get('xp', 0)
+                st.session_state.level = user_data.get('level', 0)
+                st.session_state.badges = user_data.get('badges', [])
+                st.session_state.streak = user_data.get('streak', 0)
+                st.session_state.last_journal_date = user_data.get('last_journal_date', None)
+                
+                logging.info(f"User data loaded for {username}")
+                return True
+        except Exception as e:
+            logging.error(f"Error loading user data for {username}: {str(e)}")
+            st.error(f"Error loading your data: {str(e)}")
+    return False
+
+def save_user_data():
+    """Save current session data to database"""
+    if "logged_in_user" not in st.session_state:
+        return False
+    
+    username = st.session_state.logged_in_user
+    try:
+        # Prepare data for saving
+        user_data = {
+            'xp': st.session_state.get('xp', 0),
+            'level': st.session_state.get('level', 0),
+            'badges': st.session_state.get('badges', []),
+            'streak': st.session_state.get('streak', 0),
+            'last_journal_date': st.session_state.get('last_journal_date', None),
+            'drawings': st.session_state.get('drawings', {}),
+        }
+        
+        # Convert DataFrames to records, handling NaN values
+        for key, df_name in [
+            ('tools_trade_journal', 'tools_trade_journal'),
+            ('strategies', 'strategies'),
+            ('emotion_log', 'emotion_log'),
+            ('reflection_log', 'reflection_log')
+        ]:
+            if df_name in st.session_state and not st.session_state[df_name].empty:
+                df = st.session_state[df_name].copy()
+                # Replace NaN/NA values with None for JSON serialization
+                df = df.replace({pd.NA: None, float('nan'): None})
+                user_data[key] = df.to_dict('records')
+            else:
+                user_data[key] = []
+        
+        # Handle date serialization
+        if user_data['last_journal_date'] is not None:
+            if isinstance(user_data['last_journal_date'], (dt.datetime, dt.date, pd.Timestamp)):
+                user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
+        
+        # Save to database
+        c.execute("UPDATE users SET data = ? WHERE username = ?", 
+                 (json.dumps(user_data, cls=CustomJSONEncoder), username))
+        conn.commit()
+        
+        logging.info(f"User data saved for {username}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error saving user data for {username}: {str(e)}")
+        st.error(f"Error saving your data: {str(e)}")
+        return False
+
+# Add this near the top of your main app, right after session state initialization:
+# Load user data on every page refresh
+if "data_loaded" not in st.session_state:
+    st.session_state.data_loaded = False
+
+if "logged_in_user" in st.session_state and not st.session_state.data_loaded:
+    if load_user_data():
+        st.session_state.data_loaded = True
+
+# Modified trade entry form submission (replace your existing one):
+if submit_button:  # In your trade entry form
+    pip_multiplier = 100 if "JPY" in symbol else 10000
+    pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
+    rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
+    
+    new_trade = {
+        'Date': pd.to_datetime(trade_date),
+        'Symbol': symbol,
+        'Weekly Bias': weekly_bias,
+        'Daily Bias': daily_bias,
+        '4H Structure': '',
+        '1H Structure': '',
+        'Positive Correlated Pair & Bias': '',
+        'Potential Entry Points': '',
+        '5min/15min Setup?': '',
+        'Entry Conditions': entry_conditions,
+        'Planned R:R': f"1:{rr:.2f}",
+        'News Filter': '',
+        'Alerts': '',
+        'Concerns': '',
+        'Emotions': emotions,
+        'Confluence Score 1-7': 0.0,
+        'Outcome / R:R Realised': f"1:{rr:.2f}",
+        'Notes/Journal': notes,
+        'Entry Price': entry_price,
+        'Stop Loss Price': stop_loss_price,
+        'Take Profit Price': take_profit_price,
+        'Lots': lots,
+        'Tags': ','.join(tags) if tags else ''
+    }
+    
+    # Add to session state
+    st.session_state.tools_trade_journal = pd.concat(
+        [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
+        ignore_index=True
+    ).astype(journal_dtypes, errors='ignore')
+    
+    # Save to database immediately
+    if save_user_data():
+        ta_update_xp(10)
+        ta_update_streak()
+        st.success("Trade saved successfully!")
+        logging.info(f"Trade logged for user {st.session_state.logged_in_user}")
+    else:
+        st.error("Failed to save trade to database")
+    
+    st.rerun()
+
+# Add periodic auto-save (add this to your main app flow):
+def auto_save():
+    """Auto-save user data periodically"""
+    if "logged_in_user" in st.session_state:
+        if "last_save_time" not in st.session_state:
+            st.session_state.last_save_time = dt.datetime.now()
+        
+        # Auto-save every 5 minutes
+        if (dt.datetime.now() - st.session_state.last_save_time).seconds > 300:
+            if save_user_data():
+                st.session_state.last_save_time = dt.datetime.now()
+
+# Call auto_save() in your main app loop
+auto_save()
+
 st.markdown(
     """
     <style>
