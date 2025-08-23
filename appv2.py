@@ -2508,7 +2508,7 @@ elif st.session_state.current_page == 'account':
             st.write(f"**Badges**: {', '.join(st.session_state.get('badges', [])) or 'None'}")
             st.write(f"**Journaling Streak**: {st.session_state.get('streak', 0)} days")
             
-                if st.button("Log Out", key="logout_account_page"):
+            if st.button("Log Out", key="logout_account_page"):
                 try:
                     # Clear all session state
                     for key in list(st.session_state.keys()):
