@@ -1911,10 +1911,33 @@ if uploaded_file:
 else:
     st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
 
-elif st.session_state.current_page == 'psychology':
+import streamlit as st
+import pandas as pd
+import datetime as dt
+import plotly.express as px
+import json
+import logging
+import numpy as np
+
+# Example: assuming you have a DB connection and cursor
+# conn, c = your_database_connection()
+
+# Make sure session_state keys exist
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "psychology"  # default page
+if "tools_trade_journal" not in st.session_state:
+    st.session_state.tools_trade_journal = pd.DataFrame()
+
+# --- Page Routing ---
+if st.session_state.current_page == 'psychology':
     st.title("🧠 Psychology")
-    st.markdown(""" Trading psychology is critical to success. This section helps you track your emotions, reflect on your mindset, and maintain discipline through structured journaling and analysis. """)
+    st.markdown("""
+        Trading psychology is critical to success. This section helps you track your emotions, 
+        reflect on your mindset, and maintain discipline through structured journaling and analysis.
+    """)
     st.markdown('---')
+
+    # Emotion Tracker
     st.subheader("📝 Emotion Tracker")
     with st.form("emotion_form"):
         emotion = st.selectbox("Current Emotion", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
@@ -1928,7 +1951,10 @@ elif st.session_state.current_page == 'psychology':
             }
             if "emotion_log" not in st.session_state:
                 st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-            st.session_state.emotion_log = pd.concat([st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True)
+            st.session_state.emotion_log = pd.concat(
+                [st.session_state.emotion_log, pd.DataFrame([log_entry])], ignore_index=True
+            )
+
             if "logged_in_user" in st.session_state:
                 username = st.session_state.logged_in_user
                 try:
@@ -1942,6 +1968,7 @@ elif st.session_state.current_page == 'psychology':
                     logging.error(f"Error saving emotion log: {str(e)}")
             st.success("Emotion logged successfully!")
             logging.info(f"Emotion logged: {emotion}")
+
     if "emotion_log" in st.session_state and not st.session_state.emotion_log.empty:
         st.subheader("Your Emotion Log")
         st.dataframe(st.session_state.emotion_log, use_container_width=True)
@@ -1949,6 +1976,8 @@ elif st.session_state.current_page == 'psychology':
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No emotions logged yet. Use the form above to start tracking.")
+
+    # Mindset Tips
     st.subheader("🧘 Mindset Tips")
     tips = [
         "Stick to your trading plan to avoid impulsive decisions.",
@@ -1959,6 +1988,7 @@ elif st.session_state.current_page == 'psychology':
     ]
     for tip in tips:
         st.markdown(f"- {tip}")
+
     # Curated Education Feeds
     st.subheader("📚 Curated Trading Insights")
     insights = [
@@ -1969,6 +1999,7 @@ elif st.session_state.current_page == 'psychology':
     week_num = dt.datetime.now().isocalendar()[1]
     current_insight = insights[week_num % len(insights)]
     st.info(f"Insight of the Week: {current_insight}")
+
     # Challenge Mode
     st.subheader("🏅 Challenge Mode")
     st.write("30-Day Journaling Discipline Challenge")
@@ -1977,11 +2008,16 @@ elif st.session_state.current_page == 'psychology':
     st.progress(progress)
     if progress >= 1.0:
         st.success("Challenge completed! Great job on your consistency.")
-        ta_update_xp(100) # Bonus XP for completion
+        # ta_update_xp(100) # Uncomment if function exists
+
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
-    st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
-    st.write('---')
+    st.markdown("""
+        Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge.
+    """)
+    st.markdown('---')
+
+    # Add New Strategy
     st.subheader("➕ Add New Strategy")
     with st.form("strategy_form"):
         strategy_name = st.text_input("Strategy Name")
@@ -2000,8 +2036,12 @@ elif st.session_state.current_page == 'strategy':
                 "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
             }
             if "strategies" not in st.session_state:
-                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([strategy_data])], ignore_index=True)
+                st.session_state.strategies = pd.DataFrame(columns=[
+                    "Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"
+                ])
+            st.session_state.strategies = pd.concat(
+                [st.session_state.strategies, pd.DataFrame([strategy_data])], ignore_index=True
+            )
             if "logged_in_user" in st.session_state:
                 username = st.session_state.logged_in_user
                 try:
@@ -2017,6 +2057,8 @@ elif st.session_state.current_page == 'strategy':
                     st.error(f"Failed to save strategy: {str(e)}")
                     logging.error(f"Error saving strategy for {username}: {str(e)}")
             st.success(f"Strategy '{strategy_name}' added successfully!")
+
+    # Display Strategies
     if "strategies" in st.session_state and not st.session_state.strategies.empty:
         st.subheader("Your Strategies")
         for idx, row in st.session_state.strategies.iterrows():
@@ -2041,23 +2083,9 @@ elif st.session_state.current_page == 'strategy':
                         except Exception as e:
                             st.error(f"Failed to delete strategy: {str(e)}")
                             logging.error(f"Error deleting strategy for {username}: {str(e)}")
-                    st.rerun()
+                    st.experimental_rerun()
     else:
         st.info("No strategies defined yet. Add one above.")
-    # Evolving Playbook
-    st.subheader("📖 Evolving Playbook")
-    journal_df = st.session_state.tools_trade_journal
-    mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
-    combined_df = pd.concat([journal_df, mt5_df], ignore_index=True) if not mt5_df.empty else journal_df
-    group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
-    if "Outcome / R:R Realised" in combined_df.columns:
-        combined_df['r'] = combined_df["Outcome / R:R Realised"].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else np.nan)
-    if group_cols and 'r' in combined_df.columns:
-        agg = _ta_expectancy_by_group(combined_df, group_cols).sort_values("expectancy", ascending=False)
-        st.write("Your refined edge profile based on logged trades:")
-        st.dataframe(agg)
-    else:
-        st.info("Log more trades with symbols and outcomes to evolve your playbook.")
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
     st.markdown(
