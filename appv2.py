@@ -1154,28 +1154,32 @@ with tab_analytics:
                     st.session_state.tools_trade_journal['Date'].max().date()
                 )
             )
-        with col_filter2:
-            symbol_filter = st.multiselect(
-                "Filter by Symbol",
-                options=st.session_state.tools_trade_journal['Symbol'].unique(),
-                default=st.session_state.tools_trade_journal['Symbol'].unique()
-            )
-        with col_filter3:
-            setup_filter = st.multiselect(
-                "Filter by Setup Type",
-                options=st.session_state.tools_trade_journal['Setup Type'].unique()
-            )
-           
-        # Apply filters
-        filtered_df = st.session_state.tools_trade_journal.copy()
-        filtered_df = filtered_df[
-            (filtered_df['Date'].dt.date >= date_range[0]) &
-            (filtered_df['Date'].dt.date <= date_range[1]) &
-            (filtered_df['Symbol'].isin(symbol_filter))
-        ]
-        if setup_filter:
-            filtered_df = filtered_df[filtered_df['Setup Type'].isin(setup_filter)]
-           
+with col_filter2:
+    # Filter out NaN/NaT from Symbol column
+    symbol_options = st.session_state.tools_trade_journal['Symbol'].dropna().unique()
+    symbol_filter = st.multiselect(
+        "Filter by Symbol",
+        options=symbol_options,
+        default=symbol_options  # Keep default as all unique symbols
+    )
+
+with col_filter3:
+    # Filter out NaT/NaN from Setup Type column
+    setup_types = st.session_state.tools_trade_journal['Setup Type'].dropna().unique()
+    setup_filter = st.multiselect(
+        "Filter by Setup Type",
+        options=setup_types
+    )
+
+# Apply filters
+filtered_df = st.session_state.tools_trade_journal.copy()
+filtered_df = filtered_df[
+    (filtered_df['Date'].dt.date >= date_range[0]) &
+    (filtered_df['Date'].dt.date <= date_range[1]) &
+    (filtered_df['Symbol'].isin(symbol_filter))
+]
+if setup_filter:
+    filtered_df = filtered_df[filtered_df['Setup Type'].isin(setup_filter)]
         # Key Metrics
         st.markdown("#### Key Performance Metrics")
         col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
