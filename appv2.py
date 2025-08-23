@@ -1262,30 +1262,27 @@ if 'logged_in_user' in st.session_state:
             'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
             'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
         }
-        if save_user_data(username, user_data):
-            logging.info(f"Successfully saved data for user: {username}")
-        else:
-            logging.error(f"Failed to save data for user: {username}")
+
+        if user_data['last_journal_date'] is not None:
+            if isinstance(user_data['last_journal_date'], (datetime, date, pd.Timestamp)):
+                user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
+
+        try:
+            c.execute("UPDATE users SET data = ? WHERE username = ?",
+                     (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            conn.commit()
+            ta_update_xp(10)  # Award XP for logging a trade
+            ta_update_streak()
+            st.success("Trade logged successfully!")
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Failed to save trade: {str(e)}")
+            logging.error(f"Error saving user data: {str(e)}")
     except Exception as e:
-        logging.error(f"Error saving user data: {str(e)}")
-               
-                if user_data['last_journal_date'] is not None:
-                    if isinstance(user_data['last_journal_date'], (datetime, date, pd.Timestamp)):
-                        user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
-               
-                try:
-                    c.execute("UPDATE users SET data = ? WHERE username = ?",
-                             (json.dumps(user_data, cls=CustomJSONEncoder), username))
-                    conn.commit()
-                    ta_update_xp(10)  # Award XP for logging a trade
-                    ta_update_streak()
-                    st.success("Trade logged successfully!")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save trade: {str(e)}")
-            else:
-                st.success("Trade saved locally. Please log in to sync with your account.")
+        logging.error(f"Error preparing user data: {str(e)}")
+else:
+    st.success("Trade saved locally. Please log in to sync with your account.")
 
 # Analytics Tab
 with tab_analytics:
