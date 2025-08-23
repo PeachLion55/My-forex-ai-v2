@@ -21,16 +21,6 @@ import glob
 import time
 import scipy.stats
 import streamlit as st
-
-from datetime import datetime, timezone, date
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-import json
-import time
-
 st.markdown(
     """
     <style>
@@ -1464,9 +1454,6 @@ if not st.session_state.tools_trade_journal.empty:
                     )
             except Exception as e:
                 st.error(f"Failed to generate report: {str(e)}")
-
-# Close database connection (optional, depending on your app's lifecycle)
-# conn.close()
 import streamlit as st
 import pandas as pd
 import plotly.express as px
