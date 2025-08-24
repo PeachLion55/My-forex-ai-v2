@@ -181,6 +181,21 @@ def _ta_show_badges(df):
             emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
             st.caption(f"💭 Emotion-logged trades: {emo_logged}")
 
+def _ta_save_journal(username, journal_df):
+    try:
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        user_data = json.loads(result[0]) if result else {}
+        user_data["tools_trade_journal"] = journal_df.replace({pd.NA: None, float('nan'): None}).to_dict('records')
+        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+        conn.commit()
+        logging.info(f"Journal saved for user {username}: {len(journal_df)} trades")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save journal for {username}: {str(e)}")
+        st.error(f"Failed to save journal: {str(e)}")
+        return False
+
 # === TA_PRO HELPERS END ===
 
 # Path to SQLite DB
@@ -1001,108 +1016,84 @@ elif st.session_state.current_page == 'backtesting':
     tab_entry, tab_analytics, tab_history = st.tabs(["📝 Log Trade", "📊 Analytics", "📜 Trade History"])
 
     # Log Trade Tab
-    with tab_entry:
-        st.subheader("Log a New Trade")
+with tab_entry:
+    st.subheader("Log a New Trade")
+    
+    with st.form("trade_entry_form"):
+        col1, col2 = st.columns(2)
         
-        with st.form("trade_entry_form"):
-            col1, col2 = st.columns(2)
+        with col1:
+            trade_date = st.date_input("Date", value=dt.datetime.now().date())
+            symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
+            if symbol == "Other":
+                symbol = st.text_input("Custom Symbol")
+            weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
+            daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
+            entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, format="%.5f")
+            stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.0001, format="%.5f")
+        
+        with col2:
+            take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.0001, format="%.5f")
+            lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f")
+            entry_conditions = st.text_area("Entry Conditions")
+            emotions = st.selectbox("Emotions", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
+            tags = st.multiselect("Tags", ["Setup: Breakout", "Setup: Reversal", "Mistake: Overtrading", "Mistake: No Stop Loss", "Emotion: FOMO", "Emotion: Revenge"])
+            notes = st.text_area("Notes/Journal")
+        
+        submit_button = st.form_submit_button("Save Trade")
+        
+        if submit_button:
+            pip_multiplier = 100 if "JPY" in symbol else 10000
+            pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
+            rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
             
-            with col1:
-                trade_date = st.date_input("Date", value=dt.datetime.now().date())
-                symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
-                if symbol == "Other":
-                    symbol = st.text_input("Custom Symbol")
-                weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
-                daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
-                entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, format="%.5f")
-                stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.0001, format="%.5f")
+            new_trade = {
+                'Date': pd.to_datetime(trade_date),
+                'Symbol': symbol,
+                'Weekly Bias': weekly_bias,
+                'Daily Bias': daily_bias,
+                '4H Structure': '',
+                '1H Structure': '',
+                'Positive Correlated Pair & Bias': '',
+                'Potential Entry Points': '',
+                '5min/15min Setup?': '',
+                'Entry Conditions': entry_conditions,
+                'Planned R:R': f"1:{rr:.2f}",
+                'News Filter': '',
+                'Alerts': '',
+                'Concerns': '',
+                'Emotions': emotions,
+                'Confluence Score 1-7': 0.0,
+                'Outcome / R:R Realised': f"1:{rr:.2f}",
+                'Notes/Journal': notes,
+                'Entry Price': entry_price,
+                'Stop Loss Price': stop_loss_price,
+                'Take Profit Price': take_profit_price,
+                'Lots': lots,
+                'Tags': ','.join(tags)
+            }
             
-            with col2:
-                take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.0001, format="%.5f")
-                lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f")
-                entry_conditions = st.text_area("Entry Conditions")
-                emotions = st.selectbox("Emotions", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
-                tags = st.multiselect("Tags", ["Setup: Breakout", "Setup: Reversal", "Mistake: Overtrading", "Mistake: No Stop Loss", "Emotion: FOMO", "Emotion: Revenge"])
-                notes = st.text_area("Notes/Journal")
+            # Append new trade to journal
+            st.session_state.tools_trade_journal = pd.concat(
+                [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
+                ignore_index=True
+            ).astype(journal_dtypes, errors='ignore')
             
-            submit_button = st.form_submit_button("Save Trade")
-            
-            if submit_button:
-                pip_multiplier = 100 if "JPY" in symbol else 10000
-                pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
-                rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
-                
-                new_trade = {
-                    'Date': pd.to_datetime(trade_date),
-                    'Symbol': symbol,
-                    'Weekly Bias': weekly_bias,
-                    'Daily Bias': daily_bias,
-                    '4H Structure': '',
-                    '1H Structure': '',
-                    'Positive Correlated Pair & Bias': '',
-                    'Potential Entry Points': '',
-                    '5min/15min Setup?': '',
-                    'Entry Conditions': entry_conditions,
-                    'Planned R:R': f"1:{rr:.2f}",
-                    'News Filter': '',
-                    'Alerts': '',
-                    'Concerns': '',
-                    'Emotions': emotions,
-                    'Confluence Score 1-7': 0.0,
-                    'Outcome / R:R Realised': f"1:{rr:.2f}",
-                    'Notes/Journal': notes,
-                    'Entry Price': entry_price,
-                    'Stop Loss Price': stop_loss_price,
-                    'Take Profit Price': take_profit_price,
-                    'Lots': lots,
-                    'Tags': ','.join(tags)
-                }
-                
-                st.session_state.tools_trade_journal = pd.concat(
-                    [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
-                    ignore_index=True
-                ).astype(journal_dtypes, errors='ignore')
-                
-                # Save to database if user is logged in
-                if 'logged_in_user' in st.session_state:
-                    username = st.session_state.logged_in_user
-                    user_data = {
-                        'xp': st.session_state.get('xp', 0),
-                        'level': st.session_state.get('level', 0),
-                        'badges': st.session_state.get('badges', []),
-                        'streak': st.session_state.get('streak', 0),
-                        'last_journal_date': st.session_state.get('last_journal_date', None),
-                        'drawings': st.session_state.get('drawings', {}),
-                        'tools_trade_journal': st.session_state.tools_trade_journal.to_dict('records'),
-                        'strategies': st.session_state.get('strategies', pd.DataFrame()).to_dict('records'),
-                        'emotion_log': st.session_state.get('emotion_log', pd.DataFrame()).to_dict('records'),
-                        'reflection_log': st.session_state.get('reflection_log', pd.DataFrame()).to_dict('records')
-                    }
-                    
-                    if user_data['last_journal_date'] is not None:
-                        if isinstance(user_data['last_journal_date'], (dt.datetime, dt.date, pd.Timestamp)):
-                            user_data['last_journal_date'] = user_data['last_journal_date'].isoformat()
-                    
-                    for key in ['tools_trade_journal', 'strategies', 'emotion_log', 'reflection_log']:
-                        user_data[key] = pd.DataFrame(user_data[key]).replace({pd.NA: None, float('nan'): None}).to_dict('records')
-                    
-                    try:
-                        c.execute("UPDATE users SET data = ? WHERE username = ?",
-                                (json.dumps(user_data, cls=CustomJSONEncoder), username))
-                        conn.commit()
-                        ta_update_xp(10)
-                        ta_update_streak()
-                        st.success("Trade saved successfully!")
-                        logging.info(f"Trade logged for user {username}")
-                    except Exception as e:
-                        st.error(f"Failed to save trade: {str(e)}")
-                        logging.error(f"Error saving trade for {username}: {str(e)}")
+            # Save to database if user is logged in
+            if 'logged_in_user' in st.session_state:
+                username = st.session_state.logged_in_user
+                if _ta_save_journal(username, st.session_state.tools_trade_journal):
+                    ta_update_xp(10)
+                    ta_update_streak()
+                    st.success("Trade saved successfully!")
+                    logging.info(f"Trade logged and saved to database for user {username}")
                 else:
-                    st.success("Trade saved locally (not synced to account, please log in).")
-                    logging.info("Trade logged for anonymous user")
-                
-                st.rerun()
-
+                    st.error("Failed to save trade to account. Saved locally only.")
+            else:
+                st.success("Trade saved locally (not synced to account, please log in).")
+                logging.info("Trade logged for anonymous user")
+            
+            st.rerun()
         # Display current journal
         st.subheader("Trade Journal")
         column_config = {
