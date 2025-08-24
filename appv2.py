@@ -1656,7 +1656,6 @@ elif st.session_state.current_page == 'account':
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
-    else:
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
