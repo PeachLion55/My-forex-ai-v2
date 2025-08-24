@@ -2305,7 +2305,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         if 'logged_in_user' in st.session_state:
             del st.session_state.logged_in_user
         st.session_state.drawings = {}
-        st.session_state.tools_st.rerunurnal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
         st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
         st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
