@@ -1765,7 +1765,8 @@ elif st.session_state.current_page == 'account':
             st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
 
             # --- Row 2: Progress Chart and Insights ---
-            chart_col, insights_col = st.columns([1, 1])
+            # Use the 'gap' parameter to create significant horizontal space between the columns
+            chart_col, insights_col = st.columns([1, 1], gap="large")
             with chart_col:
                 st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
                 xp_in_level = total_xp % 100
@@ -1791,9 +1792,7 @@ elif st.session_state.current_page == 'account':
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
                 
             with insights_col:
-                # Add a wrapper div with left padding to create space from the chart column
-                st.markdown("<div style='padding-left: 30px;'>", unsafe_allow_html=True)
-                
+                # The ineffective div wrapper has been removed. Spacing is now handled by the column definition.
                 st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
                 
                 insight_message = ""
@@ -1816,9 +1815,6 @@ elif st.session_state.current_page == 'account':
                      next_milestone = "The next streak badge is at 30 days. You've got this!"
 
                 st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
-
-                st.markdown("</div>", unsafe_allow_html=True)
-
 
         # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
