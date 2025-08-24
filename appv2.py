@@ -6,53 +6,84 @@ import streamlit.components.v1 as components
 import datetime as dt
 import os
 import json
-import hashlib # For password hashing
+import hashlib
 import requests
 from streamlit_autorefresh import st_autorefresh
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+import sqlite3
 import pytz
 import logging
 import math
 import uuid
+import glob
+import time
 import scipy.stats
-from PIL import Image
-import io
-import base64
-
-# Import Supabase
-from supabase import create_client
-
-# =========================================================
-# STYLING AND PAGE CONFIG (NO CHANGES)
-# =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
+import streamlit as st
 
 st.markdown(
     """
     <style>
     /* --- Global Horizontal Line Style --- */
-    hr { margin-top: 1.5rem !important; margin-bottom: 1.5rem !important; border-top: 1px solid #4d7171 !important; border-bottom: none !important; background-color: transparent !important; height: 1px !important; }
-    /* Hide Streamlit UI */
-    #MainMenu {visibility: hidden !important;} footer {visibility: hidden !important;} [data-testid="stDecoration"] {display: none !important;}
-    /* Remove top padding */
-    .css-18e3th9, .css-1d391kg { padding-top: 0rem !important; margin-top: 0rem !important; }
-    .block-container { padding-top: 0rem !important; }
+    hr {
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+        border-top: 1px solid #4d7171 !important;
+        border-bottom: none !important; /* Remove any bottom border */
+        background-color: transparent !important; /* Ensure no background color interferes */
+        height: 1px !important; /* Set a specific height */
+    }
+
+    /* Hide Streamlit top-right menu */
+    #MainMenu {visibility: hidden !important;}
+    /* Hide Streamlit footer (bottom-left) */
+    footer {visibility: hidden !important;}
+    /* Hide the GitHub / Share banner (bottom-right) */
+    [data-testid="stDecoration"] {display: none !important;}
+    
+    #/* Optional: remove extra padding/margin from main page */
+    #.css-1d391kg {padding-top: 0rem !important;}
+    #</style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <style>
+    /* Remove top padding and margins for main content */
+    .css-18e3th9, .css-1d391kg {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+    }
+    /* Optional: reduce padding inside Streamlit containers */
+    .block-container {
+    padding-top: 0rem !important;
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-grid_color, grid_opacity, grid_size = "#58b3b1", 0.16, 40
-r, g, b = int(grid_color[1:3], 16), int(grid_color[3:5], 16), int(grid_color[5:7], 16)
+# --- Gridline background settings --- 
+grid_color = "#58b3b1" # gridline color
+grid_opacity = 0.16 # 0.0 (transparent) to 1.0 (solid)
+grid_size = 40 # distance between gridlines in px
+
+# Convert HEX to RGB
+r = int(grid_color[1:3], 16)
+g = int(grid_color[3:5], 16)
+b = int(grid_color[5:7], 16)
 
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-color: #000000;
-        background-image: linear-gradient(rgba({r},{g},{b},{grid_opacity}) 1px, transparent 1px), linear-gradient(90deg, rgba({r},{g},{b},{grid_opacity}) 1px, transparent 1px);
+        background-color: #000000; /* black background */
+        background-image:
+        linear-gradient(rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px),
+        linear-gradient(90deg, rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px);
         background-size: {grid_size}px {grid_size}px;
         background-attachment: fixed;
     }}
@@ -61,399 +92,1522 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Set up logging
+logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# === TA_PRO HELPERS START ===
+def ta_safe_lower(s):
+    return str(s).strip().lower().replace(" ", "")
+
+def ta_human_pct(x, nd=1):
+    if pd.isna(x):
+        return "—"
+    return f"{x*100:.{nd}f}%"
+
+def _ta_human_num(x, nd=2):
+    if pd.isna(x):
+        return "—"
+    return f"{x:.{nd}f}"
+
+def _ta_user_dir(user_id="guest"):
+    root = os.path.join(os.path.dirname(__file__), "user_data")
+    os.makedirs(root, exist_ok=True)
+    d = os.path.join(root, user_id)
+    os.makedirs(d, exist_ok=True)
+    os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
+    os.makedirs(os.path.join(d, "playbooks"), exist_ok=True)
+    return d
+
+def _ta_load_json(path, default):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+def _ta_save_json(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+def _ta_hash():
+    return uuid.uuid4().hex[:12]
+
+def _ta_percent_gain_to_recover(drawdown_pct):
+    if drawdown_pct <= 0:
+        return 0.0
+    if drawdown_pct >= 0.99:
+        return float("inf")
+    return drawdown_pct / (1 - drawdown_pct)
+
+def _ta_expectancy_by_group(df, group_cols):
+    g = df.dropna(subset=["r"]).groupby(group_cols)
+    res = g["r"].agg(
+        trades="count",
+        winrate=lambda s: (s>0).mean(),
+        avg_win=lambda s: s[s>0].mean() if (s>0).any() else 0.0,
+        avg_loss=lambda s: -s[s<0].mean() if (s<0).any() else 0.0,
+        expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
+    ).reset_index()
+    return res
+
+def _ta_profit_factor(df):
+    if "pnl" not in df.columns:
+        return np.nan
+    gp = df.loc[df["pnl"]>0, "pnl"].sum()
+    gl = -df.loc[df["pnl"]<0, "pnl"].sum()
+    if gl == 0:
+        return np.nan if gp == 0 else float("inf")
+    return gp / gl
+
+def _ta_daily_pnl(df):
+    if "datetime" in df.columns and "pnl" in df.columns:
+        tmp = df.dropna(subset=["datetime"]).copy()
+        tmp["date"] = pd.to_datetime(tmp["datetime"]).dt.date
+        return tmp.groupby("date", as_index=False)["pnl"].sum()
+    return pd.DataFrame(columns=["date","pnl"])
+
+def _ta_compute_streaks(df):
+    d = _ta_daily_pnl(df)
+    if d.empty:
+        return {"current": 0, "best": 0}
+    streak = 0
+    best = 0
+    for pnl in d["pnl"]:
+        if pnl > 0:
+            streak += 1
+            best = max(best, streak)
+        else:
+            streak = 0
+    return {"current": streak, "best": best}
+
+def _ta_show_badges(df):
+    with st.expander("🎮 Gamification: Streaks & Badges", expanded=False):
+        streaks = _ta_compute_streaks(df) if df is not None else {"current":0,"best":0}
+        col1, col2 = st.columns(2)
+        col1.metric("Current Green-Day Streak", streaks.get("current",0))
+        col2.metric("Best Streak", streaks.get("best",0))
+        if df is not None and "emotions" in df.columns:
+            emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
+            st.caption(f"💭 Emotion-logged trades: {emo_logged}")
+
+def _ta_save_journal(username, journal_df):
+    try:
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        user_data = json.loads(result[0]) if result else {}
+        user_data["tools_trade_journal"] = journal_df.replace({pd.NA: None, float('nan'): None}).to_dict('records')
+        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+        conn.commit()
+        logging.info(f"Journal saved for user {username}: {len(journal_df)} trades")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save journal for {username}: {str(e)}")
+        st.error(f"Failed to save journal: {str(e)}")
+        return False
+
+# === TA_PRO HELPERS END ===
+
+# Path to SQLite DB
+DB_FILE = "users.db"
+
+# XP notification system
+def show_xp_notification(xp_gained):
+    """Show a visually appealing XP notification"""
+    notification_html = f"""
+    <div id="xp-notification" style="
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #58b3b1, #4d7171);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(88, 179, 177, 0.3);
+        z-index: 9999;
+        animation: slideInRight 0.5s ease-out, fadeOut 0.5s ease-out 3s forwards;
+        font-weight: bold;
+        border: 2px solid #fff;
+        backdrop-filter: blur(10px);
+    ">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 24px;">⭐</div>
+            <div>
+                <div style="font-size: 16px;">+{xp_gained} XP Earned!</div>
+                <div style="font-size: 12px; opacity: 0.8;">Keep up the great work!</div>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes slideInRight {{
+            from {{ transform: translateX(100%); opacity: 0; }}
+            to {{ transform: translateX(0); opacity: 1; }}
+        }}
+        @keyframes fadeOut {{
+            from {{ opacity: 1; }}
+            to {{ opacity: 0; }}
+        }}
+    </style>
+    """
+    st.components.v1.html(notification_html, height=0)
+
+# Connect to SQLite with error handling
+try:
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS community_data (key TEXT PRIMARY KEY, data TEXT)''')
+    conn.commit()
+    logging.info("SQLite database initialized successfully")
+except Exception as e:
+    logging.error(f"Failed to initialize SQLite database: {str(e)}")
+    st.error(f"Database initialization failed: {str(e)}")
+
+def _ta_load_community(key, default=[]):
+    try:
+        c.execute("SELECT data FROM community_data WHERE key = ?", (key,))
+        result = c.fetchone()
+        if result:
+            return json.loads(result[0])
+        return default
+    except Exception as e:
+        logging.error(f"Failed to load community data for {key}: {str(e)}")
+        return default
+
+def _ta_save_community(key, data):
+    try:
+        json_data = json.dumps(data)
+        c.execute("INSERT OR REPLACE INTO community_data (key, data) VALUES (?, ?)", (key, json_data))
+        conn.commit()
+        logging.info(f"Community data saved for {key}")
+    except Exception as e:
+        logging.error(f"Failed to save community data for {key}: {str(e)}")
+
+# Custom JSON encoder for handling datetime objects
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (dt.datetime, dt.date)):
+            return obj.isoformat()
+        if pd.isna(obj):
+            return None
+        return super().default(obj)
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
+
+# =========================================================
+# CUSTOM CSS + JS
+# =========================================================
+bg_opacity = 0.5
 st.markdown(
     """
     <style>
-    section[data-testid="stSidebar"] { background-color: #000000 !important; overflow: hidden !important; max-height: 100vh !important; }
-    section[data-testid="stSidebar"] div.stButton > button { width: 200px !important; background: linear-gradient(to right, rgba(88, 179, 177, 0.7), rgba(0, 0, 0, 0.7)) !important; color: #ffffff !important; border: none !important; border-radius: 5px !important; padding: 10px !important; margin: 5px 0 !important; font-weight: bold !important; font-size: 16px !important; text-align: left !important; display: block !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; transition: all 0.3s ease !important; box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important; }
-    section[data-testid="stSidebar"] div.stButton > button:hover { background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important; transform: scale(1.05) !important; box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important; color: #f0f0f0 !important; cursor: pointer !important; }
+    /* Sidebar background */
+    section[data-testid="stSidebar"] {
+        background-color: #000000 !important;
+        overflow: hidden !important;
+        max-height: 100vh !important;
+    }
+    /* Sidebar buttons default style */
+    section[data-testid="stSidebar"] div.stButton > button {
+        width: 200px !important;
+        background: linear-gradient(to right, rgba(88, 179, 177, 0.7), rgba(0, 0, 0, 0.7)) !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 5px !important;
+        padding: 10px !important;
+        margin: 5px 0 !important;
+        font-weight: bold !important;
+        font-size: 16px !important;
+        text-align: left !important;
+        display: block !important;
+        box-sizing: border-box !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+    /* Hover effects for sidebar buttons */
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        color: #f0f0f0 !important;
+        cursor: pointer !important;
+    }
+    /* Active page button style */
+    section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+        background: rgba(88, 179, 177, 0.7) !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+    /* Adjust button size dynamically */
+    @media (max-height: 800px) {
+        section[data-testid="stSidebar"] div.stButton > button {
+            font-size: 14px !important;
+            padding: 8px !important;
+        }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+    }
+    @media (max-height: 600px) {
+        section[data-testid="stSidebar"] div.stButton > button {
+            font-size: 12px !important;
+            padding: 6px !important;
+        }
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        }
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# Set up logging
-logging.basicConfig(filename='debug.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 # =========================================================
-# SUPABASE INITIALIZATION
+# HELPERS / DATA
 # =========================================================
-@st.cache_resource
-def init_supabase_connection():
-    """Initializes the Supabase client from Streamlit secrets."""
-    try:
-        url = st.secrets["supabase_url"]
-        key = st.secrets["supabase_key"]
-        return create_client(url, key)
-    except Exception as e:
-        st.error(f"Failed to connect to Supabase. Check your Streamlit secrets. Error: {e}")
-        return None
+def detect_currency(title: str) -> str:
+    t = title.upper()
+    currency_map = {
+        "USD": ["USD", "US ", " US:", "FED", "FEDERAL RESERVE", "AMERICA", "U.S."],
+        "GBP": ["GBP", "UK", " BRITAIN", "BOE", "POUND", "STERLING"],
+        "EUR": ["EUR", "EURO", "EUROZONE", "ECB"],
+        "JPY": ["JPY", "JAPAN", "BOJ", "YEN"],
+        "AUD": ["AUD", "AUSTRALIA", "RBA"],
+        "CAD": ["CAD", "CANADA", "BOC"],
+        "CHF": ["CHF", "SWITZERLAND", "SNB"],
+        "NZD": ["NZD", "NEW ZEALAND", "RBNZ"],
+    }
+    for curr, kws in currency_map.items():
+        for kw in kws:
+            if kw in t:
+                return curr
+    return "Unknown"
 
-supabase = init_supabase_connection()
+def rate_impact(polarity: float) -> str:
+    if polarity > 0.5:
+        return "Significantly Bullish"
+    elif polarity > 0.1:
+        return "Bullish"
+    elif polarity < -0.5:
+        return "Significantly Bearish"
+    elif polarity < -0.1:
+        return "Bearish"
+    else:
+        return "Neutral"
 
-# =========================================================
-# CUSTOM JSON ENCODER
-# =========================================================
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, (dt.datetime, dt.date, pd.Timestamp)):
-            return obj.isoformat()
-        if pd.isna(obj) or obj is None:
-            return None
-        return json.JSONEncoder.default(self, obj)
-
-# =========================================================
-# REFACTORED DATABASE & APP HELPERS
-# =========================================================
-
-def _ta_get_user_data(username):
-    """Fetches the entire 'data' JSONB object for a given user."""
-    try:
-        response = supabase.table('users').select('data').eq('username', username).single().execute()
-        return response.data.get('data', {}) if response.data else {}
-    except Exception as e:
-        logging.error(f"Error fetching data for {username}: {e}")
-        return {}
-
-def _ta_update_user_data(username, new_data):
-    """Updates the entire 'data' JSONB object for a given user."""
-    try:
-        # Supabase client expects a plain dict, not a JSON string.
-        supabase.table('users').update({'data': new_data}).eq('username', username).execute()
-        return True
-    except Exception as e:
-        logging.error(f"Error updating data for {username}: {e}")
-        st.error(f"Failed to save data: {e}")
-        return False
-
-# --- Data specific helpers now use the get/update pattern ---
-def _ta_save_journal(username, journal_df):
-    user_data = _ta_get_user_data(username)
-    journal_records = journal_df.replace({pd.NA: None, np.nan: None}).to_dict('records')
-    user_data['tools_trade_journal'] = journal_records
-    if _ta_update_user_data(username, user_data):
-        logging.info(f"Journal saved for {username}: {len(journal_df)} trades")
-        return True
-    return False
-
-def ta_update_xp(amount):
-    username = st.session_state.get('logged_in_user')
-    if not username: return
-
-    user_data = _ta_get_user_data(username)
-    old_xp = user_data.get('xp', 0)
-    new_xp = old_xp + amount
-    old_level = user_data.get('level', 0)
-    new_level = new_xp // 100
-
-    user_data['xp'] = new_xp
-
-    if new_level > old_level:
-        user_data['level'] = new_level
-        badges = user_data.get('badges', [])
-        new_badge = f"Level {new_level}"
-        if new_badge not in badges:
-            badges.append(new_badge)
-        user_data['badges'] = badges
-        st.balloons()
-        st.success(f"Level up! You are now level {new_level}.")
-
-    if _ta_update_user_data(username, user_data):
-        st.session_state.xp = user_data['xp']
-        st.session_state.level = user_data.get('level', 0)
-        st.session_state.badges = user_data.get('badges', [])
-        show_xp_notification(amount)
-
-def ta_update_streak():
-    username = st.session_state.get('logged_in_user')
-    if not username: return
-
-    user_data = _ta_get_user_data(username)
-    today = dt.date.today()
-    last_date_str = user_data.get('last_journal_date')
-    streak = user_data.get('streak', 0)
-
-    update_required = False
-    if last_date_str:
-        last_date = dt.date.fromisoformat(last_date_str)
-        if last_date == today - dt.timedelta(days=1):
-            streak += 1
-            update_required = True
-        elif last_date < today - dt.timedelta(days=1):
-            streak = 1 # Reset
-            update_required = True
-    else: # First journal entry
-        streak = 1
-        update_required = True
-
-    if update_required:
-        user_data['streak'] = streak
-        user_data['last_journal_date'] = today.isoformat()
-
-        if streak > 0 and streak % 7 == 0:
-            badge = f"Discipline Badge ({streak} Days)"
-            badges = user_data.get('badges', [])
-            if badge not in badges:
-                badges.append(badge)
-                user_data['badges'] = badges
-                st.balloons()
-                st.success(f"Unlocked: {badge}!")
-
-        if _ta_update_user_data(username, user_data):
-            st.session_state.streak = user_data['streak']
-            st.session_state.badges = user_data.get('badges', [])
-
-# --- Community data helpers (compatible with new schema) ---
-def _ta_load_community(key, default=[]):
-    try:
-        response = supabase.table('community_data').select('data').eq('key', key).maybe_single().execute()
-        return response.data['data'] if response.data else default
-    except Exception as e:
-        logging.error(f"Failed to load community data '{key}': {e}")
-        return default
-
-def _ta_save_community(key, data):
-    try:
-        json_str = json.dumps(data, cls=CustomJSONEncoder)
-        supabase.table('community_data').upsert({'key': key, 'data': json.loads(json_str)}).execute()
-        logging.info(f"Community data saved for key: {key}")
-    except Exception as e:
-        logging.error(f"Failed to save community data '{key}': {e}")
-        st.error("Could not save community data.")
-
-# --- Other helpers (unchanged from original) ---
-def _ta_user_dir(user_id="guest"):
-    """Manages local directories for temporary file uploads."""
-    root = os.path.join(os.path.dirname(__file__), "user_data")
-    d = os.path.join(root, str(user_id))
-    os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
-    return d
-
-def _ta_hash():
-    return uuid.uuid4().hex[:12]
-
-def show_xp_notification(xp_gained):
-    notification_html = f"""<div style="position:fixed;top:20px;right:20px;background:linear-gradient(135deg, #58b3b1, #4d7171);color:white;padding:15px 20px;border-radius:10px;box-shadow:0 4px 15px rgba(88,179,177,0.3);z-index:9999;animation:slideInRight 0.5s ease-out, fadeOut 0.5s ease-out 3s forwards;font-weight:bold;border:2px solid #fff;">+ {xp_gained} XP Earned!</div><style>@keyframes slideInRight{{from{{transform:translateX(100%);opacity:0;}}to{{transform:translateX(0);opacity:1;}}}}@keyframes fadeOut{{from{{opacity:1;}}to{{opacity:0;}}}}</style>"""
-    st.components.v1.html(notification_html, height=0)
-
-# =========================================================
-# DATA FETCHING & SESSION STATE
-# =========================================================
-# (This section is mostly unchanged as it deals with non-persistent data)
 @st.cache_data(ttl=600, show_spinner=False)
-def get_fxstreet_forex_news():
+def get_fxstreet_forex_news() -> pd.DataFrame:
     RSS_URL = "https://www.fxstreet.com/rss/news"
     try:
         feed = feedparser.parse(RSS_URL)
-        rows = []
-        for entry in getattr(feed, "entries", []):
-            rows.append({
-                "Date": pd.to_datetime(entry.published[:10], errors='coerce'),
-                "Currency": detect_currency(entry.title),
-                "Headline": entry.title,
-                "Polarity": TextBlob(entry.title).sentiment.polarity,
-                "Summary": getattr(entry, "summary", ""),
-                "Link": entry.link
-            })
-        df = pd.DataFrame(rows)
-        return df[df["Date"] >= pd.Timestamp.utcnow().normalize() - pd.Timedelta(days=3)].reset_index(drop=True)
+        logging.info("Successfully parsed FXStreet RSS feed")
     except Exception as e:
-        logging.error(f"FXStreet RSS Error: {e}")
-        return pd.DataFrame()
+        logging.error(f"Failed to parse FXStreet RSS feed: {str(e)}")
+        return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
+    
+    rows = []
+    for entry in getattr(feed, "entries", []):
+        title = entry.title
+        published = getattr(entry, "published", "")
+        date = published[:10] if published else ""
+        currency = detect_currency(title)
+        polarity = TextBlob(title).sentiment.polarity
+        impact = rate_impact(polarity)
+        summary = getattr(entry, "summary", "")
+        rows.append({
+            "Date": date,
+            "Currency": currency,
+            "Headline": title,
+            "Polarity": polarity,
+            "Impact": impact,
+            "Summary": summary,
+            "Link": entry.link
+        })
+    
+    if rows:
+        df = pd.DataFrame(rows)
+        try:
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            cutoff = pd.Timestamp.utcnow().normalize() - pd.Timedelta(days=3)
+            df = df[df["Date"] >= cutoff]
+            logging.info("News dataframe processed successfully")
+        except Exception as e:
+            logging.error(f"Failed to process news dataframe: {str(e)}")
+        return df.reset_index(drop=True)
+    return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
 
-def detect_currency(title: str):
-    t = title.upper()
-    currency_map = {"USD":["USD","FED"],"GBP":["GBP","BOE"],"EUR":["EUR","ECB"],"JPY":["JPY","BOJ"],"AUD":["AUD","RBA"],"CAD":["CAD","BOC"],"CHF":["CHF","SNB"],"NZD":["NZD","RBNZ"]}
-    for c, k in currency_map.items():
-        if any(w in t for w in k): return c
-    return "Unknown"
+econ_calendar_data = [
+    {"Date": "2025-08-22", "Time": "14:30", "Currency": "USD", "Event": "Non-Farm Payrolls", "Actual": "", "Forecast": "200K", "Previous": "185K", "Impact": "High"},
+    {"Date": "2025-08-23", "Time": "09:00", "Currency": "EUR", "Event": "CPI Flash Estimate YoY", "Actual": "", "Forecast": "2.2%", "Previous": "2.1%", "Impact": "High"},
+    {"Date": "2025-08-24", "Time": "12:00", "Currency": "GBP", "Event": "Bank of England Interest Rate Decision", "Actual": "", "Forecast": "5.00%", "Previous": "5.00%", "Impact": "High"},
+    {"Date": "2025-08-25", "Time": "23:50", "Currency": "JPY", "Event": "Trade Balance", "Actual": "", "Forecast": "1000B", "Previous": "950B", "Impact": "Medium"},
+    {"Date": "2025-08-26", "Time": "01:30", "Currency": "AUD", "Event": "Retail Sales MoM", "Actual": "", "Forecast": "0.3%", "Previous": "0.2%", "Impact": "Medium"},
+    {"Date": "2025-08-27", "Time": "13:30", "Currency": "CAD", "Event": "GDP MoM", "Actual": "", "Forecast": "0.1%", "Previous": "0.0%", "Impact": "Medium"},
+    {"Date": "2025-08-28", "Time": "08:00", "Currency": "CHF", "Event": "CPI YoY", "Actual": "", "Forecast": "1.5%", "Previous": "1.4%", "Impact": "Medium"}
+]
 
-# (Calendar data, etc., remains the same)
-econ_df = pd.DataFrame([{"Date":"2025-08-22","Time":"14:30","Currency":"USD","Event":"Non-Farm Payrolls","Impact":"High"}])
+econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
-# Initialize session state
-if 'current_page' not in st.session_state: st.session_state.current_page = 'fundamentals'
-if 'logged_in_user' not in st.session_state: st.session_state.logged_in_user = None
-
-journal_cols = ["Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure", "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?", "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns", "Emotions", "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal", "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots", "Tags"]
-journal_dtypes = {"Date":"datetime64[ns]", "Entry Price":float, "Stop Loss Price":float, "Take Profit Price":float, "Lots":float, "Confluence Score 1-7":float} # Abbreviated for clarity
-
-def initialize_empty_dataframes():
-    """Sets empty, correctly typed dataframes in session state for logged-out users."""
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype({k:v for k,v in journal_dtypes.items() if k in journal_cols}, errors='ignore')
+# Initialize drawings in session_state
+if "drawings" not in st.session_state:
     st.session_state.drawings = {}
-    st.session_state.strategies = pd.DataFrame()
-    st.session_state.emotion_log = pd.DataFrame()
-    st.session_state.reflection_log = pd.DataFrame()
-    # Gamification
-    st.session_state.xp, st.session_state.level, st.session_state.streak = 0, 0, 0
-    st.session_state.badges = []
+    logging.info("Initialized st.session_state.drawings")
 
-if 'tools_trade_journal' not in st.session_state:
-    initialize_empty_dataframes()
+# Define journal columns and dtypes
+journal_cols = [
+    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
+    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
+    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns", "Emotions",
+    "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
+    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
+]
 
-# Community data is loaded once
+journal_dtypes = {
+    "Date": "datetime64[ns]", "Symbol": str, "Weekly Bias": str, "Daily Bias": str,
+    "4H Structure": str, "1H Structure": str, "Positive Correlated Pair & Bias": str,
+    "Potential Entry Points": str, "5min/15min Setup?": str, "Entry Conditions": str,
+    "Planned R:R": str, "News Filter": str, "Alerts": str, "Concerns": str, "Emotions": str,
+    "Confluence Score 1-7": float, "Outcome / R:R Realised": str, "Notes/Journal": str,
+    "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Lots": float
+}
+
+# Initialize trading journal with proper dtypes
+if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
+    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+else:
+    # Ensure existing journal matches new structure
+    current_journal = st.session_state.tools_trade_journal
+    missing_cols = [col for col in journal_cols if col not in current_journal.columns]
+    if missing_cols:
+        for col in missing_cols:
+            current_journal[col] = pd.Series(dtype=journal_dtypes[col])
+    # Reorder columns and apply dtypes
+    st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+
+# Initialize temporary journal for form
+if "temp_journal" not in st.session_state:
+    st.session_state.temp_journal = None
+
+# Gamification helpers
+def ta_update_xp(amount):
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            old_xp = user_data.get('xp', 0)
+            user_data['xp'] = old_xp + amount
+            level = user_data['xp'] // 100
+            if level > user_data.get('level', 0):
+                user_data['level'] = level
+                user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
+                st.balloons()
+                st.success(f"Level up! You are now level {level}.")
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            conn.commit()
+            st.session_state.xp = user_data['xp']
+            st.session_state.level = user_data['level']
+            st.session_state.badges = user_data['badges']
+            
+            # Show XP notification
+            show_xp_notification(amount)
+
+def ta_update_streak():
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            today = dt.date.today().isoformat()
+            last_date = user_data.get('last_journal_date')
+            streak = user_data.get('streak', 0)
+            
+            if last_date:
+                last = dt.date.fromisoformat(last_date)
+                if last == dt.date.fromisoformat(today) - dt.timedelta(days=1):
+                    streak += 1
+                elif last < dt.date.fromisoformat(today) - dt.timedelta(days=1):
+                    streak = 1
+            else:
+                streak = 1
+                
+            user_data['streak'] = streak
+            user_data['last_journal_date'] = today
+            
+            if streak % 7 == 0:
+                badge = "Discipline Badge"
+                if badge not in user_data.get('badges', []):
+                    user_data['badges'] = user_data.get('badges', []) + [badge]
+                    st.balloons()
+                    st.success(f"Unlocked: {badge} for {streak} day streak!")
+            
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            conn.commit()
+            st.session_state.streak = streak
+            st.session_state.badges = user_data['badges']
+
+def ta_check_milestones(journal_df, mt5_df):
+    total_trades = len(journal_df)
+    if total_trades >= 100:
+        st.balloons()
+        st.success("Milestone achieved: 100 trades journaled!")
+    
+    if not mt5_df.empty:
+        daily_pnl = _ta_daily_pnl(mt5_df)
+        if not daily_pnl.empty:
+            daily_pnl['date'] = pd.to_datetime(daily_pnl['date'])
+            recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - pd.Timedelta(days=90)]
+            if not recent.empty:
+                equity = recent['pnl'].cumsum()
+                dd = (equity - equity.cummax()).min() / equity.max() if equity.max() != 0 else 0
+                if abs(dd) < 0.1:
+                    st.balloons()
+                    st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
+
+# Load community data
 if "trade_ideas" not in st.session_state:
-    st.session_state.trade_ideas = pd.DataFrame(_ta_load_community('trade_ideas', []))
+    loaded_ideas = _ta_load_community('trade_ideas', [])
+    st.session_state.trade_ideas = pd.DataFrame(loaded_ideas, columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]) if loaded_ideas else pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"])
+
 if "community_templates" not in st.session_state:
-    st.session_state.community_templates = pd.DataFrame(_ta_load_community('templates', []))
-
+    loaded_templates = _ta_load_community('templates', [])
+    st.session_state.community_templates = pd.DataFrame(loaded_templates, columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]) if loaded_templates else pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
 
 # =========================================================
-# SIDEBAR & NAVIGATION (Unchanged)
+# SESSION STATE INITIALIZATION
 # =========================================================
-st.markdown("""<style>.sidebar-content {padding-top: 0rem;}</style>""", unsafe_allow_html=True)
-try:
-    logo = Image.open("logo22.png")
-    logo = logo.resize((60, 50))
-    buffered = io.BytesIO()
-    logo.save(buffered, format="PNG")
-    logo_str = base64.b64encode(buffered.getvalue()).decode()
-    st.sidebar.markdown(f"""<div style='text-align: center; margin-bottom: 20px;'><img src="data:image/png;base64,{logo_str}" width="60" height="50"/></div>""", unsafe_allow_html=True)
-except FileNotFoundError:
-    st.sidebar.warning("logo22.png not found.")
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
 
+if 'current_subpage' not in st.session_state:
+    st.session_state.current_subpage = None
 
-nav_items = [('fundamentals', 'Forex Fundamentals'), ('backtesting', 'Backtesting'), ('mt5', 'Performance Dashboard'), ('tools', 'Tools'), ('strategy', 'Manage My Strategy'), ('community', 'Community Trade Ideas'), ('Zenvo Academy', 'Zenvo Academy'), ('account', 'My Account')]
+if 'show_tools_submenu' not in st.session_state:
+    st.session_state.show_tools_submenu = False
+
+# =========================================================
+# SIDEBAR NAVIGATION
+# =========================================================
+from PIL import Image
+import io
+import base64
+
+# ---- Reduce top padding in the sidebar ----
+st.markdown(
+    """
+    <style>
+    /* Streamlit sidebar: remove top padding to move content up */
+    .sidebar-content {
+        padding-top: 0rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ---- Load and resize the logo ----
+logo = Image.open("logo22.png")
+logo = logo.resize((60, 50)) # adjust width/height as needed
+
+# ---- Convert logo to base64 ----
+buffered = io.BytesIO()
+logo.save(buffered, format="PNG")
+logo_str = base64.b64encode(buffered.getvalue()).decode()
+
+# ---- Display logo centered in the sidebar ----
+st.sidebar.markdown(
+    f"""
+    <div style='text-align: center; margin-bottom: 20px;'>
+        <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Navigation items
+nav_items = [
+    ('fundamentals', 'Forex Fundamentals'),
+    ('backtesting', 'Backtesting'),
+    ('mt5', 'Performance Dashboard'),
+    ('tools', 'Tools'),
+    ('strategy', 'Manage My Strategy'),
+    ('community', 'Community Trade Ideas'),
+    ('Zenvo Academy', 'Zenvo Academy'),
+    ('account', 'My Account')
+]
+
 for page_key, page_name in nav_items:
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
         st.session_state.current_page = page_key
+        st.session_state.current_subpage = None
+        st.session_state.show_tools_submenu = False
         st.rerun()
 
 # =========================================================
+# MAIN APPLICATION
 # =========================================================
-#                 MAIN APPLICATION PAGES
-# =========================================================
-# =========================================================
-
 if st.session_state.current_page == 'fundamentals':
-    # This page content is unchanged
-    st.title("📅 Forex Fundamentals")
-    # ... (all UI and display logic remains the same) ...
-    # This part is representative
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.title("📅 Forex Fundamentals")
+        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+        st.markdown('---')
+    with col2:
+        st.info("See the Backtesting tab for live charts + detailed news.")
+    # Economic Calendar
     st.markdown("### 🗓️ Upcoming Economic Events")
-    st.dataframe(econ_df, use_container_width=True)
-
+    if 'selected_currency_1' not in st.session_state:
+        st.session_state.selected_currency_1 = None
+    if 'selected_currency_2' not in st.session_state:
+        st.session_state.selected_currency_2 = None
+    uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
+    col_filter1, col_filter2 = st.columns(2)
+    with col_filter1:
+        currency_filter_1 = st.selectbox("Primary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_1")
+        st.session_state.selected_currency_1 = None if currency_filter_1 == "None" else currency_filter_1
+    with col_filter2:
+        currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
+        st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
+    def highlight_currency(row):
+        styles = [''] * len(row)
+        if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
+            styles = ['background-color: #4c7170; color: white' if col == 'Currency' else 'background-color: #4c7170' for col in row.index]
+        if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
+            styles = ['background-color: #2e4747; color: white' if col == 'Currency' else 'background-color: #2e4747' for col in row.index]
+        return styles
+    st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
+    # Interest rate tiles
+    st.markdown("### 💹 Major Central Bank Interest Rates")
+    st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
+    interest_rates = [
+        {"Currency": "USD", "Current": "3.78%", "Previous": "4.00%", "Changed": "2025-07-17", "Next Meeting": "2025-09-18"},
+        {"Currency": "GBP", "Current": "3.82%", "Previous": "4.00%", "Changed": "2025-08-07", "Next Meeting": "2025-09-19"},
+        {"Currency": "EUR", "Current": "1.82%", "Previous": "2.00%", "Changed": "2025-07-10", "Next Meeting": "2025-09-12"},
+        {"Currency": "JPY", "Current": "0.50%", "Previous": "0.25%", "Changed": "2025-07-31", "Next Meeting": "2025-09-20"},
+        {"Currency": "AUD", "Current": "3.60%", "Previous": "3.85%", "Changed": "2025-08-12", "Next Meeting": "2025-09-24"},
+        {"Currency": "CAD", "Current": "2.75%", "Previous": "3.00%", "Changed": "2025-03-12", "Next Meeting": "2025-09-04"},
+        {"Currency": "NZD", "Current": "3.25%", "Previous": "3.50%", "Changed": "2025-05-28", "Next Meeting": "2025-10-09"},
+        {"Currency": "CHF", "Current": "0.00%", "Previous": "0.25%", "Changed": "2025-06-19", "Next Meeting": "2025-09-26"},
+    ]
+    boxes_per_row = 4
+    colors = ["#2d4646", "#4d7171", "#2d4646", "#4d7171"]
+    for i in range(0, len(interest_rates), boxes_per_row):
+        cols = st.columns(boxes_per_row)
+        for j, rate in enumerate(interest_rates[i:i+boxes_per_row]):
+            color = colors[j % len(colors)]
+            with cols[j]:
+                st.markdown(
+                    f"""
+                    <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
+                    {rate['Currency']}<br>
+                    Current: {rate['Current']}<br>
+                    Previous: {rate['Previous']}<br>
+                    Changed On: {rate['Changed']}<br>
+                    Next Meeting: {rate['Next Meeting']}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                st.markdown("<br>", unsafe_allow_html=True)
+    # Major High-Impact Events
+    st.markdown("### 📊 Major High-Impact Forex Events")
+    forex_high_impact_events = [
+        {
+            "event": "Non-Farm Payrolls (NFP)",
+            "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
+            "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
+            "impact_positive": {
+                "USD": "↑ Stronger USD due to strong labor market",
+                "EUR/USD": "↓ EUR weakens vs USD",
+                "GBP/USD": "↓ GBP weakens vs USD",
+                "USD/JPY": "↑ USD strengthens vs JPY",
+                "AUD/USD": "↓ AUD weakens vs USD",
+                "USD/CAD": "↑ USD strengthens vs CAD"
+            },
+            "impact_negative": {
+                "USD": "↓ Weaker USD due to weak labor market",
+                "EUR/USD": "↑ EUR strengthens vs USD",
+                "GBP/USD": "↑ GBP strengthens vs USD",
+                "USD/JPY": "↓ USD weakens vs JPY",
+                "AUD/USD": "↑ AUD strengthens vs USD",
+                "USD/CAD": "↓ USD weakens vs CAD"
+            },
+        },
+        {
+            "event": "Consumer Price Index (CPI)",
+            "description": "Measures changes in consumer prices; gauges inflation.",
+            "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
+            "impact_positive": {
+                "Currency": "↑ Higher rates likely → currency strengthens",
+                "EUR/USD": "↓ Currency strengthens vs EUR",
+                "GBP/USD": "↓ Currency strengthens vs GBP",
+                "USD/JPY": "↑ USD strengthens vs JPY",
+                "AUD/USD": "↓ Currency strengthens vs AUD",
+                "USD/CAD": "↑ USD strengthens vs CAD"
+            },
+            "impact_negative": {
+                "Currency": "↓ Lower inflation → dovish → currency weakens",
+                "EUR/USD": "↑ Currency weakens vs EUR",
+                "GBP/USD": "↑ Currency weakens vs GBP",
+                "USD/JPY": "↓ USD weakens vs JPY",
+                "AUD/USD": "↑ Currency weakens vs AUD",
+                "USD/CAD": "↓ USD weakens vs CAD"
+            },
+        },
+        {
+            "event": "Interest Rate Decision",
+            "description": "Central bank sets the official interest rate.",
+            "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
+            "impact_positive": {
+                "Currency": "↑ if hike or hawkish guidance → strengthens vs majors",
+                "EUR/USD": "↓ Currency strengthens vs EUR",
+                "GBP/USD": "↓ Currency strengthens vs GBP",
+                "USD/JPY": "↑ USD strengthens vs JPY",
+                "AUD/USD": "↓ Currency strengthens vs AUD",
+                "USD/CAD": "↑ USD strengthens vs CAD"
+            },
+            "impact_negative": {
+                "Currency": "↓ if cut or dovish guidance → weakens vs majors",
+                "EUR/USD": "↑ Currency weakens vs EUR",
+                "GBP/USD": "↑ Currency weakens vs GBP",
+                "USD/JPY": "↓ USD weakens vs JPY",
+                "AUD/USD": "↑ Currency weakens vs AUD",
+                "USD/CAD": "↓ USD weakens vs CAD"
+            },
+        },
+    ]
+    for ev in forex_high_impact_events:
+        positive_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_positive"].items()])
+        negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
+        st.markdown(
+            f"""
+            <div style="
+                border-radius:12px;
+                padding:15px;
+                margin-bottom:18px;
+                background-color:#12121a;
+                color:white;
+                box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
+            ">
+                <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
+                <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
+                <p style="margin:6px 0 12px 0;"><b>Why it matters:</b> {ev['why_it_matters']}</p>
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1; background-color:#0f2b0f; padding:12px; border-radius:10px;">
+                        <h5 style="margin:0 0 8px 0; color:#b7f2b7;">Positive →</h5>
+                        <div style="font-size:0.95rem;">{positive_impact}</div>
+                    </div>
+                    <div style="flex:1; background-color:#2b0f0f; padding:12px; border-radius:10px;">
+                        <h5 style="margin:0 0 8px 0; color:#f6b3b3;">Negative →</h5>
+                        <div style="font-size:0.95rem;">{negative_impact}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True
+        )
 
 elif st.session_state.current_page == 'backtesting':
-    # (Unchanged logic for TV chart)
     st.title("📈 Backtesting")
-    st.caption("Live TradingView chart for backtesting and enhanced trading journal.")
-    # ...
-    # Journal Entry
-    with st.form("trade_entry_form"):
-        # ... (form elements unchanged)
-        symbol = st.selectbox("Symbol", ["EUR/USD", "GBP/USD", "USD/JPY"], index=0)
-        # ...
-        submit_button = st.form_submit_button("Save Trade")
-        if submit_button:
-            new_trade = { # simplified example
-                'Date': pd.to_datetime(dt.date.today()),
-                'Symbol': symbol
-            }
-            # Add all columns to avoid concat issues
-            for col in journal_cols:
-                if col not in new_trade:
-                    new_trade[col] = None
-
-            st.session_state.tools_trade_journal = pd.concat(
-                [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
-                ignore_index=True
-            )
-            username = st.session_state.get('logged_in_user')
-            if username:
-                if _ta_save_journal(username, st.session_state.tools_trade_journal):
-                    ta_update_xp(10)
-                    ta_update_streak()
-                    st.success("Trade saved successfully!")
-                    st.rerun()
-                # else error is handled in helper
+    st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
+    st.markdown('---')
+    # Pair selector & symbol map
+    pairs_map = {
+        "EUR/USD": "FX:EURUSD",
+        "USD/JPY": "FX:USDJPY",
+        "GBP/USD": "FX:GBPUSD",
+        "USD/CHF": "OANDA:USDCHF",
+        "AUD/USD": "FX:AUDUSD",
+        "NZD/USD": "OANDA:NZDUSD",
+        "USD/CAD": "CMCMARKETS:USDCAD",
+        "EUR/GBP": "FX:EURGBP",
+        "EUR/JPY": "FX:EURJPY",
+        "GBP/JPY": "FX:GBPJPY",
+        "AUD/JPY": "FX:AUDJPY",
+        "AUD/NZD": "FX:AUDNZD",
+        "AUD/CAD": "FX:AUDCAD",
+        "AUD/CHF": "FX:AUDCHF",
+        "CAD/JPY": "FX:CADJPY",
+        "CHF/JPY": "FX:CHFJPY",
+        "EUR/AUD": "FX:EURAUD",
+        "EUR/CAD": "FX:EURCAD",
+        "EUR/CHF": "FX:EURCHF",
+        "GBP/AUD": "FX:GBPAUD",
+        "GBP/CAD": "FX:GBPCAD",
+        "GBP/CHF": "FX:GBPCHF",
+        "NZD/JPY": "FX:NZDJPY",
+        "NZD/CAD": "FX:NZDCAD",
+        "NZD/CHF": "FX:NZDCHF",
+        "CAD/CHF": "FX:CADCHF",
+    }
+    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
+    tv_symbol = pairs_map[pair]
+    # Initialize drawings in session state if not present
+    if 'drawings' not in st.session_state:
+        st.session_state.drawings = {}
+    # Load initial drawings if available
+    if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
+        username = st.session_state.logged_in_user
+        logging.info(f"Loading drawings for user {username}, pair {pair}")
+        try:
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result:
+                user_data = json.loads(result[0])
+                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
+                logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
             else:
-                st.info("Trade logged for this session. Please log in to save permanently.")
+                logging.warning(f"No data found for user {username}")
+        except Exception as e:
+            logging.error(f"Error loading drawings for {username}: {str(e)}")
+            st.error(f"Failed to load drawings: {str(e)}")
+    
+    initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
+    # TradingView widget
+    tv_html = f"""
+    <div id="tradingview_widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+    new TradingView.widget({{
+        "container_id": "tradingview_widget",
+        "width": "100%",
+        "height": 800,
+        "symbol": "{tv_symbol}",
+        "interval": "D",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#f1f3f6",
+        "enable_publishing": false,
+        "allow_symbol_change": true,
+        "studies": [],
+        "show_popup_button": true,
+        "popup_width": "1000",
+        "popup_height": "650"
+    }});
+    </script>
+    """
+    st.components.v1.html(tv_html, height=820, scrolling=False)
+    # Save, Load, and Refresh buttons
+    if "logged_in_user" in st.session_state:
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.button("Save Drawings", key="bt_save_drawings"):
+                logging.info(f"Save Drawings button clicked for pair {pair}")
+                save_script = f"""
+                <script>
+                parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '');
+                </script>
+                """
+                st.components.v1.html(save_script, height=0)
+                logging.info(f"Triggered save script for {pair}")
+                st.session_state[f"bt_save_trigger_{pair}"] = True
+        with col2:
+            if st.button("Load Drawings", key="bt_load_drawings"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        content = user_data.get("drawings", {}).get(pair, {})
+                        if content:
+                            load_script = f"""
+                            <script>
+                            parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '');
+                            </script>
+                            """
+                            st.components.v1.html(load_script, height=0)
+                            st.success("Drawings loaded successfully!")
+                            logging.info(f"Successfully loaded drawings for {pair}")
+                        else:
+                            st.info("No saved drawings for this pair.")
+                            logging.info(f"No saved drawings found for {pair}")
+                    else:
+                        st.error("Failed to load user data.")
+                        logging.error(f"No user data found for {username}")
+                except Exception as e:
+                    st.error(f"Failed to load drawings: {str(e)}")
+                    logging.error(f"Error loading drawings for {username}: {str(e)}")
+        with col3:
+            if st.button("Refresh Account", key="bt_refresh_account"):
+                username = st.session_state.logged_in_user
+                logging.info(f"Refresh Account button clicked for user {username}")
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result:
+                        user_data = json.loads(result[0])
+                        st.session_state.drawings = user_data.get("drawings", {})
+                        st.success("Account synced successfully!")
+                        logging.info(f"Account synced for {username}: {st.session_state.drawings}")
+                    else:
+                        st.error("Failed to sync account.")
+                        logging.error(f"No user data found for {username}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to sync account: {str(e)}")
+                    logging.error(f"Error syncing account for {username}: {str(e)}")
+        # Check for saved drawings from postMessage
+        drawings_key = f"bt_drawings_key_{pair}"
+        if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
+            content = st.session_state[drawings_key]
+            logging.info(f"Received drawing content for {pair}: {content}")
+            if content and isinstance(content, dict) and content:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data.setdefault("drawings", {})[pair] = content
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+                    conn.commit()
+                    st.session_state.drawings[pair] = content
+                    st.success(f"Drawings for {pair} saved successfully!")
+                    logging.info(f"Drawings saved to database for {pair}: {content}")
+                except Exception as e:
+                    st.error(f"Failed to save drawings: {str(e)}")
+                    logging.error(f"Database error saving drawings for {pair}: {str(e)}")
+                finally:
+                    del st.session_state[drawings_key]
+                    del st.session_state[f"bt_save_trigger_{pair}"]
+            else:
+                st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
+                logging.warning(f"No valid drawing content received for {pair}: {content}")
+    else:
+        st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
+        logging.info("User not logged in, save/load drawings disabled")
+    # Backtesting Journal
+    st.markdown("### 📝 Trading Journal")
+    st.markdown(
+        """
+        Log your trades with detailed analysis, track psychological factors, and review performance with advanced analytics and trade replay.
+        """
+    )
+    # Ensure journal DataFrame is initialized with all columns, including 'Tags'
+    if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+    else:
+        current_journal = st.session_state.tools_trade_journal
+        missing_cols = [col for col in journal_cols if col not in current_journal.columns]
+        if missing_cols:
+            for col in missing_cols:
+                current_journal[col] = pd.Series(dtype=journal_dtypes[col])
+        if 'Tags' not in current_journal.columns:
+            current_journal['Tags'] = ''
+        current_journal['Tags'] = current_journal['Tags'].astype(str).fillna('')
+        st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+    # Tabs for Journal Entry, Analytics, and Replay (renamed)
+    tab_entry, tab_analytics, tab_history = st.tabs(["📝 Log Trade", "📊 Analytics", "📜 Trade History"])
+    # Log Trade Tab
+    with tab_entry:
+        st.subheader("Log a New Trade")
+    
+        with st.form("trade_entry_form"):
+            col1, col2 = st.columns(2)
+        
+            with col1:
+                trade_date = st.date_input("Date", value=dt.datetime.now().date())
+                symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
+                if symbol == "Other":
+                    symbol = st.text_input("Custom Symbol")
+                weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
+                daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
+                entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, format="%.5f")
+                stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.0001, format="%.5f")
+        
+            with col2:
+                take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.0001, format="%.5f")
+                lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f")
+                entry_conditions = st.text_area("Entry Conditions")
+                emotions = st.selectbox("Emotions", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
+                tags = st.multiselect("Tags", ["Setup: Breakout", "Setup: Reversal", "Mistake: Overtrading", "Mistake: No Stop Loss", "Emotion: FOMO", "Emotion: Revenge"])
+                notes = st.text_area("Notes/Journal")
+        
+            submit_button = st.form_submit_button("Save Trade")
+        
+            if submit_button:
+                pip_multiplier = 100 if "JPY" in symbol else 10000
+                pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
+                rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
+            
+                new_trade = {
+                    'Date': pd.to_datetime(trade_date),
+                    'Symbol': symbol,
+                    'Weekly Bias': weekly_bias,
+                    'Daily Bias': daily_bias,
+                    '4H Structure': '',
+                    '1H Structure': '',
+                    'Positive Correlated Pair & Bias': '',
+                    'Potential Entry Points': '',
+                    '5min/15min Setup?': '',
+                    'Entry Conditions': entry_conditions,
+                    'Planned R:R': f"1:{rr:.2f}",
+                    'News Filter': '',
+                    'Alerts': '',
+                    'Concerns': '',
+                    'Emotions': emotions,
+                    'Confluence Score 1-7': 0.0,
+                    'Outcome / R:R Realised': f"1:{rr:.2f}",
+                    'Notes/Journal': notes,
+                    'Entry Price': entry_price,
+                    'Stop Loss Price': stop_loss_price,
+                    'Take Profit Price': take_profit_price,
+                    'Lots': lots,
+                    'Tags': ','.join(tags)
+                }
+            
+                # Append new trade to journal
+                st.session_state.tools_trade_journal = pd.concat(
+                    [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
+                    ignore_index=True
+                ).astype(journal_dtypes, errors='ignore')
+            
+                # Save to database if user is logged in
+                if 'logged_in_user' in st.session_state:
+                    username = st.session_state.logged_in_user
+                    if _ta_save_journal(username, st.session_state.tools_trade_journal):
+                        ta_update_xp(10)
+                        ta_update_streak()
+                        st.success("Trade saved successfully!")
+                        logging.info(f"Trade logged and saved to database for user {username}")
+                    else:
+                        st.error("Failed to save trade to account. Saved locally only.")
+                else:
+                    st.success("Trade saved locally (not synced to account, please log in).")
+                    logging.info("Trade logged for anonymous user")
+            
+                st.rerun()
 
+        # Display current journal
+        st.subheader("Trade Journal")
+        column_config = {
+            "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
+            "Symbol": st.column_config.TextColumn("Symbol"),
+            "Weekly Bias": st.column_config.SelectboxColumn("Weekly Bias", options=["Bullish", "Bearish", "Neutral"]),
+            "Daily Bias": st.column_config.SelectboxColumn("Daily Bias", options=["Bullish", "Bearish", "Neutral"]),
+            "4H Structure": st.column_config.TextColumn("4H Structure"),
+            "1H Structure": st.column_config.TextColumn("1H Structure"),
+            "Positive Correlated Pair & Bias": st.column_config.TextColumn("Positive Correlated Pair & Bias"),
+            "Potential Entry Points": st.column_config.TextColumn("Potential Entry Points"),
+            "5min/15min Setup?": st.column_config.SelectboxColumn("5min/15min Setup?", options=["Yes", "No"]),
+            "Entry Conditions": st.column_config.TextColumn("Entry Conditions"),
+            "Planned R:R": st.column_config.TextColumn("Planned R:R"),
+            "News Filter": st.column_config.TextColumn("News Filter"),
+            "Alerts": st.column_config.TextColumn("Alerts"),
+            "Concerns": st.column_config.TextColumn("Concerns"),
+            "Emotions": st.column_config.TextColumn("Emotions"),
+            "Confluence Score 1-7": st.column_config.NumberColumn("Confluence Score 1-7", min_value=1, max_value=7, format="%d"),
+            "Outcome / R:R Realised": st.column_config.TextColumn("Outcome / R:R Realised"),
+            "Notes/Journal": st.column_config.TextColumn("Notes/Journal"),
+            "Entry Price": st.column_config.NumberColumn("Entry Price", format="%.5f"),
+            "Stop Loss Price": st.column_config.NumberColumn("Stop Loss Price", format="%.5f"),
+            "Take Profit Price": st.column_config.NumberColumn("Take Profit Price", format="%.5f"),
+            "Lots": st.column_config.NumberColumn("Lots", format="%.2f"),
+            "Tags": st.column_config.TextColumn("Tags")
+        }
+        st.dataframe(st.session_state.tools_trade_journal, column_config=column_config, use_container_width=True)
+        # Export options
+        st.subheader("Export Journal")
+        col_export1, col_export2 = st.columns(2)
+    
+        with col_export1:
+            csv = st.session_state.tools_trade_journal.to_csv(index=False)
+            st.download_button("Download CSV", csv, "trade_journal.csv", "text/csv")
+    
+        with col_export2:
+            if st.button("Generate PDF"):
+                latex_content = """
+                \\documentclass{article}
+                \\usepackage{booktabs}
+                \\usepackage{geometry}
+                \\geometry{a4paper, margin=1in}
+                \\usepackage{pdflscape}
+                \\begin{document}
+                \\section*{Trade Journal}
+                \\begin{landscape}
+                \\begin{tabular}{llrrll}
+                \\toprule
+                Date & Symbol & Entry Price & Stop Loss & Take Profit & Outcome / R:R Realised \\\\
+                \\midrule
+                """
+                for _, row in st.session_state.tools_trade_journal.iterrows():
+                    date_str = row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else ''
+                    latex_content += f"{date_str} & {row['Symbol']} & {row['Entry Price']:.5f} & {row['Stop Loss Price']:.5f} & {row['Take Profit Price']:.5f} & {row['Outcome / R:R Realised']} \\\\\n"
+            
+                latex_content += """
+                \\bottomrule
+                \\end{tabular}
+                \\end{landscape}
+                \\end{document}
+                """
+            
+                with open("trade_journal.tex", "w") as f:
+                    f.write(latex_content)
+            
+                try:
+                    import subprocess
+                    subprocess.run(["latexmk", "-pdf", "trade_journal.tex"], check=True)
+                    with open("trade_journal.pdf", "rb") as f:
+                        st.download_button("Download PDF", f, "trade_journal.pdf", "application/pdf")
+                except Exception as e:
+                    st.error(f"PDF generation failed: {str(e)}")
+                    logging.error(f"PDF generation error: {str(e)}")
 
+    # Analytics Tab
+    with tab_analytics:
+        st.subheader("Trade Analytics")
+    
+        if not st.session_state.tools_trade_journal.empty:
+            col_filter1, col_filter2, col_filter3 = st.columns(3)
+        
+            with col_filter1:
+                symbol_filter = st.multiselect(
+                    "Filter by Symbol",
+                    options=st.session_state.tools_trade_journal['Symbol'].unique(),
+                    default=st.session_state.tools_trade_journal['Symbol'].unique()
+                )
+        
+            with col_filter2:
+                tag_options = []
+                if 'Tags' in st.session_state.tools_trade_journal.columns:
+                    tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
+                tag_filter = st.multiselect("Filter by Tags", options=tag_options)
+        
+            with col_filter3:
+                bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
+            
+            filtered_df = st.session_state.tools_trade_journal[
+                st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
+            ]
+        
+            if tag_filter and 'Tags' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in x.split(',') for tag in tag_filter) if isinstance(x, str) and x else False)]
+        
+            if bias_filter != "All":
+                filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
+            # Metrics
+            win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) and ':' in x else False)).mean() * 100 if not filtered_df.empty else 0
+            avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else 0).mean() if not filtered_df.empty else 0
+            total_trades = len(filtered_df)
+            col_metric1, col_metric2, col_metric3 = st.columns(3)
+            col_metric1.metric("Win Rate (%)", f"{win_rate:.2f}")
+            col_metric2.metric("Average R:R", f"{avg_pl:.2f}")
+            col_metric3.metric("Total Trades", total_trades)
+            # Visualizations
+            st.subheader("Performance Charts")
+            col_chart1, col_chart2 = st.columns(2)
+        
+            with col_chart1:
+                def parse_rr(x):
+                    try:
+                        if isinstance(x, str) and ':' in x:
+                            return float(x.split(':')[1])
+                        return 0.0
+                    except (ValueError, IndexError):
+                        return 0.0
+                rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
+                    lambda x: pd.Series([parse_rr(r) for r in x]).mean()
+                ).reset_index(name='Average R:R')
+            
+                fig = px.bar(rr_values, x='Symbol', y='Average R:R', title="Average R:R by Symbol")
+                st.plotly_chart(fig, use_container_width=True)
+        
+            with col_chart2:
+                fig = px.pie(filtered_df, names='Emotions', title="Trades by Emotional State")
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No trades logged yet. Add trades in the 'Log Trade' tab.")
+            
+    # Trade History Tab (renamed from Trade Replay)
+    with tab_history:
+        st.subheader("Trade History")
+    
+        if not st.session_state.tools_trade_journal.empty:
+            trade_id = st.selectbox(
+                "Select Trade to Review",
+                options=st.session_state.tools_trade_journal.index,
+                format_func=lambda x: f"{st.session_state.tools_trade_journal.loc[x, 'Date'].strftime('%Y-%m-%d')} - {st.session_state.tools_trade_journal.loc[x, 'Symbol']}"
+            )
+        
+            selected_trade = st.session_state.tools_trade_journal.loc[trade_id]
+        
+            st.write("Trade Details")
+            st.write(f"Symbol: {selected_trade['Symbol']}")
+            st.write(f"Weekly Bias: {selected_trade['Weekly Bias']}")
+            st.write(f"Entry Price: {selected_trade['Entry Price']:.5f}")
+            st.write(f"Stop Loss Price: {selected_trade['Stop Loss Price']:.5f}")
+            st.write(f"Take Profit Price: {selected_trade['Take Profit Price']:.5f}")
+            st.write(f"Outcome / R:R Realised: {selected_trade['Outcome / R:R Realised']}")
+            st.write(f"Entry Conditions: {selected_trade['Entry Conditions']}")
+            st.write(f"Emotions: {selected_trade['Emotions']}")
+            st.write(f"Tags: {selected_trade.get('Tags', '')}")
+            st.write(f"Notes: {selected_trade['Notes/Journal']}")
+        
+            if st.button("Replay Trade"):
+                st.warning("Simulated MT5 chart replay. In a real implementation, connect to MT5 API to fetch historical data.")
+            
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=[selected_trade['Date'], selected_trade['Date'] + pd.Timedelta(minutes=60)],
+                    y=[selected_trade['Entry Price'], selected_trade['Take Profit Price']],
+                    mode='lines+markers',
+                    name='Price Movement'
+                ))
+                fig.add_hline(y=selected_trade['Stop Loss Price'], line_dash="dash", line_color="red", name="Stop Loss")
+                fig.add_hline(y=selected_trade['Take Profit Price'], line_dash="dash", line_color="green", name="Take Profit")
+                fig.update_layout(title=f"Trade Replay: {selected_trade['Symbol']}", xaxis_title="Time", yaxis_title="Price")
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No trades available for review.")
+                # Challenge Mode
+    st.subheader("🏅 Challenge Mode")
+    st.write("30-Day Journaling Discipline Challenge")
+    streak = st.session_state.get('streak', 0)
+    progress = min(streak / 30.0, 1.0)
+    st.progress(progress)
+    if progress >= 1.0:
+        st.success("Challenge completed! Great job on your consistency.")
+        ta_update_xp(100) # Bonus XP for completion
+
+# CORRECTED INDENTATION FOR THE 'mt5' BLOCK
 elif st.session_state.current_page == 'mt5':
-    # This page is unchanged as it relies on a local file upload, no DB interaction.
     st.title("📊 Performance Dashboard")
-    st.info("This feature works by uploading a CSV file and does not interact with the database.")
-    # ... (content remains identical) ...
+    st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
+    st.markdown('---')
+    # ... (The rest of your code for the MT5 page goes here) ...
 
+    # Custom CSS for theme consistency
+    st.markdown(
+        """
+        <style>
+        .metric-box { background-color: #2d4646; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #58b3b1; color: #ffffff; transition: all 0.3s ease-in-out; margin: 5px 0; }
+        .metric-box:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(88, 179, 177, 0.3); }
+        .metric-box.positive { background-color: #0f2b0f; border-color: #58b3b1; }
+        .metric-box.negative { background-color: #2b0f0f; border-color: #a94442; }
+        .stTabs [data-baseweb="tab"] { color: #ffffff !important; background-color: #2d4646 !important; border-radius: 8px 8px 0 0; padding: 10px 20px; margin-right: 5px; }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #58b3b1 !important; color: #ffffff !important; font-weight: 600; border-bottom: 2px solid #4d7171 !important; }
+        .stTabs [data-baseweb="tab"]:hover { background-color: #4d7171 !important; color: #ffffff !important; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
+    # --------------------------
+    # Helper functions
+    # --------------------------
+    def _ta_human_pct(value):
+        try:
+            return f"{value * 100:.2f}%" if value is not None else "N/A"
+        except Exception:
+            return "N/A"
+
+    def _ta_human_num(value):
+        try:
+            return f"{value:,.2f}" if value is not None else "N/A"
+        except Exception:
+            return "N/A"
+
+    def _ta_compute_sharpe(df, risk_free_rate=0.02):
+        if "Profit" not in df.columns:
+            return np.nan
+        daily_pnl = _ta_daily_pnl(df)
+        if daily_pnl.empty:
+            return np.nan
+        returns = daily_pnl["Profit"].pct_change().dropna()
+        if len(returns) < 2:
+            return np.nan
+        mean_return = returns.mean() * 252  # Annualized
+        std_return = returns.std() * np.sqrt(252)  # Annualized
+        return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
+
+    # Placeholder for daily PnL computation
+    def _ta_daily_pnl(df):
+        if "Close Time" in df.columns and "Profit" in df.columns:
+            df_copy = df.copy()
+            df_copy["date"] = pd.to_datetime(df_copy["Close Time"]).dt.date
+            return df_copy.groupby("date")["Profit"].sum().reset_index()
+        return pd.DataFrame(columns=["date", "Profit"])
+
+    # Placeholder for profit factor computation
+    def _ta_profit_factor(df):
+        wins = df[df["Profit"] > 0]["Profit"].sum()
+        losses = abs(df[df["Profit"] < 0]["Profit"].sum())
+        return wins / losses if losses != 0 else np.nan
+
+    # --------------------------
+    # File Uploader
+    # --------------------------
+    uploaded_file = st.file_uploader(
+        "Upload MT5 History CSV",
+        type=["csv"],
+        help="Export your trading history from MetaTrader 5 as a CSV file."
+    )
+
+    if uploaded_file:
+        with st.spinner("Processing trading data..."):
+            try:
+                df = pd.read_csv(uploaded_file)
+                st.session_state.mt5_df = df
+
+                required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
+                missing_cols = [col for col in required_cols if col not in df.columns]
+                if missing_cols:
+                    st.error(f"Missing required columns: {', '.join(missing_cols)}")
+                    st.stop()
+
+                df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+                df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
+
+                # ---------- Tabs ----------
+                tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
+                    "📈 Summary Metrics",
+                    "📊 Visualizations", 
+                    "🔍 Edge Finder",
+                    "📤 Export Reports"
+                ])
+
+                # ---------- Summary Metrics Tab ----------
+                with tab_summary:
+                    st.subheader("Key Performance Metrics")
+                    total_trades = len(df)
+                    wins = df[df["Profit"] > 0]
+                    losses = df[df["Profit"] <= 0]
+                    win_rate = len(wins) / total_trades if total_trades else 0
+                    net_profit = df["Profit"].sum()
+                    profit_factor = _ta_profit_factor(df)
+                    avg_win = wins["Profit"].mean() if not wins.empty else 0
+                    avg_loss = losses["Profit"].mean() if not losses.empty else 0
+                    daily_pnl = _ta_daily_pnl(df)
+                    max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
+                    sharpe_ratio = _ta_compute_sharpe(df)
+                    expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0
+                    longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
+                    longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+
+                    metrics = [
+                        ("Total Trades", total_trades, "neutral"),
+                        ("Win Rate", _ta_human_pct(win_rate), "positive" if win_rate >= 0.5 else "negative"),
+                        ("Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
+                        ("Profit Factor", _ta_human_num(profit_factor), "positive" if profit_factor >= 1 else "negative"),
+                        ("Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
+                        ("Sharpe Ratio", _ta_human_num(sharpe_ratio), "positive" if sharpe_ratio >= 1 else "negative"),
+                        ("Expectancy", f"${expectancy:,.2f}", "positive" if expectancy >= 0 else "negative"),
+                        ("Avg Win", f"${avg_win:,.2f}", "positive"),
+                        ("Avg Loss", f"${avg_loss:,.2f}", "negative"),
+                        ("Longest Win Streak", longest_win_streak, "positive"),
+                        ("Longest Loss Streak", longest_loss_streak, "negative"),
+                        ("Avg Trade Duration", f"{df['Trade Duration'].mean():.2f}h", "neutral"),
+                    ]
+
+                    for row in range(0, len(metrics), 4):
+                        row_metrics = metrics[row:row+4]
+                        cols = st.columns(4)
+                        for i, (title, value, style) in enumerate(row_metrics):
+                            with cols[i]:
+                                st.markdown(
+                                    f"<div class='metric-box {style}'><strong>{title}</strong><br>{value}</div>",
+                                    unsafe_allow_html=True
+                                )
+
+                # ---------- The rest of your tabs (charts, edge, export) remain unchanged ----------
+            except Exception as e:
+                st.error(f"Error processing CSV: {str(e)}")
+    else:
+        st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
+
+    # Gamification Badges
+    if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
+        try:
+            _ta_show_badges(st.session_state.mt5_df)
+        except Exception as e:
+            logging.error(f"Error displaying badges: {str(e)}")
+
+        else:
+            st.info("Upload trades to generate insights.")
+    # Report Export & Sharing
+    if 'df' in locals() and not df.empty:
+        if st.button("📄 Generate Performance Report"):
+            report_html = f"""
+            <html>
+            <body>
+            <h2>Performance Report</h2>
+            <p>Total Trades: {total_trades}</p>
+            <p>Win Rate: {win_rate:.2f}%</p>
+            <p>Net Profit: ${net_profit:,.2f}</p>
+            <p>Profit Factor: {profit_factor}</p>
+            <p>Biggest Win: ${wins["Profit"].max() if not wins.empty else 0:,.2f}</p>
+            <p>Biggest Loss: ${losses["Profit"].min() if not losses.empty else 0:,.2f}</p>
+            <p>Longest Win Streak: {longest_win_streak}</p>
+            <p>Longest Loss Streak: {longest_loss_streak}</p>
+            <p>Avg Trade Duration: {df['Trade Duration'].mean():.2f}h</p>
+            <p>Total Volume: {df['Volume'].sum():,.2f}</p>
+            <p>Avg Volume: {df['Volume'].mean():.2f}</p>
+            <p>Profit / Trade: ${net_profit/total_trades if total_trades else 0:.2f}</p>
+            </body>
+            </html>
+            """
+            st.download_button(
+                label="Download HTML Report",
+                data=report_html,
+                file_name="performance_report.html",
+                mime="text/html"
+            )
+            st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
+    st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
+    st.write('---')
+    st.subheader("➕ Add New Strategy")
     with st.form("strategy_form"):
-        # ... (form unchanged) ...
         strategy_name = st.text_input("Strategy Name")
         description = st.text_area("Strategy Description")
+        entry_rules = st.text_area("Entry Rules")
+        exit_rules = st.text_area("Exit Rules")
+        risk_management = st.text_area("Risk Management Rules")
         submit_strategy = st.form_submit_button("Save Strategy")
         if submit_strategy:
-            new_strategy = {"Name": strategy_name, "Description": description}
-            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([new_strategy])], ignore_index=True)
-
-            username = st.session_state.get('logged_in_user')
-            if username:
-                user_data = _ta_get_user_data(username)
-                user_data['strategies'] = st.session_state.strategies.to_dict('records')
-                _ta_update_user_data(username, user_data)
-                st.success("Strategy saved!")
-            else:
-                st.info("Log in to save your strategy.")
-
+            strategy_data = {
+                "Name": strategy_name,
+                "Description": description,
+                "Entry Rules": entry_rules,
+                "Exit Rules": exit_rules,
+                "Risk Management": risk_management,
+                "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
+            }
+            if "strategies" not in st.session_state:
+                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([strategy_data])], ignore_index=True)
+            if "logged_in_user" in st.session_state:
+                username = st.session_state.logged_in_user
+                try:
+                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    user_data = json.loads(result[0]) if result else {}
+                    user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
+                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                    conn.commit()
+                    st.success("Strategy saved to your account!")
+                    logging.info(f"Strategy saved for {username}: {strategy_name}")
+                except Exception as e:
+                    st.error(f"Failed to save strategy: {str(e)}")
+                    logging.error(f"Error saving strategy for {username}: {str(e)}")
+            st.success(f"Strategy '{strategy_name}' added successfully!")
+    if "strategies" in st.session_state and not st.session_state.strategies.empty:
+        st.subheader("Your Strategies")
+        for idx, row in st.session_state.strategies.iterrows():
+            with st.expander(f"Strategy: {row['Name']} (Added: {row['Date Added']})"):
+                st.markdown(f"Description: {row['Description']}")
+                st.markdown(f"Entry Rules: {row['Entry Rules']}")
+                st.markdown(f"Exit Rules: {row['Exit Rules']}")
+                st.markdown(f"Risk Management: {row['Risk Management']}")
+                if st.button("Delete Strategy", key=f"delete_strategy_{idx}"):
+                    st.session_state.strategies = st.session_state.strategies.drop(idx).reset_index(drop=True)
+                    if "logged_in_user" in st.session_state:
+                        username = st.session_state.logged_in_user
+                        try:
+                            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+                            result = c.fetchone()
+                            user_data = json.loads(result[0]) if result else {}
+                            user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
+                            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                            conn.commit()
+                            st.success("Strategy deleted and account updated!")
+                            logging.info(f"Strategy deleted for {username}")
+                        except Exception as e:
+                            st.error(f"Failed to delete strategy: {str(e)}")
+                            logging.error(f"Error deleting strategy for {username}: {str(e)}")
+                    st.rerun()
+    else:
+        st.info("No strategies defined yet. Add one above.")
+    # Evolving Playbook
+    st.subheader("📖 Evolving Playbook")
+    journal_df = st.session_state.tools_trade_journal
+    mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
+    combined_df = pd.concat([journal_df, mt5_df], ignore_index=True) if not mt5_df.empty else journal_df
+    group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
+    if "Outcome / R:R Realised" in combined_df.columns:
+        combined_df['r'] = combined_df["Outcome / R:R Realised"].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else np.nan)
+    if group_cols and 'r' in combined_df.columns:
+        agg = _ta_expectancy_by_group(combined_df, group_cols).sort_values("expectancy", ascending=False)
+        st.write("Your refined edge profile based on logged trades:")
+        st.dataframe(agg)
+    else:
+        st.info("Log more trades with symbols and outcomes to evolve your playbook.")
 
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
-    st.markdown(""" Manage your account, save your data, and sync your trading journal.""")
+    st.markdown(
+        """
+        Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
+        - Keep your trading journal and strategies backed up.
+        - Track your progress and gamification stats.
+        - Sync across devices.
+        - Import/export your account data easily.
+        """
+    )
     st.write('---')
-
-    if not supabase:
-        st.error("Database connection not available. Please check the application configuration.")
-        st.stop()
-
-    if not st.session_state.get('logged_in_user'):
-        tab_signin, tab_signup = st.tabs(["🔑 Sign In", "📝 Sign Up"])
-
+    if "logged_in_user" not in st.session_state:
+        # Tabs for Sign In and Sign Up
+        tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
+        # --------------------------
+        # SIGN IN TAB
+        # --------------------------
         with tab_signin:
+            st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
                 username = st.text_input("Username")
                 password = st.text_input("Password", type="password")
                 login_button = st.form_submit_button("Login")
                 if login_button:
-                    try:
-                        response = supabase.table('users').select('password, data').eq('username', username).single().execute()
-                        if response.data:
-                            stored_hash = response.data['password']
-                            input_hash = hashlib.sha256(password.encode()).hexdigest()
-                            if stored_hash == input_hash:
-                                st.session_state.logged_in_user = username
-                                user_data = response.data.get('data', {})
-
-                                # Load all data from the JSONB field into session state
-                                journal_data = user_data.get('tools_trade_journal', [])
-                                if journal_data:
-                                     st.session_state.tools_trade_journal = pd.DataFrame(journal_data)
-                                else:
-                                     st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
-
-                                st.session_state.strategies = pd.DataFrame(user_data.get('strategies', []))
-                                st.session_state.drawings = user_data.get('drawings', {})
-                                st.session_state.xp = user_data.get('xp', 0)
-                                st.session_state.level = user_data.get('level', 0)
-                                st.session_state.badges = user_data.get('badges', [])
-                                st.session_state.streak = user_data.get('streak', 0)
-
-                                st.success(f"Welcome back, {username}!")
-                                logging.info(f"User '{username}' logged in.")
-                                st.rerun()
-                            else:
-                                st.error("Invalid username or password.")
-                        else:
-                            st.error("Invalid username or password.")
-                    except Exception as e:
-                        st.error("An error occurred during login.")
-                        logging.error(f"Login error for {username}: {e}")
-
+                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result and result[0] == hashed_password:
+                        st.session_state.logged_in_user = username
+                        user_data = json.loads(result[1]) if result[1] else {}
+                        st.session_state.drawings = user_data.get("drawings", {})
+                        if "tools_trade_journal" in user_data:
+                            loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
+                            for col in journal_cols:
+                                if col not in loaded_df.columns:
+                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+                            st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                        if "strategies" in user_data:
+                            st.session_state.strategies = pd.DataFrame(user_data["strategies"])
+                        if "emotion_log" in user_data:
+                            st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
+                        if "reflection_log" in user_data:
+                            st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
+                        st.session_state.xp = user_data.get('xp', 0)
+                        st.session_state.level = user_data.get('level', 0)
+                        st.session_state.badges = user_data.get('badges', [])
+                        st.session_state.streak = user_data.get('streak', 0)
+                        st.session_state.last_journal_date = user_data.get('last_journal_date', None)
+                        st.success(f"Welcome back, {username}!")
+                        logging.info(f"User {username} logged in successfully")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+                        logging.warning(f"Failed login attempt for {username}")
+        # --------------------------
+        # SIGN UP TAB
+        # --------------------------
         with tab_signup:
+            st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
                 new_username = st.text_input("New Username")
                 new_password = st.text_input("New Password", type="password")
@@ -462,86 +1616,263 @@ elif st.session_state.current_page == 'account':
                 if register_button:
                     if new_password != confirm_password:
                         st.error("Passwords do not match.")
+                        logging.warning(f"Registration failed for {new_username}: Passwords do not match")
                     elif not new_username or not new_password:
                         st.error("Username and password cannot be empty.")
+                        logging.warning(f"Registration failed: Empty username or password")
                     else:
-                        try:
-                            # Check if user exists
-                            check = supabase.table('users').select('username').eq('username', new_username).execute()
-                            if len(check.data) > 0:
-                                st.error("Username already exists.")
-                            else:
-                                # Create new user
-                                hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                                initial_data = {
-                                    "xp": 0, "level": 0, "badges": [], "streak": 0,
-                                    "drawings": {}, "tools_trade_journal": [],
-                                    "strategies": [], "emotion_log": [], "reflection_log": []
-                                }
-                                supabase.table('users').insert({
-                                    'username': new_username,
-                                    'password': hashed_password,
-                                    'data': initial_data
-                                }).execute()
-
+                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
+                        if c.fetchone():
+                            st.error("Username already exists.")
+                            logging.warning(f"Registration failed: Username {new_username} already exists")
+                        else:
+                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "tools_trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
+                            try:
+                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                                conn.commit()
                                 st.session_state.logged_in_user = new_username
-                                initialize_empty_dataframes()
-                                st.success(f"Account for '{new_username}' created successfully!")
-                                logging.info(f"User '{new_username}' registered.")
+                                st.session_state.drawings = {}
+                                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+                                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+                                st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+                                st.session_state.xp = 0
+                                st.session_state.level = 0
+                                st.session_state.badges = []
+                                st.session_state.streak = 0
+                                st.success(f"Account created for {new_username}!")
+                                logging.info(f"User {new_username} registered successfully")
                                 st.rerun()
-                        except Exception as e:
-                            st.error(f"Failed to create account: {e}")
-                            logging.error(f"Registration error for {new_username}: {e}")
-
-    else: # Logged-in user view
+                            except Exception as e:
+                                st.error(f"Failed to create account: {str(e)}")
+                                logging.error(f"Registration error for {new_username}: {str(e)}")
+        # --------------------------
+        # DEBUG TAB
+        # --------------------------
+        with tab_debug:
+            st.subheader("Debug: Inspect Users Database")
+            st.warning("This is for debugging only. Remove in production.")
+            try:
+                c.execute("SELECT username, password, data FROM users")
+                users = c.fetchall()
+                if users:
+                    debug_df = pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"])
+                    st.dataframe(debug_df, use_container_width=True)
+                else:
+                    st.info("No users found in the database.")
+                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = c.fetchall()
+                st.write("Database Tables:", tables)
+            except Exception as e:
+                st.error(f"Error accessing database: {str(e)}")
+                logging.error(f"Debug error: {str(e)}")
+    else:
+        # --------------------------
+        # LOGGED-IN USER VIEW
+        # --------------------------
         def handle_logout():
-            user_session_keys = ['logged_in_user', 'xp', 'level', 'badges', 'streak']
+            """
+            Clears all user-specific data from the session state upon logout.
+            This modular function makes the main code cleaner and the logic reusable.
+            """
+            user_session_keys = [
+                'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
+                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak'
+            ]
             for key in user_session_keys:
-                if key in st.session_state: del st.session_state[key]
+                if key in st.session_state:
+                    del st.session_state[key]
 
-            initialize_empty_dataframes()
-            logging.info("User logged out.")
+            # Re-initialize core data structures to their empty state
+            st.session_state.drawings = {}
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
+            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+            st.session_state.xp = 0
+            st.session_state.level = 0
+            st.session_state.badges = []
+            st.session_state.streak = 0
+
+            logging.info("User logged out")
+            st.session_state.current_page = "account" # Ensure redirection to the same page
             st.rerun()
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-        # (Dashboard UI remains the same)
-        # ...
+        st.markdown("This is your personal dashboard. Track your progress and manage your account.")
+        st.markdown("---")
+        
 
+        # --- Main Dashboard Layout using Columns ---
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            st.subheader("📈 Progress Snapshot")
+            
+            # --- Custom CSS for the KPI cards ---
+            st.markdown("""
+            <style>
+            .kpi-card {
+                background-color: rgba(45, 70, 70, 0.5);
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                border: 1px solid #58b3b1;
+                margin-bottom: 10px;
+            }
+            .kpi-icon {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+            }
+            .kpi-value {
+                font-size: 1.8em;
+                font-weight: bold;
+                color: #FFFFFF;
+            }
+            .kpi-label {
+                font-size: 0.9em;
+                color: #A0A0A0;
+            }
+            .insights-card {
+                background-color: rgba(45, 70, 70, 0.3);
+                border-left: 5px solid #58b3b1;
+                padding: 15px;
+                border-radius: 5px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            # --- Row 1: KPI Cards ---
+            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            with kpi_col1:
+                level = st.session_state.get('level', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🧙‍♂️</div>
+                    <div class="kpi-value">Level {level}</div>
+                    <div class="kpi-label">Trader's Rank</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi_col2:
+                streak = st.session_state.get('streak', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🔥</div>
+                    <div class="kpi-value">{streak} Days</div>
+                    <div class="kpi-label">Journaling Streak</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi_col3:
+                total_xp = st.session_state.get('xp', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">⭐</div>
+                    <div class="kpi-value">{total_xp:,}</div>
+                    <div class="kpi-label">Total Experience</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+
+            # --- Row 2: Progress Chart and Insights ---
+            # Use the 'gap' parameter to create significant horizontal space between the columns
+            chart_col, spacer_col, insights_col = st.columns([10, 1, 10])
+
+            with chart_col:
+                st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+                total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
+                xp_in_level = total_xp % 100
+                xp_needed = 100 - xp_in_level
+
+                fig = go.Figure(go.Pie(
+                    values=[xp_in_level, xp_needed],
+                    labels=['XP Gained', 'XP Needed'],
+                    hole=0.6,
+                    marker_colors=['#58b3b1', '#2d4646'],
+                    textinfo='none',
+                    hoverinfo='label+value',
+                    direction='clockwise',
+                    sort=False
+                ))
+                fig.update_layout(
+                    showlegend=False,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
+                    margin=dict(t=0, b=0, l=0, r=0)
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            
+            # The spacer column is left empty to create the space.
+            with spacer_col:
+                st.empty()
+
+            with insights_col:
+                st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
+                streak = st.session_state.get('streak', 0) # Ensure streak is defined here
+                
+                insight_message = ""
+                if streak > 21:
+                    insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
+                elif streak > 7:
+                    insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
+                else:
+                    insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
+                
+                st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
+
+                num_trades = len(st.session_state.tools_trade_journal)
+                next_milestone = ""
+                if num_trades < 10:
+                    next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50:
+                    next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                else:
+                     next_milestone = "The next streak badge is at 30 days. You've got this!"
+
+                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+
+        # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
+        st.subheader("🚀 Your XP Journey")
+        journal_df = st.session_state.tools_trade_journal
+        if not journal_df.empty and 'Date' in journal_df.columns:
+            journal_df['Date'] = pd.to_datetime(journal_df['Date'])
+            xp_data = journal_df.sort_values(by='Date').copy()
+            xp_data['xp_gained'] = 10 
+            xp_data['cumulative_xp'] = xp_data['xp_gained'].cumsum()
+            
+            fig_line = px.area(xp_data, x='Date', y='cumulative_xp', 
+                                title="XP Growth Over Time (Based on Journal Entries)",
+                                labels={'Date': 'Journal Entry Date', 'cumulative_xp': 'Cumulative XP'})
+            fig_line.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(45, 70, 70, 0.3)',
+                xaxis=dict(gridcolor='#4d7171'),
+                yaxis=dict(gridcolor='#4d7171'),
+                font_color="white"
+            )
+            st.plotly_chart(fig_line, use_container_width=True)
+        else:
+            st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
+        with col2:
+            st.subheader("🏆 Badges")
+            badges = st.session_state.get('badges', [])
+            if badges:
+                for badge in badges:
+                    st.markdown(f"- 🏅 {badge}")
+            else:
+                st.info("No badges earned yet. Keep up the great work to unlock them!")
+
+        st.markdown("---")
+
+        # --- Account Details and Actions using an Expander ---
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            if st.button("Log Out", key="logout_button", type="primary"):
+            st.write("**Email**: `trader.pro@email.com` (example)")
+            if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
-
-
-        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-        # (Dashboard UI remains the same)
-        # ...
-
-        with st.expander("⚙️ Manage Account"):
-            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            if st.button("Log Out", key="logout_button", type="primary"):
-                handle_logout()
-
-
-elif st.session_state.current_page == 'community':
-    st.title("🌐 Community Trade Ideas")
-    # ... (Content unchanged, uses _ta_load/save_community helpers) ...
-    st.subheader("🏆 Leaderboard - Consistency")
-    try:
-        response = supabase.table('users').select('username, data').execute()
-        leader_data = []
-        if response.data:
-            for user_profile in response.data:
-                trades = len(user_profile.get('data', {}).get('tools_trade_journal', []))
-                leader_data.append({"Username": user_profile['username'], "Journaled Trades": trades})
-
-        if leader_data:
-            leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
-            leader_df["Rank"] = leader_df.index + 1
-            st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
-    except Exception as e:
-        st.error("Could not load leaderboard.")
-        logging.error(f"Leaderboard error: {e}")
 
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
