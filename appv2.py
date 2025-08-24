@@ -658,34 +658,6 @@ for page_key, page_name in nav_items:
 # MAIN APPLICATION
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    # --- Custom CSS for this page to match the app's theme ---
-    st.markdown("""
-    <style>
-    /* Style for st.info equivalent */
-    .custom-info {
-        background-color: rgba(45, 70, 70, 0.3);
-        border-left: 5px solid #58b3b1;
-        padding: 1rem;
-        border-radius: 5px;
-        color: #FFFFFF;
-    }
-    /* Style for the selectbox widgets */
-    div[data-baseweb="select"] > div:first-child {
-        background-color: #2d4646;
-        border: 1px solid #58b3b1;
-        color: white;
-    }
-    /* Style for dataframe headers */
-    .stDataFrame thead th {
-        background-color: #2d4646;
-        color: white;
-    }
-    .stDataFrame tbody tr:nth-child(even) {
-        background-color: rgba(45, 70, 70, 0.2);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     col1, col2 = st.columns([3, 1])
     with col1:
         st.title("📅 Forex Fundamentals")
@@ -844,6 +816,7 @@ if st.session_state.current_page == 'fundamentals':
             </div>
             """, unsafe_allow_html=True
         )
+
 elif st.session_state.current_page == 'backtesting':
     st.title("📈 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
@@ -1900,6 +1873,7 @@ elif st.session_state.current_page == 'account':
             st.write("**Email**: `trader.pro@email.com` (example)")
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
+
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
