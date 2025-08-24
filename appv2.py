@@ -25,6 +25,16 @@ import streamlit as st
 st.markdown(
     """
     <style>
+    /* --- Global Horizontal Line Style --- */
+    hr {
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+        border-top: 1px solid #4d7171 !important;
+        border-bottom: none !important; /* Remove any bottom border */
+        background-color: transparent !important; /* Ensure no background color interferes */
+        height: 1px !important; /* Set a specific height */
+    }
+
     /* Hide Streamlit top-right menu */
     #MainMenu {visibility: hidden !important;}
     /* Hide Streamlit footer (bottom-left) */
