@@ -1274,13 +1274,13 @@ elif st.session_state.current_page == 'backtesting':
             st.info("No trades available for review.")
                 # Challenge Mode
     st.subheader("🏅 Challenge Mode")
-    st.write("30-Day Journaling Discipline Challenge")
+    st.write("30-Day Journaling Discipline Challenge - Gain 300 XP for completing, XP can be exchanged for gift cards!")
     streak = st.session_state.get('streak', 0)
     progress = min(streak / 30.0, 1.0)
     st.progress(progress)
     if progress >= 1.0:
         st.success("Challenge completed! Great job on your consistency.")
-        ta_update_xp(100) # Bonus XP for completion
+        ta_update_xp(300) # Bonus XP for completion
 
             # Leaderboard / Self-Competition
     st.subheader("🏆 Leaderboard - Consistency")
