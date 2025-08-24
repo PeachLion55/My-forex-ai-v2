@@ -692,7 +692,7 @@ if st.session_state.current_page == 'fundamentals':
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
         st.markdown('---')
     with col2:
-        # FIX: Replaced st.info with a themed markdown box to match the app's color scheme
+        # Replaced st.info with a themed markdown box
         st.markdown("<div class='custom-info'>See the Backtesting tab for live charts + detailed news.</div>", unsafe_allow_html=True)
 
     # Economic Calendar
@@ -712,9 +712,9 @@ if st.session_state.current_page == 'fundamentals':
     def highlight_currency(row):
         styles = [''] * len(row)
         if st.session_state.selected_currency_1 and row['Currency'] == st.session_state.selected_currency_1:
-            styles = ['background-color: #4c7170; color: white' if col == 'Currency' else 'background-color: #4c7170' for col in row.index]
+            styles = ['background-color: #4d7171; color: white' if col == 'Currency' else 'background-color: #4d7171' for col in row.index]
         if st.session_state.selected_currency_2 and row['Currency'] == st.session_state.selected_currency_2:
-            styles = ['background-color: #2e4747; color: white' if col == 'Currency' else 'background-color: #2e4747' for col in row.index]
+            styles = ['background-color: #2d4646; color: white' if col == 'Currency' else 'background-color: #2d4646' for col in row.index]
         return styles
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
 
@@ -759,40 +759,22 @@ if st.session_state.current_page == 'fundamentals':
             "event": "Non-Farm Payrolls (NFP)",
             "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
             "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
-            "impact_positive": {
-                "USD": "↑ Stronger USD due to strong labor market", "EUR/USD": "↓ EUR weakens vs USD", "GBP/USD": "↓ GBP weakens vs USD",
-                "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ AUD weakens vs USD", "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "USD": "↓ Weaker USD due to weak labor market", "EUR/USD": "↑ EUR strengthens vs USD", "GBP/USD": "↑ GBP strengthens vs USD",
-                "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ AUD strengthens vs USD", "USD/CAD": "↓ USD weakens vs CAD"
-            },
+            "impact_positive": { "USD": "↑ Stronger USD due to strong labor market", "EUR/USD": "↓ EUR weakens vs USD", "GBP/USD": "↓ GBP weakens vs USD", "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ AUD weakens vs USD", "USD/CAD": "↑ USD strengthens vs CAD" },
+            "impact_negative": { "USD": "↓ Weaker USD due to weak labor market", "EUR/USD": "↑ EUR strengthens vs USD", "GBP/USD": "↑ GBP strengthens vs USD", "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ AUD strengthens vs USD", "USD/CAD": "↓ USD weakens vs CAD" },
         },
         {
             "event": "Consumer Price Index (CPI)",
             "description": "Measures changes in consumer prices; gauges inflation.",
             "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ Higher rates likely → currency strengthens", "EUR/USD": "↓ Currency strengthens vs EUR", "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ Currency strengthens vs AUD", "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ Lower inflation → dovish → currency weakens", "EUR/USD": "↑ Currency weakens vs EUR", "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ Currency weakens vs AUD", "USD/CAD": "↓ USD weakens vs CAD"
-            },
+            "impact_positive": { "Currency": "↑ Higher rates likely → currency strengthens", "EUR/USD": "↓ Currency strengthens vs EUR", "GBP/USD": "↓ Currency strengthens vs GBP", "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ Currency strengthens vs AUD", "USD/CAD": "↑ USD strengthens vs CAD" },
+            "impact_negative": { "Currency": "↓ Lower inflation → dovish → currency weakens", "EUR/USD": "↑ Currency weakens vs EUR", "GBP/USD": "↑ Currency weakens vs GBP", "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ Currency weakens vs AUD", "USD/CAD": "↓ USD weakens vs CAD" },
         },
         {
             "event": "Interest Rate Decision",
             "description": "Central bank sets the official interest rate.",
             "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ if hike or hawkish guidance → strengthens vs majors", "EUR/USD": "↓ Currency strengthens vs EUR", "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ Currency strengthens vs AUD", "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ if cut or dovish guidance → weakens vs majors", "EUR/USD": "↑ Currency weakens vs EUR", "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ Currency weakens vs AUD", "USD/CAD": "↓ USD weakens vs CAD"
-            },
+            "impact_positive": { "Currency": "↑ if hike or hawkish guidance → strengthens vs majors", "EUR/USD": "↓ Currency strengthens vs EUR", "GBP/USD": "↓ Currency strengthens vs GBP", "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ Currency strengthens vs AUD", "USD/CAD": "↑ USD strengthens vs CAD" },
+            "impact_negative": { "Currency": "↓ if cut or dovish guidance → weakens vs majors", "EUR/USD": "↑ Currency weakens vs EUR", "GBP/USD": "↑ Currency weakens vs GBP", "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ Currency weakens vs AUD", "USD/CAD": "↓ USD weakens vs CAD" },
         },
     ]
     for ev in forex_high_impact_events:
@@ -825,7 +807,6 @@ if st.session_state.current_page == 'fundamentals':
             </div>
             """, unsafe_allow_html=True
         )
-
 elif st.session_state.current_page == 'backtesting':
     st.title("📈 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
