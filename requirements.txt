@@ -4,15 +4,11 @@ pandas
 feedparser
 textblob
 plotly
-newspaper3k
-transformers
-torch
 beautifulsoup4
-selenium
 pytz
 yfinance
 streamlit-autorefresh
 forex-python
 scipy
 streamlit-lightweight-charts
-supabase-py
+supabase-p
