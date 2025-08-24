@@ -28,7 +28,7 @@ st.markdown(
     /* Hide Streamlit top-right menu */
     #MainMenu {visibility: hidden !important;}
     /* Hide Streamlit footer (bottom-left) */
-    footer {visibility: hidden !important;}
+    footer {visibility: hidden !import;}
     /* Hide the GitHub / Share banner (bottom-right) */
     [data-testid="stDecoration"] {display: none !important;}
     
@@ -1429,7 +1429,7 @@ elif st.session_state.current_page == 'mt5':
         else:
             st.info("Upload trades to generate insights.")
     # Report Export & Sharing
-    if not df.empty:
+    if 'df' in locals() and not df.empty:
         if st.button("📄 Generate Performance Report"):
             report_html = f"""
             <html>
@@ -1439,14 +1439,14 @@ elif st.session_state.current_page == 'mt5':
             <p>Win Rate: {win_rate:.2f}%</p>
             <p>Net Profit: ${net_profit:,.2f}</p>
             <p>Profit Factor: {profit_factor}</p>
-            <p>Biggest Win: ${biggest_win:,.2f}</p>
-            <p>Biggest Loss: ${biggest_loss:,.2f}</p>
+            <p>Biggest Win: ${wins["Profit"].max() if not wins.empty else 0:,.2f}</p>
+            <p>Biggest Loss: ${losses["Profit"].min() if not losses.empty else 0:,.2f}</p>
             <p>Longest Win Streak: {longest_win_streak}</p>
             <p>Longest Loss Streak: {longest_loss_streak}</p>
-            <p>Avg Trade Duration: {avg_trade_duration:.2f}h</p>
-            <p>Total Volume: {total_volume:,.2f}</p>
-            <p>Avg Volume: {avg_volume:.2f}</p>
-            <p>Profit / Trade: ${profit_per_trade:.2f}</p>
+            <p>Avg Trade Duration: {df['Trade Duration'].mean():.2f}h</p>
+            <p>Total Volume: {df['Volume'].sum():,.2f}</p>
+            <p>Avg Volume: {df['Volume'].mean():.2f}</p>
+            <p>Profit / Trade: ${net_profit/total_trades if total_trades else 0:.2f}</p>
             </body>
             </html>
             """
@@ -1537,6 +1537,7 @@ elif st.session_state.current_page == 'strategy':
         st.dataframe(agg)
     else:
         st.info("Log more trades with symbols and outcomes to evolve your playbook.")
+
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
     st.markdown(
@@ -1622,7 +1623,7 @@ elif st.session_state.current_page == 'account':
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
                                 st.session_state.drawings = {}
-                                st.session_state.tools_st.rerunurnal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
                                 st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
                                 st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
                                 st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -1656,129 +1657,82 @@ elif st.session_state.current_page == 'account':
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
+    else:
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
-import streamlit as st
-import pandas as pd
-import logging
+        def handle_logout():
+            """
+            Clears all user-specific data from the session state upon logout.
+            This modular function makes the main code cleaner and the logic reusable.
+            """
+            user_session_keys = [
+                'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
+                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak'
+            ]
+            for key in user_session_keys:
+                if key in st.session_state:
+                    del st.session_state[key]
 
-# --- (This section is for demonstration if you run the script standalone) ---
-# In your actual app, this data would already be in the session_state from login.
-def initialize_session_for_demo():
-    """Initializes session state with sample data for demonstration."""
-    # Assume the app starts on the 'account' page for this demo
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'account'
-    if 'logged_in_user' not in st.session_state:
-        st.session_state.logged_in_user = "TraderPro"
-    if 'xp' not in st.session_state:
-        st.session_state.xp = 1750
-    if 'level' not in st.session_state:
-        st.session_state.level = 1
-    if 'badges' not in st.session_state:
-        st.session_state.badges = ["First Trade", "Risk Manager"]
-    if 'streak' not in st.session_state:
-        st.session_state.streak = 14
-    # Define dummy dataframes for logout functionality
-    global journal_cols, journal_dtypes
-    journal_cols = ["Date", "Symbol", "Entry", "Exit", "PnL"]
-    journal_dtypes = {"Date": "datetime64[ns]", "Symbol": "object", "Entry": "float64", "Exit": "float64", "PnL": "float64"}
+            # Re-initialize core data structures to their empty state
+            st.session_state.drawings = {}
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
+            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+            st.session_state.xp = 0
+            st.session_state.level = 0
+            st.session_state.badges = []
+            st.session_state.streak = 0
 
-# Call the function to set up the demo state
-initialize_session_for_demo()
-# ------------------------- (End of demonstration section) -------------------------
+            logging.info("User logged out")
+            st.session_state.current_page = "account" # Ensure redirection to the same page
+            st.rerun()
 
+        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+        st.markdown("This is your personal dashboard. Track your progress and manage your account.")
+        st.markdown("---")
 
-# --- Refactored Logout Logic ---
-def handle_logout():
-    """
-    Clears all user-specific data from the session state upon logout.
-    This modular function makes the main code cleaner and the logic reusable.
-    """
-    user_session_keys = [
-        'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
-        'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak'
-    ]
-    for key in user_session_keys:
-        if key in st.session_state:
-            del st.session_state[key]
+        # --- Main Dashboard Layout using Columns ---
+        col1, col2 = st.columns([2, 1])
 
-    # Re-initialize core data structures to their empty state
-    st.session_state.drawings = {}
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-    st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
-    st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-    st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-    st.session_state.xp = 0
-    st.session_state.level = 0
-    st.session_state.badges = []
-    st.session_state.streak = 0
+        with col1:
+            st.subheader("📈 Progress Snapshot")
+            metric1, metric2, metric3 = st.columns(3)
+            metric1.metric(label="Current Level", value=f"LVL {st.session_state.get('level', 0)}")
+            metric2.metric(label="Journaling Streak", value=f"{st.session_state.get('streak', 0)} Days 🔥")
+            metric3.metric(label="Total XP", value=f"{st.session_state.get('xp', 0)}")
 
-    logging.info("User logged out")
-    st.session_state.current_page = "account" # Ensure redirection to the same page
-    st.rerun()
+            st.markdown("#### **Level Progress**")
+            current_level = st.session_state.get('level', 0)
+            xp_for_next_level = (current_level + 1) * 100
+            xp_in_current_level = st.session_state.get('xp', 0) - (current_level * 100)
+            progress_percentage = xp_in_current_level / 100
+            st.progress(progress_percentage)
+            st.caption(f"{xp_in_current_level} / 100 XP to the next level.")
 
-# ==============================================================================
-# --- MAIN PAGE ROUTER ---
-# This is the correct structure for managing different pages in your app.
-# ==============================================================================
+        with col2:
+            st.subheader("🏆 Badges")
+            badges = st.session_state.get('badges', [])
+            if badges:
+                for badge in badges:
+                    st.markdown(f"- 🏅 {badge}")
+            else:
+                st.info("No badges earned yet. Keep up the great work to unlock them!")
 
-# --- ACCOUNT PAGE ---
-if st.session_state.current_page == 'account':
+        st.markdown("---")
 
-    # --- Header ---
-    st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-    st.markdown("This is your personal dashboard. Track your progress and manage your account.")
-    st.markdown("---")
+        # --- Account Details and Actions using an Expander ---
+        with st.expander("⚙️ Manage Account"):
+            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+            st.write("**Email**: `trader.pro@email.com` (example)")
+            if st.button("Log Out", key="logout_account_page", type="primary"):
+                handle_logout()
 
-    # --- Main Dashboard Layout using Columns ---
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.subheader("📈 Progress Snapshot")
-        metric1, metric2, metric3 = st.columns(3)
-        metric1.metric(label="Current Level", value=f"LVL {st.session_state.get('level', 0)}")
-        metric2.metric(label="Journaling Streak", value=f"{st.session_state.get('streak', 0)} Days 🔥")
-        metric3.metric(label="Total XP", value=f"{st.session_state.get('xp', 0)}")
-
-        st.markdown("#### **Level Progress**")
-        current_level = st.session_state.get('level', 0)
-        xp_for_next_level = (current_level + 1) * 1000
-        xp_in_current_level = st.session_state.get('xp', 0) - (current_level * 1000)
-        progress_percentage = xp_in_current_level / 1000
-        st.progress(progress_percentage)
-        st.caption(f"{xp_in_current_level} / 1000 XP to the next level.")
-
-    with col2:
-        st.subheader("🏆 Badges")
-        badges = st.session_state.get('badges', [])
-        if badges:
-            for badge in badges:
-                st.markdown(f"- 🏅 {badge}")
-        else:
-            st.info("No badges earned yet. Keep up the great work to unlock them!")
-
-    st.markdown("---")
-
-    # --- Account Details and Actions using an Expander ---
-    with st.expander("⚙️ Manage Account"):
-        st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-        st.write("**Email**: `trader.pro@email.com` (example)")
-        if st.button("Log Out", key="logout_account_page", type="primary"):
-            handle_logout()
-
-# --- COMMUNITY PAGE ---
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
     st.write('---')
-    # ... (Add the rest of your community page code here)
-
-# --- You can add other pages below ---
-# elif st.session_state.current_page == 'settings':
-#     st.title("Settings")
-#     # ...
     st.subheader("➕ Share a Trade Idea")
     with st.form("trade_idea_form"):
         trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
@@ -1817,7 +1771,7 @@ elif st.session_state.current_page == 'community':
         for idx, idea in st.session_state.trade_ideas.iterrows():
             with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
                 st.markdown(f"Description: {idea['Description']}")
-                if "ImagePath" in idea and os.path.exists(idea['ImagePath']):
+                if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
                     st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
                 if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
                     if "logged_in_user" in st.session_state and st.session_state.logged_in_user == idea["Username"]:
