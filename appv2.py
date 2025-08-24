@@ -630,11 +630,11 @@ nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('backtesting', 'Backtesting'),
     ('mt5', 'Performance Dashboard'),
-    ('strategy', 'Manage My Strategy'),
-    ('account', 'My Account'),
-    ('community', 'Community Trade Ideas'),
     ('tools', 'Tools'),
-    ('Zenvo Academy', 'Zenvo Academy')
+    ('strategy', 'Manage My Strategy'),
+    ('community', 'Community Trade Ideas'),
+    ('Zenvo Academy', 'Zenvo Academy'),
+    ('account', 'My Account')
 ]
 
 for page_key, page_name in nav_items:
