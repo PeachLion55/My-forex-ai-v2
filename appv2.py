@@ -2341,14 +2341,90 @@ elif st.session_state.current_page == 'tools':
         if "reflection_log" in st.session_state and not st.session_state.reflection_log.empty:
             st.dataframe(st.session_state.reflection_log)
 
-elif st.session_state.current_page == "Zenvo Academy":
-    st.title("Zenvo Academy")
-    st.caption("Explore experimental features and tools for your trading journey.")
+import streamlit as st
+import pandas as pd
+import logging
+
+# --- (Existing logout and session state management code remains the same) ---
+journal_cols = ["Trade ID", "Date", "Asset", "Strategy", "Position", "Entry Price", "Exit Price", "Stop Loss", "Take Profit", "Outcome", "Profit/Loss", "Notes"]
+journal_dtypes = {"Trade ID": "str", "Date": "str", "Asset": "str", "Strategy": "str", "Position": "str", "Entry Price": "float", "Exit Price": "float", "Stop Loss": "float", "Take Profit": "float", "Outcome": "str", "Profit/Loss": "float", "Notes": "str"}
+
+if st.session_state.current_page == "Zenvo Academy":
+    st.title("📚 Zenvo Academy")
+    st.caption("Your journey to trading mastery starts here. Explore interactive courses, track your progress, and unlock your potential.")
     st.markdown('---')
-    st.markdown("### Welcome to Zenvo Academy")
-    st.write("Our Academy provides beginner traders with a clear learning path – covering Forex basics, chart analysis, risk management, and trading psychology. Build a solid foundation before stepping into live markets.")
-    st.info("This page is under development. Stay tuned for new features!")
-    if st.button("Log Out", key="logout_test_page"):
+
+    # --- Academy Tabs ---
+    tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
+
+    with tab1:
+        st.markdown("### 🗺️ Your Learning Path")
+        st.write("Our Academy provides a clear learning path for traders of all levels. Start from the beginning or jump into a topic that interests you.")
+
+        # --- Course: Forex Fundamentals ---
+        with st.expander("Forex Fundamentals - Level 1 (100 XP)", expanded=True):
+            st.markdown("**Description:** This course is your first step into the world of Forex trading. You'll learn the essential concepts that every trader needs to know.")
+
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown("""
+                    - **Lesson 1:** What is Forex?
+                    - **Lesson 2:** How to Read a Currency Pair
+                    - **Lesson 3:** Understanding Pips and Lots
+                    - **Lesson 4:** Introduction to Charting
+                """)
+            with col2:
+                st.button("Start Learning", key="start_forex_fundamentals")
+                st.progress(st.session_state.get('forex_fundamentals_progress', 0))
+
+
+        # --- Course: Technical Analysis 101 ---
+        with st.expander("Technical Analysis 101 - Level 2 (150 XP)"):
+            st.markdown("**Description:** Learn how to analyze price charts to identify trading opportunities. This course covers the foundational tools of technical analysis.")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown("""
+                    - **Lesson 1:** Candlestick Patterns
+                    - **Lesson 2:** Support and Resistance
+                    - **Lesson 3:** Trendlines and Channels
+                    - **Lesson 4:** Moving Averages
+                """)
+            with col2:
+                st.button("Start Course", key="start_technical_analysis", disabled=st.session_state.level < 1)
+
+
+    with tab2:
+        st.markdown("### 🚀 Your Progress")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Your Level", st.session_state.get('level', 0))
+        with col2:
+            st.metric("Experience Points (XP)", f"{st.session_state.get('xp', 0)} / {(st.session_state.get('level', 0) + 1) * 100}")
+        with col3:
+            st.metric("Badges Earned", len(st.session_state.get('badges', [])))
+
+        st.markdown("---")
+        st.markdown("#### 📜 Completed Courses")
+        if 'completed_courses' in st.session_state and st.session_state.completed_courses:
+            for course in st.session_state.completed_courses:
+                st.success(f"**{course}** - Completed!")
+        else:
+            st.info("You haven't completed any courses yet. Get started on the Learning Path!")
+
+        st.markdown("#### 🎖️ Your Badges")
+        if 'badges' in st.session_state and st.session_state.badges:
+            for badge in st.session_state.badges:
+                st.markdown(f"- 🏅 {badge}")
+        else:
+            st.info("No badges earned yet. Complete courses to unlock them!")
+
+
+    with tab3:
+        st.markdown("### 🧰 Trading Resources")
+        st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
+
+
+    if st.button("Log Out", key="logout_academy_page"):
         if 'logged_in_user' in st.session_state:
             del st.session_state.logged_in_user
         st.session_state.drawings = {}
@@ -2360,6 +2436,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         st.session_state.level = 0
         st.session_state.badges = []
         st.session_state.streak = 0
+        st.session_state.completed_courses = []
         st.success("Logged out successfully!")
         logging.info("User logged out")
         st.session_state.current_page = "login"
