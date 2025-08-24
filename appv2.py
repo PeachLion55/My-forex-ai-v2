@@ -1657,6 +1657,7 @@ elif st.session_state.current_page == 'account':
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
     else:
+
 import streamlit as st
 import pandas as pd
 import logging
