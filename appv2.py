@@ -139,7 +139,7 @@ def _ta_save_journal(username, journal_df):
 def ta_update_xp(amount):
     username = st.session_state.get('logged_in_user')
     if not username: return
-    
+
     user_data = _ta_get_user_data(username)
     old_xp = user_data.get('xp', 0)
     new_xp = old_xp + amount
@@ -147,7 +147,7 @@ def ta_update_xp(amount):
     new_level = new_xp // 100
 
     user_data['xp'] = new_xp
-    
+
     if new_level > old_level:
         user_data['level'] = new_level
         badges = user_data.get('badges', [])
@@ -172,7 +172,7 @@ def ta_update_streak():
     today = dt.date.today()
     last_date_str = user_data.get('last_journal_date')
     streak = user_data.get('streak', 0)
-    
+
     update_required = False
     if last_date_str:
         last_date = dt.date.fromisoformat(last_date_str)
@@ -185,11 +185,11 @@ def ta_update_streak():
     else: # First journal entry
         streak = 1
         update_required = True
-        
+
     if update_required:
         user_data['streak'] = streak
         user_data['last_journal_date'] = today.isoformat()
-        
+
         if streak > 0 and streak % 7 == 0:
             badge = f"Discipline Badge ({streak} Days)"
             badges = user_data.get('badges', [])
@@ -198,7 +198,7 @@ def ta_update_streak():
                 user_data['badges'] = badges
                 st.balloons()
                 st.success(f"Unlocked: {badge}!")
-        
+
         if _ta_update_user_data(username, user_data):
             st.session_state.streak = user_data['streak']
             st.session_state.badges = user_data.get('badges', [])
@@ -292,7 +292,7 @@ def initialize_empty_dataframes():
 
 if 'tools_trade_journal' not in st.session_state:
     initialize_empty_dataframes()
-    
+
 # Community data is loaded once
 if "trade_ideas" not in st.session_state:
     st.session_state.trade_ideas = pd.DataFrame(_ta_load_community('trade_ideas', []))
@@ -304,12 +304,16 @@ if "community_templates" not in st.session_state:
 # SIDEBAR & NAVIGATION (Unchanged)
 # =========================================================
 st.markdown("""<style>.sidebar-content {padding-top: 0rem;}</style>""", unsafe_allow_html=True)
-logo = Image.open("logo22.png")
-logo = logo.resize((60, 50))
-buffered = io.BytesIO()
-logo.save(buffered, format="PNG")
-logo_str = base64.b64encode(buffered.getvalue()).decode()
-st.sidebar.markdown(f"""<div style='text-align: center; margin-bottom: 20px;'><img src="data:image/png;base64,{logo_str}" width="60" height="50"/></div>""", unsafe_allow_html=True)
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(f"""<div style='text-align: center; margin-bottom: 20px;'><img src="data:image/png;base64,{logo_str}" width="60" height="50"/></div>""", unsafe_allow_html=True)
+except FileNotFoundError:
+    st.sidebar.warning("logo22.png not found.")
+
 
 nav_items = [('fundamentals', 'Forex Fundamentals'), ('backtesting', 'Backtesting'), ('mt5', 'Performance Dashboard'), ('tools', 'Tools'), ('strategy', 'Manage My Strategy'), ('community', 'Community Trade Ideas'), ('Zenvo Academy', 'Zenvo Academy'), ('account', 'My Account')]
 for page_key, page_name in nav_items:
@@ -327,6 +331,9 @@ if st.session_state.current_page == 'fundamentals':
     # This page content is unchanged
     st.title("📅 Forex Fundamentals")
     # ... (all UI and display logic remains the same) ...
+    # This part is representative
+    st.markdown("### 🗓️ Upcoming Economic Events")
+    st.dataframe(econ_df, use_container_width=True)
 
 
 elif st.session_state.current_page == 'backtesting':
@@ -369,6 +376,7 @@ elif st.session_state.current_page == 'backtesting':
 elif st.session_state.current_page == 'mt5':
     # This page is unchanged as it relies on a local file upload, no DB interaction.
     st.title("📊 Performance Dashboard")
+    st.info("This feature works by uploading a CSV file and does not interact with the database.")
     # ... (content remains identical) ...
 
 
@@ -376,15 +384,21 @@ elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     with st.form("strategy_form"):
         # ... (form unchanged) ...
+        strategy_name = st.text_input("Strategy Name")
+        description = st.text_area("Strategy Description")
         submit_strategy = st.form_submit_button("Save Strategy")
         if submit_strategy:
-            # logic to append to st.session_state.strategies dataframe ...
+            new_strategy = {"Name": strategy_name, "Description": description}
+            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([new_strategy])], ignore_index=True)
+
             username = st.session_state.get('logged_in_user')
             if username:
                 user_data = _ta_get_user_data(username)
                 user_data['strategies'] = st.session_state.strategies.to_dict('records')
                 _ta_update_user_data(username, user_data)
                 st.success("Strategy saved!")
+            else:
+                st.info("Log in to save your strategy.")
 
 
 elif st.session_state.current_page == 'account':
@@ -413,17 +427,21 @@ elif st.session_state.current_page == 'account':
                             if stored_hash == input_hash:
                                 st.session_state.logged_in_user = username
                                 user_data = response.data.get('data', {})
-                                
+
                                 # Load all data from the JSONB field into session state
-                                st.session_state.tools_trade_journal = pd.DataFrame(user_data.get('tools_trade_journal', [])).astype({k:v for k,v in journal_dtypes.items() if k in user_data.get('tools_trade_journal',[{}])[0]}, errors='ignore') if user_data.get('tools_trade_journal') else initialize_empty_dataframes()
+                                journal_data = user_data.get('tools_trade_journal', [])
+                                if journal_data:
+                                     st.session_state.tools_trade_journal = pd.DataFrame(journal_data)
+                                else:
+                                     st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols)
+
                                 st.session_state.strategies = pd.DataFrame(user_data.get('strategies', []))
                                 st.session_state.drawings = user_data.get('drawings', {})
                                 st.session_state.xp = user_data.get('xp', 0)
                                 st.session_state.level = user_data.get('level', 0)
                                 st.session_state.badges = user_data.get('badges', [])
                                 st.session_state.streak = user_data.get('streak', 0)
-                                # ... load other logs if they exist
-                                
+
                                 st.success(f"Welcome back, {username}!")
                                 logging.info(f"User '{username}' logged in.")
                                 st.rerun()
@@ -434,7 +452,7 @@ elif st.session_state.current_page == 'account':
                     except Exception as e:
                         st.error("An error occurred during login.")
                         logging.error(f"Login error for {username}: {e}")
-        
+
         with tab_signup:
             with st.form("register_form"):
                 new_username = st.text_input("New Username")
@@ -465,7 +483,7 @@ elif st.session_state.current_page == 'account':
                                     'password': hashed_password,
                                     'data': initial_data
                                 }).execute()
-                                
+
                                 st.session_state.logged_in_user = new_username
                                 initialize_empty_dataframes()
                                 st.success(f"Account for '{new_username}' created successfully!")
@@ -474,13 +492,13 @@ elif st.session_state.current_page == 'account':
                         except Exception as e:
                             st.error(f"Failed to create account: {e}")
                             logging.error(f"Registration error for {new_username}: {e}")
-                            
+
     else: # Logged-in user view
         def handle_logout():
             user_session_keys = ['logged_in_user', 'xp', 'level', 'badges', 'streak']
             for key in user_session_keys:
                 if key in st.session_state: del st.session_state[key]
-            
+
             initialize_empty_dataframes()
             logging.info("User logged out.")
             st.rerun()
@@ -506,7 +524,7 @@ elif st.session_state.current_page == 'community':
             for user_profile in response.data:
                 trades = len(user_profile.get('data', {}).get('tools_trade_journal', []))
                 leader_data.append({"Username": user_profile['username'], "Journaled Trades": trades})
-        
+
         if leader_data:
             leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
             leader_df["Rank"] = leader_df.index + 1
