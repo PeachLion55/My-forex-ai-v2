@@ -563,80 +563,150 @@ def ta_update_streak():
         username = st.session_state.logged_in_user
         try:
             response = supabase.table('users').select('data').eq('username', username).execute()
-            if not response.data: return
-            user_data = response.data[0]['data'] if response.data[0].get('data') else {}
-            today = dt.date.today().isoformat()
-            last_date = user_data.get('last_journal_date')
+            if not response.data:
+                logging.warning(f"No user found for streak update: {username}")
+                return
+                
+            user_data = response.data[0].get('data') or {}
+            today = dt.date.today()
+            last_date_str = user_data.get('last_journal_date')
             streak = user_data.get('streak', 0)
-            if last_date:
-                last = dt.date.fromisoformat(last_date)
-                if last == dt.date.today() - dt.timedelta(days=1):
+            
+            # --- Corrected Streak Logic ---
+            updated = False
+            if last_date_str:
+                last_date = dt.date.fromisoformat(last_date_str)
+                if last_date == today:
+                    # Do nothing if a log has already been made today
+                    pass
+                elif last_date == today - dt.timedelta(days=1):
                     streak += 1
-                elif last < dt.date.today() - dt.timedelta(days=1):
+                    updated = True
+                else: # Gap of more than one day, so streak resets
                     streak = 1
-            else: streak = 1
-            user_data['streak'] = streak
-            user_data['last_journal_date'] = today
-            if streak > 0 and streak % 7 == 0:
-                badges = user_data.get('badges', [])
-                badge_name = "Discipline Badge"
-                if badge_name not in badges:
-                    badges.append(badge_name)
-                    user_data['badges'] = badges
-                    st.balloons()
-            supabase.table('users').update({'data': user_data}).eq('username', username).execute()
-            st.session_state.streak = streak
-            st.session_state.badges = user_data.get('badges', [])
+                    updated = True
+            else: # First ever journal entry for the user
+                streak = 1
+                updated = True
+            
+            # --- Only update if there's a change ---
+            if updated:
+                user_data['streak'] = streak
+                user_data['last_journal_date'] = today.isoformat()
+
+                # Improved Badging Logic
+                if streak > 0 and streak % 7 == 0:
+                    badges = user_data.get('badges', [])
+                    badge_name = f"{streak}-Day Discipline Streak" # e.g., "7-Day Discipline Streak"
+                    if badge_name not in badges:
+                        badges.append(badge_name)
+                        user_data['badges'] = badges
+                        st.balloons()
+                        st.success(f"New Badge Unlocked: {badge_name}!")
+                
+                supabase.table('users').update({'data': user_data}).eq('username', username).execute()
+                st.session_state.streak = user_data['streak']
+                st.session_state.badges = user_data.get('badges', [])
+
         except Exception as e:
             logging.error(f"Failed to update streak for {username}: {e}")
 
-# ... (The rest of the unchanged functions and UI code is here) ...
-# I will only show the remaining changed parts.
+# In page 'account' -> within 'SIGN IN TAB' -> inside 'with st.form("login_form"):'
+# This is the logic that runs when the login button is clicked.
+if login_button:
+    if not username or not password:
+        st.error("Please enter both a username and password.")
+    else:
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        try:
+            response = supabase.table('users').select('password, data').eq('username', username).execute()
+            if response.data and response.data[0]['password'] == hashed_password:
+                st.session_state.logged_in_user = username
+                user_data = response.data[0].get('data') or {}
+                
+                # Load all user data into session state
+                st.session_state.drawings = user_data.get("drawings", {})
+                if "tools_trade_journal" in user_data and user_data["tools_trade_journal"]:
+                    loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
+                else:
+                    loaded_df = pd.DataFrame(columns=journal_cols)
+                
+                # Ensure all columns exist to prevent errors
+                for col in journal_cols:
+                    if col not in loaded_df.columns:
+                        loaded_df[col] = pd.Series(dtype=journal_dtypes.get(col, str))
+                st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                
+                st.session_state.xp = user_data.get('xp', 0)
+                st.session_state.level = user_data.get('level', 0)
+                st.session_state.badges = user_data.get('badges', [])
+                st.session_state.streak = user_data.get('streak', 0)
+                
+                st.success(f"Welcome back, {username}!")
+                logging.info(f"User {username} logged in successfully")
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+                logging.warning(f"Failed login attempt for {username}")
+        except Exception as e:
+            st.error(f"An error occurred during login: {e}")
+            logging.error(f"Login error for {username}: {e}")
 
-# [Unchanged UI Code...]
+# In page 'account' -> within 'SIGN UP TAB' -> inside 'with st.form("register_form"):'
+# This is the logic that runs when the register button is clicked.
+if register_button:
+    if new_password != confirm_password:
+        st.error("Passwords do not match.")
+    elif not new_username or not new_password:
+        st.error("Username and password cannot be empty.")
+    else:
+        try:
+            existing_user_res = supabase.table('users').select('username', columns='username').eq('username', new_username).execute()
+            if existing_user_res.data:
+                st.error("Username already exists.")
+            else:
+                hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                initial_data = {
+                    "xp": 0, "level": 0, "badges": [], "streak": 0,
+                    "drawings": {}, "tools_trade_journal": [],
+                    "strategies": [], "emotion_log": [], "reflection_log": []
+                }
+                
+                supabase.table('users').insert({
+                    'username': new_username,
+                    'password': hashed_password,
+                    'data': initial_data
+                }).execute()
+                
+                st.success(f"Account created for {new_username}! Please go to the 'Sign In' tab to log in.")
+                logging.info(f"User {new_username} registered successfully")
+        except Exception as e:
+            st.error(f"Failed to create account: {str(e)}")
+            logging.error(f"Registration error for {new_username}: {e}")
 
-# In page 'account' -> 'SIGN IN TAB':
-# OLD logic replaced with:
-                    response = supabase.table('users').select('password, data').eq('username', username).execute()
-                    if response.data and response.data[0]['password'] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        user_data = response.data[0]['data'] if response.data[0].get('data') else {}
-                        # (rest of session state loading)
+# In page 'account' -> inside 'with tab_debug:'
+# This is the full logic for the debug tab.
+st.subheader("Debug: Inspect Database")
+st.warning("This is for debugging only.")
+try:
+    st.write("Users Table (first 5 entries):")
+    users_response = supabase.table('users').select('username, data').limit(5).execute()
+    if users_response.data:
+        st.dataframe(pd.DataFrame(users_response.data))
+    else:
+        st.info("No users found.")
 
-# In page 'account' -> 'SIGN UP TAB':
-# OLD logic replaced with:
-                        try:
-                            # Check if user exists first
-                            existing_user = supabase.table('users').select('username').eq('username', new_username).execute()
-                            if existing_user.data:
-                                st.error("Username already exists.")
-                            else:
-                                initial_data = {"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "tools_trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []}
-                                supabase.table('users').insert({
-                                    'username': new_username,
-                                    'password': hashed_password,
-                                    'data': initial_data
-                                }).execute()
-                                # (rest of session state loading after signup)
-                        except Exception as e:
-                             st.error(f"Failed to create account: {e}")
-                             
-# In page 'account' -> 'DEBUG TAB':
-# OLD logic replaced with:
-            try:
-                st.write("Users Table:")
-                users_response = supabase.table('users').select('username, data').execute()
-                st.dataframe(pd.DataFrame(users_response.data))
+    st.write("Community Data Table (first 5 entries):")
+    community_response = supabase.table('community_data').select('*').limit(5).execute()
+    if community_response.data:
+        st.dataframe(pd.DataFrame(community_response.data))
+    else:
+        st.info("No community data found.")
+except Exception as e:
+    st.error(f"Error accessing database: {e}")
+    logging.error(f"Debug tab error: {e}")```
 
-                st.write("Community Data Table:")
-                community_response = supabase.table('community_data').select('*').execute()
-                st.dataframe(pd.DataFrame(community_response.data))
-            except Exception as e:
-                st.error(f"Error accessing database: {e}")
 
-# (Final full code is now being generated based on these replacements)
-# ...
-# Full code follows.
 
 # === FINAL FULL CODE ===
 
