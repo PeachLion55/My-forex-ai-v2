@@ -1417,76 +1417,7 @@ elif st.session_state.current_page == 'mt5':
             _ta_show_badges(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
-    st.markdown("### 🧭 Edge Finder – Highest Expectancy Segments")
-    df = st.session_state.get("mt5_df", pd.DataFrame())
-    if df.empty:
-        st.info("Upload trades with at least one of: timeframe, symbol, setup and 'r' (R-multiple).")
-    else:
-        group_cols = []
-        if "timeframe" in df.columns:
-            group_cols.append("timeframe")
-        if "symbol" in df.columns:
-            group_cols.append("symbol")
-        if "setup" in df.columns:
-            group_cols.append("setup")
-        if group_cols:
-            agg = _ta_expectancy_by_group(df, group_cols).sort_values("expectancy", ascending=False)
-            st.dataframe(agg, use_container_width=True)
-            top_n = st.slider("Show Top N", 5, 50, 15, key="edge_topn")
-            st.plotly_chart(px.bar(agg.head(top_n), x="expectancy", y=group_cols, orientation="h"), use_container_width=True)
-        else:
-            st.warning("Edge Finder needs timeframe/symbol/setup columns.")
-    st.markdown("### 🧩 Customisable Dashboard")
-    if df.empty:
-        st.info("Upload trades to customise KPIs.")
-    else:
-        all_kpis = [
-            "Total Trades", "Win Rate", "Avg R", "Profit Factor", "Max Drawdown (PnL)",
-            "Best Symbol", "Worst Symbol", "Best Timeframe", "Worst Timeframe"
-        ]
-        chosen = st.multiselect("Select KPIs to display", all_kpis, default=["Total Trades","Win Rate","Avg R","Profit Factor"], key="mt5_kpis")
-        cols = st.columns(4)
-        i = 0
-        best_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=False).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-        worst_sym = df.groupby("symbol")["r"].mean().sort_values(ascending=True).index[0] if "symbol" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-        best_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=False).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-        worst_tf = df.groupby("timeframe")["r"].mean().sort_values(ascending=True).index[0] if "timeframe" in df.columns and "r" in df.columns and not df["r"].isna().all() else "—"
-        def _metric_map():
-            return {
-                "Total Trades": len(df),
-                "Win Rate": ta_human_pct((df["r"]>0).mean()) if "r" in df.columns else "—",
-                "Avg R": _ta_human_num(df["r"].mean()) if "r" in df.columns else "—",
-                "Profit Factor": _ta_human_num(_ta_profit_factor(df)) if "pnl" in df.columns else "—",
-                "Max Drawdown (PnL)": _ta_human_num((df["pnl"].fillna(0).cumsum() - df["pnl"].fillna(0).cumsum().cummax()).min()) if "pnl" in df.columns else "—",
-                "Best Symbol": best_sym,
-                "Worst Symbol": worst_sym,
-                "Best Timeframe": best_tf,
-                "Worst Timeframe": worst_tf,
-            }
-        for k in chosen:
-            with cols[i % 4]:
-                st.metric(k, _metric_map().get(k, "—"))
-            i += 1
-        try:
-            _ta_show_badges(df)
-        except Exception:
-            pass
-    # Dynamic Performance Reports
-    st.subheader("📈 Dynamic Performance Reports")
-    if not df.empty:
-        group_cols = []
-        if "timeframe" in df.columns:
-            group_cols.append("timeframe")
-        if "symbol" in df.columns:
-            group_cols.append("symbol")
-        if "setup" in df.columns:
-            group_cols.append("setup")
-        if group_cols:
-            agg = _ta_expectancy_by_group(df, group_cols).sort_values("winrate", ascending=False)
-            if not agg.empty:
-                top_row = agg.iloc[0]
-                insight = f"This month your highest probability setup was {' '.join([str(top_row[col]) for col in group_cols])} with {top_row['winrate']*100:.1f}% winrate."
-                st.info(insight)
+
         else:
             st.info("Upload trades to generate insights.")
     # Report Export & Sharing
