@@ -8,7 +8,8 @@ pytz
 scipy
 
 # --- Database & API ---
-supabase-py
+supabase-py==2.4.1
+gotrue==2.3.0
 
 # --- Plotting & Visuals ---
 plotly
