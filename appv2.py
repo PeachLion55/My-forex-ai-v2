@@ -1559,7 +1559,7 @@ elif st.session_state.current_page == 'account':
         - Import/export your account data easily.
         """
     )
-    st.markdown("---") # Replaced st.write for consistency
+    st.write('---')
     if "logged_in_user" not in st.session_state:
         # Tabs for Sign In and Sign Up
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
@@ -1672,7 +1672,10 @@ elif st.session_state.current_page == 'account':
         # LOGGED-IN USER VIEW
         # --------------------------
         def handle_logout():
-            """Clears all user-specific data from the session state upon logout."""
+            """
+            Clears all user-specific data from the session state upon logout.
+            This modular function makes the main code cleaner and the logic reusable.
+            """
             user_session_keys = [
                 'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
                 'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak'
@@ -1680,6 +1683,8 @@ elif st.session_state.current_page == 'account':
             for key in user_session_keys:
                 if key in st.session_state:
                     del st.session_state[key]
+
+            # Re-initialize core data structures to their empty state
             st.session_state.drawings = {}
             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
@@ -1689,31 +1694,52 @@ elif st.session_state.current_page == 'account':
             st.session_state.level = 0
             st.session_state.badges = []
             st.session_state.streak = 0
+
             logging.info("User logged out")
-            st.session_state.current_page = "account"
+            st.session_state.current_page = "account" # Ensure redirection to the same page
             st.rerun()
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
-        
-        # --- FIX 1: The "Progress Snapshot" header and the horizontal line are moved here, before any columns are created. ---
-        st.subheader("📈 Progress Snapshot")
         st.markdown("---")
+        
 
         # --- Main Dashboard Layout using Columns ---
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            # The subheader that was here is now moved above.
+            st.subheader("📈 Progress Snapshot")
             
             # --- Custom CSS for the KPI cards ---
             st.markdown("""
             <style>
-            .kpi-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #58b3b1; margin-bottom: 10px; }
-            .kpi-icon { font-size: 2.5em; margin-bottom: 10px; }
-            .kpi-value { font-size: 1.8em; font-weight: bold; color: #FFFFFF; }
-            .kpi-label { font-size: 0.9em; color: #A0A0A0; }
-            .insights-card { background-color: rgba(45, 70, 70, 0.3); border-left: 5px solid #58b3b1; padding: 15px; border-radius: 5px; }
+            .kpi-card {
+                background-color: rgba(45, 70, 70, 0.5);
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                border: 1px solid #58b3b1;
+                margin-bottom: 10px;
+            }
+            .kpi-icon {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+            }
+            .kpi-value {
+                font-size: 1.8em;
+                font-weight: bold;
+                color: #FFFFFF;
+            }
+            .kpi-label {
+                font-size: 0.9em;
+                color: #A0A0A0;
+            }
+            .insights-card {
+                background-color: rgba(45, 70, 70, 0.3);
+                border-left: 5px solid #58b3b1;
+                padding: 15px;
+                border-radius: 5px;
+            }
             </style>
             """, unsafe_allow_html=True)
 
@@ -1721,70 +1747,94 @@ elif st.session_state.current_page == 'account':
             kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
             with kpi_col1:
                 level = st.session_state.get('level', 0)
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {level}</div><div class="kpi-label">Trader's Rank</div></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🧙‍♂️</div>
+                    <div class="kpi-value">Level {level}</div>
+                    <div class="kpi-label">Trader's Rank</div>
+                </div>
+                """, unsafe_allow_html=True)
             with kpi_col2:
                 streak = st.session_state.get('streak', 0)
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{streak} Days</div><div class="kpi-label">Journaling Streak</div></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🔥</div>
+                    <div class="kpi-value">{streak} Days</div>
+                    <div class="kpi-label">Journaling Streak</div>
+                </div>
+                """, unsafe_allow_html=True)
             with kpi_col3:
                 total_xp = st.session_state.get('xp', 0)
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{total_xp:,}</div><div class="kpi-label">Total Experience</div></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">⭐</div>
+                    <div class="kpi-value">{total_xp:,}</div>
+                    <div class="kpi-label">Total Experience</div>
+                </div>
+                """, unsafe_allow_html=True)
             
-            # The horizontal line that was here is now moved above.
+            st.markdown("---")
 
             # --- Row 2: Progress Chart and Insights ---
-            # --- FIX 2: Change the column ratios to create a more significant spacer. ---
-            chart_col, spacer_col, insights_col = st.columns([2, 1, 2])
+            # Use the 'gap' parameter to create significant horizontal space between the columns
+            chart_col, spacer_col, insights_col = st.columns([10, 1, 10])
 
             with chart_col:
                 st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+                total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
                 xp_in_level = total_xp % 100
                 xp_needed = 100 - xp_in_level
 
                 fig = go.Figure(go.Pie(
-                    values=[xp_in_level, xp_needed], labels=['XP Gained', 'XP Needed'],
-                    hole=0.6, marker_colors=['#58b3b1', '#2d4646'], textinfo='none',
-                    hoverinfo='label+value', direction='clockwise', sort=False
+                    values=[xp_in_level, xp_needed],
+                    labels=['XP Gained', 'XP Needed'],
+                    hole=0.6,
+                    marker_colors=['#58b3b1', '#2d4646'],
+                    textinfo='none',
+                    hoverinfo='label+value',
+                    direction='clockwise',
+                    sort=False
                 ))
                 fig.update_layout(
-                    showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    showlegend=False,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
                     annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
                     margin=dict(t=0, b=0, l=0, r=0)
                 )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
             
+            # The spacer column is left empty to create the space.
             with spacer_col:
-                st.empty() # This intentionally empty column creates the space.
+                st.empty()
 
             with insights_col:
                 st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
+                streak = st.session_state.get('streak', 0) # Ensure streak is defined here
                 
                 insight_message = ""
-                if streak > 21: insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
-                elif streak > 7: insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
-                else: insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
+                if streak > 21:
+                    insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
+                elif streak > 7:
+                    insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
+                else:
+                    insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
                 
                 st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
 
                 num_trades = len(st.session_state.tools_trade_journal)
                 next_milestone = ""
-                if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
-                elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
-                else: next_milestone = "The next streak badge is at 30 days. You've got this!"
+                if num_trades < 10:
+                    next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50:
+                    next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                else:
+                     next_milestone = "The next streak badge is at 30 days. You've got this!"
 
                 st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
-        with col2:
-            st.subheader("🏆 Badges")
-            badges = st.session_state.get('badges', [])
-            if badges:
-                for badge in badges:
-                    st.markdown(f"- 🏅 {badge}")
-            else:
-                st.info("No badges earned yet. Keep up the great work to unlock them!")
-        
-        st.markdown("---") # Placed after the main two-column layout
-
-        # --- XP Journey Chart (already full-width) ---
+        # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
         journal_df = st.session_state.tools_trade_journal
         if not journal_df.empty and 'Date' in journal_df.columns:
@@ -1797,13 +1847,25 @@ elif st.session_state.current_page == 'account':
                                 title="XP Growth Over Time (Based on Journal Entries)",
                                 labels={'Date': 'Journal Entry Date', 'cumulative_xp': 'Cumulative XP'})
             fig_line.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(45, 70, 70, 0.3)',
-                xaxis=dict(gridcolor='#4d7171'), yaxis=dict(gridcolor='#4d7171'),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(45, 70, 70, 0.3)',
+                xaxis=dict(gridcolor='#4d7171'),
+                yaxis=dict(gridcolor='#4d7171'),
                 font_color="white"
             )
             st.plotly_chart(fig_line, use_container_width=True)
         else:
             st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
+        with col2:
+            st.subheader("🏆 Badges")
+            badges = st.session_state.get('badges', [])
+            if badges:
+                for badge in badges:
+                    st.markdown(f"- 🏅 {badge}")
+            else:
+                st.info("No badges earned yet. Keep up the great work to unlock them!")
+
+        st.markdown("---")
 
         # --- Account Details and Actions using an Expander ---
         with st.expander("⚙️ Manage Account"):
@@ -1811,7 +1873,6 @@ elif st.session_state.current_page == 'account':
             st.write("**Email**: `trader.pro@email.com` (example)")
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
-
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
