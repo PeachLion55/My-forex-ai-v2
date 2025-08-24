@@ -1701,7 +1701,7 @@ elif st.session_state.current_page == 'account':
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
-        st.markdown("---")
+        
 
         # --- Main Dashboard Layout using Columns ---
         col1, col2 = st.columns([2, 1])
