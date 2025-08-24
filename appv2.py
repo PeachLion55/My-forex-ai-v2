@@ -1701,6 +1701,7 @@ elif st.session_state.current_page == 'account':
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
+        st.markdown("---")
         
 
         # --- Main Dashboard Layout using Columns ---
@@ -1800,9 +1801,12 @@ elif st.session_state.current_page == 'account':
                     margin=dict(t=0, b=0, l=0, r=0)
                 )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+            # The spacer_col is intentionally left empty to create the visual gap.
+            with spacer_col:
+                st.empty()
                 
             with insights_col:
-                # The ineffective div wrapper has been removed. Spacing is now handled by the column definition.
                 st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
                 
                 insight_message = ""
@@ -1824,7 +1828,7 @@ elif st.session_state.current_page == 'account':
                 else:
                      next_milestone = "The next streak badge is at 30 days. You've got this!"
 
-                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 Next Up: {next_milestone}</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
         # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
