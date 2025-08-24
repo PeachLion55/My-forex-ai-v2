@@ -845,6 +845,7 @@ for ev in forex_high_impact_events:
         </div>
         """, unsafe_allow_html=True
     )
+
 elif st.session_state.current_page == 'backtesting':
     st.title("📈 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
