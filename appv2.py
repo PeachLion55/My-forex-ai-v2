@@ -1777,9 +1777,11 @@ elif st.session_state.current_page == 'account':
 
             # --- Row 2: Progress Chart and Insights ---
             # Use the 'gap' parameter to create significant horizontal space between the columns
-            chart_col, insights_col = st.columns([1, 1], gap="large")
+            chart_col, spacer_col, insights_col = st.columns([10, 1, 10])
+
             with chart_col:
                 st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+                total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
                 xp_in_level = total_xp % 100
                 xp_needed = 100 - xp_in_level
 
@@ -1801,13 +1803,14 @@ elif st.session_state.current_page == 'account':
                     margin=dict(t=0, b=0, l=0, r=0)
                 )
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-            # The spacer_col is intentionally left empty to create the visual gap.
+            
+            # The spacer column is left empty to create the space.
             with spacer_col:
                 st.empty()
-                
+
             with insights_col:
                 st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
+                streak = st.session_state.get('streak', 0) # Ensure streak is defined here
                 
                 insight_message = ""
                 if streak > 21:
