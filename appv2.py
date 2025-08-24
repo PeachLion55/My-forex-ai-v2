@@ -1660,7 +1660,7 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
-        import streamlit as st
+import streamlit as st
 import pandas as pd
 import logging
 
@@ -1668,6 +1668,9 @@ import logging
 # In your actual app, this data would already be in the session_state from login.
 def initialize_session_for_demo():
     """Initializes session state with sample data for demonstration."""
+    # Assume the app starts on the 'account' page for this demo
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'account'
     if 'logged_in_user' not in st.session_state:
         st.session_state.logged_in_user = "TraderPro"
     if 'xp' not in st.session_state:
@@ -1692,7 +1695,7 @@ initialize_session_for_demo()
 def handle_logout():
     """
     Clears all user-specific data from the session state upon logout.
-    This modular function makes the main code cleaner and the logic reusable. [1]
+    This modular function makes the main code cleaner and the logic reusable.
     """
     user_session_keys = [
         'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
@@ -1717,68 +1720,66 @@ def handle_logout():
     st.session_state.current_page = "account" # Ensure redirection to the same page
     st.rerun()
 
-# --------------------------
-# LOGGED-IN USER VIEW (ENHANCED)
-# --------------------------
+# ==============================================================================
+# --- MAIN PAGE ROUTER ---
+# This is the correct structure for managing different pages in your app.
+# ==============================================================================
 
-# --- Header ---
-st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-st.markdown("This is your personal dashboard. Track your progress and manage your account.")
+# --- ACCOUNT PAGE ---
+if st.session_state.current_page == 'account':
 
-st.markdown("---")
+    # --- Header ---
+    st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+    st.markdown("This is your personal dashboard. Track your progress and manage your account.")
+    st.markdown("---")
 
-# --- Main Dashboard Layout using Columns ---
-# Using columns allows for a more organized and visually appealing layout. [2, 6]
-col1, col2 = st.columns([2, 1])
+    # --- Main Dashboard Layout using Columns ---
+    col1, col2 = st.columns([2, 1])
 
-with col1:
-    st.subheader("📈 Progress Snapshot")
+    with col1:
+        st.subheader("📈 Progress Snapshot")
+        metric1, metric2, metric3 = st.columns(3)
+        metric1.metric(label="Current Level", value=f"LVL {st.session_state.get('level', 0)}")
+        metric2.metric(label="Journaling Streak", value=f"{st.session_state.get('streak', 0)} Days 🔥")
+        metric3.metric(label="Total XP", value=f"{st.session_state.get('xp', 0)}")
 
-    # --- Key Metrics ---
-    # `st.metric` is ideal for displaying key performance indicators (KPIs) prominently. [5]
-    metric1, metric2, metric3 = st.columns(3)
-    metric1.metric(label="Current Level", value=f"LVL {st.session_state.get('level', 0)}")
-    metric2.metric(label="Journaling Streak", value=f"{st.session_state.get('streak', 0)} Days 🔥")
-    metric3.metric(label="Total XP", value=f"{st.session_state.get('xp', 0)}")
+        st.markdown("#### **Level Progress**")
+        current_level = st.session_state.get('level', 0)
+        xp_for_next_level = (current_level + 1) * 1000
+        xp_in_current_level = st.session_state.get('xp', 0) - (current_level * 1000)
+        progress_percentage = xp_in_current_level / 1000
+        st.progress(progress_percentage)
+        st.caption(f"{xp_in_current_level} / 1000 XP to the next level.")
 
-    # --- XP Progress Bar ---
-    st.markdown("#### **Level Progress**")
-    current_level = st.session_state.get('level', 0)
-    xp_for_next_level = (current_level + 1) * 1000
-    xp_in_current_level = st.session_state.get('xp', 0) - (current_level * 1000)
-    progress_percentage = xp_in_current_level / 1000
+    with col2:
+        st.subheader("🏆 Badges")
+        badges = st.session_state.get('badges', [])
+        if badges:
+            for badge in badges:
+                st.markdown(f"- 🏅 {badge}")
+        else:
+            st.info("No badges earned yet. Keep up the great work to unlock them!")
 
-    st.progress(progress_percentage)
-    st.caption(f"{xp_in_current_level} / 1000 XP to the next level.")
+    st.markdown("---")
 
+    # --- Account Details and Actions using an Expander ---
+    with st.expander("⚙️ Manage Account"):
+        st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+        st.write("**Email**: `trader.pro@email.com` (example)")
+        if st.button("Log Out", key="logout_account_page", type="primary"):
+            handle_logout()
 
-with col2:
-    st.subheader("🏆 Badges")
-    badges = st.session_state.get('badges', [])
-    if badges:
-        # Displaying badges as a list is cleaner than a comma-separated string.
-        for badge in badges:
-            st.markdown(f"- 🏅 {badge}")
-    else:
-        st.info("No badges earned yet. Keep up the great work to unlock them!")
-
-st.markdown("---")
-
-# --- Account Details and Actions using an Expander ---
-# An expander keeps the UI clean by hiding less frequently used details. [2, 7]
-with st.expander("⚙️ Manage Account"):
-    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-    # You can add more details here, like email, subscription status, etc.
-    st.write("**Email**: `trader.pro@email.com` (example)")
-
-    if st.button("Log Out", key="logout_account_page", type="primary"):
-        handle_logout()
-        # The success message is moved to the top of the script after rerun for better UX
-        # but you can also place a temporary one here if you remove the rerun.
+# --- COMMUNITY PAGE ---
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
     st.write('---')
+    # ... (Add the rest of your community page code here)
+
+# --- You can add other pages below ---
+# elif st.session_state.current_page == 'settings':
+#     st.title("Settings")
+#     # ...
     st.subheader("➕ Share a Trade Idea")
     with st.form("trade_idea_form"):
         trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
