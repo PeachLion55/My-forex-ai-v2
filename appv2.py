@@ -1281,7 +1281,6 @@ with tab_entry:
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trades available for review.")
-
 elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
