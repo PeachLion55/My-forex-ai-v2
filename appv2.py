@@ -1814,7 +1814,7 @@ elif st.session_state.current_page == 'account':
                 else:
                      next_milestone = "The next streak badge is at 30 days. You've got this!"
 
-                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 Next Up: {next_milestone}</p></div>", unsafe_allow_html=True)
 
         # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
