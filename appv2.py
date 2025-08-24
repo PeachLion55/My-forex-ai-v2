@@ -1698,23 +1698,145 @@ elif st.session_state.current_page == 'account':
 
         with col1:
             st.subheader("📈 Progress Snapshot")
-            metric1, metric2, metric3 = st.columns(3)
-            metric1.metric(label="Current Level", value=f"LVL {st.session_state.get('level', 0)}")
-            metric2.metric(label="Journaling Streak", value=f"{st.session_state.get('streak', 0)} Days 🔥")
-            metric3.metric(label="Total XP", value=f"{st.session_state.get('xp', 0)}")
+            
+            # --- Custom CSS for the KPI cards ---
+            st.markdown("""
+            <style>
+            .kpi-card {
+                background-color: rgba(45, 70, 70, 0.5);
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                border: 1px solid #58b3b1;
+                margin-bottom: 10px;
+            }
+            .kpi-icon {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+            }
+            .kpi-value {
+                font-size: 1.8em;
+                font-weight: bold;
+                color: #FFFFFF;
+            }
+            .kpi-label {
+                font-size: 0.9em;
+                color: #A0A0A0;
+            }
+            .insights-card {
+                background-color: rgba(45, 70, 70, 0.3);
+                border-left: 5px solid #58b3b1;
+                padding: 15px;
+                border-radius: 5px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
 
-            st.markdown("#### **Level Progress**")
-            # Robustly calculate progress to prevent errors from value being outside the [0.0, 1.0] range.
-            total_xp = st.session_state.get('xp', 0)
-            xp_in_current_level = total_xp % 100
-            progress_percentage = xp_in_current_level / 100.0
+            # --- Row 1: KPI Cards ---
+            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            with kpi_col1:
+                level = st.session_state.get('level', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🧙‍♂️</div>
+                    <div class="kpi-value">Level {level}</div>
+                    <div class="kpi-label">Trader's Rank</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi_col2:
+                streak = st.session_state.get('streak', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🔥</div>
+                    <div class="kpi-value">{streak} Days</div>
+                    <div class="kpi-label">Journaling Streak</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi_col3:
+                total_xp = st.session_state.get('xp', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">⭐</div>
+                    <div class="kpi-value">{total_xp:,}</div>
+                    <div class="kpi-label">Total Experience</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
 
-            # Clamp the value to be strictly within the valid range as a safeguard.
-            progress_percentage = min(max(progress_percentage, 0.0), 1.0)
+            # --- Row 2: Progress Chart and Insights ---
+            chart_col, insights_col = st.columns([1, 1])
+            with chart_col:
+                st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+                xp_in_level = total_xp % 100
+                xp_needed = 100 - xp_in_level
 
-            st.progress(progress_percentage)
-            st.caption(f"{xp_in_current_level} / 100 XP to the next level.")
+                fig = go.Figure(go.Pie(
+                    values=[xp_in_level, xp_needed],
+                    labels=['XP Gained', 'XP Needed'],
+                    hole=0.6,
+                    marker_colors=['#58b3b1', '#2d4646'],
+                    textinfo='none',
+                    hoverinfo='label+value',
+                    direction='clockwise',
+                    sort=False
+                ))
+                fig.update_layout(
+                    showlegend=False,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
+                    margin=dict(t=0, b=0, l=0, r=0)
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                
+            with insights_col:
+                st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
+                
+                insight_message = ""
+                if streak > 21:
+                    insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
+                elif streak > 7:
+                    insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
+                else:
+                    insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
+                
+                st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
 
+                num_trades = len(st.session_state.tools_trade_journal)
+                next_milestone = ""
+                if num_trades < 10:
+                    next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50:
+                    next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                else:
+                     next_milestone = "The next streak badge is at 30 days. You've got this!"
+
+                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+
+        # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
+        st.subheader("🚀 Your XP Journey")
+        journal_df = st.session_state.tools_trade_journal
+        if not journal_df.empty and 'Date' in journal_df.columns:
+            journal_df['Date'] = pd.to_datetime(journal_df['Date'])
+            xp_data = journal_df.sort_values(by='Date').copy()
+            xp_data['xp_gained'] = 10 
+            xp_data['cumulative_xp'] = xp_data['xp_gained'].cumsum()
+            
+            fig_line = px.area(xp_data, x='Date', y='cumulative_xp', 
+                                title="XP Growth Over Time (Based on Journal Entries)",
+                                labels={'Date': 'Journal Entry Date', 'cumulative_xp': 'Cumulative XP'})
+            fig_line.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(45, 70, 70, 0.3)',
+                xaxis=dict(gridcolor='#4d7171'),
+                yaxis=dict(gridcolor='#4d7171'),
+                font_color="white"
+            )
+            st.plotly_chart(fig_line, use_container_width=True)
+        else:
+            st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
         with col2:
             st.subheader("🏆 Badges")
             badges = st.session_state.get('badges', [])
