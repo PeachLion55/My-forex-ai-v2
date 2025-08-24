@@ -1262,6 +1262,15 @@ elif st.session_state.current_page == 'backtesting':
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trades available for review.")
+                # Challenge Mode
+    st.subheader("🏅 Challenge Mode")
+    st.write("30-Day Journaling Discipline Challenge")
+    streak = st.session_state.get('streak', 0)
+    progress = min(streak / 30.0, 1.0)
+    st.progress(progress)
+    if progress >= 1.0:
+        st.success("Challenge completed! Great job on your consistency.")
+        ta_update_xp(100) # Bonus XP for completion
 
 # CORRECTED INDENTATION FOR THE 'mt5' BLOCK
 elif st.session_state.current_page == 'mt5':
