@@ -16,3 +16,4 @@ forex-python
 scipy
 streamlit-lightweight-charts
 psycopg2-binary
+supabase-py
