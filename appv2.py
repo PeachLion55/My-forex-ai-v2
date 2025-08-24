@@ -812,7 +812,6 @@ elif st.session_state.current_page == 'backtesting':
     st.title("📈 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
     st.markdown('---')
-
     # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
@@ -842,14 +841,11 @@ elif st.session_state.current_page == 'backtesting':
         "NZD/CHF": "FX:NZDCHF",
         "CAD/CHF": "FX:CADCHF",
     }
-
     pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
     tv_symbol = pairs_map[pair]
-
     # Initialize drawings in session state if not present
     if 'drawings' not in st.session_state:
         st.session_state.drawings = {}
-
     # Load initial drawings if available
     if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
         username = st.session_state.logged_in_user
@@ -868,7 +864,6 @@ elif st.session_state.current_page == 'backtesting':
             st.error(f"Failed to load drawings: {str(e)}")
     
     initial_content = json.dumps(st.session_state.drawings.get(pair, {}))
-
     # TradingView widget
     tv_html = f"""
     <div id="tradingview_widget"></div>
@@ -895,7 +890,6 @@ elif st.session_state.current_page == 'backtesting':
     </script>
     """
     st.components.v1.html(tv_html, height=820, scrolling=False)
-
     # Save, Load, and Refresh buttons
     if "logged_in_user" in st.session_state:
         col1, col2, col3 = st.columns([1, 1, 1])
@@ -904,13 +898,12 @@ elif st.session_state.current_page == 'backtesting':
                 logging.info(f"Save Drawings button clicked for pair {pair}")
                 save_script = f"""
                 <script>
-                parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '*');
+                parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '');
                 </script>
                 """
                 st.components.v1.html(save_script, height=0)
                 logging.info(f"Triggered save script for {pair}")
                 st.session_state[f"bt_save_trigger_{pair}"] = True
-
         with col2:
             if st.button("Load Drawings", key="bt_load_drawings"):
                 username = st.session_state.logged_in_user
@@ -924,7 +917,7 @@ elif st.session_state.current_page == 'backtesting':
                         if content:
                             load_script = f"""
                             <script>
-                            parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '*');
+                            parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '');
                             </script>
                             """
                             st.components.v1.html(load_script, height=0)
@@ -939,7 +932,6 @@ elif st.session_state.current_page == 'backtesting':
                 except Exception as e:
                     st.error(f"Failed to load drawings: {str(e)}")
                     logging.error(f"Error loading drawings for {username}: {str(e)}")
-
         with col3:
             if st.button("Refresh Account", key="bt_refresh_account"):
                 username = st.session_state.logged_in_user
@@ -959,7 +951,6 @@ elif st.session_state.current_page == 'backtesting':
                 except Exception as e:
                     st.error(f"Failed to sync account: {str(e)}")
                     logging.error(f"Error syncing account for {username}: {str(e)}")
-
         # Check for saved drawings from postMessage
         drawings_key = f"bt_drawings_key_{pair}"
         if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
@@ -989,7 +980,6 @@ elif st.session_state.current_page == 'backtesting':
     else:
         st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
         logging.info("User not logged in, save/load drawings disabled")
-
     # Backtesting Journal
     st.markdown("### 📝 Trading Journal")
     st.markdown(
@@ -997,7 +987,6 @@ elif st.session_state.current_page == 'backtesting':
         Log your trades with detailed analysis, track psychological factors, and review performance with advanced analytics and trade replay.
         """
     )
-
     # Ensure journal DataFrame is initialized with all columns, including 'Tags'
     if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
         st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
@@ -1011,89 +1000,88 @@ elif st.session_state.current_page == 'backtesting':
             current_journal['Tags'] = ''
         current_journal['Tags'] = current_journal['Tags'].astype(str).fillna('')
         st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
-
     # Tabs for Journal Entry, Analytics, and Replay (renamed)
     tab_entry, tab_analytics, tab_history = st.tabs(["📝 Log Trade", "📊 Analytics", "📜 Trade History"])
-
     # Log Trade Tab
-with tab_entry:
-    st.subheader("Log a New Trade")
+    with tab_entry:
+        st.subheader("Log a New Trade")
     
-    with st.form("trade_entry_form"):
-        col1, col2 = st.columns(2)
+        with st.form("trade_entry_form"):
+            col1, col2 = st.columns(2)
         
-        with col1:
-            trade_date = st.date_input("Date", value=dt.datetime.now().date())
-            symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
-            if symbol == "Other":
-                symbol = st.text_input("Custom Symbol")
-            weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
-            daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
-            entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, format="%.5f")
-            stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.0001, format="%.5f")
+            with col1:
+                trade_date = st.date_input("Date", value=dt.datetime.now().date())
+                symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=0)
+                if symbol == "Other":
+                    symbol = st.text_input("Custom Symbol")
+                weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"])
+                daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"])
+                entry_price = st.number_input("Entry Price", min_value=0.0, step=0.0001, format="%.5f")
+                stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.0001, format="%.5f")
         
-        with col2:
-            take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.0001, format="%.5f")
-            lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f")
-            entry_conditions = st.text_area("Entry Conditions")
-            emotions = st.selectbox("Emotions", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
-            tags = st.multiselect("Tags", ["Setup: Breakout", "Setup: Reversal", "Mistake: Overtrading", "Mistake: No Stop Loss", "Emotion: FOMO", "Emotion: Revenge"])
-            notes = st.text_area("Notes/Journal")
+            with col2:
+                take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.0001, format="%.5f")
+                lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f")
+                entry_conditions = st.text_area("Entry Conditions")
+                emotions = st.selectbox("Emotions", ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral"])
+                tags = st.multiselect("Tags", ["Setup: Breakout", "Setup: Reversal", "Mistake: Overtrading", "Mistake: No Stop Loss", "Emotion: FOMO", "Emotion: Revenge"])
+                notes = st.text_area("Notes/Journal")
         
-        submit_button = st.form_submit_button("Save Trade")
+            submit_button = st.form_submit_button("Save Trade")
         
-        if submit_button:
-            pip_multiplier = 100 if "JPY" in symbol else 10000
-            pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
-            rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
+            if submit_button:
+                pip_multiplier = 100 if "JPY" in symbol else 10000
+                pl = (take_profit_price - entry_price) * lots * pip_multiplier if weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) * lots * pip_multiplier
+                rr = (take_profit_price - entry_price) / (entry_price - stop_loss_price) if stop_loss_price != 0 and weekly_bias in ["Bullish", "Neutral"] else (entry_price - take_profit_price) / (stop_loss_price - entry_price) if stop_loss_price != 0 else 0
             
-            new_trade = {
-                'Date': pd.to_datetime(trade_date),
-                'Symbol': symbol,
-                'Weekly Bias': weekly_bias,
-                'Daily Bias': daily_bias,
-                '4H Structure': '',
-                '1H Structure': '',
-                'Positive Correlated Pair & Bias': '',
-                'Potential Entry Points': '',
-                '5min/15min Setup?': '',
-                'Entry Conditions': entry_conditions,
-                'Planned R:R': f"1:{rr:.2f}",
-                'News Filter': '',
-                'Alerts': '',
-                'Concerns': '',
-                'Emotions': emotions,
-                'Confluence Score 1-7': 0.0,
-                'Outcome / R:R Realised': f"1:{rr:.2f}",
-                'Notes/Journal': notes,
-                'Entry Price': entry_price,
-                'Stop Loss Price': stop_loss_price,
-                'Take Profit Price': take_profit_price,
-                'Lots': lots,
-                'Tags': ','.join(tags)
-            }
+                new_trade = {
+                    'Date': pd.to_datetime(trade_date),
+                    'Symbol': symbol,
+                    'Weekly Bias': weekly_bias,
+                    'Daily Bias': daily_bias,
+                    '4H Structure': '',
+                    '1H Structure': '',
+                    'Positive Correlated Pair & Bias': '',
+                    'Potential Entry Points': '',
+                    '5min/15min Setup?': '',
+                    'Entry Conditions': entry_conditions,
+                    'Planned R:R': f"1:{rr:.2f}",
+                    'News Filter': '',
+                    'Alerts': '',
+                    'Concerns': '',
+                    'Emotions': emotions,
+                    'Confluence Score 1-7': 0.0,
+                    'Outcome / R:R Realised': f"1:{rr:.2f}",
+                    'Notes/Journal': notes,
+                    'Entry Price': entry_price,
+                    'Stop Loss Price': stop_loss_price,
+                    'Take Profit Price': take_profit_price,
+                    'Lots': lots,
+                    'Tags': ','.join(tags)
+                }
             
-            # Append new trade to journal
-            st.session_state.tools_trade_journal = pd.concat(
-                [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
-                ignore_index=True
-            ).astype(journal_dtypes, errors='ignore')
+                # Append new trade to journal
+                st.session_state.tools_trade_journal = pd.concat(
+                    [st.session_state.tools_trade_journal, pd.DataFrame([new_trade])],
+                    ignore_index=True
+                ).astype(journal_dtypes, errors='ignore')
             
-            # Save to database if user is logged in
-            if 'logged_in_user' in st.session_state:
-                username = st.session_state.logged_in_user
-                if _ta_save_journal(username, st.session_state.tools_trade_journal):
-                    ta_update_xp(10)
-                    ta_update_streak()
-                    st.success("Trade saved successfully!")
-                    logging.info(f"Trade logged and saved to database for user {username}")
+                # Save to database if user is logged in
+                if 'logged_in_user' in st.session_state:
+                    username = st.session_state.logged_in_user
+                    if _ta_save_journal(username, st.session_state.tools_trade_journal):
+                        ta_update_xp(10)
+                        ta_update_streak()
+                        st.success("Trade saved successfully!")
+                        logging.info(f"Trade logged and saved to database for user {username}")
+                    else:
+                        st.error("Failed to save trade to account. Saved locally only.")
                 else:
-                    st.error("Failed to save trade to account. Saved locally only.")
-            else:
-                st.success("Trade saved locally (not synced to account, please log in).")
-                logging.info("Trade logged for anonymous user")
+                    st.success("Trade saved locally (not synced to account, please log in).")
+                    logging.info("Trade logged for anonymous user")
             
-            st.rerun()
+                st.rerun()
+
         # Display current journal
         st.subheader("Trade Journal")
         column_config = {
@@ -1121,17 +1109,15 @@ with tab_entry:
             "Lots": st.column_config.NumberColumn("Lots", format="%.2f"),
             "Tags": st.column_config.TextColumn("Tags")
         }
-
         st.dataframe(st.session_state.tools_trade_journal, column_config=column_config, use_container_width=True)
-
         # Export options
         st.subheader("Export Journal")
         col_export1, col_export2 = st.columns(2)
-        
+    
         with col_export1:
             csv = st.session_state.tools_trade_journal.to_csv(index=False)
             st.download_button("Download CSV", csv, "trade_journal.csv", "text/csv")
-        
+    
         with col_export2:
             if st.button("Generate PDF"):
                 latex_content = """
@@ -1151,17 +1137,17 @@ with tab_entry:
                 for _, row in st.session_state.tools_trade_journal.iterrows():
                     date_str = row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else ''
                     latex_content += f"{date_str} & {row['Symbol']} & {row['Entry Price']:.5f} & {row['Stop Loss Price']:.5f} & {row['Take Profit Price']:.5f} & {row['Outcome / R:R Realised']} \\\\\n"
-                
+            
                 latex_content += """
                 \\bottomrule
                 \\end{tabular}
                 \\end{landscape}
                 \\end{document}
                 """
-                
+            
                 with open("trade_journal.tex", "w") as f:
                     f.write(latex_content)
-                
+            
                 try:
                     import subprocess
                     subprocess.run(["latexmk", "-pdf", "trade_journal.tex"], check=True)
@@ -1174,50 +1160,47 @@ with tab_entry:
     # Analytics Tab
     with tab_analytics:
         st.subheader("Trade Analytics")
-        
+    
         if not st.session_state.tools_trade_journal.empty:
             col_filter1, col_filter2, col_filter3 = st.columns(3)
-            
+        
             with col_filter1:
                 symbol_filter = st.multiselect(
                     "Filter by Symbol",
                     options=st.session_state.tools_trade_journal['Symbol'].unique(),
                     default=st.session_state.tools_trade_journal['Symbol'].unique()
                 )
-            
+        
             with col_filter2:
                 tag_options = []
                 if 'Tags' in st.session_state.tools_trade_journal.columns:
                     tag_options = [tag for tags in st.session_state.tools_trade_journal['Tags'].str.split(',').explode().unique() if tag and pd.notna(tag)]
                 tag_filter = st.multiselect("Filter by Tags", options=tag_options)
-            
+        
             with col_filter3:
                 bias_filter = st.selectbox("Filter by Weekly Bias", ["All", "Bullish", "Bearish", "Neutral"])
-
+            
             filtered_df = st.session_state.tools_trade_journal[
                 st.session_state.tools_trade_journal['Symbol'].isin(symbol_filter)
             ]
-            
+        
             if tag_filter and 'Tags' in filtered_df.columns:
                 filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in x.split(',') for tag in tag_filter) if isinstance(x, str) and x else False)]
-            
+        
             if bias_filter != "All":
                 filtered_df = filtered_df[filtered_df['Weekly Bias'] == bias_filter]
-
             # Metrics
             win_rate = (filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) > 0 if isinstance(x, str) and ':' in x else False)).mean() * 100 if not filtered_df.empty else 0
             avg_pl = filtered_df['Outcome / R:R Realised'].apply(lambda x: float(x.split(':')[1]) if isinstance(x, str) and ':' in x else 0).mean() if not filtered_df.empty else 0
             total_trades = len(filtered_df)
-
             col_metric1, col_metric2, col_metric3 = st.columns(3)
             col_metric1.metric("Win Rate (%)", f"{win_rate:.2f}")
             col_metric2.metric("Average R:R", f"{avg_pl:.2f}")
             col_metric3.metric("Total Trades", total_trades)
-
             # Visualizations
             st.subheader("Performance Charts")
             col_chart1, col_chart2 = st.columns(2)
-            
+        
             with col_chart1:
                 def parse_rr(x):
                     try:
@@ -1226,34 +1209,33 @@ with tab_entry:
                         return 0.0
                     except (ValueError, IndexError):
                         return 0.0
-
                 rr_values = filtered_df.groupby('Symbol')['Outcome / R:R Realised'].apply(
                     lambda x: pd.Series([parse_rr(r) for r in x]).mean()
                 ).reset_index(name='Average R:R')
-                
+            
                 fig = px.bar(rr_values, x='Symbol', y='Average R:R', title="Average R:R by Symbol")
                 st.plotly_chart(fig, use_container_width=True)
-            
+        
             with col_chart2:
                 fig = px.pie(filtered_df, names='Emotions', title="Trades by Emotional State")
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trades logged yet. Add trades in the 'Log Trade' tab.")
-
+            
     # Trade History Tab (renamed from Trade Replay)
     with tab_history:
         st.subheader("Trade History")
-        
+    
         if not st.session_state.tools_trade_journal.empty:
             trade_id = st.selectbox(
                 "Select Trade to Review",
                 options=st.session_state.tools_trade_journal.index,
                 format_func=lambda x: f"{st.session_state.tools_trade_journal.loc[x, 'Date'].strftime('%Y-%m-%d')} - {st.session_state.tools_trade_journal.loc[x, 'Symbol']}"
             )
-            
+        
             selected_trade = st.session_state.tools_trade_journal.loc[trade_id]
-            
-            st.write("**Trade Details**")
+        
+            st.write("Trade Details")
             st.write(f"Symbol: {selected_trade['Symbol']}")
             st.write(f"Weekly Bias: {selected_trade['Weekly Bias']}")
             st.write(f"Entry Price: {selected_trade['Entry Price']:.5f}")
@@ -1264,10 +1246,10 @@ with tab_entry:
             st.write(f"Emotions: {selected_trade['Emotions']}")
             st.write(f"Tags: {selected_trade.get('Tags', '')}")
             st.write(f"Notes: {selected_trade['Notes/Journal']}")
-            
+        
             if st.button("Replay Trade"):
                 st.warning("Simulated MT5 chart replay. In a real implementation, connect to MT5 API to fetch historical data.")
-                
+            
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(
                     x=[selected_trade['Date'], selected_trade['Date'] + pd.Timedelta(minutes=60)],
@@ -1281,10 +1263,13 @@ with tab_entry:
                 st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trades available for review.")
+
+# CORRECTED INDENTATION FOR THE 'mt5' BLOCK
 elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
+    # ... (The rest of your code for the MT5 page goes here) ...
 
     # Custom CSS for theme consistency
     st.markdown(
