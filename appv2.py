@@ -1282,6 +1282,21 @@ elif st.session_state.current_page == 'backtesting':
         st.success("Challenge completed! Great job on your consistency.")
         ta_update_xp(100) # Bonus XP for completion
 
+            # Leaderboard / Self-Competition
+    st.subheader("🏆 Leaderboard - Consistency")
+    users = c.execute("SELECT username, data FROM users").fetchall()
+    leader_data = []
+    for u, d in users:
+        user_d = json.loads(d) if d else {}
+        trades = len(user_d.get("tools_trade_journal", []))
+        leader_data.append({"Username": u, "Journaled Trades": trades})
+    if leader_data:
+        leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
+        leader_df["Rank"] = leader_df.index + 1
+        st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
+    else:
+        st.info("No leaderboard data yet.")
+
 # CORRECTED INDENTATION FOR THE 'mt5' BLOCK
 elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
