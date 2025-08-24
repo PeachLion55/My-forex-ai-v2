@@ -513,6 +513,16 @@ elif st.session_state.current_page == 'account':
                 handle_logout()
 
 
+        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+        # (Dashboard UI remains the same)
+        # ...
+
+        with st.expander("⚙️ Manage Account"):
+            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+            if st.button("Log Out", key="logout_button", type="primary"):
+                handle_logout()
+
+
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     # ... (Content unchanged, uses _ta_load/save_community helpers) ...
