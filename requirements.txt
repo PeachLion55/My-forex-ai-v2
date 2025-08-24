@@ -1,22 +1,10 @@
-# --- Core App & Data ---
 streamlit
-requests
 pandas
 feedparser
 textblob
+requests
+plotly
 pytz
-scipy
-
-# --- Database & API ---
+streamlit-autorefresh
 supabase-py==2.4.1
 gotrue==2.3.0
-
-# --- Plotting & Visuals ---
-plotly
-streamlit-lightweight-charts
-
-# --- Optional Web Scraping & Utilities ---
-beautifulsoup4
-yfinance
-streamlit-autorefresh
-forex-python
