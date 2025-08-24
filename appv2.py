@@ -12,7 +12,7 @@ from streamlit_autorefresh import st_autorefresh
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-import sqlite3
+import psycopg2  # CHANGED: Replaced sqlite3 with psycopg2 for PostgreSQL
 import pytz
 import logging
 import math
@@ -20,7 +20,7 @@ import uuid
 import glob
 import time
 import scipy.stats
-import streamlit as st
+# import streamlit as st # This was a duplicate import
 
 st.markdown(
     """
@@ -110,6 +110,9 @@ def _ta_human_num(x, nd=2):
     return f"{x:.{nd}f}"
 
 def _ta_user_dir(user_id="guest"):
+    # This function creates a local temporary directory, which is fine for ephemeral data
+    # like holding a file temporarily during an upload process.
+    # Persistent file storage should now point to a cloud service (e.g., Supabase Storage).
     root = os.path.join(os.path.dirname(__file__), "user_data")
     os.makedirs(root, exist_ok=True)
     d = os.path.join(root, user_id)
@@ -193,23 +196,22 @@ def _ta_show_badges(df):
 
 def _ta_save_journal(username, journal_df):
     try:
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        c.execute("SELECT data FROM users WHERE username = %s", (username,)) # CHANGED: Placeholder ? -> %s
         result = c.fetchone()
-        user_data = json.loads(result[0]) if result else {}
+        user_data = json.loads(result[0]) if result and result[0] else {}
         user_data["tools_trade_journal"] = journal_df.replace({pd.NA: None, float('nan'): None}).to_dict('records')
-        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+        # Using json.dumps directly because the CustomJSONEncoder is handled by psycopg2's json adaptation
+        c.execute("UPDATE users SET data = %s WHERE username = %s", (json.dumps(user_data), username)) # CHANGED: Placeholders ? -> %s
         conn.commit()
         logging.info(f"Journal saved for user {username}: {len(journal_df)} trades")
         return True
     except Exception as e:
+        conn.rollback() # Rollback transaction on error
         logging.error(f"Failed to save journal for {username}: {str(e)}")
         st.error(f"Failed to save journal: {str(e)}")
         return False
 
 # === TA_PRO HELPERS END ===
-
-# Path to SQLite DB
-DB_FILE = "users.db"
 
 # XP notification system
 def show_xp_notification(xp_gained):
@@ -251,39 +253,54 @@ def show_xp_notification(xp_gained):
     """
     st.components.v1.html(notification_html, height=0)
 
-# Connect to SQLite with error handling
+# CHANGED: Entire database connection block replaced with psycopg2 and st.secrets
+# Connect to Supabase (Postgres) DB using Streamlit Secrets
 try:
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn = psycopg2.connect(
+        host=st.secrets["postgres"]["host"],
+        dbname=st.secrets["postgres"]["dbname"],
+        user=st.secrets["postgres"]["user"],
+        password=st.secrets["postgres"]["password"],
+        port=st.secrets["postgres"]["port"]
+    )
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS community_data (key TEXT PRIMARY KEY, data TEXT)''')
-    conn.commit()
-    logging.info("SQLite database initialized successfully")
+    # You no longer need to run "CREATE TABLE" here because the tables already exist in Supabase.
+    logging.info("Successfully connected to the persistent Postgres database.")
 except Exception as e:
-    logging.error(f"Failed to initialize SQLite database: {str(e)}")
-    st.error(f"Database initialization failed: {str(e)}")
+    logging.error(f"Failed to connect to Postgres database: {str(e)}")
+    st.error(f"A database connection error occurred. The application cannot start.")
+    st.stop() # Stop the app if the database connection fails
 
 def _ta_load_community(key, default=[]):
     try:
-        c.execute("SELECT data FROM community_data WHERE key = ?", (key,))
+        c.execute("SELECT data FROM community_data WHERE key = %s", (key,)) # CHANGED: Placeholder ? -> %s
         result = c.fetchone()
-        if result:
+        if result and result[0]:
             return json.loads(result[0])
         return default
     except Exception as e:
+        conn.rollback()
         logging.error(f"Failed to load community data for {key}: {str(e)}")
         return default
 
 def _ta_save_community(key, data):
     try:
         json_data = json.dumps(data)
-        c.execute("INSERT OR REPLACE INTO community_data (key, data) VALUES (?, ?)", (key, json_data))
+        # CHANGED: Switched to standard PostgreSQL syntax for "UPSERT"
+        upsert_query = """
+        INSERT INTO community_data (key, data)
+        VALUES (%s, %s)
+        ON CONFLICT (key)
+        DO UPDATE SET data = EXCLUDED.data;
+        """
+        c.execute(upsert_query, (key, json_data))
         conn.commit()
         logging.info(f"Community data saved for {key}")
     except Exception as e:
+        conn.rollback()
         logging.error(f"Failed to save community data for {key}: {str(e)}")
 
-# Custom JSON encoder for handling datetime objects
+# Custom JSON encoder for handling datetime objects (still useful for other parts of the app)
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (dt.datetime, dt.date)):
@@ -501,10 +518,14 @@ if "temp_journal" not in st.session_state:
 def ta_update_xp(amount):
     if "logged_in_user" in st.session_state:
         username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
+        try:
+            c.execute("SELECT data FROM users WHERE username = %s", (username,)) # CHANGED: Placeholder
+            result = c.fetchone()
+            if result and result[0]:
+                user_data = json.loads(result[0])
+            else:
+                user_data = {}
+                
             old_xp = user_data.get('xp', 0)
             user_data['xp'] = old_xp + amount
             level = user_data['xp'] // 100
@@ -513,22 +534,28 @@ def ta_update_xp(amount):
                 user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
                 st.balloons()
                 st.success(f"Level up! You are now level {level}.")
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            c.execute("UPDATE users SET data = %s WHERE username = %s", (json.dumps(user_data), username)) # CHANGED: Placeholder
             conn.commit()
             st.session_state.xp = user_data['xp']
             st.session_state.level = user_data['level']
             st.session_state.badges = user_data['badges']
-            
-            # Show XP notification
             show_xp_notification(amount)
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"Failed to update XP for {username}: {e}")
+
 
 def ta_update_streak():
     if "logged_in_user" in st.session_state:
         username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
+        try:
+            c.execute("SELECT data FROM users WHERE username = %s", (username,)) # CHANGED: Placeholder
+            result = c.fetchone()
+            if result and result[0]:
+                user_data = json.loads(result[0])
+            else:
+                user_data = {}
+
             today = dt.date.today().isoformat()
             last_date = user_data.get('last_journal_date')
             streak = user_data.get('streak', 0)
@@ -545,17 +572,21 @@ def ta_update_streak():
             user_data['streak'] = streak
             user_data['last_journal_date'] = today
             
-            if streak % 7 == 0:
+            if streak > 0 and streak % 7 == 0:
                 badge = "Discipline Badge"
                 if badge not in user_data.get('badges', []):
                     user_data['badges'] = user_data.get('badges', []) + [badge]
                     st.balloons()
                     st.success(f"Unlocked: {badge} for {streak} day streak!")
             
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            c.execute("UPDATE users SET data = %s WHERE username = %s", (json.dumps(user_data), username)) # CHANGED: Placeholder
             conn.commit()
             st.session_state.streak = streak
-            st.session_state.badges = user_data['badges']
+            if 'badges' in user_data:
+                st.session_state.badges = user_data['badges']
+        except Exception as e:
+            conn.rollback()
+            logging.error(f"Failed to update streak for {username}: {e}")
 
 def ta_check_milestones(journal_df, mt5_df):
     total_trades = len(journal_df)
@@ -563,17 +594,18 @@ def ta_check_milestones(journal_df, mt5_df):
         st.balloons()
         st.success("Milestone achieved: 100 trades journaled!")
     
-    if not mt5_df.empty:
+    if mt5_df is not None and not mt5_df.empty:
         daily_pnl = _ta_daily_pnl(mt5_df)
         if not daily_pnl.empty:
             daily_pnl['date'] = pd.to_datetime(daily_pnl['date'])
             recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - pd.Timedelta(days=90)]
             if not recent.empty:
                 equity = recent['pnl'].cumsum()
-                dd = (equity - equity.cummax()).min() / equity.max() if equity.max() != 0 else 0
-                if abs(dd) < 0.1:
-                    st.balloons()
-                    st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
+                if equity.max() > 0:
+                    dd = (equity - equity.cummax()).min() / equity.max()
+                    if abs(dd) < 0.1:
+                        st.balloons()
+                        st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
 
 # Load community data
 if "trade_ideas" not in st.session_state:
@@ -617,13 +649,14 @@ st.markdown(
 )
 
 # ---- Load and resize the logo ----
-logo = Image.open("logo22.png")
-logo = logo.resize((60, 50)) # adjust width/height as needed
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50)) # adjust width/height as needed
 
-# ---- Convert logo to base64 ----
-buffered = io.BytesIO()
-logo.save(buffered, format="PNG")
-logo_str = base64.b64encode(buffered.getvalue()).decode()
+    # ---- Convert logo to base64 ----
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
 
 # ---- Display logo centered in the sidebar ----
 st.sidebar.markdown(
