@@ -667,6 +667,10 @@ try:
         """,
         unsafe_allow_html=True
     )
+except FileNotFoundError:
+    # This block handles the error if "logo22.png" is not in the same directory.
+    # It prevents the app from crashing and provides a helpful message.
+    st.sidebar.warning("Logo image (logo22.png) not found.")
 
 # Navigation items
 nav_items = [
