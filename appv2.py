@@ -1773,7 +1773,7 @@ elif st.session_state.current_page == 'account':
                 </div>
                 """, unsafe_allow_html=True)
             
-            st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
+            st.markdown("---")
 
             # --- Row 2: Progress Chart and Insights ---
             # Use the 'gap' parameter to create significant horizontal space between the columns
