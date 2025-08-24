@@ -1,14 +1,21 @@
+# --- Core App & Data ---
 streamlit
 requests
 pandas
 feedparser
 textblob
-plotly
-beautifulsoup4
 pytz
+scipy
+
+# --- Database & API ---
+supabase-py
+
+# --- Plotting & Visuals ---
+plotly
+streamlit-lightweight-charts
+
+# --- Optional Web Scraping & Utilities ---
+beautifulsoup4
 yfinance
 streamlit-autorefresh
 forex-python
-scipy
-streamlit-lightweight-charts
-supabase-p
