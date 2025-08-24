@@ -28,7 +28,7 @@ st.markdown(
     /* Hide Streamlit top-right menu */
     #MainMenu {visibility: hidden !important;}
     /* Hide Streamlit footer (bottom-left) */
-    footer {visibility: hidden !import;}
+    footer {visibility: hidden !important;}
     /* Hide the GitHub / Share banner (bottom-right) */
     [data-testid="stDecoration"] {display: none !important;}
     
@@ -1704,10 +1704,14 @@ elif st.session_state.current_page == 'account':
             metric3.metric(label="Total XP", value=f"{st.session_state.get('xp', 0)}")
 
             st.markdown("#### **Level Progress**")
-            current_level = st.session_state.get('level', 0)
-            xp_for_next_level = (current_level + 1) * 100
-            xp_in_current_level = st.session_state.get('xp', 0) - (current_level * 100)
-            progress_percentage = xp_in_current_level / 100
+            # Robustly calculate progress to prevent errors from value being outside the [0.0, 1.0] range.
+            total_xp = st.session_state.get('xp', 0)
+            xp_in_current_level = total_xp % 100
+            progress_percentage = xp_in_current_level / 100.0
+
+            # Clamp the value to be strictly within the valid range as a safeguard.
+            progress_percentage = min(max(progress_percentage, 0.0), 1.0)
+
             st.progress(progress_percentage)
             st.caption(f"{xp_in_current_level} / 100 XP to the next level.")
 
