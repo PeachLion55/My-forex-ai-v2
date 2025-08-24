@@ -1657,112 +1657,32 @@ elif st.session_state.current_page == 'account':
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
     else:
-
-import streamlit as st
-import pandas as pd
-import logging
-
-# --- Helper Functions for Clarity and Reusability ---
-
-def handle_logout():
-    """Clears all session state variables related to the user's session."""
-    user_specific_keys = [
-        'logged_in_user', 'xp', 'level', 'badges', 'streak',
-        'drawings', 'tools_trade_journal', 'strategies',
-        'emotion_log', 'reflection_log'
-    ]
-    for key in user_specific_keys:
-        if key in st.session_state:
-            del st.session_state[key]
-    
-    # Optionally, you can re-initialize some to their default empty state
-    # This part is redundant if you are rerunning to a page that will handle it,
-    # but can be useful for clarity.
-    st.session_state.current_page = "account"
-    logging.info("User logged out")
-    st.success("You have been successfully logged out!")
-    st.rerun()
-
-# --- Mock Data for Demonstration ---
-# In your actual app, this data would already be in the session_state
-def load_mock_data():
-    if 'logged_in_user' not in st.session_state:
-        st.session_state.logged_in_user = "TraderPro"
-    if 'xp' not in st.session_state:
-        st.session_state.xp = 750
-    if 'level' not in st.session_state:
-        st.session_state.level = 7
-    if 'badges' not in st.session_state:
-        st.session_state.badges = ["First Trade", "Consistent Journaling", "Risk Manager"]
-    if 'streak' not in st.session_state:
-        st.session_state.streak = 14
-
-# --- Main View Rendering ---
-
-# Call this to load mock data if you're running this script standalone
-load_mock_data()
-
-# --------------------------
-# LOGGED-IN USER VIEW (ENHANCED)
-# --------------------------
-
-st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-st.markdown("Here is your account overview and progress.")
-
-# --- Main Dashboard Layout ---
-col1, col2 = st.columns((3, 1))
-
-with col1:
-    st.subheader("📈 Your Progress Dashboard")
-    
-    # --- Progress Metrics in Columns ---
-    prog_col1, prog_col2, prog_col3 = st.columns(3)
-    with prog_col1:
-        st.metric(label="Current Level", value=st.session_state.get('level', 0))
-    with prog_col2:
-        st.metric(label="Journaling Streak", value=f"{st.session_state.get('streak', 0)} Days 🔥")
-    with prog_col3:
-        # Placeholder for another key metric
-        st.metric(label="Total Trades Logged", value="128") # Example
-
-    # --- XP Progress Bar ---
-    st.markdown("#### Level Progress")
-    xp_needed_for_next_level = (st.session_state.get('level', 0) + 1) * 1000
-    current_xp = st.session_state.get('xp', 0)
-    progress_percentage = (current_xp % 1000) / 1000
-    
-    st.progress(progress_percentage)
-    st.markdown(f"**{current_xp % 1000} / 1000 XP** to the next level.")
-    st.caption(f"Total XP: {current_xp}")
-
-
-with col2:
-    st.subheader("🏆 Badges Earned")
-    badges = st.session_state.get('badges', [])
-    if badges:
-        for badge in badges:
-            st.markdown(f"- 🏅 {badge}")
-    else:
-        st.info("No badges earned yet. Keep journaling to unlock them!")
-
-# --- Account Details & Actions Section ---
-st.markdown("---") # Visual separator
-
-with st.container():
-    st.subheader("⚙️ Account Details")
-
-    # Using an expander for a cleaner look
-    with st.expander("View and manage your account information"):
+        # --------------------------
+        # LOGGED-IN USER VIEW
+        # --------------------------
+        st.subheader(f"Welcome, {st.session_state.logged_in_user}!")
+        st.markdown("### Account Details")
         st.write(f"**Username**: {st.session_state.logged_in_user}")
-        
-        # Placeholder for more account details
-        st.write("**Email**: user@example.com") # Example
-        st.button("Change Password", key="change_password_button")
-
-        # --- Logout Section ---
-        st.markdown("---")
-        if st.button("Log Out", key="logout_account_page", type="primary"):
-            handle_logout()
+        st.write(f"**XP**: {st.session_state.get('xp', 0)}")
+        st.write(f"**Level**: {st.session_state.get('level', 0)}")
+        st.write(f"**Badges**: {', '.join(st.session_state.get('badges', [])) or 'None'}")
+        st.write(f"**Journaling Streak**: {st.session_state.get('streak', 0)} days")
+        if st.button("Log Out", key="logout_account_page"):
+            if 'logged_in_user' in st.session_state:
+                del st.session_state.logged_in_user
+            st.session_state.drawings = {}
+            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+            st.session_state.xp = 0
+            st.session_state.level = 0
+            st.session_state.badges = []
+            st.session_state.streak = 0
+            st.success("Logged out successfully!")
+            logging.info("User logged out")
+            st.session_state.current_page = "account"  # Redirect back to account page
+            st.rerun()
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
