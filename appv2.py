@@ -19,7 +19,7 @@ import math
 import uuid
 import glob
 import time
-import scipy.stats
+#import scipy.stats
 import streamlit as st
 
 st.markdown(
