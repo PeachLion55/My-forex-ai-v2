@@ -1309,11 +1309,11 @@ from datetime import datetime, date, timedelta
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
 
-# This check implies that 'current_page' is managed elsewhere in your Streamlit app
-# Make sure st.session_state.current_page is set correctly before this script runs.
-# For standalone testing, you might want to remove this if/elif block.
+# --- IMPORTANT: Ensure 'current_page' is set appropriately or remove this outer if block for standalone testing ---
+# For standalone testing of just this file, you might temporarily comment out the `if/elif` around `st.session_state.current_page`
+# or explicitly set st.session_state.current_page = 'mt5' at the very beginning of your main script.
 if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'mt5' # Default for testing purposes if not set
+    st.session_state.current_page = 'mt5' # Default for initial run or testing purposes
 
 if st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
@@ -1597,8 +1597,6 @@ if st.session_state.current_page == 'mt5':
         """
         Formats a numerical value to a comma-separated string with two decimal places.
         Returns 'N/A' for None, NaN, or non-numeric input.
-        This function *only* formats the number itself (magnitude or signed value),
-        without prepending signs or currency symbols to avoid unary operator errors.
         """
         try:
             if value is None or pd.isna(value):
@@ -2040,12 +2038,14 @@ if st.session_state.current_page == 'mt5':
 
         df_for_calendar = st.session_state.mt5_df 
         
+        # --- Calendar month selection logic ---
         selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Default to current month start
 
         if not df_for_calendar.empty and not df_for_calendar["Close Time"].isnull().all():
             min_date_data = pd.to_datetime(df_for_calendar["Close Time"]).min().date()
             max_date_data = pd.to_datetime(df_for_calendar["Close Time"]).max().date()
             
+            # Ensure proper handling of 'MS' frequency when creating periods for month selection
             all_months_in_data = pd.date_range(start=min_date_data.replace(day=1), 
                                                 end=max_date_data.replace(day=1), freq='MS').to_period('M')
             available_months_periods = sorted(list(all_months_in_data), reverse=True)
@@ -2076,10 +2076,10 @@ if st.session_state.current_page == 'mt5':
             st.warning("No trade data with valid 'Close Time' to display in the calendar.")
             selected_month_date = date(datetime.now().year, datetime.now().month, 1)
 
-
+        # --- Daily P&L for calendar display ---
         daily_pnl_map_for_calendar = _ta_daily_pnl(df_for_calendar)
         
-        # Generate calendar grid
+        # --- Generate calendar grid HTML ---
         cal = calendar.Calendar(firstweekday=calendar.SUNDAY) 
         month_days = cal.monthdatescalendar(selected_month_date.year, selected_month_date.month)
 
@@ -2105,7 +2105,7 @@ if st.session_state.current_page == 'mt5':
             for day_date in week:
                 day_class = ""
                 profit_amount_html = ""
-                dot_indicator_html = "" 
+                dot_indicator_html = "" # Placeholder for future dots, currently unused
                 
                 if day_date.month == selected_month_date.month:
                     profit = daily_pnl_map_for_calendar.get(day_date)
@@ -2118,11 +2118,10 @@ if st.session_state.current_page == 'mt5':
                             profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num(abs(profit))}</span>"
                         else: # profit == 0.0 for the day, meaning trades occurred but summed to zero.
                             profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>" 
-                    else: # No trades recorded at all for this day in the map (no data for this day in CSV)
-                         # THIS IS THE KEY FIX FOR DAYS WITH NO TRADES: show $0.00 instead of being empty
+                    else: # No trades recorded at all for this day in the map (no data for this day in CSV for the current month)
                          profit_amount_html = "<span style='color:#cccccc;'>$0.00</span>"
-                else:
-                    day_class += " empty-month-day" # Days not in current month are hidden
+                else: # Days from the previous/next month displayed in the grid
+                    day_class += " empty-month-day" # Hides these days via CSS visibility: hidden
                     profit_amount_html = "" # Ensure no profit is shown for hidden days
                 
                 if day_date == today:
@@ -2140,7 +2139,7 @@ if st.session_state.current_page == 'mt5':
             </div>
         </div>
         """
-        # Ensure ONLY this line is used to display the calendar HTML:
+        # THIS IS THE CRUCIAL LINE for rendering the HTML correctly
         st.markdown(calendar_html, unsafe_allow_html=True)
 
 
