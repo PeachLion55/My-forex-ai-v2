@@ -1298,45 +1298,103 @@ elif st.session_state.current_page == 'backtesting':
         st.info("No leaderboard data yet.")
 
 # CORRECTED INDENTATION FOR THE 'mt5' BLOCK
-elif st.session_state.current_page == 'mt5':
-    import pandas as pd
-    import numpy as np
-    import streamlit as st
-    import logging
+import pandas as pd
+import numpy as np
+import streamlit as st
+import logging
 
+# Ensure logging is configured (optional, but good practice if not done globally)
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
+
+elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
-    # ... (The rest of your code for the MT5 page goes here) ...
 
-    # Custom CSS for theme consistency and new progress bars
+    # Custom CSS for theme consistency and new progress bars, with fixed box sizes
     st.markdown(
         """
         <style>
-        .metric-box { background-color: #2d4646; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #58b3b1; color: #ffffff; transition: all 0.3s ease-in-out; margin: 5px 0; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
-        .metric-box:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(88, 179, 177, 0.3); }
-        .metric-box.positive { background-color: #0f2b0f; border-color: #58b3b1; }
-        .metric-box.negative { background-color: #2b0f0f; border-color: #a94442; }
-        .stTabs [data-baseweb="tab"] { color: #ffffff !important; background-color: #2d4646 !important; border-radius: 8px 8px 0 0; padding: 10px 20px; margin-right: 5px; }
-        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #58b3b1 !important; color: #ffffff !important; font-weight: 600; border-bottom: 2px solid #4d7171 !important; }
-        .stTabs [data-baseweb="tab"]:hover { background-color: #4d7171 !important; color: #ffffff !important; }
+        /* General Metric Box Styling */
+        .metric-box {
+            background-color: #2d4646;
+            padding: 10px 15px; /* Reduced padding slightly */
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #58b3b1;
+            color: #ffffff;
+            transition: all 0.3s ease-in-out;
+            margin: 5px 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Distribute space between title, value, and bar */
+            height: 100px; /* Fixed height for all metric boxes */
+            min-width: 150px; /* Ensure a minimum width */
+            box-sizing: border-box; /* Include padding and border in the height */
+            font-size: 0.9em; /* Overall text size adjustment for uniformity */
+        }
+        .metric-box:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(88, 179, 177, 0.3);
+        }
+        .metric-box strong { /* Style for metric titles */
+            font-size: 1em; /* Keep title size consistent */
+            margin-bottom: 3px;
+            display: block;
+        }
+        .metric-box .metric-value { /* Style for the main metric value */
+            font-size: 1.2em; /* Slightly larger for the main number */
+            font-weight: bold;
+            display: block;
+        }
+        .metric-box .sub-value { /* For values like the parenthetical total loss */
+            font-size: 0.8em;
+            color: #ccc;
+        }
+        .metric-box .day-info { /* For best/worst performing day text */
+            font-size: 0.9em; /* Adjusted for longer text */
+            line-height: 1.2;
+        }
 
+
+        /* Tab Styling */
+        .stTabs [data-baseweb="tab"] {
+            color: #ffffff !important;
+            background-color: #2d4646 !important;
+            border-radius: 8px 8px 0 0;
+            padding: 10px 20px;
+            margin-right: 5px;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background-color: #58b3b1 !important;
+            color: #ffffff !important;
+            font-weight: 600;
+            border-bottom: 2px solid #4d7171 !important;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            background-color: #4d7171 !important;
+            color: #ffffff !important;
+        }
+
+        /* Progress Bar Styling */
         .progress-container {
             width: 100%;
             background-color: #333; /* Dark background for the bar container */
             border-radius: 5px;
             overflow: hidden;
-            height: 10px; /* Height of the bar */
-            margin-top: 5px;
+            height: 8px; /* Slightly reduced height for the bar */
+            margin-top: auto; /* Pushes the bar to the bottom */
+            flex-shrink: 0; /* Prevents bar from shrinking */
         }
 
         .progress-bar {
             height: 100%;
             border-radius: 5px;
             text-align: right;
-            line-height: 10px;
+            line-height: 8px;
             color: white;
-            font-size: 8px;
+            font-size: 7px; /* Smaller text within the bar if any */
             box-sizing: border-box;
             white-space: nowrap;
         }
@@ -1351,8 +1409,9 @@ elif st.session_state.current_page == 'mt5':
             background-color: #d9534f; /* Default to red for full bar if no wins */
             border-radius: 5px;
             overflow: hidden;
-            height: 10px;
-            margin-top: 5px;
+            height: 8px;
+            margin-top: auto; /* Pushes the bar to the bottom */
+            flex-shrink: 0;
         }
         .win-bar {
             height: 100%;
@@ -1367,21 +1426,22 @@ elif st.session_state.current_page == 'mt5':
             flex-shrink: 0;
         }
 
+        /* Trading Score Bar */
         .trading-score-bar-container {
             width: 100%;
             background-color: #d9534f; /* Red background for the whole bar representing max possible score */
             border-radius: 5px;
             overflow: hidden;
-            height: 10px;
-            margin-top: 5px;
-            position: relative; /* For the trading score bar */
+            height: 8px;
+            margin-top: auto; /* Pushes the bar to the bottom */
+            flex-shrink: 0;
+            position: relative;
         }
         .trading-score-bar {
             height: 100%;
             background-color: #5cb85c; /* Green part for the actual score */
             border-radius: 5px;
         }
-
         </style>
         """,
         unsafe_allow_html=True
@@ -1428,6 +1488,18 @@ elif st.session_state.current_page == 'mt5':
         wins = df[df["Profit"] > 0]["Profit"].sum()
         losses = abs(df[df["Profit"] < 0]["Profit"].sum())
         return wins / losses if losses != 0 else np.nan
+
+    # Placeholder for _ta_show_badges (defined here to make the full code runnable)
+    def _ta_show_badges(df):
+        st.subheader("🎖️ Your Trading Badges")
+        if df["Profit"].sum() > 10000:
+            st.success("🌟 Profit Pioneer: Achieved over $10,000 in net profit!")
+        if len(df) > 100:
+            st.info("📊 Experienced Trader: Completed over 100 trades!")
+        if not df[df["Profit"] > 0].empty and not df[df["Profit"] < 0].empty:
+            if df[df["Profit"] > 0]["Profit"].mean() > abs(df[df["Profit"] < 0]["Profit"].mean()):
+                st.success("🧠 Smart Scaler: Average win is greater than average loss!")
+        # Add more badge logic as desired
 
     # --------------------------
     # File Uploader
@@ -1486,28 +1558,33 @@ elif st.session_state.current_page == 'mt5':
 
                     # Trading Score (example: could be a composite of factors, here just a placeholder for visual)
                     # Let's say a max score is 100 points, and we want to show how close the current score is
-                    # This is just a placeholder, you'd integrate your actual trading score calculation
-                    trading_score_value = 90.98 # Example value
+                    trading_score_value = 90.98 # Example value, replace with your actual calculation
                     max_trading_score = 100
                     trading_score_percentage = (trading_score_value / max_trading_score) * 100
 
                     # Hit Rate - often synonymous with Win Rate, but sometimes calculated differently (e.g., successful trades vs total attempts)
-                    # For this example, let's assume it's the same as win_rate, or you can use your specific calculation
-                    hit_rate = win_rate
+                    hit_rate = win_rate # Assuming Hit Rate is the same as Win Rate for this example
 
                     # Most Profitable Asset (example)
-                    most_profitable_asset = df.groupby("Symbol")["Profit"].sum().idxmax() if not df.empty else "N/A"
-                    
+                    most_profitable_asset = df.groupby("Symbol")["Profit"].sum().idxmax() if not df.empty and not df["Profit"].isnull().all() else "N/A"
+
                     # Best and Worst Performing Day
                     if not daily_pnl.empty:
-                        daily_pnl_sorted = daily_pnl.set_index("date").sort_values(by="Profit")
-                        best_day_profit = daily_pnl_sorted["Profit"].max()
-                        best_performing_day_date = daily_pnl_sorted["Profit"].idxmax()
-                        best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
+                        daily_pnl_sorted = daily_pnl.set_index("date")
+                        # Ensure there are profits/losses to find max/min
+                        if not daily_pnl_sorted["Profit"].empty:
+                            best_day_profit = daily_pnl_sorted["Profit"].max()
+                            best_performing_day_date = daily_pnl_sorted["Profit"].idxmax()
+                            best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
 
-                        worst_day_loss = daily_pnl_sorted["Profit"].min()
-                        worst_performing_day_date = daily_pnl_sorted["Profit"].idxmin()
-                        worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                            worst_day_loss = daily_pnl_sorted["Profit"].min()
+                            worst_performing_day_date = daily_pnl_sorted["Profit"].idxmin()
+                            worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                        else:
+                            best_day_profit = 0
+                            best_performing_day_name = "N/A"
+                            worst_day_loss = 0
+                            worst_performing_day_name = "N/A"
                     else:
                         best_day_profit = 0
                         best_performing_day_name = "N/A"
@@ -1519,11 +1596,14 @@ elif st.session_state.current_page == 'mt5':
                     col1, col2, col3, col4, col5 = st.columns(5)
 
                     with col1:
+                        # Avg R:R bar assumes 2.0 as a good benchmark, scale to max 100% at 2.0 or higher
+                        r_r_bar_width = min(100, (avg_r_r / 2) * 100 if avg_r_r else 0)
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Avg R:R</strong><br>{_ta_human_num(avg_r_r)}
+                                <strong>Avg R:R</strong>
+                                <span class='metric-value'>{_ta_human_num(avg_r_r)}</span>
                                 <div class="progress-container">
-                                    <div class="progress-bar green" style="width: {min(100, (avg_r_r / 2) * 100 if avg_r_r else 0)}%;"></div>
+                                    <div class="progress-bar green" style="width: {r_r_bar_width:.2f}%;"></div>
                                 </div>
                             </div>
                         """, unsafe_allow_html=True)
@@ -1533,7 +1613,8 @@ elif st.session_state.current_page == 'mt5':
                         loss_rate_percent = 100 - win_rate_percent
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Win Rate</strong><br>{_ta_human_pct(win_rate)}
+                                <strong>Win Rate</strong>
+                                <span class='metric-value'>{_ta_human_pct(win_rate)}</span>
                                 <div class="win-loss-bar-container">
                                     <div class="win-bar" style="width: {win_rate_percent:.2f}%;"></div>
                                     <div class="loss-bar" style="width: {loss_rate_percent:.2f}%;"></div>
@@ -1544,7 +1625,8 @@ elif st.session_state.current_page == 'mt5':
                     with col3:
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Trading score</strong><br>{_ta_human_num(trading_score_value)} Points
+                                <strong>Trading score</strong>
+                                <span class='metric-value'>{_ta_human_num(trading_score_value)}</span>
                                 <div class="trading-score-bar-container">
                                     <div class="trading-score-bar" style="width: {trading_score_percentage:.2f}%;"></div>
                                 </div>
@@ -1555,7 +1637,8 @@ elif st.session_state.current_page == 'mt5':
                         hit_rate_percent = hit_rate * 100
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Hit Rate</strong><br>{_ta_human_pct(hit_rate)}
+                                <strong>Hit Rate</strong>
+                                <span class='metric-value'>{_ta_human_pct(hit_rate)}</span>
                                 <div class="win-loss-bar-container">
                                     <div class="win-bar" style="width: {hit_rate_percent:.2f}%;"></div>
                                     <div class="loss-bar" style="width: {100-hit_rate_percent:.2f}%;"></div>
@@ -1566,7 +1649,9 @@ elif st.session_state.current_page == 'mt5':
                     with col5:
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Total Trades</strong><br>{total_trades}
+                                <strong>Total Trades</strong>
+                                <span class='metric-value'>{total_trades}</span>
+                                <!-- No bar for Total Trades in the example, so omit it -->
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1576,41 +1661,51 @@ elif st.session_state.current_page == 'mt5':
                     col6, col7, col8, col9, col10 = st.columns(5)
 
                     with col6:
+                        # Avg Profit: Displaying Avg Win as per image. Adjust if you mean Avg Profit per trade.
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Avg Profit</strong><br>${_ta_human_num(avg_win if avg_win > 0 else avg_loss)}
+                                <strong>Avg Profit</strong>
+                                <span class='metric-value'>${_ta_human_num(avg_win if avg_win > 0 else 0)}</span>
+                                <!-- No bar in example -->
                             </div>
                         """, unsafe_allow_html=True)
 
                     with col7:
+                        best_day_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(best_day_profit)}</span>"
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Best Performing Day</strong><br>{best_performing_day_name} with an average profit of <span style='color: #5cb85c;'>${_ta_human_num(best_day_profit)}</span>.
+                                <strong>Best Performing Day</strong>
+                                <span class='day-info'>{best_performing_day_name} with an average profit of {best_day_profit_display}.</span>
                             </div>
                         """, unsafe_allow_html=True)
 
                     with col8:
-                        net_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit)}</span>" if net_profit >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit))}</span>"
-                        # For the image, it shows Total Profit and then a number in parenthesis (likely total loss or initial deposit).
-                        # I'll replicate the display as seen in the image. You'll need to define what the number in parenthesis represents.
-                        # For now, I'll put a placeholder.
+                        net_profit_value_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit)}</span>" if net_profit >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit))}</span>"
+                        # The image shows ($267,157.00) in red in parentheses. This often represents Total Loss or Initial Capital/Drawdown.
+                        # I'm using absolute total losses for this placeholder. Adjust 'total_loss_for_display' as needed.
+                        total_loss_for_display = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Total Profit</strong><br>{net_profit_display}<br>(<span style='color: #d9534f;'>-${_ta_human_num(abs(losses_df['Profit'].sum()) if not losses_df.empty else 0)}</span>)
+                                <strong>Total Profit</strong>
+                                <span class='metric-value'>{net_profit_value_display}</span>
+                                <span class='sub-value' style='color: #d9534f;'>(${-_ta_human_num(abs(total_loss_for_display))})</span>
                             </div>
                         """, unsafe_allow_html=True)
 
                     with col9:
+                        worst_day_loss_display = f"<span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss))}</span>"
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Worst Performing Day</strong><br>{worst_performing_day_name} with an average loss of <span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss))}</span>.
+                                <strong>Worst Performing Day</strong>
+                                <span class='day-info'>{worst_performing_day_name} with an average loss of {worst_day_loss_display}.</span>
                             </div>
                         """, unsafe_allow_html=True)
 
                     with col10:
                         st.markdown(f"""
                             <div class='metric-box'>
-                                <strong>Most Profitable Asset</strong><br>{most_profitable_asset}
+                                <strong>Most Profitable Asset</strong>
+                                <span class='metric-value'>{most_profitable_asset}</span>
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1619,7 +1714,7 @@ elif st.session_state.current_page == 'mt5':
                     st.subheader("Visualizations")
                     st.write("Visualizations will be displayed here.")
                     # Add your charting code here
-                    
+
                 with tab_edge:
                     st.subheader("Edge Finder")
                     st.write("Analyze your trading edge here.")
@@ -1638,29 +1733,23 @@ elif st.session_state.current_page == 'mt5':
         st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
 
     # Gamification Badges
-    # Assuming _ta_show_badges is defined elsewhere or will be defined.
-    # For this example, I'll add a placeholder if it's not provided in the original code snippet.
-    def _ta_show_badges(df):
-        st.subheader("🎖️ Your Trading Badges")
-        # Example badge logic:
-        if df["Profit"].sum() > 10000:
-            st.success("🌟 Profit Pioneer: Achieved over $10,000 in net profit!")
-        if len(df) > 100:
-            st.info("📊 Experienced Trader: Completed over 100 trades!")
-        if df[df["Profit"] > 0]["Profit"].mean() > abs(df[df["Profit"] < 0]["Profit"].mean()):
-            st.success("🧠 Smart Scaler: Average win is greater than average loss!")
-
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
         try:
             _ta_show_badges(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     else:
-        st.info("Upload trades to generate insights and earn badges.")
+        # This else branch is now directly linked to the uploader, so this prompt is less likely needed here.
+        # It's better to keep it only if the user hasn't uploaded anything at all.
+        pass
 
     # Report Export & Sharing
-    if 'df' in locals() and not df.empty: # Use the local df if it exists
+    # Ensure 'df' is available if the file was uploaded successfully
+    if 'df' in locals() and not df.empty:
         if st.button("📄 Generate Performance Report"):
+            # Ensure win_rate, net_profit, etc. are calculated if this button is pressed
+            # without re-uploading, or if tab_summary wasn't viewed.
+            # For this context, assuming df exists and these variables were calculated above.
             report_html = f"""
             <html>
             <head>
