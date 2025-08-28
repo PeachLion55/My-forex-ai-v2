@@ -2113,9 +2113,11 @@ elif st.session_state.current_page == 'mt5':
                         else: # profit == 0.0 for the day, meaning trades occurred but summed to zero.
                             profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>" 
                     else: # No trades recorded at all for this day in the map (no data for this day in CSV)
-                         profit_amount_html = "" 
+                         # Fix: Show $0.00 for days within the current month that have no trade data.
+                         profit_amount_html = "<span style='color:#cccccc;'>$0.00</span>"
                 else:
                     day_class += " empty-month-day" # Days not in current month are hidden
+                    profit_amount_html = "" # Ensure no profit is shown for hidden days
                 
                 if day_date == today:
                     day_class += " current-day"
