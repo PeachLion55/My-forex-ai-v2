@@ -1299,22 +1299,89 @@ elif st.session_state.current_page == 'backtesting':
 
 # CORRECTED INDENTATION FOR THE 'mt5' BLOCK
 elif st.session_state.current_page == 'mt5':
+    import pandas as pd
+    import numpy as np
+    import streamlit as st
+    import logging
+
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
     # ... (The rest of your code for the MT5 page goes here) ...
 
-    # Custom CSS for theme consistency
+    # Custom CSS for theme consistency and new progress bars
     st.markdown(
         """
         <style>
-        .metric-box { background-color: #2d4646; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #58b3b1; color: #ffffff; transition: all 0.3s ease-in-out; margin: 5px 0; }
+        .metric-box { background-color: #2d4646; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #58b3b1; color: #ffffff; transition: all 0.3s ease-in-out; margin: 5px 0; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
         .metric-box:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(88, 179, 177, 0.3); }
         .metric-box.positive { background-color: #0f2b0f; border-color: #58b3b1; }
         .metric-box.negative { background-color: #2b0f0f; border-color: #a94442; }
         .stTabs [data-baseweb="tab"] { color: #ffffff !important; background-color: #2d4646 !important; border-radius: 8px 8px 0 0; padding: 10px 20px; margin-right: 5px; }
         .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: #58b3b1 !important; color: #ffffff !important; font-weight: 600; border-bottom: 2px solid #4d7171 !important; }
         .stTabs [data-baseweb="tab"]:hover { background-color: #4d7171 !important; color: #ffffff !important; }
+
+        .progress-container {
+            width: 100%;
+            background-color: #333; /* Dark background for the bar container */
+            border-radius: 5px;
+            overflow: hidden;
+            height: 10px; /* Height of the bar */
+            margin-top: 5px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 5px;
+            text-align: right;
+            line-height: 10px;
+            color: white;
+            font-size: 8px;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+        .progress-bar.green { background-color: #5cb85c; } /* Green for positive */
+        .progress-bar.red { background-color: #d9534f; }   /* Red for negative */
+        .progress-bar.neutral { background-color: #5bc0de; } /* Blue for neutral, if needed */
+
+        /* Specific styles for the combined win/loss bar */
+        .win-loss-bar-container {
+            display: flex;
+            width: 100%;
+            background-color: #d9534f; /* Default to red for full bar if no wins */
+            border-radius: 5px;
+            overflow: hidden;
+            height: 10px;
+            margin-top: 5px;
+        }
+        .win-bar {
+            height: 100%;
+            background-color: #5cb85c; /* Green for wins */
+            border-radius: 5px 0 0 5px; /* Rounded on left */
+            flex-shrink: 0;
+        }
+        .loss-bar {
+            height: 100%;
+            background-color: #d9534f; /* Red for losses */
+            border-radius: 0 5px 5px 0; /* Rounded on right */
+            flex-shrink: 0;
+        }
+
+        .trading-score-bar-container {
+            width: 100%;
+            background-color: #d9534f; /* Red background for the whole bar representing max possible score */
+            border-radius: 5px;
+            overflow: hidden;
+            height: 10px;
+            margin-top: 5px;
+            position: relative; /* For the trading score bar */
+        }
+        .trading-score-bar {
+            height: 100%;
+            background-color: #5cb85c; /* Green part for the actual score */
+            border-radius: 5px;
+        }
+
         </style>
         """,
         unsafe_allow_html=True
@@ -1390,7 +1457,7 @@ elif st.session_state.current_page == 'mt5':
                 # ---------- Tabs ----------
                 tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
                     "📈 Summary Metrics",
-                    "📊 Visualizations", 
+                    "📊 Visualizations",
                     "🔍 Edge Finder",
                     "📤 Export Reports"
                 ])
@@ -1399,13 +1466,13 @@ elif st.session_state.current_page == 'mt5':
                 with tab_summary:
                     st.subheader("Key Performance Metrics")
                     total_trades = len(df)
-                    wins = df[df["Profit"] > 0]
-                    losses = df[df["Profit"] <= 0]
-                    win_rate = len(wins) / total_trades if total_trades else 0
+                    wins_df = df[df["Profit"] > 0]
+                    losses_df = df[df["Profit"] <= 0]
+                    win_rate = len(wins_df) / total_trades if total_trades else 0
                     net_profit = df["Profit"].sum()
                     profit_factor = _ta_profit_factor(df)
-                    avg_win = wins["Profit"].mean() if not wins.empty else 0
-                    avg_loss = losses["Profit"].mean() if not losses.empty else 0
+                    avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0
+                    avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0
                     daily_pnl = _ta_daily_pnl(df)
                     max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
                     sharpe_ratio = _ta_compute_sharpe(df)
@@ -1413,65 +1480,213 @@ elif st.session_state.current_page == 'mt5':
                     longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
                     longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
 
-                    metrics = [
-                        ("Total Trades", total_trades, "neutral"),
-                        ("Win Rate", _ta_human_pct(win_rate), "positive" if win_rate >= 0.5 else "negative"),
-                        ("Net Profit", f"${net_profit:,.2f}", "positive" if net_profit >= 0 else "negative"),
-                        ("Profit Factor", _ta_human_num(profit_factor), "positive" if profit_factor >= 1 else "negative"),
-                        ("Max Drawdown", f"${max_drawdown:,.2f}", "negative"),
-                        ("Sharpe Ratio", _ta_human_num(sharpe_ratio), "positive" if sharpe_ratio >= 1 else "negative"),
-                        ("Expectancy", f"${expectancy:,.2f}", "positive" if expectancy >= 0 else "negative"),
-                        ("Avg Win", f"${avg_win:,.2f}", "positive"),
-                        ("Avg Loss", f"${avg_loss:,.2f}", "negative"),
-                        ("Longest Win Streak", longest_win_streak, "positive"),
-                        ("Longest Loss Streak", longest_loss_streak, "negative"),
-                        ("Avg Trade Duration", f"{df['Trade Duration'].mean():.2f}h", "neutral"),
-                    ]
+                    # Calculate additional metrics for the top row
+                    # Avg R:R - assuming this is (Avg Win / Avg Loss magnitude)
+                    avg_r_r = abs(avg_win / avg_loss) if avg_loss != 0 else np.nan
 
-                    for row in range(0, len(metrics), 4):
-                        row_metrics = metrics[row:row+4]
-                        cols = st.columns(4)
-                        for i, (title, value, style) in enumerate(row_metrics):
-                            with cols[i]:
-                                st.markdown(
-                                    f"<div class='metric-box {style}'><strong>{title}</strong><br>{value}</div>",
-                                    unsafe_allow_html=True
-                                )
+                    # Trading Score (example: could be a composite of factors, here just a placeholder for visual)
+                    # Let's say a max score is 100 points, and we want to show how close the current score is
+                    # This is just a placeholder, you'd integrate your actual trading score calculation
+                    trading_score_value = 90.98 # Example value
+                    max_trading_score = 100
+                    trading_score_percentage = (trading_score_value / max_trading_score) * 100
+
+                    # Hit Rate - often synonymous with Win Rate, but sometimes calculated differently (e.g., successful trades vs total attempts)
+                    # For this example, let's assume it's the same as win_rate, or you can use your specific calculation
+                    hit_rate = win_rate
+
+                    # Most Profitable Asset (example)
+                    most_profitable_asset = df.groupby("Symbol")["Profit"].sum().idxmax() if not df.empty else "N/A"
+                    
+                    # Best and Worst Performing Day
+                    if not daily_pnl.empty:
+                        daily_pnl_sorted = daily_pnl.set_index("date").sort_values(by="Profit")
+                        best_day_profit = daily_pnl_sorted["Profit"].max()
+                        best_performing_day_date = daily_pnl_sorted["Profit"].idxmax()
+                        best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
+
+                        worst_day_loss = daily_pnl_sorted["Profit"].min()
+                        worst_performing_day_date = daily_pnl_sorted["Profit"].idxmin()
+                        worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                    else:
+                        best_day_profit = 0
+                        best_performing_day_name = "N/A"
+                        worst_day_loss = 0
+                        worst_performing_day_name = "N/A"
+
+
+                    # Row 1: Metrics with bars (Avg R:R, Win Rate, Trading Score, Hit Rate, Total Trades)
+                    col1, col2, col3, col4, col5 = st.columns(5)
+
+                    with col1:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Avg R:R</strong><br>{_ta_human_num(avg_r_r)}
+                                <div class="progress-container">
+                                    <div class="progress-bar green" style="width: {min(100, (avg_r_r / 2) * 100 if avg_r_r else 0)}%;"></div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col2:
+                        win_rate_percent = win_rate * 100
+                        loss_rate_percent = 100 - win_rate_percent
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Win Rate</strong><br>{_ta_human_pct(win_rate)}
+                                <div class="win-loss-bar-container">
+                                    <div class="win-bar" style="width: {win_rate_percent:.2f}%;"></div>
+                                    <div class="loss-bar" style="width: {loss_rate_percent:.2f}%;"></div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col3:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Trading score</strong><br>{_ta_human_num(trading_score_value)} Points
+                                <div class="trading-score-bar-container">
+                                    <div class="trading-score-bar" style="width: {trading_score_percentage:.2f}%;"></div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col4:
+                        hit_rate_percent = hit_rate * 100
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Hit Rate</strong><br>{_ta_human_pct(hit_rate)}
+                                <div class="win-loss-bar-container">
+                                    <div class="win-bar" style="width: {hit_rate_percent:.2f}%;"></div>
+                                    <div class="loss-bar" style="width: {100-hit_rate_percent:.2f}%;"></div>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col5:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Total Trades</strong><br>{total_trades}
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown("---") # Separator between rows of metrics
+
+                    # Row 2: Avg Profit, Best Performing Day, Total Profit, Worst Performing Day, Most Profitable Asset
+                    col6, col7, col8, col9, col10 = st.columns(5)
+
+                    with col6:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Avg Profit</strong><br>${_ta_human_num(avg_win if avg_win > 0 else avg_loss)}
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col7:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Best Performing Day</strong><br>{best_performing_day_name} with an average profit of <span style='color: #5cb85c;'>${_ta_human_num(best_day_profit)}</span>.
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col8:
+                        net_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit)}</span>" if net_profit >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit))}</span>"
+                        # For the image, it shows Total Profit and then a number in parenthesis (likely total loss or initial deposit).
+                        # I'll replicate the display as seen in the image. You'll need to define what the number in parenthesis represents.
+                        # For now, I'll put a placeholder.
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Total Profit</strong><br>{net_profit_display}<br>(<span style='color: #d9534f;'>-${_ta_human_num(abs(losses_df['Profit'].sum()) if not losses_df.empty else 0)}</span>)
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col9:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Worst Performing Day</strong><br>{worst_performing_day_name} with an average loss of <span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss))}</span>.
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                    with col10:
+                        st.markdown(f"""
+                            <div class='metric-box'>
+                                <strong>Most Profitable Asset</strong><br>{most_profitable_asset}
+                            </div>
+                        """, unsafe_allow_html=True)
 
                 # ---------- The rest of your tabs (charts, edge, export) remain unchanged ----------
+                with tab_charts:
+                    st.subheader("Visualizations")
+                    st.write("Visualizations will be displayed here.")
+                    # Add your charting code here
+                    
+                with tab_edge:
+                    st.subheader("Edge Finder")
+                    st.write("Analyze your trading edge here.")
+                    # Add your edge analysis code here
+
+                with tab_export:
+                    st.subheader("Export Reports")
+                    st.write("Export your trading data and reports.")
+                    # Add your export functionality here
+
+
             except Exception as e:
                 st.error(f"Error processing CSV: {str(e)}")
+                logging.error(f"Error processing CSV: {str(e)}", exc_info=True)
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
 
     # Gamification Badges
+    # Assuming _ta_show_badges is defined elsewhere or will be defined.
+    # For this example, I'll add a placeholder if it's not provided in the original code snippet.
+    def _ta_show_badges(df):
+        st.subheader("🎖️ Your Trading Badges")
+        # Example badge logic:
+        if df["Profit"].sum() > 10000:
+            st.success("🌟 Profit Pioneer: Achieved over $10,000 in net profit!")
+        if len(df) > 100:
+            st.info("📊 Experienced Trader: Completed over 100 trades!")
+        if df[df["Profit"] > 0]["Profit"].mean() > abs(df[df["Profit"] < 0]["Profit"].mean()):
+            st.success("🧠 Smart Scaler: Average win is greater than average loss!")
+
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
         try:
             _ta_show_badges(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
+    else:
+        st.info("Upload trades to generate insights and earn badges.")
 
-        else:
-            st.info("Upload trades to generate insights.")
     # Report Export & Sharing
-    if 'df' in locals() and not df.empty:
+    if 'df' in locals() and not df.empty: # Use the local df if it exists
         if st.button("📄 Generate Performance Report"):
             report_html = f"""
             <html>
+            <head>
+                <title>Performance Report</title>
+                <style>
+                    body {{ font-family: sans-serif; margin: 20px; background-color: #1a1a1a; color: #f0f0f0; }}
+                    h2 {{ color: #58b3b1; }}
+                    p {{ margin-bottom: 5px; }}
+                    .positive {{ color: #5cb85c; }}
+                    .negative {{ color: #d9534f; }}
+                </style>
+            </head>
             <body>
             <h2>Performance Report</h2>
-            <p>Total Trades: {total_trades}</p>
-            <p>Win Rate: {win_rate:.2f}%</p>
-            <p>Net Profit: ${net_profit:,.2f}</p>
-            <p>Profit Factor: {profit_factor}</p>
-            <p>Biggest Win: ${wins["Profit"].max() if not wins.empty else 0:,.2f}</p>
-            <p>Biggest Loss: ${losses["Profit"].min() if not losses.empty else 0:,.2f}</p>
-            <p>Longest Win Streak: {longest_win_streak}</p>
-            <p>Longest Loss Streak: {longest_loss_streak}</p>
-            <p>Avg Trade Duration: {df['Trade Duration'].mean():.2f}h</p>
-            <p>Total Volume: {df['Volume'].sum():,.2f}</p>
-            <p>Avg Volume: {df['Volume'].mean():.2f}</p>
-            <p>Profit / Trade: ${net_profit/total_trades if total_trades else 0:.2f}</p>
+            <p><strong>Total Trades:</strong> {total_trades}</p>
+            <p><strong>Win Rate:</strong> {_ta_human_pct(win_rate)}</p>
+            <p><strong>Net Profit:</strong> <span class='{'positive' if net_profit >= 0 else 'negative'}'>${net_profit:,.2f}</span></p>
+            <p><strong>Profit Factor:</strong> {_ta_human_num(profit_factor)}</p>
+            <p><strong>Biggest Win:</strong> <span class='positive'>${wins_df["Profit"].max() if not wins_df.empty else 0:,.2f}</span></p>
+            <p><strong>Biggest Loss:</strong> <span class='negative'>${losses_df["Profit"].min() if not losses_df.empty else 0:,.2f}</span></p>
+            <p><strong>Longest Win Streak:</strong> {longest_win_streak}</p>
+            <p><strong>Longest Loss Streak:</strong> {longest_loss_streak}</p>
+            <p><strong>Avg Trade Duration:</strong> {df['Trade Duration'].mean():.2f}h</p>
+            <p><strong>Total Volume:</strong> {df['Volume'].sum():,.2f}</p>
+            <p><strong>Avg Volume:</strong> {df['Volume'].mean():.2f}</p>
+            <p><strong>Profit / Trade:</strong> <span class='{'positive' if (net_profit/total_trades if total_trades else 0) >= 0 else 'negative'}'>${net_profit/total_trades if total_trades else 0:.2f}</span></p>
             </body>
             </html>
             """
