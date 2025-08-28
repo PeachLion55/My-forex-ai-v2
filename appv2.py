@@ -1352,9 +1352,13 @@ elif st.session_state.current_page == 'mt5':
             font-size: 0.8em;
             color: #ccc;
         }
-        .metric-box .day-info { /* For best/worst performing day text */
-            font-size: 0.9em; /* Adjusted for longer text */
+        .metric-box .day-info { /* For best/worst performing day text, which can be longer */
+            font-size: 0.85em; /* Adjusted for longer text to fit */
             line-height: 1.2;
+            flex-grow: 1; /* Allow this text to take up available space */
+            display: flex;
+            align-items: center; /* Vertically center the text if shorter */
+            justify-content: center; /* Horizontally center the text */
         }
 
 
@@ -1544,7 +1548,7 @@ elif st.session_state.current_page == 'mt5':
                     net_profit = df["Profit"].sum()
                     profit_factor = _ta_profit_factor(df)
                     avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0
-                    avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0
+                    avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0 # avg_loss will be negative
                     daily_pnl = _ta_daily_pnl(df)
                     max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
                     sharpe_ratio = _ta_compute_sharpe(df)
@@ -1661,7 +1665,7 @@ elif st.session_state.current_page == 'mt5':
                     col6, col7, col8, col9, col10 = st.columns(5)
 
                     with col6:
-                        # Avg Profit: Displaying Avg Win as per image. Adjust if you mean Avg Profit per trade.
+                        # Avg Profit: Displaying Avg Win as per image. Value in image is $6,989.50.
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Avg Profit</strong>
@@ -1682,7 +1686,7 @@ elif st.session_state.current_page == 'mt5':
                     with col8:
                         net_profit_value_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit)}</span>" if net_profit >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit))}</span>"
                         # The image shows ($267,157.00) in red in parentheses. This often represents Total Loss or Initial Capital/Drawdown.
-                        # I'm using absolute total losses for this placeholder. Adjust 'total_loss_for_display' as needed.
+                        # I'm using absolute total losses for this placeholder. Adjust 'total_loss_for_display' as needed based on your data.
                         total_loss_for_display = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0
                         st.markdown(f"""
                             <div class='metric-box'>
