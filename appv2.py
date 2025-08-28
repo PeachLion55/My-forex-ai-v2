@@ -1581,59 +1581,58 @@ elif st.session_state.current_page == 'mt5':
     # --------------------------
     def _ta_human_pct(value):
         try:
-            return f"{value * 100:.2f}%" if value is not None else "N/A"
+            if value is None or pd.isna(value):
+                return "N/A"
+            return f"{float(value) * 100:.2f}%"
         except Exception:
             return "N/A"
 
     def _ta_human_num(value):
         """
-        Formats a numeric value to a comma-separated string with two decimal places.
+        Formats a numerical value to a comma-separated string with two decimal places.
         Returns 'N/A' for None, NaN, or non-numeric input.
-        Crucially, this function *only* formats the number itself (magnitude),
-        without prepending signs or currency symbols.
+        This function *only* formats the number itself (magnitude or signed value),
+        without prepending signs or currency symbols to avoid unary operator errors.
         """
         try:
             if value is None or pd.isna(value):
                 return "N/A"
             float_val = float(value)
-            return f"{float_val:,.2f}" # Will naturally include '-' if negative
+            return f"{float_val:,.2f}"
         except (ValueError, TypeError):
             return "N/A"
 
     def _ta_compute_sharpe(df, risk_free_rate=0.02):
-        if "Profit" not in df.columns:
+        if "Profit" not in df.columns or df.empty:
             return np.nan
-        # Filter for actual trading days to compute returns
-        daily_pnl_series = df.set_index(pd.to_datetime(df["Close Time"]).dt.date).groupby(level=0)["Profit"].sum()
         
-        # Calculate returns based on non-zero profit days to avoid issues from zero-trade days
-        if daily_pnl_series.empty or len(daily_pnl_series[daily_pnl_series != 0].dropna()) < 2:
-            return np.nan # Need at least two valid data points with non-zero P&L for returns
+        # Aggregate daily PnL for returns calculation.
+        # Ensure it's based on unique dates in 'Close Time' and sum profits for each.
+        daily_pnl_series = df.set_index(pd.to_datetime(df["Close Time"]).dt.date)["Profit"].resample('D').sum().dropna()
+
+        # Need at least two valid data points for returns, potentially more if many are zero
+        if daily_pnl_series.empty or len(daily_pnl_series[daily_pnl_series != 0.0].dropna()) < 2:
+            return np.nan
 
         returns = daily_pnl_series.pct_change().dropna()
+        
         if len(returns) < 2:
             return np.nan
         
-        mean_return = returns.mean() * 252  # Annualized
+        mean_return = returns.mean() * 252  # Annualized (assuming trading 252 days/year)
         std_return = returns.std() * np.sqrt(252)  # Annualized
         return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
 
     def _ta_daily_pnl(df):
         """
         Returns a dictionary mapping datetime.date to total profit for that day.
-        Only includes dates that actually had trades and non-zero profit in the CSV.
+        Includes all days that had at least one trade in the CSV, even if net profit is zero.
         """
         if "Close Time" in df.columns and "Profit" in df.columns and not df.empty and not df["Profit"].isnull().all():
             df_copy = df.copy()
             df_copy["date"] = pd.to_datetime(df_copy["Close Time"]).dt.date
-            
-            # Aggregate profits per day
-            daily_sum_profits = df_copy.groupby("date")["Profit"].sum()
-            
-            # Filter for days where profit is not effectively zero
-            daily_sum_profits = daily_sum_profits[daily_sum_profits != 0.0]
-            
-            return daily_sum_profits.to_dict()
+            # Group by date and sum profits; this naturally skips days without trades in the df.
+            return df_copy.groupby("date")["Profit"].sum().to_dict()
         return {}
 
     def _ta_profit_factor(df):
@@ -1661,11 +1660,10 @@ elif st.session_state.current_page == 'mt5':
                 st.markdown(f"<div class='metric-box'><strong>Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({max(0, 30 - total_trades_val)} left)</span></div>", unsafe_allow_html=True)
         
         avg_win_for_badge = df[df["Profit"] > 0]["Profit"].mean()
-        avg_loss_for_badge = df[df["Profit"] < 0]["Profit"].mean() # Avg loss is negative or NaN if no losses
+        avg_loss_for_badge = df[df["Profit"] < 0]["Profit"].mean() 
         
         with col_badge3:
-            # Check for actual numerical average wins and losses
-            if pd.notna(avg_win_for_badge) and pd.notna(avg_loss_for_badge) and avg_loss_for_badge < 0: # Ensure there are actual losses for a ratio
+            if pd.notna(avg_win_for_badge) and pd.notna(avg_loss_for_badge) and avg_loss_for_badge < 0.0:
                 if avg_win_for_badge > abs(avg_loss_for_badge):
                     st.markdown("<div class='metric-box profitable'><strong>Smart Scaler</strong><br><span class='metric-value'>Avg Win > Avg Loss!</span></div>", unsafe_allow_html=True)
                 else:
@@ -1692,14 +1690,16 @@ elif st.session_state.current_page == 'mt5':
                 required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
                 missing_cols = [col for col in required_cols if col not in df.columns]
                 if missing_cols:
-                    st.error(f"Missing required columns: {', '.join(missing_cols)}")
+                    st.error(f"Missing required columns: {', '.join(missing_cols)}. Please ensure your CSV has all necessary columns.")
+                    st.session_state.mt5_df = pd.DataFrame()
+                    if "selected_calendar_month" in st.session_state: del st.session_state.selected_calendar_month
                     st.stop()
 
                 # Coerce 'Open Time' and 'Close Time' to datetime, handling errors by setting to NaT
                 df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                 df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
                 
-                # Coerce 'Profit' to numeric, handling errors by setting to NaN, then fill NaNs with 0
+                # Coerce 'Profit' to numeric, handling errors by setting to NaN, then fill NaNs with 0.0
                 df["Profit"] = pd.to_numeric(df["Profit"], errors='coerce').fillna(0.0)
                 
                 # Filter out rows where 'Close Time' or 'Open Time' became NaT after coercion
@@ -1707,38 +1707,39 @@ elif st.session_state.current_page == 'mt5':
 
                 # Check if the filtered DataFrame is empty
                 if df.empty:
-                    st.error("Uploaded CSV resulted in no valid trading data after processing timestamps.")
+                    st.error("Uploaded CSV resulted in no valid trading data after processing timestamps or profits.")
                     st.session_state.mt5_df = pd.DataFrame()
-                    if "selected_calendar_month" in st.session_state:
-                        del st.session_state.selected_calendar_month
+                    if "selected_calendar_month" in st.session_state: del st.session_state.selected_calendar_month
                     st.stop()
 
 
                 df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
 
                 # Calculate daily_pnl_map once for both metrics and calendar.
-                # This map only contains entries for days with at least one non-zero trade in the CSV.
+                # This map contains entries for all days with at least one trade, including zero-net-profit days.
                 daily_pnl_map = _ta_daily_pnl(df)
                 
-                # For aggregate stats (like drawdown, sharpe) that require a continuous time series including zero-profit days.
+                # For aggregate stats (like drawdown, sharpe) that may require a continuous time series.
+                # Fill in zeros for days without trades between min/max trading days.
+                daily_pnl_df_for_stats = pd.DataFrame(columns=["date", "Profit"]) # Initialize empty
+
                 if daily_pnl_map:
                     min_data_date = min(daily_pnl_map.keys())
                     max_data_date = max(daily_pnl_map.keys())
                     all_dates_in_data_range = pd.date_range(start=min_data_date, end=max_data_date).date
                     daily_pnl_df_for_stats = pd.DataFrame([
-                        {"date": d, "Profit": daily_pnl_map.get(d, 0.0)}
+                        {"date": d, "Profit": daily_pnl_map.get(d, 0.0)} # Use 0.0 for days not in map but in range
                         for d in all_dates_in_data_range
                     ])
-                else: # Fallback for no valid pnl_map (e.g., all trades had 0 profit after conversion)
-                    min_close_time = df['Close Time'].min()
-                    max_close_time = df['Close Time'].max()
-                    if pd.notna(min_close_time) and pd.notna(max_close_time):
-                         all_dates_in_data_range = pd.date_range(start=min_close_time.date(), end=max_close_time.date()).date
-                         daily_pnl_df_for_stats = pd.DataFrame([
-                            {"date": d, "Profit": 0.0} for d in all_dates_in_data_range
-                        ])
-                    else:
-                        daily_pnl_df_for_stats = pd.DataFrame(columns=["date", "Profit"])
+                elif not df.empty and pd.notna(df['Close Time'].min()) and pd.notna(df['Close Time'].max()):
+                    # Even if daily_pnl_map is empty (e.g., all trades resulted in 0.0 profit),
+                    # create a range of dates for stats calculation if Close Time is valid
+                    min_date_raw = df['Close Time'].min().date()
+                    max_date_raw = df['Close Time'].max().date()
+                    all_dates_raw_range = pd.date_range(start=min_date_raw, end=max_date_raw).date
+                    daily_pnl_df_for_stats = pd.DataFrame([
+                        {"date": d, "Profit": 0.0} for d in all_dates_raw_range
+                    ])
 
 
                 # ---------- Tabs ----------
@@ -1770,7 +1771,8 @@ elif st.session_state.current_page == 'mt5':
 
                     # Calculate additional metrics for the top row
                     # Avg R:R - assuming this is (Avg Win / Avg Loss magnitude)
-                    avg_r_r = abs(avg_win / avg_loss) if avg_loss != 0 else np.nan
+                    avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0 else np.nan # Calculate the numerical ratio
+                    
 
                     # Trading Score (example: could be a composite of factors, here just a placeholder for visual)
                     trading_score_value = 90.98 # Example value, replace with your actual calculation
@@ -1784,44 +1786,44 @@ elif st.session_state.current_page == 'mt5':
                     most_profitable_asset_calc = "N/A"
                     if not df.empty and "Symbol" in df.columns and not df["Profit"].isnull().all():
                         profitable_assets = df.groupby("Symbol")["Profit"].sum()
-                        if not profitable_assets.empty and profitable_assets.max() > 0: # Ensure there is actual positive profit
+                        if not profitable_assets.empty and profitable_assets.max() > 0.0: # Ensure there is actual positive profit
                             most_profitable_asset_calc = profitable_assets.idxmax()
-                        elif not profitable_assets.empty and profitable_assets.max() <= 0: # All symbols had losses or zero profit
-                             most_profitable_asset_calc = "None Profitable" 
+                        elif not profitable_assets.empty and profitable_assets.max() <= 0.0 and profitable_assets.min() <= 0.0:
+                             most_profitable_asset_calc = "None Profitable" # All symbols had losses or zero profit
+                        # If profitable_assets is empty, it remains "N/A"
                     
                     # Best and Worst Performing Day
                     best_day_profit = 0.0
                     best_performing_day_name = "N/A"
-                    worst_day_loss = 0.0 # Store as negative value from the sum of losses on a day
+                    worst_day_loss = 0.0 
                     worst_performing_day_name = "N/A"
 
                     if not daily_pnl_df_for_stats.empty and not daily_pnl_df_for_stats["Profit"].empty:
                         # Filter for days with actual non-zero P&L for "best/worst day"
-                        days_with_pnl = daily_pnl_df_for_stats[daily_pnl_df_for_stats["Profit"] != 0.0] 
+                        days_with_pnl_actual_trades = daily_pnl_df_for_stats[daily_pnl_df_for_stats["Profit"] != 0.0] 
                         
-                        if not days_with_pnl.empty:
+                        if not days_with_pnl_actual_trades.empty:
                             # Best Performing Day
-                            best_day_profit = days_with_pnl["Profit"].max()
+                            best_day_profit = days_with_pnl_actual_trades["Profit"].max()
                             if pd.notna(best_day_profit) and best_day_profit > 0.0:
-                                # Ensure index access is safe with .item() or .iloc[0] for scalar
-                                best_performing_day_date = days_with_pnl["date"][days_with_pnl["Profit"].idxmax()].item()
-                                best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
+                                best_performing_day_date_series = days_with_pnl_actual_trades["date"].iloc[days_with_pnl_actual_trades["Profit"].idxmax()]
+                                best_performing_day_name = pd.to_datetime(str(best_performing_day_date_series)).strftime('%A')
                             else:
                                 best_performing_day_name = "No Profitable Days"
 
                             # Worst Performing Day
-                            worst_day_loss = days_with_pnl["Profit"].min()
+                            worst_day_loss = days_with_pnl_actual_trades["Profit"].min()
                             if pd.notna(worst_day_loss) and worst_day_loss < 0.0:
-                                worst_performing_day_date = days_with_pnl["date"][days_with_pnl["Profit"].idxmin()].item()
-                                worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                                worst_performing_day_date_series = days_with_pnl_actual_trades["date"].iloc[days_with_pnl_actual_trades["Profit"].idxmin()]
+                                worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date_series)).strftime('%A')
                             else:
                                 worst_performing_day_name = "No Losing Days"
                         else: # No non-zero profit days found in stats df
-                            best_performing_day_name = "N/A (No Non-Zero PnL Days)"
-                            worst_performing_day_name = "N/A (No Non-Zero PnL Days)"
+                            best_performing_day_name = "No Trades With Non-Zero P&L"
+                            worst_performing_day_name = "No Trades With Non-Zero P&L"
                     else: # daily_pnl_df_for_stats is empty
-                        best_performing_day_name = "N/A (No PnL Data)"
-                        worst_performing_day_name = "N/A (No PnL Data)"
+                        best_performing_day_name = "No P&L Data"
+                        worst_performing_day_name = "No P&L Data"
 
 
                     # Row 1: Metrics with bars (Avg R:R, Win Rate, Trading Score, Hit Rate, Total Trades)
@@ -1892,10 +1894,12 @@ elif st.session_state.current_page == 'mt5':
 
                     with col6:
                         # Avg Profit: Displaying Avg Win (average profit of winning trades) as per image ($6,989.50)
+                        avg_win_formatted = _ta_human_num(avg_win)
+                        avg_win_display = f"<span style='color: #5cb85c;'>${avg_win_formatted}</span>" if avg_win > 0.0 and avg_win_formatted != "N/A" else f"${avg_win_formatted}"
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Avg Profit</strong>
-                                <span class='metric-value'>${_ta_human_num(avg_win)}</span>
+                                <span class='metric-value'>{avg_win_display}</span>
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1908,9 +1912,9 @@ elif st.session_state.current_page == 'mt5':
                             day_info_text = f"{best_performing_day_name} with an average profit of {best_day_profit_display_html}."
                         elif best_performing_day_name == "No Profitable Days":
                             day_info_text = "No Profitable Days Recorded."
-                        else:
-                            day_info_text = f"No trades recorded on best day (was {_ta_human_num(best_day_profit_val)})."
-
+                        else: # E.g., No trades with non-zero P&L.
+                            day_info_text = best_performing_day_name 
+                        
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Best Performing Day</strong>
@@ -1927,7 +1931,7 @@ elif st.session_state.current_page == 'mt5':
                         elif net_profit_formatted != "N/A":
                             net_profit_value_display_html = f"<span style='color: #d9534f;'>-${net_profit_formatted}</span>"
                         else:
-                            net_profit_value_display_html = f"N/A"
+                            net_profit_value_display_html = "N/A"
                         
                         # Total losses magnitude for the parentheses display. Image shows ($267,157.00) in red.
                         total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
@@ -1955,8 +1959,8 @@ elif st.session_state.current_page == 'mt5':
                             day_info_text = f"{worst_performing_day_name} with an average loss of {worst_day_loss_display_html}."
                         elif worst_performing_day_name == "No Losing Days":
                             day_info_text = "No Losing Days Recorded."
-                        else:
-                            day_info_text = f"No trades recorded on worst day (was {_ta_human_num(worst_day_loss_val)})."
+                        else: # E.g., No trades with non-zero P&L.
+                            day_info_text = worst_performing_day_name
 
                         st.markdown(f"""
                             <div class='metric-box'>
@@ -1996,8 +2000,7 @@ elif st.session_state.current_page == 'mt5':
                 st.error(f"Error processing CSV: {str(e)}. Please check your CSV format and ensure it contains the required columns with valid data.")
                 logging.error(f"Error processing CSV: {str(e)}", exc_info=True)
                 st.session_state.mt5_df = pd.DataFrame() # Clear session state if error
-                if "selected_calendar_month" in st.session_state:
-                    del st.session_state.selected_calendar_month
+                if "selected_calendar_month" in st.session_state: del st.session_state.selected_calendar_month
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
         # Ensure that if file is not uploaded, there is no lingering dataframe
@@ -2025,9 +2028,7 @@ elif st.session_state.current_page == 'mt5':
 
         df_for_calendar = st.session_state.mt5_df 
         
-        # Get available months and years from the dataframe
-        selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Default for a case where df is technically empty but this code runs
-
+        selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Default 
         if not df_for_calendar.empty and not df_for_calendar["Close Time"].isnull().all():
             min_date_data = pd.to_datetime(df_for_calendar["Close Time"]).min().date()
             max_date_data = pd.to_datetime(df_for_calendar["Close Time"]).max().date()
@@ -2057,10 +2058,10 @@ elif st.session_state.current_page == 'mt5':
                 selected_month_date = selected_period.start_time.date() if selected_period else date(datetime.now().year, datetime.now().month, 1)
             else:
                  st.warning("No trade data with valid 'Close Time' to display in the calendar.")
-                 selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Fallback to current month if no periods
-        else: # No trading data to display in calendar from initial upload or valid 'Close Time'
+                 selected_month_date = date(datetime.now().year, datetime.now().month, 1) 
+        else: 
             st.warning("No trade data with valid 'Close Time' to display in the calendar.")
-            selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Fallback to current month
+            selected_month_date = date(datetime.now().year, datetime.now().month, 1)
 
 
         daily_pnl_map_for_calendar = _ta_daily_pnl(df_for_calendar)
@@ -2095,19 +2096,20 @@ elif st.session_state.current_page == 'mt5':
                 
                 if day_date.month == selected_month_date.month:
                     profit = daily_pnl_map_for_calendar.get(day_date)
-                    if profit is not None and profit != 0.0: # Check explicitly for non-zero profit
+                    if profit is not None: # This means there was *at least one trade* on this specific day
                         if profit > 0.0:
                             day_class += " profitable"
                             profit_amount_html = f"<span style='color:#5cb85c;'>${_ta_human_num(profit)}</span>"
                         elif profit < 0.0:
                             day_class += " losing"
-                            # The _ta_human_num now returns magnitude, so prepend -$.
+                            # The _ta_human_num returns magnitude, so explicitly prepend -$.
                             profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num(abs(profit))}</span>"
-                        # If profit is 0.0, profit_amount_html remains "" as desired for blank days
-                    # If profit is None (no trades for day), profit_amount_html remains ""
+                        else: # profit == 0.0 for the day, visually treat as empty like original image.
+                            profit_amount_html = "" 
+                    else: # No trades recorded at all for this day in the map
+                         profit_amount_html = "" 
                 else:
-                    # Day belongs to previous or next month, mark as empty (hidden)
-                    day_class += " empty-month-day"
+                    day_class += " empty-month-day" # Days not in current month are hidden
                 
                 if day_date == today:
                     day_class += " current-day"
