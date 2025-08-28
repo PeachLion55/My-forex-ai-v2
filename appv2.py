@@ -1656,15 +1656,15 @@ elif st.session_state.current_page == 'mt5':
         col_badge1, col_badge2, col_badge3 = st.columns(3)
         with col_badge1:
             if total_profit_val > 10000:
-                st.markdown("<div class='metric-box profitable'><strong>Profit Pioneer</strong><br><span class='metric-value'>Achieved over $10,000 profit!</span></div>", unsafe_allow_html=True)
+                st.markdown("<div class='metric-box profitable'><strong>🎖️ Profit Pioneer</strong><br><span class='metric-value'>Achieved over $10,000 profit!</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div class='metric-box'><strong>Profit Pioneer</strong><br><span class='metric-value'>Goal: $10,000 profit</span></div>", unsafe_allow_html=True)
+                st.markdown("<div class='metric-box'><strong>🎖️ Profit Pioneer</strong><br><span class='metric-value'>Goal: $10,000 profit</span></div>", unsafe_allow_html=True)
 
         with col_badge2:
             if total_trades_val >= 30: 
-                st.markdown("<div class='metric-box profitable'><strong>Active Trader</strong><br><span class='metric-value'>Completed over 30 trades!</span></div>", unsafe_allow_html=True)
+                st.markdown("<div class='metric-box profitable'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Completed over 30 trades!</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div class='metric-box'><strong>Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({max(0, 30 - total_trades_val)} left)</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-box'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({max(0, 30 - total_trades_val)} left)</span></div>", unsafe_allow_html=True)
         
         avg_win_for_badge = df[df["Profit"] > 0]["Profit"].mean()
         avg_loss_for_badge = df[df["Profit"] < 0]["Profit"].mean() 
@@ -1672,9 +1672,9 @@ elif st.session_state.current_page == 'mt5':
         with col_badge3:
             if pd.notna(avg_win_for_badge) and pd.notna(avg_loss_for_badge) and avg_loss_for_badge < 0.0:
                 if avg_win_for_badge > abs(avg_loss_for_badge):
-                    st.markdown("<div class='metric-box profitable'><strong>Smart Scaler</strong><br><span class='metric-value'>Avg Win > Avg Loss!</span></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='metric-box profitable'><strong>🎖️ Smart Scaler</strong><br><span class='metric-value'>Avg Win > Avg Loss!</span></div>", unsafe_allow_html=True)
                 else:
-                    st.markdown("<div class='metric-box'><strong>Smart Scaler</strong><br><span class='metric-value'>Improve R:R ratio</span></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='metric-box'><strong>🎖️ Smart Scaler</strong><br><span class='metric-value'>Improve R:R ratio</span></div>", unsafe_allow_html=True)
             else:
                  st.markdown("<div class='metric-box'><strong>Smart Scaler</strong><br><span class='metric-value'>Trade more to assess!</span></div>", unsafe_allow_html=True)
 
