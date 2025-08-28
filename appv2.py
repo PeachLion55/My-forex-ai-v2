@@ -1309,9 +1309,10 @@ from datetime import datetime, date, timedelta
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
 
-# --- IMPORTANT: Ensure 'current_page' is set appropriately or remove this outer if block for standalone testing ---
-# For standalone testing of just this file, you might temporarily comment out the `if/elif` around `st.session_state.current_page`
-# or explicitly set st.session_state.current_page = 'mt5' at the very beginning of your main script.
+# --- IMPORTANT: Ensure 'current_page' is set appropriately ---
+# For standalone testing of just this file, you might uncomment the line below.
+# st.session_state.current_page = 'mt5' # UNCOMMENT THIS FOR STANDALONE TESTING IF 'current_page' IS NOT SET ELSEWHERE
+
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'mt5' # Default for initial run or testing purposes
 
@@ -2139,8 +2140,21 @@ if st.session_state.current_page == 'mt5':
             </div>
         </div>
         """
+        
+        # --- DEBUGGING MARKERS ---
+        st.write("--- BEGINNING OF CALENDAR OUTPUT ---")
+        st.markdown(f"Is calendar_html a string? {isinstance(calendar_html, str)}")
+        st.markdown(f"Length of calendar_html: {len(calendar_html)}")
+        # You should NOT see the raw HTML code appear between these two st.write markers.
+        # If you DO see raw HTML, it means there's another hidden output mechanism at play.
+        # --- END DEBUGGING MARKERS ---
+
         # THIS IS THE CRUCIAL LINE for rendering the HTML correctly
         st.markdown(calendar_html, unsafe_allow_html=True)
+        
+        # --- DEBUGGING MARKERS ---
+        st.write("--- END OF CALENDAR OUTPUT ---")
+        # --- END DEBUGGING MARKERS ---
 
 
     # Report Export & Sharing
