@@ -1309,7 +1309,13 @@ from datetime import datetime, date, timedelta
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
 
-elif st.session_state.current_page == 'mt5':
+# This check implies that 'current_page' is managed elsewhere in your Streamlit app
+# Make sure st.session_state.current_page is set correctly before this script runs.
+# For standalone testing, you might want to remove this if/elif block.
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'mt5' # Default for testing purposes if not set
+
+if st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
@@ -2113,7 +2119,7 @@ elif st.session_state.current_page == 'mt5':
                         else: # profit == 0.0 for the day, meaning trades occurred but summed to zero.
                             profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>" 
                     else: # No trades recorded at all for this day in the map (no data for this day in CSV)
-                         # Fix: Show $0.00 for days within the current month that have no trade data.
+                         # THIS IS THE KEY FIX FOR DAYS WITH NO TRADES: show $0.00 instead of being empty
                          profit_amount_html = "<span style='color:#cccccc;'>$0.00</span>"
                 else:
                     day_class += " empty-month-day" # Days not in current month are hidden
@@ -2134,6 +2140,7 @@ elif st.session_state.current_page == 'mt5':
             </div>
         </div>
         """
+        # Ensure ONLY this line is used to display the calendar HTML:
         st.markdown(calendar_html, unsafe_allow_html=True)
 
 
