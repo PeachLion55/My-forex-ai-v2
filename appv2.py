@@ -1302,6 +1302,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import logging
+import calendar # Needed for calendar operations
+from datetime import datetime, date, timedelta
 
 # Ensure logging is configured (optional, but good practice if not done globally)
 if not logging.getLogger().handlers:
@@ -1312,7 +1314,7 @@ elif st.session_state.current_page == 'mt5':
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
 
-    # Custom CSS for theme consistency and new progress bars, with fixed box sizes
+    # Custom CSS for theme consistency and new progress bars, with fixed box sizes, and CALENDAR styles
     st.markdown(
         """
         <style>
@@ -1348,11 +1350,16 @@ elif st.session_state.current_page == 'mt5':
             font-weight: bold;
             display: block;
             line-height: 1.3; /* Ensure spacing for single-line values */
+            flex-grow: 1; /* Allows value to take up more space in non-bar boxes */
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .metric-box .sub-value { /* For values like the parenthetical total loss */
             font-size: 0.8em;
             color: #ccc;
             line-height: 1; /* Tighter line height for sub-values */
+            padding-bottom: 5px; /* Ensure space from the bottom */
         }
         .metric-box .day-info { /* For best/worst performing day text, which can be longer */
             font-size: 0.85em; /* Adjusted for longer text to fit */
@@ -1450,6 +1457,118 @@ elif st.session_state.current_page == 'mt5':
             background-color: #5cb85c; /* Green part for the actual score */
             border-radius: 5px;
         }
+
+        /* CALENDAR STYLES */
+        .calendar-container {
+            background-color: #262730; /* Darker background for the calendar itself */
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            border: 1px solid #3d3d4b;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+        /* Style for Streamlit's selectbox within the calendar, if needed */
+        div[data-baseweb="select"] {
+            margin: 0; /* Remove default margin from Streamlit elements */
+        }
+        .calendar-nav {
+            display: flex;
+            justify-content: center; /* Center the selectbox and any nav arrows */
+            align-items: center;
+        }
+        .calendar-nav .nav-arrow {
+            background: none;
+            border: none;
+            color: #58b3b1;
+            font-size: 1.8em;
+            cursor: pointer;
+            padding: 0 5px;
+            margin: 0 5px;
+            text-decoration: none; /* Remove underline for anchor tags if used */
+        }
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .calendar-weekday-item {
+            text-align: center;
+            padding: 5px;
+            color: #ccc;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        .calendar-day-box {
+            background-color: #2d2e37; /* Default day box background */
+            padding: 8px;
+            border-radius: 6px;
+            height: 70px; /* Fixed height for day boxes */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* Align content to the top */
+            position: relative;
+            border: 1px solid #3d3d4b; /* Subtle border for all cells */
+            overflow: hidden; /* Hide overflowing text */
+            box-sizing: border-box; /* Include padding and border in the height */
+        }
+        .calendar-day-box.empty {
+            background-color: #2d2e37; /* Match no-trade day color */
+            border: 1px solid #3d3d4b;
+            visibility: hidden; /* Hide empty boxes for preceding/succeeding month days */
+        }
+        .calendar-day-box .day-number {
+            font-size: 0.8em;
+            color: #bbbbbb;
+            text-align: left;
+            margin-bottom: 5px;
+            line-height: 1; /* Tighter line height for day number */
+        }
+        .calendar-day-box .profit-amount {
+            font-size: 0.9em;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.1; /* Adjust line height for profit amount */
+            flex-grow: 1; /* Allow profit amount to take up space */
+            display: flex;
+            align-items: center; /* Vertically center the amount */
+            justify-content: center; /* Horizontally center */
+            white-space: nowrap; /* Prevent profit amount from wrapping */
+        }
+        .calendar-day-box.profitable {
+            background-color: #0f2b0f; /* Green for profit */
+            border-color: #5cb85c; /* Green border */
+        }
+        .calendar-day-box.losing {
+            background-color: #2b0f0f; /* Red for loss */
+            border-color: #d9534f; /* Red border */
+        }
+        .calendar-day-box.current-day {
+            border: 2px solid #ff7f50; /* Orange border for current day */
+        }
+        .calendar-day-box .dot-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #ffcc00; /* Yellow dot for other indicators */
+        }
         </style>
         """,
         unsafe_allow_html=True
@@ -1466,7 +1585,10 @@ elif st.session_state.current_page == 'mt5':
 
     def _ta_human_num(value):
         try:
-            return f"{value:,.2f}" if value is not None else "N/A"
+            # Handle potential None values or other non-numeric input before formatting
+            if value is None or pd.isna(value):
+                return "N/A"
+            return f"{value:,.2f}"
         except Exception:
             return "N/A"
 
@@ -1483,31 +1605,63 @@ elif st.session_state.current_page == 'mt5':
         std_return = returns.std() * np.sqrt(252)  # Annualized
         return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
 
-    # Placeholder for daily PnL computation
     def _ta_daily_pnl(df):
         if "Close Time" in df.columns and "Profit" in df.columns:
             df_copy = df.copy()
             df_copy["date"] = pd.to_datetime(df_copy["Close Time"]).dt.date
-            return df_copy.groupby("date")["Profit"].sum().reset_index()
+            
+            # Aggregate profits per day
+            daily_agg_df = df_copy.groupby("date")["Profit"].sum().reset_index()
+            
+            # For accurate sharpe and calendar, need all dates between min/max trade dates
+            if not df_copy.empty:
+                min_date = df_copy["Close Time"].min().date()
+                max_date = df_copy["Close Time"].max().date()
+                all_dates_in_range = pd.date_range(start=min_date, end=max_date, freq='D').date
+                all_dates_df = pd.DataFrame({"date": all_dates_in_range})
+                merged_df = pd.merge(all_dates_df, daily_agg_df, on="date", how="left").fillna(0)
+            else:
+                merged_df = pd.DataFrame(columns=["date", "Profit"])
+
+            return merged_df
         return pd.DataFrame(columns=["date", "Profit"])
 
-    # Placeholder for profit factor computation
     def _ta_profit_factor(df):
         wins = df[df["Profit"] > 0]["Profit"].sum()
-        losses = abs(df[df["Profit"] < 0]["Profit"].sum())
+        losses = abs(df[df["Profit"] < 0]["Profit"].sum()) # Ensure losses are positive for the ratio
         return wins / losses if losses != 0 else np.nan
 
-    # Placeholder for _ta_show_badges (defined here to make the full code runnable)
     def _ta_show_badges(df):
         st.subheader("🎖️ Your Trading Badges")
-        if df["Profit"].sum() > 10000:
-            st.success("🌟 Profit Pioneer: Achieved over $10,000 in net profit!")
-        if len(df) > 100:
-            st.info("📊 Experienced Trader: Completed over 100 trades!")
-        if not df[df["Profit"] > 0].empty and not df[df["Profit"] < 0].empty:
-            if df[df["Profit"] > 0]["Profit"].mean() > abs(df[df["Profit"] < 0]["Profit"].mean()):
-                st.success("🧠 Smart Scaler: Average win is greater than average loss!")
-        # Add more badge logic as desired
+        # Placeholder for badge logic. Implement based on your actual badge criteria.
+        total_profit_val = df["Profit"].sum()
+        total_trades_val = len(df)
+        
+        col_badge1, col_badge2, col_badge3 = st.columns(3)
+        with col_badge1:
+            if total_profit_val > 10000:
+                st.markdown("<div class='metric-box positive'><strong>Profit Pioneer</strong><br><span class='metric-value'>Achieved over $10,000 profit!</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div class='metric-box neutral'><strong>Profit Pioneer</strong><br><span class='metric-value'>Goal: $10,000 profit</span></div>", unsafe_allow_html=True)
+
+        with col_badge2:
+            if total_trades_val >= 30: # Based on the original image showing 31 trades
+                st.markdown("<div class='metric-box positive'><strong>Active Trader</strong><br><span class='metric-value'>Completed over 30 trades!</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='metric-box neutral'><strong>Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({30 - total_trades_val} left)</span></div>", unsafe_allow_html=True)
+        
+        if not df.empty and not df[df["Profit"] > 0].empty and not df[df["Profit"] < 0].empty:
+            avg_win_val = df[df["Profit"] > 0]["Profit"].mean()
+            avg_loss_val = abs(df[df["Profit"] < 0]["Profit"].mean())
+            with col_badge3:
+                if avg_win_val > avg_loss_val:
+                    st.markdown("<div class='metric-box positive'><strong>Smart Scaler</strong><br><span class='metric-value'>Avg Win > Avg Loss!</span></div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div class='metric-box neutral'><strong>Smart Scaler</strong><br><span class='metric-value'>Improve R:R ratio</span></div>", unsafe_allow_html=True)
+        else:
+             with col_badge3:
+                 st.markdown("<div class='metric-box neutral'><strong>Smart Scaler</strong><br><span class='metric-value'>Trade more to assess!</span></div>", unsafe_allow_html=True)
+
 
     # --------------------------
     # File Uploader
@@ -1530,8 +1684,13 @@ elif st.session_state.current_page == 'mt5':
                     st.error(f"Missing required columns: {', '.join(missing_cols)}")
                     st.stop()
 
+                # Coerce 'Open Time' and 'Close Time' to datetime, handling errors by setting to NaT
                 df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                 df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                
+                # Filter out rows where 'Close Time' or 'Open Time' became NaT
+                df = df.dropna(subset=["Open Time", "Close Time"])
+
                 df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
 
                 # ---------- Tabs ----------
@@ -1553,7 +1712,10 @@ elif st.session_state.current_page == 'mt5':
                     profit_factor = _ta_profit_factor(df)
                     avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0
                     avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0 # avg_loss will be negative
+                    
+                    # Compute daily P&L here for consistent data use later in calendar as well
                     daily_pnl = _ta_daily_pnl(df)
+                    
                     max_drawdown = (daily_pnl["Profit"].cumsum() - daily_pnl["Profit"].cumsum().cummax()).min() if not daily_pnl.empty else 0
                     sharpe_ratio = _ta_compute_sharpe(df)
                     expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0
@@ -1565,7 +1727,6 @@ elif st.session_state.current_page == 'mt5':
                     avg_r_r = abs(avg_win / avg_loss) if avg_loss != 0 else np.nan
 
                     # Trading Score (example: could be a composite of factors, here just a placeholder for visual)
-                    # Let's say a max score is 100 points, and we want to show how close the current score is
                     trading_score_value = 90.98 # Example value, replace with your actual calculation
                     max_trading_score = 100
                     trading_score_percentage = (trading_score_value / max_trading_score) * 100
@@ -1579,10 +1740,9 @@ elif st.session_state.current_page == 'mt5':
                         profitable_assets = df.groupby("Symbol")["Profit"].sum()
                         if not profitable_assets.empty and profitable_assets.max() > 0: # Ensure there is actual profit
                             most_profitable_asset_calc = profitable_assets.idxmax()
-                        elif profitable_assets.empty:
-                             most_profitable_asset_calc = "N/A" # No symbols or no profits
-                        else: # All symbols had losses or zero profit
+                        elif not profitable_assets.empty: # All symbols had losses or zero profit
                              most_profitable_asset_calc = "None Profitable" # Or choose "N/A" if you prefer
+                        # If profitable_assets is empty, it remains "N/A"
 
                     # Best and Worst Performing Day
                     best_day_profit = 0
@@ -1590,25 +1750,31 @@ elif st.session_state.current_page == 'mt5':
                     worst_day_loss = 0
                     worst_performing_day_name = "N/A"
 
-                    if not daily_pnl.empty:
-                        daily_pnl_sorted = daily_pnl.set_index("date")
-                        if not daily_pnl_sorted["Profit"].empty:
-                            best_day_profit = daily_pnl_sorted["Profit"].max()
-                            if not pd.isna(best_day_profit) and best_day_profit > 0: # Check if there was an actual profitable day
-                                best_performing_day_date = daily_pnl_sorted["Profit"].idxmax()
+                    if not daily_pnl.empty and not daily_pnl["Profit"].empty:
+                        daily_pnl_filtered_nonzero = daily_pnl[daily_pnl["Profit"] != 0] # Only consider days with actual trades for "best/worst day"
+                        if not daily_pnl_filtered_nonzero.empty:
+                            
+                            # Best Performing Day
+                            best_day_profit = daily_pnl_filtered_nonzero["Profit"].max()
+                            if pd.notna(best_day_profit) and best_day_profit > 0:
+                                best_performing_day_date = daily_pnl_filtered_nonzero["date"].iloc[daily_pnl_filtered_nonzero["Profit"].idxmax()]
                                 best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
                             else:
-                                best_performing_day_name = "No Profitable Days" # Handle case where max profit is <= 0
+                                best_performing_day_name = "No Profitable Days"
 
-                            worst_day_loss = daily_pnl_sorted["Profit"].min()
-                            if not pd.isna(worst_day_loss) and worst_day_loss < 0: # Check if there was an actual losing day
-                                worst_performing_day_date = daily_pnl_sorted["Profit"].idxmin()
+                            # Worst Performing Day
+                            worst_day_loss = daily_pnl_filtered_nonzero["Profit"].min()
+                            if pd.notna(worst_day_loss) and worst_day_loss < 0:
+                                worst_performing_day_date = daily_pnl_filtered_nonzero["date"].iloc[daily_pnl_filtered_nonzero["Profit"].idxmin()]
                                 worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
                             else:
-                                worst_performing_day_name = "No Losing Days" # Handle case where min loss is >= 0
-                        else:
-                             best_performing_day_name = "N/A (No PnL Data)"
-                             worst_performing_day_name = "N/A (No PnL Data)"
+                                worst_performing_day_name = "No Losing Days"
+                        else: # No non-zero profit days
+                            best_performing_day_name = "N/A (No Non-Zero PnL Days)"
+                            worst_performing_day_name = "N/A (No Non-Zero PnL Days)"
+                    else: # daily_pnl is empty
+                        best_performing_day_name = "N/A (No PnL Data)"
+                        worst_performing_day_name = "N/A (No PnL Data)"
 
 
                     # Row 1: Metrics with bars (Avg R:R, Win Rate, Trading Score, Hit Rate, Total Trades)
@@ -1616,7 +1782,7 @@ elif st.session_state.current_page == 'mt5':
 
                     with col1:
                         # Avg R:R bar assumes 2.0 as a good benchmark, scale to max 100% at 2.0 or higher
-                        r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) else 0)
+                        r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) and avg_r_r > 0 else 0)
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Avg R:R</strong>
@@ -1670,7 +1836,6 @@ elif st.session_state.current_page == 'mt5':
                             <div class='metric-box'>
                                 <strong>Total Trades</strong>
                                 <span class='metric-value'>{total_trades}</span>
-                                <!-- No bar for Total Trades in the example -->
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1690,7 +1855,8 @@ elif st.session_state.current_page == 'mt5':
 
                     with col7:
                         # Check if best_day_profit is positive for green display
-                        best_day_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(best_day_profit)}</span>" if best_day_profit > 0 else f"${_ta_human_num(best_day_profit)}"
+                        best_day_profit_val = best_day_profit # Use numerical value for logic
+                        best_day_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(best_day_profit_val)}</span>" if best_day_profit_val > 0 else f"${_ta_human_num(best_day_profit_val)}"
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Best Performing Day</strong>
@@ -1700,9 +1866,10 @@ elif st.session_state.current_page == 'mt5':
 
                     with col8:
                         # Total Profit - main value (Net Profit), sub-value (Total Losses magnitude)
-                        net_profit_value_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit)}</span>" if net_profit >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit))}</span>"
+                        net_profit_val = net_profit # Use numerical value for logic
+                        net_profit_value_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit_val)}</span>" if net_profit_val >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit_val))}</span>"
                         
-                        # Total losses magnitude for the parentheses display
+                        # Total losses magnitude for the parentheses display. Original image shows 267k in parentheses (assumed total losses)
                         total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0
                         formatted_total_loss_in_parentheses = f"<span style='color: #d9534f;'>(${_ta_human_num(total_losses_magnitude)})</span>"
 
@@ -1716,7 +1883,8 @@ elif st.session_state.current_page == 'mt5':
 
                     with col9:
                         # Check if worst_day_loss is actually a loss (negative) for red display
-                        worst_day_loss_display = f"<span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss))}</span>" if worst_day_loss < 0 else f"${_ta_human_num(worst_day_loss)}"
+                        worst_day_loss_val = worst_day_loss # Use numerical value for logic
+                        worst_day_loss_display = f"<span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss_val))}</span>" if worst_day_loss_val < 0 else f"${_ta_human_num(worst_day_loss_val)}"
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Worst Performing Day</strong>
@@ -1731,6 +1899,125 @@ elif st.session_state.current_page == 'mt5':
                                 <span class='metric-value'>{most_profitable_asset_calc}</span>
                             </div>
                         """, unsafe_allow_html=True)
+
+                    # ----- Daily Performance Calendar -----
+                    st.markdown("---")
+                    st.subheader("🗓️ Daily Performance Calendar")
+
+                    # Get available months and years from the dataframe
+                    # Ensure df is not empty before attempting to get min/max dates
+                    if not df.empty and not df["Close Time"].isnull().all():
+                        min_date_data = pd.to_datetime(df["Close Time"]).min()
+                        max_date_data = pd.to_datetime(df["Close Time"]).max()
+                        available_periods = pd.date_range(start=min_date_data.to_period('M').start_time, end=max_date_data.to_period('M').end_time, freq='M').to_period('M')
+                        available_months_years = sorted(list(available_periods), reverse=True)
+                    else:
+                        available_months_years = [] # No data, so no available months
+
+                    selected_month_year = None
+                    selected_period_index = 0
+
+                    if available_months_years:
+                        # Convert Period objects to displayable strings "Month YYYY"
+                        display_options = [f"{p.strftime('%B %Y')}" for p in available_months_years]
+                        
+                        # Find default to display the month of the most recent trade, or current month if data spans it
+                        latest_data_month_str = available_months_years[0].strftime('%B %Y') # Latest month in data
+                        
+                        # Try to default to the month of the latest trade, or current month if no data
+                        # Current month in session state for consistency during reruns
+                        if 'selected_calendar_month' not in st.session_state:
+                             st.session_state.selected_calendar_month = latest_data_month_str # Default to latest data month
+                        
+                        selected_month_year_str = st.selectbox(
+                            "Select Month",
+                            options=display_options,
+                            index=display_options.index(st.session_state.selected_calendar_month) if st.session_state.selected_calendar_month in display_options else 0,
+                            key="calendar_month_selector"
+                        )
+                        st.session_state.selected_calendar_month = selected_month_year_str
+
+                        selected_period = next((p for p in available_months_years if p.strftime('%B %Y') == selected_month_year_str), None)
+                        if selected_period:
+                            selected_month_year = selected_period.start_time.date() # Convert Period to datetime.date object for the first day
+
+                    if selected_month_year is None:
+                        # If no data or selection, default to current month for an empty calendar structure
+                        selected_month_year = date(datetime.now().year, datetime.now().month, 1)
+
+
+                    # Prepare daily P&L data for the calendar map
+                    daily_pnl_map = {}
+                    if not daily_pnl.empty:
+                        for _, row in daily_pnl.iterrows():
+                            # Only include dates for the selected month to avoid issues with date comparisons later
+                            if row["date"].year == selected_month_year.year and row["date"].month == selected_month_year.month:
+                                daily_pnl_map[row["date"]] = row["Profit"]
+                    
+                    # Generate calendar grid
+                    cal = calendar.Calendar(firstweekday=calendar.SUNDAY) # Sunday is the first day of the week for consistency with image
+                    month_days = cal.monthdatescalendar(selected_month_year.year, selected_month_year.month)
+
+                    calendar_html = f"""
+                    <div class="calendar-container">
+                        <div class="calendar-header">
+                            {calendar.month_name[selected_month_year.month]} {selected_month_year.year}
+                        </div>
+                        <div class="calendar-weekdays">
+                            <div class="calendar-weekday-item">Sun</div>
+                            <div class="calendar-weekday-item">Mon</div>
+                            <div class="calendar-weekday-item">Tue</div>
+                            <div class="calendar-weekday-item">Wed</div>
+                            <div class="calendar-weekday-item">Thu</div>
+                            <div class="calendar-weekday-item">Fri</div>
+                            <div class="calendar-weekday-item">Sat</div>
+                        </div>
+                        <div class="calendar-grid">
+                    """
+
+                    today = datetime.now().date()
+                    for week in month_days:
+                        for day_date in week:
+                            day_class = ""
+                            profit_amount_html = ""
+                            dot_indicator_html = "" # Placeholder for optional dot indicator, if needed
+                            
+                            # Only populate actual day numbers and data for the current selected month
+                            if day_date.month == selected_month_year.month:
+                                profit = daily_pnl_map.get(day_date)
+                                if profit is not None:
+                                    if profit > 0:
+                                        day_class += " profitable"
+                                        profit_amount_html = f"<span style='color:#5cb85c;'>${_ta_human_num(profit)}</span>"
+                                    elif profit < 0:
+                                        day_class += " losing"
+                                        profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num(abs(profit))}</span>"
+                                    else: # Day with trades but zero profit
+                                        profit_amount_html = f"<span style='color:#ffffff;'>$0.00</span>"
+                                else: # Day in month with no recorded trades
+                                     profit_amount_html = "<span style='color:#ccc;'>--</span>"
+                            else:
+                                # Day belongs to previous or next month, mark as empty (hidden)
+                                day_class += " empty"
+                            
+                            if day_date == today:
+                                day_class += " current-day"
+                                
+                            # Build the HTML for this day's box
+                            calendar_html += f"""
+                                <div class="calendar-day-box {day_class}">
+                                    <span class="day-number">{day_date.day if day_date.month == selected_month_year.month else ''}</span>
+                                    <div class="profit-amount">{profit_amount_html}</div>
+                                    {dot_indicator_html}
+                                </div>
+                            """
+                    
+                    calendar_html += """
+                        </div>
+                    </div>
+                    """
+                    st.markdown(calendar_html, unsafe_allow_html=True)
+
 
                 # ---------- The rest of your tabs (charts, edge, export) remain unchanged ----------
                 with tab_charts:
@@ -1755,22 +2042,32 @@ elif st.session_state.current_page == 'mt5':
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
 
-    # Gamification Badges
+    # Gamification Badges (placed here below calendar as per original request)
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
         try:
+            # Re-call _ta_show_badges to display the badge boxes after the calendar
             _ta_show_badges(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     else:
-        pass # The initial "Upload your MT5 history" handles this, no need for redundant info.
+        pass # No trades uploaded, no badges to show yet.
 
     # Report Export & Sharing
     # Ensure 'df' is available if the file was uploaded successfully
     if 'df' in locals() and not df.empty:
         if st.button("📄 Generate Performance Report"):
-            # Ensure total_trades, win_rate, net_profit etc. are calculated if this button is pressed
-            # without re-uploading, or if tab_summary wasn't viewed.
-            # For this context, assuming df exists and these variables were calculated above.
+            # Re-calculate variables needed for the report, in case this button is pressed
+            # without tab_summary having been fully rendered in a previous run (e.g. refresh on another tab)
+            total_trades = len(df)
+            wins_df = df[df["Profit"] > 0]
+            losses_df = df[df["Profit"] <= 0]
+            win_rate = len(wins_df) / total_trades if total_trades else 0
+            net_profit = df["Profit"].sum()
+            profit_factor = _ta_profit_factor(df)
+            longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
+            longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+
+
             report_html = f"""
             <html>
             <head>
