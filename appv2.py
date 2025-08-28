@@ -1347,10 +1347,12 @@ elif st.session_state.current_page == 'mt5':
             font-size: 1.2em; /* Slightly larger for the main number */
             font-weight: bold;
             display: block;
+            line-height: 1.3; /* Ensure spacing for single-line values */
         }
         .metric-box .sub-value { /* For values like the parenthetical total loss */
             font-size: 0.8em;
             color: #ccc;
+            line-height: 1; /* Tighter line height for sub-values */
         }
         .metric-box .day-info { /* For best/worst performing day text, which can be longer */
             font-size: 0.85em; /* Adjusted for longer text to fit */
@@ -1359,6 +1361,8 @@ elif st.session_state.current_page == 'mt5':
             display: flex;
             align-items: center; /* Vertically center the text if shorter */
             justify-content: center; /* Horizontally center the text */
+            padding-top: 5px; /* Little padding above the info text */
+            padding-bottom: 5px; /* Little padding below the info text */
         }
 
 
@@ -1569,31 +1573,42 @@ elif st.session_state.current_page == 'mt5':
                     # Hit Rate - often synonymous with Win Rate, but sometimes calculated differently (e.g., successful trades vs total attempts)
                     hit_rate = win_rate # Assuming Hit Rate is the same as Win Rate for this example
 
-                    # Most Profitable Asset (example)
-                    most_profitable_asset = df.groupby("Symbol")["Profit"].sum().idxmax() if not df.empty and not df["Profit"].isnull().all() else "N/A"
+                    # Most Profitable Asset
+                    most_profitable_asset_calc = "N/A"
+                    if not df.empty and "Symbol" in df.columns and "Profit" in df.columns and not df["Profit"].isnull().all():
+                        profitable_assets = df.groupby("Symbol")["Profit"].sum()
+                        if not profitable_assets.empty and profitable_assets.max() > 0: # Ensure there is actual profit
+                            most_profitable_asset_calc = profitable_assets.idxmax()
+                        elif profitable_assets.empty:
+                             most_profitable_asset_calc = "N/A" # No symbols or no profits
+                        else: # All symbols had losses or zero profit
+                             most_profitable_asset_calc = "None Profitable" # Or choose "N/A" if you prefer
 
                     # Best and Worst Performing Day
+                    best_day_profit = 0
+                    best_performing_day_name = "N/A"
+                    worst_day_loss = 0
+                    worst_performing_day_name = "N/A"
+
                     if not daily_pnl.empty:
                         daily_pnl_sorted = daily_pnl.set_index("date")
-                        # Ensure there are profits/losses to find max/min
                         if not daily_pnl_sorted["Profit"].empty:
                             best_day_profit = daily_pnl_sorted["Profit"].max()
-                            best_performing_day_date = daily_pnl_sorted["Profit"].idxmax()
-                            best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
+                            if not pd.isna(best_day_profit) and best_day_profit > 0: # Check if there was an actual profitable day
+                                best_performing_day_date = daily_pnl_sorted["Profit"].idxmax()
+                                best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
+                            else:
+                                best_performing_day_name = "No Profitable Days" # Handle case where max profit is <= 0
 
                             worst_day_loss = daily_pnl_sorted["Profit"].min()
-                            worst_performing_day_date = daily_pnl_sorted["Profit"].idxmin()
-                            worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                            if not pd.isna(worst_day_loss) and worst_day_loss < 0: # Check if there was an actual losing day
+                                worst_performing_day_date = daily_pnl_sorted["Profit"].idxmin()
+                                worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                            else:
+                                worst_performing_day_name = "No Losing Days" # Handle case where min loss is >= 0
                         else:
-                            best_day_profit = 0
-                            best_performing_day_name = "N/A"
-                            worst_day_loss = 0
-                            worst_performing_day_name = "N/A"
-                    else:
-                        best_day_profit = 0
-                        best_performing_day_name = "N/A"
-                        worst_day_loss = 0
-                        worst_performing_day_name = "N/A"
+                             best_performing_day_name = "N/A (No PnL Data)"
+                             worst_performing_day_name = "N/A (No PnL Data)"
 
 
                     # Row 1: Metrics with bars (Avg R:R, Win Rate, Trading Score, Hit Rate, Total Trades)
@@ -1601,7 +1616,7 @@ elif st.session_state.current_page == 'mt5':
 
                     with col1:
                         # Avg R:R bar assumes 2.0 as a good benchmark, scale to max 100% at 2.0 or higher
-                        r_r_bar_width = min(100, (avg_r_r / 2) * 100 if avg_r_r else 0)
+                        r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) else 0)
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Avg R:R</strong>
@@ -1655,7 +1670,7 @@ elif st.session_state.current_page == 'mt5':
                             <div class='metric-box'>
                                 <strong>Total Trades</strong>
                                 <span class='metric-value'>{total_trades}</span>
-                                <!-- No bar for Total Trades in the example, so omit it -->
+                                <!-- No bar for Total Trades in the example -->
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1665,17 +1680,17 @@ elif st.session_state.current_page == 'mt5':
                     col6, col7, col8, col9, col10 = st.columns(5)
 
                     with col6:
-                        # Avg Profit: Displaying Avg Win as per image. Value in image is $6,989.50.
+                        # Avg Profit: Displaying Avg Win (average profit of winning trades) as per image ($6,989.50)
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Avg Profit</strong>
-                                <span class='metric-value'>${_ta_human_num(avg_win if avg_win > 0 else 0)}</span>
-                                <!-- No bar in example -->
+                                <span class='metric-value'>${_ta_human_num(avg_win)}</span>
                             </div>
                         """, unsafe_allow_html=True)
 
                     with col7:
-                        best_day_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(best_day_profit)}</span>"
+                        # Check if best_day_profit is positive for green display
+                        best_day_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num(best_day_profit)}</span>" if best_day_profit > 0 else f"${_ta_human_num(best_day_profit)}"
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Best Performing Day</strong>
@@ -1684,20 +1699,24 @@ elif st.session_state.current_page == 'mt5':
                         """, unsafe_allow_html=True)
 
                     with col8:
+                        # Total Profit - main value (Net Profit), sub-value (Total Losses magnitude)
                         net_profit_value_display = f"<span style='color: #5cb85c;'>${_ta_human_num(net_profit)}</span>" if net_profit >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num(abs(net_profit))}</span>"
-                        # The image shows ($267,157.00) in red in parentheses. This often represents Total Loss or Initial Capital/Drawdown.
-                        # I'm using absolute total losses for this placeholder. Adjust 'total_loss_for_display' as needed based on your data.
-                        total_loss_for_display = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0
+                        
+                        # Total losses magnitude for the parentheses display
+                        total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0
+                        formatted_total_loss_in_parentheses = f"<span style='color: #d9534f;'>(${_ta_human_num(total_losses_magnitude)})</span>"
+
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Total Profit</strong>
                                 <span class='metric-value'>{net_profit_value_display}</span>
-                                <span class='sub-value' style='color: #d9534f;'>(${-_ta_human_num(abs(total_loss_for_display))})</span>
+                                <span class='sub-value'>{formatted_total_loss_in_parentheses}</span>
                             </div>
                         """, unsafe_allow_html=True)
 
                     with col9:
-                        worst_day_loss_display = f"<span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss))}</span>"
+                        # Check if worst_day_loss is actually a loss (negative) for red display
+                        worst_day_loss_display = f"<span style='color: #d9534f;'>-${_ta_human_num(abs(worst_day_loss))}</span>" if worst_day_loss < 0 else f"${_ta_human_num(worst_day_loss)}"
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Worst Performing Day</strong>
@@ -1709,7 +1728,7 @@ elif st.session_state.current_page == 'mt5':
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Most Profitable Asset</strong>
-                                <span class='metric-value'>{most_profitable_asset}</span>
+                                <span class='metric-value'>{most_profitable_asset_calc}</span>
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1743,15 +1762,13 @@ elif st.session_state.current_page == 'mt5':
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     else:
-        # This else branch is now directly linked to the uploader, so this prompt is less likely needed here.
-        # It's better to keep it only if the user hasn't uploaded anything at all.
-        pass
+        pass # The initial "Upload your MT5 history" handles this, no need for redundant info.
 
     # Report Export & Sharing
     # Ensure 'df' is available if the file was uploaded successfully
     if 'df' in locals() and not df.empty:
         if st.button("📄 Generate Performance Report"):
-            # Ensure win_rate, net_profit, etc. are calculated if this button is pressed
+            # Ensure total_trades, win_rate, net_profit etc. are calculated if this button is pressed
             # without re-uploading, or if tab_summary wasn't viewed.
             # For this context, assuming df exists and these variables were calculated above.
             report_html = f"""
