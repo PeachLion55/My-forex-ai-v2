@@ -1249,7 +1249,6 @@ with tab_entry:
         st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
     else:
         st.info("No leaderboard data yet.")
-
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
