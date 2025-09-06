@@ -1317,7 +1317,7 @@ elif st.session_state.current_page == 'backtesting':
                         <h4 style="margin:0; padding:0; border-bottom: none !important;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
                         <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')}</span>
                     </div>
-                    """, unsafe_allow_html=True) # REMOVED: st.markdown("---") was here, now removed as per requirement
+                    """, unsafe_allow_html=True) 
 
                     metric_cols = st.columns(3)
                     metric_cols[0].metric("Net PnL", f"${row['PnL']:.2f}")
@@ -1330,19 +1330,20 @@ elif st.session_state.current_page == 'backtesting':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    # --- START ADDITION: Rich-Text Editor for Notes ---
+                    # --- START MODIFICATION: Rich-Text Editor for Notes ---
                     st.markdown("<h6 style='margin-top:1rem;'>Detailed Journal Notes:</h6>", unsafe_allow_html=True)
                     
-                    # Ensure 'TradeJournalNotes' is a string for st_quill
+                    # Ensure 'TradeJournalNotes' is a string for st_quill. If it's rich text, it should already be HTML.
                     current_notes_html = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
                     
                     # Use streamlit_quill for rich text editing
-                    edited_notes_html = st_quill(value=current_notes_html, key=f"notes_editor_{row['TradeID']}", html=True) # html=True to get HTML output
+                    # The key needs to be unique for each editor, f"notes_editor_{row['TradeID']}" is good.
+                    edited_notes_html = st_quill(value=current_notes_html, key=f"notes_editor_{row['TradeID']}", html=True) 
                     
                     save_delete_cols = st.columns(2)
                     with save_delete_cols[0]:
                         if st.button("💾 Save Notes", key=f"save_notes_{row['TradeID']}", use_container_width=True):
-                            # Update the DataFrame with the HTML content
+                            # Update the DataFrame with the HTML content from the rich-text editor
                             st.session_state.tools_trade_journal.loc[index, 'TradeJournalNotes'] = edited_notes_html
                             # Save to database
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
@@ -1366,10 +1367,12 @@ elif st.session_state.current_page == 'backtesting':
                                 st.rerun() # Rerun to update the trade list and XP
                             else:
                                 st.error("Please log in to delete trades.")
-                    # --- END ADDITION ---
+                    # --- END MODIFICATION ---
 
-                    # --- Display saved rich text notes ---
-                    if edited_notes_html: # Only display if there's content in the editor
+                    # --- Display saved rich text notes (render HTML directly) ---
+                    # Only display if there's content. We need to use st.markdown with unsafe_allow_html=True
+                    # to render the HTML output from the rich-text editor.
+                    if edited_notes_html and edited_notes_html.strip() != "<p><br></p>": # Quill's default empty can be <p><br></p>
                         st.markdown(f"""
                         <div class="trade-notes-display">
                             {edited_notes_html}
