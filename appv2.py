@@ -3394,3 +3394,83 @@ elif st.session_state.current_page == "Zenvo Academy":
         logging.info("User logged out")
         st.session_state.current_page = "account" # Changed to 'account' as 'login' page state doesn't directly exist
         st.rerun()
+
+# =========================================================
+# GAMIFICATION HELPERS
+# =========================================================
+def ta_update_xp(amount):
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            old_xp = user_data.get('xp', 0)
+            user_data['xp'] = old_xp + amount
+            level = user_data['xp'] // 100
+            if level > user_data.get('level', 0):
+                user_data['level'] = level
+                user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
+                st.balloons()
+                st.success(f"Level up! You are now level {level}.")
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            conn.commit()
+            st.session_state.xp = user_data['xp']
+            st.session_state.level = user_data['level']
+            st.session_state.badges = user_data['badges']
+            
+            # Show XP notification
+            show_xp_notification(amount) # This line calls the notification function
+
+def ta_update_streak():
+    if "logged_in_user" in st.session_state:
+        username = st.session_state.logged_in_user
+        c.execute("SELECT data FROM users WHERE username = ?", (username,))
+        result = c.fetchone()
+        if result:
+            user_data = json.loads(result[0])
+            today = dt.date.today().isoformat()
+            last_date = user_data.get('last_journal_date')
+            streak = user_data.get('streak', 0)
+            
+            if last_date:
+                last = dt.date.fromisoformat(last_date)
+                if last == dt.date.fromisoformat(today) - dt.timedelta(days=1):
+                    streak += 1
+                elif last < dt.date.fromisoformat(today) - dt.timedelta(days=1):
+                    streak = 1
+            else:
+                streak = 1
+                
+            user_data['streak'] = streak
+            user_data['last_journal_date'] = today
+            
+            if streak % 7 == 0:
+                badge = f"Discipline Badge ({streak} Days)"
+                if badge not in user_data.get('badges', []):
+                    user_data['badges'] = user_data.get('badges', []) + [badge]
+                    st.balloons()
+                    st.success(f"Unlocked: {badge} for {streak} day streak!")
+            
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+            conn.commit()
+            st.session_state.streak = streak
+            st.session_state.badges = user_data['badges']
+
+def ta_check_milestones(journal_df, mt5_df):
+    total_trades = len(journal_df)
+    if total_trades >= 100:
+        st.balloons()
+        st.success("Milestone achieved: 100 trades journaled!")
+    
+    if not mt5_df.empty:
+        daily_pnl = _ta_daily_pnl(mt5_df)
+        if not daily_pnl.empty:
+            daily_pnl['date'] = pd.to_datetime(daily_pnl['date'])
+            recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - pd.Timedelta(days=90)]
+            if not recent.empty:
+                equity = recent['pnl'].cumsum()
+                dd = (equity - equity.cummax()).min() / equity.max() if equity.max() != 0 else 0
+                if abs(dd) < 0.1:
+                    st.balloons()
+                    st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
