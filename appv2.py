@@ -1335,9 +1335,7 @@ elif st.session_state.current_page == 'backtesting':
                     # Ensure 'TradeJournalNotes' is a string for st_quill. If it's rich text, it should already be HTML.
                     current_notes_html = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
                     
-                    # Use streamlit_quill for rich text editing
-                    # The key needs to be unique for each editor, f"notes_editor_{row['TradeID']}" is good.
-                    edited_notes_html = st_quill(value=current_notes_html, key=f"notes_editor_{row['TradeID']}", html=True) 
+                     
                     
                     save_delete_cols = st.columns(2)
                     with save_delete_cols[0]:
