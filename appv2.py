@@ -1088,44 +1088,45 @@ elif st.session_state.current_page == 'backtesting':
                 suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
                 tags = st.multiselect("Trade Tags", options=sorted(list(set(all_tags + suggested_tags))))
 
-            submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
-                    if submitted:
+                    submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
+        if submitted:
             # Determine pip unit for the symbol
             # Most pairs have a pip of 0.0001 (e.g., EUR/USD, GBP/USD)
             # JPY pairs have a pip of 0.01 (e.g., USD/JPY, EUR/JPY)
             pip_size = 0.01 if 'JPY' in symbol.upper() else 0.0001
-            units_per_lot = 100000 # Standard lot size
+            units_per_lot = 100000 # Standard lot size (1 lot = 100,000 units)
 
             calculated_pnl = 0.0
             calculated_rr = 0.0
 
-            # Calculate PnL (in approximate USD equivalent for simplification, assuming direct quote currency value)
+            # Calculate PnL
             if outcome in ["Win", "Loss"]:
-                price_difference = (final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)
-                # PnL is (price change in quote currency) * units traded.
-                # Example: For EUR/USD, 1 lot (100k units), 1.1000 to 1.1001 (1 pip) = 0.0001 * 100,000 = $10 profit.
-                # For USD/JPY, 1 lot (100k units), 150.00 to 150.01 (1 pip) = 0.01 * 100,000 = 1000 JPY profit.
-                # The PnL stored here will be in the quote currency value.
-                calculated_pnl = price_difference * lots * units_per_lot
-            
-            # Calculate RR (Ratio of pips gained to pips risked)
-            risk_price_diff = abs(entry_price - stop_loss)
-            profit_price_diff = abs(final_exit - entry_price)
-
-            if risk_price_diff > 0:
-                # Convert raw price differences to pips based on the symbol's pip_size
-                pips_risked = risk_price_diff / pip_size
-                pips_gained = profit_price_diff / pip_size
+                # Price difference for PnL calculation
+                price_diff_raw = (final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)
                 
-                if pips_risked > 0: # Ensure no division by zero
-                    calculated_rr = pips_gained / pips_risked
-                    # If the outcome is a loss, represent RR as negative
-                    if outcome == "Loss":
-                        calculated_rr = -abs(calculated_rr)
-                else:
-                    calculated_rr = 0.0 # No risk defined, so RR is 0
+                # PnL in the quote currency's value
+                # Example: For EUR/USD (USD is quote), price_diff_raw is in USD. PnL = price_diff_raw * lots * units_per_lot.
+                # For USD/JPY (JPY is quote), price_diff_raw is in JPY. PnL = price_diff_raw * lots * units_per_lot.
+                calculated_pnl = price_diff_raw * lots * units_per_lot
+            
+            # Calculate RR (Risk-Reward Ratio)
+            # This is based on pips risked vs pips gained
+            
+            # Pips risked calculation
+            if stop_loss > 0 and entry_price != stop_loss:
+                pips_risked = abs(entry_price - stop_loss) / pip_size
             else:
-                calculated_rr = 0.0 # No stop loss, so risk is 0 for RR calculation
+                pips_risked = 0.0 # Effectively no stop loss or invalid stop loss
+
+            # Pips gained/lost calculation
+            pips_result = (final_exit - entry_price) / pip_size
+            if direction == "Short":
+                pips_result = -pips_result # Invert pips_result for short trades to reflect profit/loss from entry to exit
+
+            if pips_risked > 0:
+                calculated_rr = pips_result / pips_risked
+            else:
+                calculated_rr = 0.0 # Can't calculate RR if no risk (no stop loss)
 
             new_trade_data = {
                 "TradeID": f"TRD-{uuid.uuid4().hex[:6].upper()}", "Date": pd.to_datetime(date_val),
@@ -1136,15 +1137,23 @@ elif st.session_state.current_page == 'backtesting':
                 "Tags": ','.join(tags), "EntryRationale": entry_rationale,
                 "Strategy": '', "TradeJournalNotes": '', "EntryScreenshot": '', "ExitScreenshot": ''
             }
-            # ... (rest of the submission logic remains the same)
-                new_df = pd.DataFrame([new_trade_data])
-                st.session_state.tools_trade_journal = pd.concat([st.session_state.tools_trade_journal, new_df], ignore_index=True)
-                
+            new_df = pd.DataFrame([new_trade_data])
+            st.session_state.tools_trade_journal = pd.concat([st.session_state.tools_trade_journal, new_df], ignore_index=True)
+            
+            # Conditionally save to database and update XP/streak only if logged in
+            if 'logged_in_user' in st.session_state and st.session_state.logged_in_user:
                 if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
                     ta_update_xp(10)
                     ta_update_streak()
-                    st.success(f"Trade {new_trade_data['TradeID']} logged successfully!")
-                st.rerun()
+                    st.success(f"Trade {new_trade_data['TradeID']} logged successfully and saved to your account!")
+                    logging.info(f"Trade logged and saved to database for user {st.session_state.logged_in_user}")
+                else:
+                    st.error("Failed to save trade to your account. It's saved locally for this session.")
+            else:
+                st.success(f"Trade {new_trade_data['TradeID']} logged successfully! Please log in via 'My Account' to save permanently.")
+                logging.info(f"Trade logged locally for anonymous user")
+            
+            st.rerun()
 
     # --- TAB 2: TRADE PLAYBOOK ---
     with tab_playbook:
