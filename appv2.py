@@ -2294,9 +2294,9 @@ elif st.session_state.current_page == 'strategy':
 # ACCOUNT PAGE
 # =========================================================
 elif st.session_state.current_page == 'account':
-    st.title("👤 My Account")
     # >>> START REPLACEMENT HERE <<<
     if "logged_in_user" not in st.session_state:
+        st.title("👤 My Account") # This title will now only appear when not logged in
         st.markdown(
             """
             Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
