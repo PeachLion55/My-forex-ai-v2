@@ -473,38 +473,51 @@ if "drawings" not in st.session_state:
     st.session_state.drawings = {}
     logging.info("Initialized st.session_state.drawings")
 
-# Define journal columns and dtypes
+# Define journal columns and dtypes (UPDATED GLOBAL DEFINITIONS)
 journal_cols = [
-    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
-    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
-    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns", "Emotions",
-    "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
-    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
+    "Trade ID", "Date", "Entry Time", "Exit Time", "Symbol", "Trade Type", "Strategy Used", "Lots",
+    "Entry Price", "Stop Loss Price", "Take Profit Price", "Final Exit Price",
+    "Initial R", "Realized R", "Win/Loss", "PnL ($)", "Pips",
+    "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
+    "Primary Correlation", "Secondary Correlation", "News Event Impact",
+    "Market State (HTF)", "Setup Name", "Indicators Used", "Entry Trigger",
+    "Reasons for Entry", "Reasons for Exit", "Pre-Trade Mindset",
+    "In-Trade Emotions", "Emotional Triggers", "Discipline Score 1-5",
+    "Order Type", "Partial Exits", "Entry Screenshot Link/Hash", "Exit Screenshot Link/Hash",
+    "Journal Notes", "Post-Trade Analysis", "Lessons Learned", "Adjustments",
+    "Tags"
 ]
 
 journal_dtypes = {
-    "Date": "datetime64[ns]", "Symbol": str, "Weekly Bias": str, "Daily Bias": str,
-    "4H Structure": str, "1H Structure": str, "Positive Correlated Pair & Bias": str,
-    "Potential Entry Points": str, "5min/15min Setup?": str, "Entry Conditions": str,
-    "Planned R:R": str, "News Filter": str, "Alerts": str, "Concerns": str, "Emotions": str,
-    "Confluence Score 1-7": float, "Outcome / R:R Realised": str, "Notes/Journal": str,
-    "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Lots": float
+    "Trade ID": str, "Date": "datetime64[ns]", "Entry Time": "datetime64[ns]", "Exit Time": "datetime64[ns]", "Symbol": str,
+    "Trade Type": str, "Strategy Used": str, "Lots": float,
+    "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Final Exit Price": float,
+    "Initial R": float, "Realized R": float, "Win/Loss": str, "PnL ($)": float, "Pips": float,
+    "Weekly Bias": str, "Daily Bias": str, "4H Structure": str, "1H Structure": str,
+    "Primary Correlation": str, "Secondary Correlation": str, "News Event Impact": str,
+    "Market State (HTF)": str, "Setup Name": str, "Indicators Used": str, "Entry Trigger": str,
+    "Reasons for Entry": str,  # This will store JSON string of text + style
+    "Reasons for Exit": str,   # This will store JSON string of text + style
+    "Pre-Trade Mindset": str,
+    "In-Trade Emotions": str,
+    "Emotional Triggers": str,
+    "Discipline Score 1-5": float,
+    "Order Type": str, "Partial Exits": bool, "Entry Screenshot Link/Hash": str, "Exit Screenshot Link/Hash": str,
+    "Journal Notes": str,      # This will store JSON string of text + style
+    "Post-Trade Analysis": str, # This will store JSON string of text + style
+    "Lessons Learned": str,    # This will store JSON string of text + style
+    "Adjustments": str,
+    "Tags": str
 }
 
-# Initialize trading journal with proper dtypes
-if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-else:
-    # Ensure existing journal matches new structure
-    current_journal = st.session_state.tools_trade_journal
-    missing_cols = [col for col in journal_cols if col not in current_journal.columns]
-    if missing_cols:
-        for col in missing_cols:
-            current_journal[col] = pd.Series(dtype=journal_dtypes[col])
-    # Reorder columns and apply dtypes
-    st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+# The global initialization can remain minimal because the 'backtesting' page
+# now has robust logic to ensure the DataFrame aligns with the current journal_cols/dtypes.
+# This ensures data migration and column handling is managed where the journal is actively used.
+if "tools_trade_journal" not in st.session_state:
+    # Minimal initialization; full migration/defaults are handled in backtesting page.
+    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes, errors='ignore')
 
-# Initialize temporary journal for form
+# Initialize temporary journal for form (remains the same)
 if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
 
@@ -956,16 +969,47 @@ elif st.session_state.current_page == 'backtesting':
                     if result:
                         user_data = json.loads(result[0])
                         st.session_state.drawings = user_data.get("drawings", {})
-                        if "tools_trade_journal" in user_data:
-                            loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
-                            # Ensure all columns from journal_cols are present, even if empty in loaded_df
-                            for col in journal_cols:
-                                if col not in loaded_df.columns:
-                                    loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                        
+                        # Re-process journal data robustly
+                        loaded_journal_raw = user_data.get("tools_trade_journal", [])
+                        loaded_journal_df = pd.DataFrame(loaded_journal_raw)
+
+                        # Create an empty, fully-structured DataFrame with all current journal_cols
+                        master_journal_df = pd.DataFrame(columns=journal_cols)
+
+                        # Copy existing data, fill missing with defaults based on dtype
+                        for col in journal_cols:
+                            if col in loaded_journal_df.columns:
+                                master_journal_df[col] = loaded_journal_df[col]
+                            else:
+                                if journal_dtypes[col] == str:
+                                    master_journal_df[col] = ""
+                                elif 'datetime' in str(journal_dtypes[col]):
+                                    master_journal_df[col] = pd.NaT # pandas Not-a-Time for missing datetimes
+                                elif journal_dtypes[col] == float:
+                                    master_journal_df[col] = 0.0
+                                elif journal_dtypes[col] == bool:
+                                    master_journal_df[col] = False
+                                else:
+                                    master_journal_df[col] = np.nan
+
+                        # Enforce dtypes and fill any remaining NaNs in string columns
+                        for col, dtype in journal_dtypes.items():
+                            if dtype == str:
+                                master_journal_df[col] = master_journal_df[col].fillna('').astype(str)
+                            elif 'datetime' in str(dtype):
+                                master_journal_df[col] = pd.to_datetime(master_journal_df[col], errors='coerce')
+                            elif dtype == float:
+                                master_journal_df[col] = pd.to_numeric(master_journal_df[col], errors='coerce').fillna(0.0).astype(float)
+                            elif dtype == bool:
+                                master_journal_df[col] = master_journal_df[col].fillna(False).astype(bool)
+                            else: # Fallback for other dtypes
+                                master_journal_df[col] = master_journal_df[col].astype(dtype, errors='ignore')
+
+                        st.session_state.tools_trade_journal = master_journal_df
                         
                         st.success("Account synced successfully!")
-                        logging.info(f"Account synced for {username}. Drawings updated.")
+                        logging.info(f"Account synced for {username}. Drawings and Journal updated.")
                     else:
                         st.error("Failed to sync account.")
                         logging.error(f"No user data found for {username}")
@@ -1014,51 +1058,72 @@ elif st.session_state.current_page == 'backtesting':
         """
     )
 
-    # --- JOURNAL COLUMN DEFINITION (Updated for TradeZella-like depth) ---
-    journal_cols = [
-        "Trade ID", "Date", "Entry Time", "Exit Time", "Symbol", "Trade Type", "Lots",
-        "Entry Price", "Stop Loss Price", "Take Profit Price", "Final Exit Price",
-        "Initial R", "Realized R", "Win/Loss", "PnL ($)", "Pips",
-        "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
-        "Primary Correlation", "Secondary Correlation", "News Event Impact",
-        "Market State (HTF)", "Setup Name", "Indicators Used", "Entry Trigger",
-        "Reasons for Entry", "Reasons for Exit", "Pre-Trade Mindset",
-        "In-Trade Emotions", "Emotional Triggers", "Discipline Score 1-5",
-        "Journal Notes", "Post-Trade Analysis", "Lessons Learned", "Adjustments",
-        "Screenshot Links/Hashes", "Tags"
-    ]
-
-    journal_dtypes = {
-        "Trade ID": str, "Date": "datetime64[ns]", "Entry Time": "datetime64[ns]", "Exit Time": "datetime64[ns]", "Symbol": str,
-        "Trade Type": str, "Lots": float, "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float,
-        "Final Exit Price": float, "Initial R": float, "Realized R": float, "Win/Loss": str, "PnL ($)": float, "Pips": float,
-        "Weekly Bias": str, "Daily Bias": str, "4H Structure": str, "1H Structure": str,
-        "Primary Correlation": str, "Secondary Correlation": str, "News Event Impact": str,
-        "Market State (HTF)": str, "Setup Name": str, "Indicators Used": str, "Entry Trigger": str,
-        "Reasons for Entry": str, "Reasons for Exit": str, "Pre-Trade Mindset": str,
-        "In-Trade Emotions": str, "Emotional Triggers": str, "Discipline Score 1-5": float,
-        "Journal Notes": str, "Post-Trade Analysis": str, "Lessons Learned": str, "Adjustments": str,
-        "Screenshot Links/Hashes": str, "Tags": str
-    }
-
-    # Ensure journal DataFrame is initialized with all columns and correct dtypes
+    # --- JOURNAL INITIALIZATION / MIGRATION LOGIC (UPDATED FOR ROBUSTNESS) ---
     if 'tools_trade_journal' not in st.session_state or st.session_state.tools_trade_journal.empty:
-        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        # If it doesn't exist or is empty, initialize it completely
+        new_empty_df = pd.DataFrame(columns=journal_cols)
+        for col, dtype in journal_dtypes.items():
+            if dtype == str:
+                new_empty_df[col] = ''
+            elif 'datetime' in str(dtype):
+                new_empty_df[col] = pd.NaT
+            elif dtype == float:
+                new_empty_df[col] = 0.0
+            elif dtype == bool:
+                new_empty_df[col] = False
+        st.session_state.tools_trade_journal = new_empty_df.astype(journal_dtypes, errors='ignore')
+
     else:
-        # Reindex and retype existing journal to ensure it matches the expanded structure
-        current_journal = st.session_state.tools_trade_journal
-        missing_cols_to_add = {col: journal_dtypes[col] for col in journal_cols if col not in current_journal.columns}
-        for col, dtype in missing_cols_to_add.items():
-            current_journal[col] = pd.Series(dtype=dtype)
-        # Handle string columns for consistency (e.g., Tags)
-        for col in ["Tags", "Screenshot Links/Hashes"] + [c for c in journal_cols if journal_dtypes[c] == str and c not in current_journal.columns]:
-            if col in current_journal.columns:
-                current_journal[col] = current_journal[col].astype(str).fillna('')
-        st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+        # If it exists, ensure it conforms to the current journal_cols and journal_dtypes
+        current_journal_df = st.session_state.tools_trade_journal
+        
+        # Create a new structured DataFrame
+        reindexed_journal = pd.DataFrame(index=current_journal_df.index, columns=journal_cols)
+
+        for col in journal_cols:
+            if col in current_journal_df.columns:
+                reindexed_journal[col] = current_journal_df[col]
+            else:
+                # Add missing column with a default value based on its dtype
+                if journal_dtypes[col] == str:
+                    reindexed_journal[col] = ""
+                elif 'datetime' in str(journal_dtypes[col]):
+                    reindexed_journal[col] = pd.NaT # Pandas NaT for datetime
+                elif journal_dtypes[col] == float:
+                    reindexed_journal[col] = 0.0
+                elif journal_dtypes[col] == bool:
+                    reindexed_journal[col] = False
+                else: # Generic fallback for any other unexpected dtypes
+                    reindexed_journal[col] = np.nan
+
+        # Now, explicitly apply dtypes and handle missing values within types
+        for col, dtype in journal_dtypes.items():
+            if dtype == str:
+                # Fill any remaining NaNs in object (string) columns to empty strings
+                reindexed_journal[col] = reindexed_journal[col].fillna('').astype(str)
+            elif 'datetime' in str(dtype):
+                # Ensure datetime columns are correctly parsed, coerce errors to NaT
+                reindexed_journal[col] = pd.to_datetime(reindexed_journal[col], errors='coerce')
+            elif dtype == float:
+                # Ensure float columns are numeric and fill NaNs with 0.0
+                reindexed_journal[col] = pd.to_numeric(reindexed_journal[col], errors='coerce').fillna(0.0).astype(float)
+            elif dtype == bool:
+                 # Ensure boolean columns are correctly typed and fill NaNs with False
+                reindexed_journal[col] = reindexed_journal[col].fillna(False).astype(bool)
+            else: # Fallback
+                reindexed_journal[col] = reindexed_journal[col].astype(dtype, errors='ignore')
+
+        st.session_state.tools_trade_journal = reindexed_journal[journal_cols] # Final assignment after full restructuring
+
 
     # Add custom CSS for enhanced Markdown display of text areas
     st.markdown("""
         <style>
+        div.stText.css-1r0sq94 p, /* For direct st.markdown of raw text_area output */
+        .st-br p, .st-cw p {
+             margin-bottom: 0.5rem; /* Better spacing for paragraphs in notes */
+             line-height: 1.5;
+        }
         .styled-text-area-display p {
             margin-bottom: 0.5rem; /* Better spacing for paragraphs in notes */
             line-height: 1.5;
@@ -1068,7 +1133,8 @@ elif st.session_state.current_page == 'backtesting':
             margin-bottom: 0.5rem;
             padding-left: 20px;
         }
-        .styled-text-area-display h1, .styled-text-area-display h2, .styled-text-area-display h3 {
+        .styled-text-area-display h1, .styled-text-area-display h2, .styled-text-area-display h3,
+        .styled-text-area-display h4, .styled-text-area-display h5, .styled-text-area-display h6 {
             margin-top: 1rem;
             margin-bottom: 0.5rem;
             border-bottom: 1px solid rgba(88, 179, 177, 0.5);
@@ -1077,7 +1143,7 @@ elif st.session_state.current_page == 'backtesting':
         </style>
         """, unsafe_allow_html=True)
 
-    # Function to apply user-chosen styles to text
+    # Function to apply user-chosen styles to text (used for display)
     def apply_text_styles(text_content, font_size="14px", font_color="white", bold=False, italic=False, underline=False):
         style = f"font-size: {font_size}; color: {font_color};"
         if bold: style += "font-weight: bold;"
@@ -1086,309 +1152,364 @@ elif st.session_state.current_page == 'backtesting':
         # Use a div to apply overall styles and markdown for content within it
         return f'<div class="styled-text-area-display" style="{style}">{text_content}</div>'
 
-
-    # Tabs for Journal Entry, Analytics, and Replay (renamed)
+    # Tabs for Journal Entry, Analytics, and History
     tab_entry, tab_analytics, tab_history = st.tabs(["📝 Log Trade", "📊 Analytics", "📜 Trade History"])
 
     # =========================================================
-    # LOG TRADE TAB
+    # LOG TRADE TAB (UX Friendly Redesign)
     # =========================================================
     with tab_entry:
-        st.subheader("Log a New Trade (Detailed)")
-    
-        with st.form("trade_entry_form", clear_on_submit=True):
-            trade_id_input = st.text_input("Trade ID (optional, will generate if empty)", value=f"TRD-{_ta_hash()}")
+        st.subheader("Log a New Trade (Comprehensive & Intuitive)")
+        # Pre-fill form if 'edit_trade_data' exists (from Trade History's Edit button)
+        initial_data = st.session_state.get('edit_trade_data', {})
+        is_editing = bool(initial_data)
+
+        with st.form("trade_entry_form", clear_on_submit=not is_editing):
+            st.markdown("### 🏷️ General Information")
             
-            # Section: Trade Overview
-            st.markdown("#### General Trade Details")
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                trade_date = st.date_input("Date", value=dt.datetime.now().date(), key="trade_date_input")
-                entry_time = st.time_input("Entry Time", value=dt.datetime.now().time(), key="entry_time_input")
-            with col2:
-                exit_time = st.time_input("Exit Time", value=dt.datetime.now().time(), key="exit_time_input")
-                symbol = st.selectbox("Symbol", list(pairs_map.keys()) + ["Other"], index=list(pairs_map.keys()).index(pair) if pair in pairs_map.keys() else 0, key="symbol_input")
-                if symbol == "Other":
-                    symbol = st.text_input("Custom Symbol", key="custom_symbol_input")
-            with col3:
-                trade_type = st.radio("Trade Type", ["Long", "Short", "Breakeven", "No-Trade (Study)"], horizontal=True, index=0, key="trade_type_input")
-                lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f", value=0.1, key="lots_input")
-            with col4:
+            col_id, col_strategy = st.columns(2)
+            with col_id:
+                trade_id_input = st.text_input("Trade ID", value=initial_data.get("Trade ID", f"TRD-{_ta_hash()}"), disabled=is_editing)
+            with col_strategy:
                 # Add default strategy list from current user's saved strategies
-                user_strategies = ["None"] + ([s['Name'] for s in st.session_state.strategies.to_dict('records')] if "strategies" in st.session_state and not st.session_state.strategies.empty else [])
-                selected_strategy = st.selectbox("Strategy Used", options=user_strategies, key="strategy_used_input")
-
-            st.markdown("---")
-            # Section: Pricing & Management
-            st.markdown("#### Pricing, Stop Loss & Take Profit")
-            col_pricing_1, col_pricing_2, col_pricing_3 = st.columns(3)
-            with col_pricing_1:
-                entry_price = st.number_input("Entry Price", min_value=0.0, step=0.00001, format="%.5f", key="entry_price_input")
-            with col_pricing_2:
-                stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.00001, format="%.5f", key="stop_loss_price_input")
-            with col_pricing_3:
-                take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.00001, format="%.5f", key="take_profit_price_input")
-                final_exit_price = st.number_input("Final Exit Price (if different from TP)", min_value=0.0, step=0.00001, format="%.5f", key="final_exit_price_input")
-
-            st.markdown("---")
-            # Section: Market Analysis
-            st.markdown("#### Market Context & Bias")
-            col_analysis_1, col_analysis_2, col_analysis_3 = st.columns(3)
-            with col_analysis_1:
-                weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"], key="weekly_bias_input")
-                daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"], key="daily_bias_input")
-            with col_analysis_2:
-                h4_structure = st.selectbox("4H Structure", ["Impulsive", "Corrective", "Consolidating"], key="4h_structure_input")
-                h1_structure = st.selectbox("1H Structure", ["Impulsive", "Corrective", "Consolidating"], key="1h_structure_input")
-            with col_analysis_3:
-                primary_corr = st.text_input("Primary Correlated Pair & Bias", key="primary_corr_input")
-                secondary_corr = st.text_input("Secondary Correlated Pair & Bias", key="secondary_corr_input")
-                news_impact = st.multiselect("News Filter (Actual Impact)", ["High Impact (Positive)", "High Impact (Negative)", "Medium Impact", "Low Impact", "None"], key="news_impact_input")
-                market_state = st.selectbox("Market State (HTF)", ["Trend (Bullish)", "Trend (Bearish)", "Range", "Complex Pullback", "Choppy"], key="market_state_input")
+                user_strategies = ["(Select One)"] + ([s['Name'] for s in st.session_state.strategies.to_dict('records')] if "strategies" in st.session_state and not st.session_state.strategies.empty else [])
+                default_strategy_idx = user_strategies.index(initial_data.get("Strategy Used", "(Select One)")) if initial_data.get("Strategy Used", "(Select One)") in user_strategies else 0
+                selected_strategy = st.selectbox("Strategy Used", options=user_strategies, index=default_strategy_idx, key="strategy_used_input")
             
-            # Section: Trade Setup & Entry
-            st.markdown("#### Setup & Entry Criteria")
-            col_setup_1, col_setup_2 = st.columns(2)
-            with col_setup_1:
-                setup_name = st.text_input("Setup Name (e.g., Flag Breakout, Head & Shoulders)", key="setup_name_input")
-                indicators_used = st.multiselect("Indicators & Tools Used", ["Moving Averages", "RSI", "MACD", "Fibonacci", "Support/Resistance", "Trendlines", "Chart Patterns", "Order Blocks"], key="indicators_input")
-                entry_trigger = st.text_input("Specific Entry Trigger", key="entry_trigger_input")
-            with col_setup_2:
-                # Text customization for 'Reasons for Entry'
-                st.write("Style your 'Reasons for Entry' notes:")
-                reasons_entry_col_a, reasons_entry_col_b, reasons_entry_col_c = st.columns([1,1,2])
-                with reasons_entry_col_a:
-                    reasons_entry_font_size = st.selectbox("Size", ["14px", "12px", "16px", "18px"], key="reasons_entry_font_size_sel", index=0)
-                    reasons_entry_bold = st.checkbox("Bold", key="reasons_entry_bold_cb")
-                with reasons_entry_col_b:
-                    reasons_entry_font_color = st.color_picker("Color", "#FFFFFF", key="reasons_entry_font_color_cp")
-                    reasons_entry_italic = st.checkbox("Italic", key="reasons_entry_italic_cb")
-                with reasons_entry_col_c:
-                    st.empty() # Spacer
-                    reasons_entry_underline = st.checkbox("Underline", key="reasons_entry_underline_cb")
+            cols_datetime, cols_symbol_type, cols_sizing_action = st.columns(3)
+
+            with cols_datetime:
+                st.markdown("**Date & Times**")
+                trade_date = st.date_input("Date", value=initial_data.get("Date", dt.datetime.now()).date(), key="trade_date_input")
+                entry_time = st.time_input("Entry Time", value=initial_data.get("Entry Time", dt.datetime.now()).time(), key="entry_time_input")
+                exit_time = st.time_input("Exit Time", value=initial_data.get("Exit Time", dt.datetime.now()).time(), key="exit_time_input")
+
+            with cols_symbol_type:
+                st.markdown("**Asset & Type**")
+                symbol_options = list(pairs_map.keys()) + ["Other"]
+                default_symbol_idx = symbol_options.index(initial_data.get("Symbol", pair)) if initial_data.get("Symbol", pair) in symbol_options else 0
+                symbol = st.selectbox("Symbol", symbol_options, index=default_symbol_idx, key="symbol_input")
+                if symbol == "Other":
+                    symbol = st.text_input("Custom Symbol", value=initial_data.get("Symbol", ""), key="custom_symbol_input")
                 
-                reasons_for_entry = st.text_area(
-                    "Reasons for Entry (use Markdown: **bold**, *italic*, - list)",
-                    height=200, key="reasons_for_entry_input"
-                )
-
-            st.markdown("---")
-            # Section: Execution & Exit
-            st.markdown("#### Execution, In-Trade Management & Exit")
-            col_exec_1, col_exec_2 = st.columns(2)
-            with col_exec_1:
-                order_type = st.radio("Order Type", ["Market Order", "Limit Order", "Stop Order"], horizontal=True, key="order_type_input")
-                partial_exits = st.checkbox("Were there partial exits?", key="partial_exits_cb")
-                st.markdown("**Entry Screenshot (URL or local image hash)**")
-                entry_screenshot = st.text_input("Entry Screenshot URL/Hash", key="entry_screenshot_input")
-                st.markdown("**Exit Screenshot (URL or local image hash)**")
-                exit_screenshot = st.text_input("Exit Screenshot URL/Hash", key="exit_screenshot_input")
-            with col_exec_2:
-                # Text customization for 'Reasons for Exit'
-                st.write("Style your 'Reasons for Exit' notes:")
-                reasons_exit_col_a, reasons_exit_col_b, reasons_exit_col_c = st.columns([1,1,2])
-                with reasons_exit_col_a:
-                    reasons_exit_font_size = st.selectbox("Size ", ["14px", "12px", "16px", "18px"], key="reasons_exit_font_size_sel", index=0)
-                    reasons_exit_bold = st.checkbox("Bold ", key="reasons_exit_bold_cb")
-                with reasons_exit_col_b:
-                    reasons_exit_font_color = st.color_picker("Color ", "#FFFFFF", key="reasons_exit_font_color_cp")
-                    reasons_exit_italic = st.checkbox("Italic ", key="reasons_exit_italic_cb")
-                with reasons_exit_col_c:
-                    st.empty() # Spacer
-                    reasons_exit_underline = st.checkbox("Underline ", key="reasons_exit_underline_cb")
-
-                reasons_for_exit = st.text_area(
-                    "Reasons for Exit (use Markdown)",
-                    height=200, key="reasons_for_exit_input"
-                )
-
-            st.markdown("---")
-            # Section: Psychology
-            st.markdown("#### Psychology & Emotions")
-            col_psycho_1, col_psycho_2 = st.columns(2)
-            with col_psycho_1:
-                pre_trade_mindset = st.text_area("Pre-Trade Mindset / Plan", key="pre_trade_mindset_input")
-                in_trade_emotions = st.multiselect(
-                    "In-Trade Emotions",
-                    ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral", "FOMO", "Greedy", "Revenge", "Impulsive"],
-                    key="in_trade_emotions_input"
-                )
-            with col_psycho_2:
-                emotional_triggers = st.text_area("Emotional Triggers Noted", key="emotional_triggers_input")
-                discipline_score = st.slider("Discipline Score (1=Low, 5=High)", 1, 5, 3, key="discipline_score_input")
-
-            st.markdown("---")
-            # Section: Reflection & Learning
-            st.markdown("#### Post-Trade Reflection & Learning")
-            col_reflect_1, col_reflect_2 = st.columns(2)
-            with col_reflect_1:
-                # Text customization for 'Post-Trade Analysis'
-                st.write("Style your 'Post-Trade Analysis' notes:")
-                pta_col_a, pta_col_b, pta_col_c = st.columns([1,1,2])
-                with pta_col_a:
-                    pta_font_size = st.selectbox("Size  ", ["14px", "12px", "16px", "18px"], key="pta_font_size_sel", index=0)
-                    pta_bold = st.checkbox("Bold  ", key="pta_bold_cb")
-                with pta_col_b:
-                    pta_font_color = st.color_picker("Color  ", "#FFFFFF", key="pta_font_color_cp")
-                    pta_italic = st.checkbox("Italic  ", key="pta_italic_cb")
-                with pta_col_c:
-                    st.empty()
-                    pta_underline = st.checkbox("Underline  ", key="pta_underline_cb")
-
-                post_trade_analysis = st.text_area(
-                    "Post-Trade Analysis (What happened vs. plan, technical observations)",
-                    height=200, key="post_trade_analysis_input"
-                )
-            with col_reflect_2:
-                # Text customization for 'Lessons Learned'
-                st.write("Style your 'Lessons Learned' notes:")
-                ll_col_a, ll_col_b, ll_col_c = st.columns([1,1,2])
-                with ll_col_a:
-                    ll_font_size = st.selectbox("Size   ", ["14px", "12px", "16px", "18px"], key="ll_font_size_sel", index=0)
-                    ll_bold = st.checkbox("Bold   ", key="ll_bold_cb")
-                with ll_col_b:
-                    ll_font_color = st.color_picker("Color   ", "#FFFFFF", key="ll_font_color_cp")
-                    ll_italic = st.checkbox("Italic   ", key="ll_italic_cb")
-                with ll_col_c:
-                    st.empty()
-                    ll_underline = st.checkbox("Underline   ", key="ll_underline_cb")
-
-                lessons_learned = st.text_area(
-                    "Lessons Learned / Key Takeaways",
-                    height=200, key="lessons_learned_input"
-                )
-                adjustments = st.text_area("Adjustments for Future Trades/Strategy Refinement", key="adjustments_input")
-
-            # Section: Custom Tags & Submission
-            st.markdown("---")
-            st.markdown("#### Other")
-            tags = st.multiselect("Tags (e.g., #Scalp, #DayTrade, #AsianSession)", ["Setup: Reversal", "Setup: Trend-Continuation", "Mistake: Overtrading", "Mistake: No SL", "Emotion: FOMO", "Emotion: Revenge", "Session: London", "Session: NY", "Chart Pattern: Flag", "RSI Divergence"], key="tags_input")
+                trade_type = st.radio("Trade Type", ["Long", "Short", "Breakeven", "No-Trade (Study)"], horizontal=True, 
+                                      index=["Long", "Short", "Breakeven", "No-Trade (Study)"].index(initial_data.get("Trade Type", "Long")), key="trade_type_input")
             
-            # Text customization for 'Journal Notes' (General)
-            st.markdown("##### General Journal Notes")
-            journal_notes_col_a, journal_notes_col_b, journal_notes_col_c = st.columns([1,1,2])
-            with journal_notes_col_a:
-                journal_notes_font_size = st.selectbox("Notes Size", ["14px", "12px", "16px", "18px"], key="journal_notes_font_size_sel", index=0)
-                journal_notes_bold = st.checkbox("Notes Bold", key="journal_notes_bold_cb")
-            with journal_notes_col_b:
-                journal_notes_font_color = st.color_picker("Notes Color", "#FFFFFF", key="journal_notes_font_color_cp")
-                journal_notes_italic = st.checkbox("Notes Italic", key="journal_notes_italic_cb")
-            with journal_notes_col_c:
-                st.empty()
-                journal_notes_underline = st.checkbox("Notes Underline", key="journal_notes_underline_cb")
+            with cols_sizing_action:
+                st.markdown("**Sizing & Exit Prices**")
+                lots = st.number_input("Lots", min_value=0.01, step=0.01, format="%.2f", value=float(initial_data.get("Lots", 0.1)), key="lots_input")
+                entry_price = st.number_input("Entry Price", min_value=0.0, step=0.00001, format="%.5f", value=float(initial_data.get("Entry Price", 0.0)), key="entry_price_input")
+                stop_loss_price = st.number_input("Stop Loss Price", min_value=0.0, step=0.00001, format="%.5f", value=float(initial_data.get("Stop Loss Price", 0.0)), key="stop_loss_price_input")
+                take_profit_price = st.number_input("Take Profit Price", min_value=0.0, step=0.00001, format="%.5f", value=float(initial_data.get("Take Profit Price", 0.0)), key="take_profit_price_input")
+                final_exit_price = st.number_input("Final Exit Price", min_value=0.0, step=0.00001, format="%.5f", value=float(initial_data.get("Final Exit Price", 0.0)), key="final_exit_price_input")
+            
+            st.markdown("---")
 
-            journal_notes_general = st.text_area(
-                "Any additional journal notes",
-                height=250, key="journal_notes_general_input"
+            # --- Section: Market Context ---
+            with st.expander("🌍 Market Context & Bias", expanded=True):
+                cols_bias, cols_structure, cols_influencers = st.columns(3)
+                with cols_bias:
+                    st.markdown("**Longer Term Bias**")
+                    weekly_bias = st.selectbox("Weekly Bias", ["Bullish", "Bearish", "Neutral"], index=["Bullish", "Bearish", "Neutral"].index(initial_data.get("Weekly Bias", "Neutral")), key="weekly_bias_input")
+                    daily_bias = st.selectbox("Daily Bias", ["Bullish", "Bearish", "Neutral"], index=["Bullish", "Bearish", "Neutral"].index(initial_data.get("Daily Bias", "Neutral")), key="daily_bias_input")
+                with cols_structure:
+                    st.markdown("**Price Structure**")
+                    h4_structure = st.selectbox("4H Structure", ["Impulsive", "Corrective", "Consolidating", "None"], index=["Impulsive", "Corrective", "Consolidating", "None"].index(initial_data.get("4H Structure", "None")), key="4h_structure_input")
+                    h1_structure = st.selectbox("1H Structure", ["Impulsive", "Corrective", "Consolidating", "None"], index=["Impulsive", "Corrective", "Consolidating", "None"].index(initial_data.get("1H Structure", "None")), key="1h_structure_input")
+                with cols_influencers:
+                    st.markdown("**Influencing Factors**")
+                    market_state = st.selectbox("Market State (Higher Timeframe)", ["Trend (Bullish)", "Trend (Bearish)", "Range", "Complex Pullback", "Choppy", "Undefined"], 
+                                                index=["Trend (Bullish)", "Trend (Bearish)", "Range", "Complex Pullback", "Choppy", "Undefined"].index(initial_data.get("Market State (HTF)", "Undefined")), key="market_state_input")
+                    primary_corr = st.text_input("Primary Correlated Pair & Bias", value=initial_data.get("Primary Correlation", ""), key="primary_corr_input")
+                    secondary_corr = st.text_input("Secondary Correlated Pair & Bias", value=initial_data.get("Secondary Correlation", ""), key="secondary_corr_input")
+                    news_impact_options = ["High Impact (Positive)", "High Impact (Negative)", "Medium Impact", "Low Impact", "None"]
+                    initial_news_impact = initial_data.get("News Event Impact", "").split(',') if initial_data.get("News Event Impact") else ["None"]
+                    news_impact = st.multiselect("News Filter (Actual Impact)", news_impact_options, 
+                                                 default=[ni for ni in initial_news_impact if ni in news_impact_options], key="news_impact_input")
+            
+            # --- Section: Setup & Entry Details ---
+            with st.expander("🎯 Setup & Entry Details"):
+                cols_setup, cols_entry_notes = st.columns(2)
+                with cols_setup:
+                    st.markdown("**Trade Setup Specifics**")
+                    setup_name = st.text_input("Setup Name (e.g., Flag Breakout, Head & Shoulders, Impulse Corrective)", value=initial_data.get("Setup Name", ""), key="setup_name_input")
+                    indicators_used_options = ["Moving Averages", "RSI", "MACD", "Fibonacci", "Support/Resistance", "Trendlines", "Chart Patterns", "Order Blocks", "Liquidity Concepts"]
+                    initial_indicators = initial_data.get("Indicators Used", "").split(',') if initial_data.get("Indicators Used") else []
+                    indicators_used = st.multiselect("Indicators & Tools Used", indicators_used_options, 
+                                                     default=[ind for ind in initial_indicators if ind in indicators_used_options], key="indicators_input")
+                    entry_trigger = st.text_input("Specific Entry Trigger (e.g., Candlestick Close, Re-test of Zone)", value=initial_data.get("Entry Trigger", ""), key="entry_trigger_input")
+
+                with cols_entry_notes:
+                    st.markdown("**Reasons for Entry Notes**")
+                    # Retrieve existing rich text data or set defaults
+                    initial_entry_reasons_json = initial_data.get("Reasons for Entry", json.dumps({'text': '', 'style': {'font_size': '14px', 'font_color': '#FFFFFF', 'bold': False, 'italic': False, 'underline': False}}))
+                    initial_entry_reasons_dict = json.loads(initial_entry_reasons_json)
+                    reasons_for_entry_text = initial_entry_reasons_dict.get('text', '')
+                    reasons_entry_style = initial_entry_reasons_dict.get('style', {})
+
+                    cols_style_entry_text_1, cols_style_entry_text_2 = st.columns([1,1])
+                    with cols_style_entry_text_1:
+                        reasons_entry_font_size = st.selectbox("Font Size", ["12px", "14px", "16px", "18px"], index=["12px", "14px", "16px", "18px"].index(reasons_entry_style.get('font_size', '14px')), key="reasons_entry_font_size_sel")
+                        reasons_entry_font_color = st.color_picker("Font Color", reasons_entry_style.get('font_color', '#FFFFFF'), key="reasons_entry_font_color_cp")
+                    with cols_style_entry_text_2:
+                        reasons_entry_bold = st.checkbox("Bold Text", value=reasons_entry_style.get('bold', False), key="reasons_entry_bold_cb")
+                        reasons_entry_italic = st.checkbox("Italic Text", value=reasons_entry_style.get('italic', False), key="reasons_entry_italic_cb")
+                        reasons_entry_underline = st.checkbox("Underline Text", value=reasons_entry_style.get('underline', False), key="reasons_entry_underline_cb")
+                    reasons_for_entry = st.text_area(
+                        "Detailed Reasons for Entry (use Markdown: **bold**, *italic*, - list)",
+                        value=reasons_for_entry_text, height=200, key="reasons_for_entry_input"
+                    )
+
+            # --- Section: Trade Execution & Management ---
+            with st.expander("🛠️ Execution & In-Trade Management"):
+                cols_order_exit, cols_screenshots = st.columns(2)
+                with cols_order_exit:
+                    st.markdown("**Order Flow & Exits**")
+                    order_type = st.radio("Order Type", ["Market Order", "Limit Order", "Stop Order"], horizontal=True,
+                                          index=["Market Order", "Limit Order", "Stop Order"].index(initial_data.get("Order Type", "Market Order")), key="order_type_input")
+                    partial_exits = st.checkbox("Were there partial exits?", value=initial_data.get("Partial Exits", False), key="partial_exits_cb")
+                    
+                    st.markdown("**Reasons for Exit Notes**")
+                    # Retrieve existing rich text data or set defaults
+                    initial_exit_reasons_json = initial_data.get("Reasons for Exit", json.dumps({'text': '', 'style': {'font_size': '14px', 'font_color': '#FFFFFF', 'bold': False, 'italic': False, 'underline': False}}))
+                    initial_exit_reasons_dict = json.loads(initial_exit_reasons_json)
+                    reasons_for_exit_text = initial_exit_reasons_dict.get('text', '')
+                    reasons_exit_style = initial_exit_reasons_dict.get('style', {})
+
+                    cols_style_exit_text_1, cols_style_exit_text_2 = st.columns([1,1])
+                    with cols_style_exit_text_1:
+                        reasons_exit_font_size = st.selectbox("Font Size ", ["12px", "14px", "16px", "18px"], index=["12px", "14px", "16px", "18px"].index(reasons_exit_style.get('font_size', '14px')), key="reasons_exit_font_size_sel")
+                        reasons_exit_font_color = st.color_picker("Font Color ", reasons_exit_style.get('font_color', '#FFFFFF'), key="reasons_exit_font_color_cp")
+                    with cols_style_exit_text_2:
+                        reasons_exit_bold = st.checkbox("Bold Text ", value=reasons_exit_style.get('bold', False), key="reasons_exit_bold_cb")
+                        reasons_exit_italic = st.checkbox("Italic Text ", value=reasons_exit_style.get('italic', False), key="reasons_exit_italic_cb")
+                        reasons_exit_underline = st.checkbox("Underline Text ", value=reasons_exit_style.get('underline', False), key="reasons_exit_underline_cb")
+                    reasons_for_exit = st.text_area(
+                        "Detailed Reasons for Exit (use Markdown)",
+                        value=reasons_for_exit_text, height=150, key="reasons_for_exit_input"
+                    )
+
+                with cols_screenshots:
+                    st.markdown("**Visual Records**")
+                    entry_screenshot_link = initial_data.get("Entry Screenshot Link/Hash", "").split(',')[0].strip() if initial_data.get("Entry Screenshot Link/Hash") else ""
+                    exit_screenshot_link = initial_data.get("Exit Screenshot Link/Hash", "").split(',')[-1].strip() if initial_data.get("Exit Screenshot Link/Hash") else ""
+                    
+                    uploaded_entry_image = st.file_uploader("Upload Entry Screenshot", type=["png", "jpg", "jpeg"], key="upload_entry_screenshot")
+                    uploaded_exit_image = st.file_uploader("Upload Exit Screenshot", type=["png", "jpg", "jpeg"], key="upload_exit_screenshot")
+                    
+                    if uploaded_entry_image:
+                        image_file_path = os.path.join(_ta_user_dir(st.session_state.get("logged_in_user", "guest")), "journal_images", f"entry_{trade_id_input}.png")
+                        os.makedirs(os.path.dirname(image_file_path), exist_ok=True)
+                        with open(image_file_path, "wb") as f:
+                            f.write(uploaded_entry_image.getbuffer())
+                        entry_screenshot_link = image_file_path
+                        st.info(f"Entry image uploaded. Path: {entry_screenshot_link}")
+                    
+                    if uploaded_exit_image:
+                        image_file_path = os.path.join(_ta_user_dir(st.session_state.get("logged_in_user", "guest")), "journal_images", f"exit_{trade_id_input}.png")
+                        os.makedirs(os.path.dirname(image_file_path), exist_ok=True)
+                        with open(image_file_path, "wb") as f:
+                            f.write(uploaded_exit_image.getbuffer())
+                        exit_screenshot_link = image_file_path
+                        st.info(f"Exit image uploaded. Path: {exit_screenshot_link}")
+
+                    # Use hidden text_inputs to actually store the paths, user sees file uploader interaction
+                    entry_screenshot_hash = st.text_input("Entry Image (Hidden Field)", value=entry_screenshot_link, key="entry_screenshot_hash_hidden", label_visibility="hidden")
+                    exit_screenshot_hash = st.text_input("Exit Image (Hidden Field)", value=exit_screenshot_link, key="exit_screenshot_hash_hidden", label_visibility="hidden")
+
+            # --- Section: Psychology & Discipline ---
+            with st.expander("🧠 Psychology & Discipline"):
+                cols_mindset, cols_emotions = st.columns(2)
+                with cols_mindset:
+                    pre_trade_mindset = st.text_area("Pre-Trade Mindset / Plan", value=initial_data.get("Pre-Trade Mindset", ""), key="pre_trade_mindset_input")
+                with cols_emotions:
+                    in_trade_emotions_options = ["Confident", "Anxious", "Fearful", "Excited", "Frustrated", "Neutral", "FOMO", "Greedy", "Revenge", "Impulsive", "Disciplined", "Overconfident"]
+                    initial_in_trade_emotions = initial_data.get("In-Trade Emotions", "").split(',') if initial_data.get("In-Trade Emotions") else []
+                    in_trade_emotions = st.multiselect(
+                        "In-Trade Emotions During Trade",
+                        in_trade_emotions_options, default=[e for e in initial_in_trade_emotions if e in in_trade_emotions_options],
+                        key="in_trade_emotions_input"
+                    )
+                    emotional_triggers = st.text_area("Emotional Triggers Noted (What caused shifts in emotion?)", value=initial_data.get("Emotional Triggers", ""), key="emotional_triggers_input")
+                    discipline_score = st.slider("Discipline Score (1=Low, 5=High)", 1, 5, value=int(initial_data.get("Discipline Score 1-5", 3)), key="discipline_score_input")
+
+            # --- Section: Post-Trade Analysis & Learning ---
+            with st.expander("💡 Post-Trade Analysis & Learning", expanded=True):
+                cols_post_analysis, cols_lessons_learned = st.columns(2)
+                with cols_post_analysis:
+                    st.markdown("**What happened?**")
+                    initial_pta_json = initial_data.get("Post-Trade Analysis", json.dumps({'text': '', 'style': {'font_size': '14px', 'font_color': '#FFFFFF', 'bold': False, 'italic': False, 'underline': False}}))
+                    initial_pta_dict = json.loads(initial_pta_json)
+                    post_trade_analysis_text = initial_pta_dict.get('text', '')
+                    pta_style = initial_pta_dict.get('style', {})
+
+                    cols_style_pta_text_1, cols_style_pta_text_2 = st.columns([1,1])
+                    with cols_style_pta_text_1:
+                        pta_font_size = st.selectbox("Font Size  ", ["12px", "14px", "16px", "18px"], index=["12px", "14px", "16px", "18px"].index(pta_style.get('font_size', '14px')), key="pta_font_size_sel")
+                        pta_font_color = st.color_picker("Font Color  ", pta_style.get('font_color', '#FFFFFF'), key="pta_font_color_cp")
+                    with cols_style_pta_text_2:
+                        pta_bold = st.checkbox("Bold Text  ", value=pta_style.get('bold', False), key="pta_bold_cb")
+                        pta_italic = st.checkbox("Italic Text  ", value=pta_style.get('italic', False), key="pta_italic_cb")
+                        pta_underline = st.checkbox("Underline Text  ", value=pta_style.get('underline', False), key="pta_underline_cb")
+
+                    post_trade_analysis = st.text_area(
+                        "Post-Trade Analysis (objective review of price action, decision-making, etc.)",
+                        value=post_trade_analysis_text, height=200, key="post_trade_analysis_input"
+                    )
+                with cols_lessons_learned:
+                    st.markdown("**What did I learn?**")
+                    initial_ll_json = initial_data.get("Lessons Learned", json.dumps({'text': '', 'style': {'font_size': '14px', 'font_color': '#FFFFFF', 'bold': False, 'italic': False, 'underline': False}}))
+                    initial_ll_dict = json.loads(initial_ll_json)
+                    lessons_learned_text = initial_ll_dict.get('text', '')
+                    ll_style = initial_ll_dict.get('style', {})
+
+                    cols_style_ll_text_1, cols_style_ll_text_2 = st.columns([1,1])
+                    with cols_style_ll_text_1:
+                        ll_font_size = st.selectbox("Font Size   ", ["12px", "14px", "16px", "18px"], index=["12px", "14px", "16px", "18px"].index(ll_style.get('font_size', '14px')), key="ll_font_size_sel")
+                        ll_font_color = st.color_picker("Font Color   ", ll_style.get('font_color', '#FFFFFF'), key="ll_font_color_cp")
+                    with cols_style_ll_text_2:
+                        ll_bold = st.checkbox("Bold Text   ", value=ll_style.get('bold', False), key="ll_bold_cb")
+                        ll_italic = st.checkbox("Italic Text   ", value=ll_style.get('italic', False), key="ll_italic_cb")
+                        ll_underline = st.checkbox("Underline Text   ", value=ll_style.get('underline', False), key="ll_underline_cb")
+
+                    lessons_learned = st.text_area(
+                        "Lessons Learned / Key Takeaways for Future Improvement",
+                        value=lessons_learned_text, height=150, key="lessons_learned_input"
+                    )
+                    adjustments = st.text_area("Specific Adjustments to Strategy/Trading Plan", value=initial_data.get("Adjustments", ""), key="adjustments_input")
+
+            # --- Section: General Journal Notes & Tags ---
+            with st.expander("📚 General Journal & Categorization"):
+                cols_notes_tags_1, cols_notes_tags_2 = st.columns(2)
+                with cols_notes_tags_1:
+                    st.markdown("**Additional General Notes**")
+                    initial_general_notes_json = initial_data.get("Journal Notes", json.dumps({'text': '', 'style': {'font_size': '14px', 'font_color': '#FFFFFF', 'bold': False, 'italic': False, 'underline': False}}))
+                    initial_general_notes_dict = json.loads(initial_general_notes_json)
+                    journal_notes_general_text = initial_general_notes_dict.get('text', '')
+                    general_notes_style = initial_general_notes_dict.get('style', {})
+
+                    cols_style_notes_text_1, cols_style_notes_text_2 = st.columns([1,1])
+                    with cols_style_notes_text_1:
+                        journal_notes_font_size = st.selectbox("Notes Font Size", ["12px", "14px", "16px", "18px"], index=["12px", "14px", "16px", "18px"].index(general_notes_style.get('font_size', '14px')), key="journal_notes_font_size_sel")
+                        journal_notes_font_color = st.color_picker("Notes Font Color", general_notes_style.get('font_color', '#FFFFFF'), key="journal_notes_font_color_cp")
+                    with cols_style_notes_text_2:
+                        journal_notes_bold = st.checkbox("Notes Bold", value=general_notes_style.get('bold', False), key="journal_notes_bold_cb")
+                        journal_notes_italic = st.checkbox("Notes Italic", value=general_notes_style.get('italic', False), key="journal_notes_italic_cb")
+                        journal_notes_underline = st.checkbox("Notes Underline", value=general_notes_style.get('underline', False), key="journal_notes_underline_cb")
+
+                    journal_notes_general = st.text_area(
+                        "General observations or other notes not fitting above (Markdown supported)",
+                        value=journal_notes_general_text, height=150, key="journal_notes_general_input"
+                    )
+                with cols_notes_tags_2:
+                    st.markdown("**Categorize your trade**")
+                    current_tags_options = sorted(list(set(st.session_state.tools_trade_journal['Tags'].str.split(',').explode().dropna().astype(str).str.strip())))
+                    all_tag_options = sorted(list(set(current_tags_options + ["Setup: Reversal", "Setup: Trend-Continuation", "Mistake: Overtrading", "Mistake: No SL", "Emotion: FOMO", "Emotion: Revenge", "Session: London", "Session: NY", "Chart Pattern: Flag", "RSI Divergence"])))
+                    initial_tags = initial_data.get("Tags", "").split(',') if initial_data.get("Tags") else []
+                    tags = st.multiselect("Trade Tags", all_tag_options, 
+                                          default=[t for t in initial_tags if t in all_tag_options], key="tags_input")
+
+            # Clear edit state after form is rendered with initial_data
+            if is_editing:
+                del st.session_state['edit_trade_data']
+
+
+            st.markdown("---")
+            submit_button = st.form_submit_button(
+                f"{'Update Trade' if is_editing else 'Save New Trade'}", 
+                type="primary", 
+                help=f"{'Click to update this trade log.' if is_editing else 'Click to save your new trade log.'}"
             )
-
-            submit_button = st.form_submit_button("Save Trade Log", type="primary")
         
             if submit_button:
                 # --- Calculations for derived fields ---
-                # Check for JPY pairs to correctly calculate pip values
-                pip_scale = 0.01 if "JPY" in symbol else 0.0001
-                contract_size = lots * 100000 # Standard lot is 100,000 units
-                
-                # Default pip_value_usd_per_lot based on common assumption if no direct currency rate.
-                # In a real app, you'd fetch live rates for dynamic calculation.
-                # Assuming base USD or quote USD for simplification:
-                if 'USD' in symbol: # E.g., EUR/USD or USD/CHF
-                    pip_value_per_unit = pip_scale
-                elif '/USD' in symbol: # E.g., GBP/USD
-                    pip_value_per_unit = pip_scale
-                elif 'USD/' in symbol: # E.g., USD/JPY or USD/CAD
-                    # Needs current conversion rate for USD to Base to know pip value in quote
-                    # For simplicity here, will just use common pip values.
-                    # Or a placeholder. Let's simplify assuming 10 USD per standard lot for most non-JPY pairs
-                    # and approx 8.5 for JPY per standard lot. This is crude but works for demo.
-                    if "JPY" in symbol:
-                        pip_value_per_unit = pip_scale / 1 # 1 pip change in JPY = 0.01 Yen for EUR/JPY
-                    else: # E.g. USD/CAD - needs CAD value to USD
-                        pip_value_per_unit = pip_scale / 1 # crude approx
-                else: # Cross pairs (e.g. EUR/GBP) where Account Currency would matter for PnL
-                    pip_value_per_unit = pip_scale # A placeholder
-
-                # A more robust approach would need:
-                #   current_symbol_rate = get_current_price(symbol)
-                #   account_currency_conversion_rate_to_USD = get_current_price(f'{account_currency}/USD') if account_currency != 'USD' else 1
-                #   pip_value = (pip_scale / current_symbol_rate) * contract_size * account_currency_conversion_rate_to_USD
-
-                # Crude calculation for Pips/PnL assuming typical Forex pip value conversion.
-                # Simplified conversion factor based on whether JPY is involved.
-                pips_in_value_conversion_factor = 1 # USD
-                if "JPY" in symbol: # Example: 0.01 for 1 JPY pip; usually need lot size and cross rate for final $ value.
-                     pips_in_value_conversion_factor = 100 # Example assuming pip value of $1 per lot (mini lot) or $10 (standard)
+                # Default pip value conversion based on standard lot (100,000 units)
+                # This is a simplification; for a live system, current currency rates would be needed.
+                if "JPY" in symbol:
+                    # For JPY pairs, 1 pip is 0.01 JPY. Assuming USD as account currency, rough conv.
+                    # e.g., for USDJPY, 1 pip change in JPY is ~$0.009 at 110 JPY/USD for a standard lot,
+                    # so typically calculated as $10 / 100 for a micro lot, or $10 / exchange_rate for standard.
+                    # Let's simplify: $0.8 - $0.9 per standard lot (approx $8.5-$9.5) per pip movement for most crosses with JPY, 
+                    # and approx $1 per standard lot for other pairs for one standard lot pip movement value.
+                    pip_multiplier = 100 # For pip calculation on JPY pairs (e.g. 109.50 -> 109.51 is 1 pip)
+                    approx_pip_value_usd_per_lot = 8.5 # Rough average for JPY pairs (std lot)
+                    pip_scale = 0.01 # The change in price for 1 pip
+                else: # Most other pairs like EUR/USD, GBP/USD
+                    pip_multiplier = 10000 # For pip calculation on non-JPY pairs (e.g. 1.1000 -> 1.1001 is 1 pip)
+                    approx_pip_value_usd_per_lot = 10.0 # Rough average for non-JPY pairs (std lot)
+                    pip_scale = 0.0001 # The change in price for 1 pip
 
                 
-                if trade_type == "Long":
-                    trade_pips_gain = (final_exit_price - entry_price) / pip_scale
-                elif trade_type == "Short":
-                    trade_pips_gain = (entry_price - final_exit_price) / pip_scale
-                else: # Breakeven or No-Trade
+                trade_pips_gain = 0.0
+                pnL_dollars = 0.0
+                win_loss_status = "No-Trade"
+
+                if trade_type in ["Long", "Short"]:
+                    if entry_price != 0.0 and final_exit_price != 0.0:
+                        if trade_type == "Long":
+                            trade_pips_gain = (final_exit_price - entry_price) / pip_scale
+                        elif trade_type == "Short":
+                            trade_pips_gain = (entry_price - final_exit_price) / pip_scale
+                        
+                        pnL_dollars = trade_pips_gain * lots * (approx_pip_value_usd_per_lot / 100) # $ / pip / lot
+
+                        if pnL_dollars > 0:
+                            win_loss_status = "Win"
+                        elif pnL_dollars < 0:
+                            win_loss_status = "Loss"
+                        else:
+                            win_loss_status = "Breakeven"
+                    else: # If pricing is incomplete for actual trades
+                        win_loss_status = "Pending / Invalid Prices"
+                elif trade_type == "Breakeven":
+                    win_loss_status = "Breakeven"
+                    pnL_dollars = 0.0
                     trade_pips_gain = 0.0
+                # else: trade_type is "No-Trade (Study)" - values remain 0/No-Trade
 
-                pnL_dollars = trade_pips_gain * lots * (10 if "JPY" not in symbol else 8.5) # Approx $10 per standard lot, $8.5 for JPY
-
-                win_loss_status = "Win" if pnL_dollars > 0 else "Loss" if pnL_dollars < 0 else "Breakeven"
 
                 initial_r_calc = 0.0
-                if stop_loss_price != 0 and entry_price != 0:
-                    if trade_type == "Long":
-                        risk_per_unit = abs(entry_price - stop_loss_price)
-                        reward_per_unit = abs(take_profit_price - entry_price)
-                    elif trade_type == "Short":
-                        risk_per_unit = abs(stop_loss_price - entry_price)
-                        reward_per_unit = abs(entry_price - take_profit_price)
-                    else:
-                        risk_per_unit = 0 # No risk defined for no-trade or breakeven initially.
-                        reward_per_unit = 0
-
+                if entry_price != 0.0 and stop_loss_price != 0.0 and take_profit_price != 0.0 and trade_type in ["Long", "Short"]:
+                    risk_per_unit = abs(entry_price - stop_loss_price)
+                    reward_per_unit = abs(take_profit_price - entry_price)
                     if risk_per_unit > 0:
                         initial_r_calc = reward_per_unit / risk_per_unit
                 
                 realized_r_calc = 0.0
-                if stop_loss_price != 0 and entry_price != 0 and final_exit_price != 0:
-                    if trade_type == "Long":
-                        risk_per_unit_realized = abs(entry_price - stop_loss_price)
-                        reward_per_unit_realized = final_exit_price - entry_price
-                    elif trade_type == "Short":
-                        risk_per_unit_realized = abs(stop_loss_price - entry_price)
-                        reward_per_unit_realized = entry_price - final_exit_price
-                    else:
-                        risk_per_unit_realized = 0
-                        reward_per_unit_realized = 0
-
+                if entry_price != 0.0 and stop_loss_price != 0.0 and final_exit_price != 0.0 and trade_type in ["Long", "Short"]:
+                    risk_per_unit_realized = abs(entry_price - stop_loss_price)
+                    realized_pnl_raw = final_exit_price - entry_price if trade_type == "Long" else entry_price - final_exit_price
                     if risk_per_unit_realized > 0:
-                        realized_r_calc = reward_per_unit_realized / risk_per_unit_realized
-                
-                # Format customization for text fields (store these options alongside the text)
-                reasons_entry_formatted = {
+                        realized_r_calc = realized_pnl_raw / risk_per_unit_realized # Can be negative
+
+                # Prepare rich text fields for JSON storage
+                reasons_entry_formatted_json = json.dumps({
                     'text': reasons_for_entry,
                     'style': {'font_size': reasons_entry_font_size, 'font_color': reasons_entry_font_color,
                               'bold': reasons_entry_bold, 'italic': reasons_entry_italic, 'underline': reasons_entry_underline}
-                }
-                reasons_exit_formatted = {
+                })
+                reasons_exit_formatted_json = json.dumps({
                     'text': reasons_for_exit,
                     'style': {'font_size': reasons_exit_font_size, 'font_color': reasons_exit_font_color,
                               'bold': reasons_exit_bold, 'italic': reasons_exit_italic, 'underline': reasons_exit_underline}
-                }
-                post_trade_analysis_formatted = {
+                })
+                post_trade_analysis_formatted_json = json.dumps({
                     'text': post_trade_analysis,
                     'style': {'font_size': pta_font_size, 'font_color': pta_font_color,
                               'bold': pta_bold, 'italic': pta_italic, 'underline': pta_underline}
-                }
-                lessons_learned_formatted = {
+                })
+                lessons_learned_formatted_json = json.dumps({
                     'text': lessons_learned,
                     'style': {'font_size': ll_font_size, 'font_color': ll_font_color,
                               'bold': ll_bold, 'italic': ll_italic, 'underline': ll_underline}
-                }
-                journal_notes_general_formatted = {
+                })
+                journal_notes_general_formatted_json = json.dumps({
                     'text': journal_notes_general,
                     'style': {'font_size': journal_notes_font_size, 'font_color': journal_notes_font_color,
                               'bold': journal_notes_bold, 'italic': journal_notes_italic, 'underline': journal_notes_underline}
-                }
+                })
 
+                # Create the new trade entry or update existing
                 new_trade_data = {
                     "Trade ID": trade_id_input if trade_id_input else f"TRD-{_ta_hash()}",
                     "Date": pd.to_datetime(trade_date),
@@ -1396,6 +1517,7 @@ elif st.session_state.current_page == 'backtesting':
                     "Exit Time": pd.to_datetime(f"{trade_date} {exit_time}"),
                     "Symbol": symbol,
                     "Trade Type": trade_type,
+                    "Strategy Used": selected_strategy if selected_strategy != "(Select One)" else "",
                     "Lots": lots,
                     "Entry Price": entry_price,
                     "Stop Loss Price": stop_loss_price,
@@ -1417,63 +1539,94 @@ elif st.session_state.current_page == 'backtesting':
                     "Setup Name": setup_name,
                     "Indicators Used": ','.join(indicators_used),
                     "Entry Trigger": entry_trigger,
-                    "Reasons for Entry": json.dumps(reasons_entry_formatted), # Store as JSON string
-                    "Reasons for Exit": json.dumps(reasons_exit_formatted),   # Store as JSON string
+                    "Reasons for Entry": reasons_entry_formatted_json,
+                    "Reasons for Exit": reasons_exit_formatted_json,
                     "Pre-Trade Mindset": pre_trade_mindset,
                     "In-Trade Emotions": ','.join(in_trade_emotions),
                     "Emotional Triggers": emotional_triggers,
                     "Discipline Score 1-5": float(discipline_score),
-                    "Journal Notes": json.dumps(journal_notes_general_formatted), # Store as JSON string
-                    "Post-Trade Analysis": json.dumps(post_trade_analysis_formatted), # Store as JSON string
-                    "Lessons Learned": json.dumps(lessons_learned_formatted),   # Store as JSON string
+                    "Order Type": order_type,
+                    "Partial Exits": partial_exits,
+                    "Entry Screenshot Link/Hash": entry_screenshot_hash,
+                    "Exit Screenshot Link/Hash": exit_screenshot_hash,
+                    "Journal Notes": journal_notes_general_formatted_json,
+                    "Post-Trade Analysis": post_trade_analysis_formatted_json,
+                    "Lessons Learned": lessons_learned_formatted_json,
                     "Adjustments": adjustments,
-                    "Screenshot Links/Hashes": f"{entry_screenshot},{exit_screenshot}" if entry_screenshot or exit_screenshot else "",
                     "Tags": ','.join(tags)
                 }
-            
-                # Append new trade to journal
-                # Using pd.DataFrame([new_trade_data]) to ensure proper appending of a single row.
-                # Must specify 'object' dtype for JSON strings before 'astype' conversion for safety.
-                new_trade_df = pd.DataFrame([new_trade_data])
-                for col_name, col_value in new_trade_data.items():
-                    if isinstance(col_value, dict) or col_name in ["Reasons for Entry", "Reasons for Exit", "Post-Trade Analysis", "Lessons Learned", "Journal Notes"]:
-                         new_trade_df[col_name] = new_trade_df[col_name].astype(str)
 
-                st.session_state.tools_trade_journal = pd.concat(
-                    [st.session_state.tools_trade_journal, new_trade_df],
-                    ignore_index=True
-                ).astype(journal_dtypes, errors='ignore')
-            
+                new_trade_df_row = pd.DataFrame([new_trade_data])
+                # Ensure correct dtypes for the new row for concatenation
+                for col, dtype in journal_dtypes.items():
+                    if col in new_trade_df_row.columns:
+                        if dtype == str:
+                            new_trade_df_row[col] = new_trade_df_row[col].fillna('').astype(str)
+                        elif 'datetime' in str(dtype):
+                            new_trade_df_row[col] = pd.to_datetime(new_trade_df_row[col], errors='coerce')
+                        elif dtype == float:
+                            new_trade_df_row[col] = pd.to_numeric(new_trade_df_row[col], errors='coerce').fillna(0.0).astype(float)
+                        elif dtype == bool:
+                            new_trade_df_row[col] = new_trade_df_row[col].fillna(False).astype(bool)
+
+
+                if is_editing:
+                    # Update existing row
+                    trade_to_update_idx = st.session_state.tools_trade_journal[st.session_state.tools_trade_journal['Trade ID'] == trade_id_input].index
+                    if not trade_to_update_idx.empty:
+                        for col in journal_cols:
+                            st.session_state.tools_trade_journal.loc[trade_to_update_idx, col] = new_trade_df_row[col].iloc[0]
+                        st.success(f"Trade {trade_id_input} updated successfully!")
+                    else:
+                        st.error(f"Error: Trade with ID {trade_id_input} not found for update.")
+                else:
+                    # Append new trade to journal
+                    st.session_state.tools_trade_journal = pd.concat(
+                        [st.session_state.tools_trade_journal, new_trade_df_row],
+                        ignore_index=True
+                    ).astype(journal_dtypes, errors='ignore') # Re-assert all dtypes
+                    st.success("New trade saved successfully!")
+                
                 # Save to database if user is logged in
                 if 'logged_in_user' in st.session_state:
                     username = st.session_state.logged_in_user
                     if _ta_save_journal(username, st.session_state.tools_trade_journal):
-                        ta_update_xp(10)
+                        ta_update_xp(10) # 10 XP per trade log
                         ta_update_streak()
-                        st.success("Trade saved successfully!")
-                        logging.info(f"Trade logged and saved to database for user {username} with ID {trade_id_input}")
+                        # Removed generic success message as it's above.
+                        logging.info(f"Trade {'updated' if is_editing else 'logged'} and saved to database for user {username} with ID {trade_id_input}")
                     else:
                         st.error("Failed to save trade to account. Saved locally only.")
                 else:
-                    st.success("Trade saved locally (not synced to account, please log in).")
+                    # Removed generic success message as it's above.
+                    st.warning("Trade saved locally (not synced to account, please log in to save).")
                     logging.info("Trade logged for anonymous user")
-            
+                
+                # Clear pre-fill state if it was an edit, and rerun to show updated data
+                if 'edit_trade_data' in st.session_state:
+                    del st.session_state['edit_trade_data']
                 st.rerun()
 
         st.subheader("Recent Trades Overview")
         # Define a simplified column config for the overview table, for better readability
         overview_column_config = {
             "Date": st.column_config.DateColumn("Date", format="YYYY-MM-DD"),
-            "Trade ID": st.column_config.TextColumn("Trade ID"),
+            "Trade ID": st.column_config.TextColumn("Trade ID", width="small"),
             "Symbol": st.column_config.TextColumn("Symbol"),
             "Trade Type": st.column_config.TextColumn("Type"),
+            "Lots": st.column_config.NumberColumn("Lots", format="%.2f"),
             "PnL ($)": st.column_config.NumberColumn("P&L ($)", format="$%.2f", help="Profit and Loss in account currency"),
             "Realized R": st.column_config.NumberColumn("Realized R", format="%.2f", help="Risk-Reward multiple realized"),
             "Win/Loss": st.column_config.TextColumn("Outcome"),
+            "Strategy Used": st.column_config.TextColumn("Strategy"),
             "Tags": st.column_config.TextColumn("Tags", width="small", help="Categorization tags")
         }
+        
         # Display the journal, possibly selecting a subset of columns for the initial view
-        st.dataframe(st.session_state.tools_trade_journal[[col for col in overview_column_config.keys() if col in st.session_state.tools_trade_journal.columns]],
+        # Ensure only columns that exist in the dataframe and are desired for overview are shown.
+        cols_to_display = [col for col in overview_column_config.keys() if col in st.session_state.tools_trade_journal.columns]
+        
+        st.dataframe(st.session_state.tools_trade_journal[cols_to_display],
                      column_config=overview_column_config,
                      hide_index=True,
                      use_container_width=True)
@@ -1490,10 +1643,8 @@ elif st.session_state.current_page == 'backtesting':
             if st.button("Generate PDF Report"):
                 with st.spinner("Generating PDF..."):
                     try:
-                        # Reusing your existing latex generation - you might want to enhance this
-                        # to include more of the new fields or use a different PDF generation library
-                        # for more complex layouts (e.g., ReportLab, fpdf).
-                        # For now, it will use the original simpler fields as it's built this way.
+                        # Reusing your existing latex generation - enhance to include more fields.
+                        # This PDF generation is simplistic. For richer PDF, consider reportlab/fpdf or templating.
                         latex_content = """
                         \\documentclass{article}
                         \\usepackage{booktabs}
@@ -1503,19 +1654,19 @@ elif st.session_state.current_page == 'backtesting':
                         \\begin{document}
                         \\section*{Trade Journal Report}
                         \\begin{landscape}
-                        \\begin{tabular}{llrrll}
+                        \\begin{tabular}{llrrlll}
                         \\toprule
-                        Date & Symbol & Entry Price & Exit Price & P&L ($) & Realized R \\\\
+                        Date & Symbol & Entry Price & Exit Price & P&L ($) & Realized R & Tags \\\\
                         \\midrule
                         """
                         # Ensure these columns exist in the DataFrame for export
-                        export_cols_for_pdf = ["Date", "Symbol", "Entry Price", "Final Exit Price", "PnL ($)", "Realized R"]
+                        export_cols_for_pdf = ["Date", "Symbol", "Entry Price", "Final Exit Price", "PnL ($)", "Realized R", "Tags"]
                         temp_df = st.session_state.tools_trade_journal[[col for col in export_cols_for_pdf if col in st.session_state.tools_trade_journal.columns]].copy()
-                        temp_df = temp_df.fillna(0).round(2) # Fill NaN and round for clean output
-
+                        temp_df = temp_df.fillna({'Entry Price':0.0, 'Final Exit Price':0.0, 'PnL ($)':0.0, 'Realized R':0.0, 'Tags':''}).round({'Entry Price':5, 'Final Exit Price':5, 'PnL ($)':2, 'Realized R':2})
+                        
                         for _, row in temp_df.iterrows():
                             date_str = row['Date'].strftime('%Y-%m-%d') if pd.notna(row['Date']) else ''
-                            latex_content += f"{date_str} & {row['Symbol']} & {row['Entry Price']:.5f} & {row['Final Exit Price']:.5f} & {row['PnL ($)']:.2f} & {row['Realized R']:.2f} \\\\\n"
+                            latex_content += f"{date_str} & {row['Symbol']} & {row['Entry Price']:.5f} & {row['Final Exit Price']:.5f} & {row['PnL ($)']:.2f} & {row['Realized R']:.2f} & {row['Tags']} \\\\\n"
                     
                         latex_content += """
                         \\bottomrule
@@ -1528,15 +1679,22 @@ elif st.session_state.current_page == 'backtesting':
                             f.write(latex_content)
                     
                         import subprocess
-                        subprocess.run(["latexmk", "-pdf", "trade_journal_report.tex"], check=True) # Assumes latexmk is installed
+                        # Using shell=True as latexmk might need PATH, not ideal for security
+                        # On a managed Streamlit Cloud environment, it's safer. Locally, prefer full paths.
+                        process = subprocess.run(["latexmk", "-pdf", "trade_journal_report.tex"], check=True, capture_output=True, text=True, shell=True) 
+                        if process.returncode != 0:
+                            st.error(f"LaTeX compilation failed: {process.stderr}")
+                            logging.error(f"LaTeX compilation failed: {process.stderr}", exc_info=True)
+                            raise RuntimeError("LaTeX compilation failed")
+
                         with open("trade_journal_report.pdf", "rb") as f:
                             st.download_button("Download PDF Report", f, "trade_journal_report.pdf", "application/pdf")
                     except FileNotFoundError:
                         st.error("LaTeX compilation tools not found. Please install a TeX distribution (e.g., MiKTeX on Windows, TeX Live on Linux/macOS) to generate PDFs.")
                         logging.error("LaTeX tools not found for PDF generation.")
                     except subprocess.CalledProcessError as e:
-                        st.error(f"PDF generation failed: LaTeX command returned an error. {e.stderr.decode()}")
-                        logging.error(f"LaTeX compilation failed: {e.stderr.decode()}", exc_info=True)
+                        st.error(f"PDF generation failed: LaTeX command returned an error. See logs for details.")
+                        logging.error(f"LaTeX compilation failed: {e.stderr}", exc_info=True)
                     except Exception as e:
                         st.error(f"PDF generation failed unexpectedly: {str(e)}")
                         logging.error(f"PDF generation error: {str(e)}", exc_info=True)
@@ -1551,17 +1709,18 @@ elif st.session_state.current_page == 'backtesting':
         
         if not st.session_state.tools_trade_journal.empty:
             df_analytics = st.session_state.tools_trade_journal.copy()
-            df_analytics = df_analytics[df_analytics["Win/Loss"].isin(["Win", "Loss", "Breakeven"])].copy() # Filter for actual trades
+            df_analytics = df_analytics[df_analytics["Win/Loss"].isin(["Win", "Loss", "Breakeven", "Pending / Invalid Prices"])].copy() # Include more statuses if useful
 
             if df_analytics.empty:
                 st.info("No completed trades to analyze. Log some trades first.")
             else:
                 df_analytics["Date"] = pd.to_datetime(df_analytics["Date"])
+                df_analytics['Strategy Used'] = df_analytics['Strategy Used'].replace('', 'N/A')
                 
                 # Filters
                 st.markdown("---")
                 st.markdown("#### Filter Your Analytics")
-                col_filter_a, col_filter_b, col_filter_c = st.columns(3)
+                col_filter_a, col_filter_b, col_filter_c, col_filter_d = st.columns(4)
                 with col_filter_a:
                     analytics_symbol_filter = st.multiselect(
                         "Filter by Symbol",
@@ -1577,6 +1736,9 @@ elif st.session_state.current_page == 'backtesting':
                 with col_filter_c:
                     tag_options_analytics = sorted(list(set(df_analytics['Tags'].str.split(',').explode().dropna().astype(str).str.strip())))
                     analytics_tag_filter = st.multiselect("Filter by Tags", options=tag_options_analytics, key="analytics_tag_filter")
+                with col_filter_d:
+                    strategy_options_analytics = sorted(df_analytics['Strategy Used'].unique())
+                    analytics_strategy_filter = st.multiselect("Filter by Strategy", options=strategy_options_analytics, default=strategy_options_analytics, key="analytics_strategy_filter")
                 
                 if analytics_symbol_filter:
                     df_analytics = df_analytics[df_analytics['Symbol'].isin(analytics_symbol_filter)]
@@ -1584,6 +1746,8 @@ elif st.session_state.current_page == 'backtesting':
                     df_analytics = df_analytics[df_analytics['Trade Type'].isin(analytics_trade_type_filter)]
                 if analytics_tag_filter:
                     df_analytics = df_analytics[df_analytics['Tags'].apply(lambda x: any(tag in x.split(',') for tag in analytics_tag_filter) if isinstance(x, str) and x else False)]
+                if analytics_strategy_filter:
+                    df_analytics = df_analytics[df_analytics['Strategy Used'].isin(analytics_strategy_filter)]
 
                 if df_analytics.empty:
                     st.warning("No trades match the current filter criteria.")
@@ -1601,12 +1765,12 @@ elif st.session_state.current_page == 'backtesting':
                     gross_loss_ana = losing_trades_ana["PnL ($)"].sum() # already negative
 
                     win_rate_ana = (len(winning_trades_ana) / total_trades_ana * 100) if total_trades_ana else 0
-                    loss_rate_ana = (len(losing_trades_ana) / total_trades_ana * 100) if total_trades_ana else 0
-
+                    #loss_rate_ana = (len(losing_trades_ana) / total_trades_ana * 100) if total_trades_ana else 0 # Not directly displayed but for consistency
+                    
                     avg_win_ana = winning_trades_ana["PnL ($)"].mean() if not winning_trades_ana.empty else 0
                     avg_loss_ana = losing_trades_ana["PnL ($)"].mean() if not losing_trades_ana.empty else 0
 
-                    expectancy_ana = (win_rate_ana / 100) * avg_win_ana + (loss_rate_ana / 100) * avg_loss_ana # Avg loss is already negative
+                    expectancy_ana = ((len(winning_trades_ana) / total_trades_ana) * avg_win_ana) + ((len(losing_trades_ana) / total_trades_ana) * avg_loss_ana) if total_trades_ana > 0 else 0.0
                     
                     profit_factor_val = gross_profit_ana / abs(gross_loss_ana) if gross_loss_ana != 0 else (np.inf if gross_profit_ana > 0 else 0)
 
@@ -1620,8 +1784,27 @@ elif st.session_state.current_page == 'backtesting':
                     col_metrics_ana6, col_metrics_ana7, col_metrics_ana8, col_metrics_ana9 = st.columns(4)
                     col_metrics_ana6.metric("Profit Factor", f"{profit_factor_val:,.2f}" if profit_factor_val != np.inf else "∞")
                     col_metrics_ana7.metric("Expectancy", f"${expectancy_ana:,.2f} per trade")
-                    col_metrics_ana8.metric("Longest Win Streak", df_analytics["Win/Loss"].replace({"Breakeven": np.nan}).pipe(lambda s: s[s == "Win"].groupby((s != s.shift()).cumsum()).transform('size')).max() if not winning_trades_ana.empty else 0)
-                    col_metrics_ana9.metric("Longest Loss Streak", df_analytics["Win/Loss"].replace({"Breakeven": np.nan}).pipe(lambda s: s[s == "Loss"].groupby((s != s.shift()).cumsum()).transform('size')).max() if not losing_trades_ana.empty else 0)
+                    # Calculate longest streak dynamically from 'Win/Loss' column
+                    longest_win_streak = 0
+                    current_win_streak = 0
+                    longest_loss_streak = 0
+                    current_loss_streak = 0
+
+                    for outcome in df_analytics['Win/Loss']:
+                        if outcome == "Win":
+                            current_win_streak += 1
+                            longest_win_streak = max(longest_win_streak, current_win_streak)
+                            current_loss_streak = 0 # Reset loss streak
+                        elif outcome == "Loss":
+                            current_loss_streak += 1
+                            longest_loss_streak = max(longest_loss_streak, current_loss_streak)
+                            current_win_streak = 0 # Reset win streak
+                        else: # Breakeven or other statuses reset both streaks
+                            current_win_streak = 0
+                            current_loss_streak = 0
+
+                    col_metrics_ana8.metric("Longest Win Streak", longest_win_streak)
+                    col_metrics_ana9.metric("Longest Loss Streak", longest_loss_streak)
                     
                     st.markdown("---")
                     st.markdown("#### Performance Visualizations")
@@ -1630,7 +1813,8 @@ elif st.session_state.current_page == 'backtesting':
                     st.subheader("Equity Curve")
                     df_analytics['Cumulative PnL'] = df_analytics["PnL ($)"].cumsum()
                     fig_equity = px.line(df_analytics, x=df_analytics.index, y="Cumulative PnL",
-                                         title="Equity Curve", labels={"index": "Trade Number"})
+                                         title="Equity Curve", labels={"index": "Trade Number"},
+                                         color_discrete_sequence=['#58b3b1'])
                     fig_equity.update_layout(hovermode="x unified", template="plotly_dark",
                                             xaxis_title="Trade Number", yaxis_title="Cumulative P&L ($)")
                     st.plotly_chart(fig_equity, use_container_width=True)
@@ -1640,21 +1824,45 @@ elif st.session_state.current_page == 'backtesting':
                     df_sym_perf = df_analytics.groupby('Symbol').agg(
                         Total_PnL=('PnL ($)', 'sum'),
                         Trades=('Trade ID', 'count'),
-                        Win_Rate=('Win/Loss', lambda x: (x == "Win").sum() / len(x) * 100)
-                    ).reset_index().sort_values("Total_PnL", ascending=False)
-                    fig_symbol = px.bar(df_sym_perf, x='Symbol', y='Total_PnL', color='Win_Rate',
+                        Wins=('Win/Loss', lambda x: (x == "Win").sum()),
+                        Losses=('Win/Loss', lambda x: (x == "Loss").sum())
+                    ).reset_index()
+                    df_sym_perf['Win Rate (%)'] = (df_sym_perf['Wins'] / df_sym_perf['Trades']) * 100
+                    df_sym_perf.sort_values("Total_PnL", ascending=False, inplace=True)
+
+                    fig_symbol = px.bar(df_sym_perf, x='Symbol', y='Total_PnL', color='Win Rate (%)',
                                         title='Total P&L by Symbol (Colored by Win Rate)',
-                                        labels={'Total_PnL': 'Total P&L ($)', 'Win_Rate': 'Win Rate (%)'})
+                                        labels={'Total_PnL': 'Total P&L ($)', 'Win Rate (%)': 'Win Rate (%)'},
+                                        color_continuous_scale=px.colors.sequential.Viridis)
                     fig_symbol.update_layout(template="plotly_dark")
                     st.plotly_chart(fig_symbol, use_container_width=True)
 
+                    # Performance by Strategy
+                    st.subheader("Performance by Strategy")
+                    df_strat_perf = df_analytics.groupby('Strategy Used').agg(
+                        Total_PnL=('PnL ($)', 'sum'),
+                        Trades=('Trade ID', 'count'),
+                        Wins=('Win/Loss', lambda x: (x == "Win").sum()),
+                        Losses=('Win/Loss', lambda x: (x == "Loss").sum())
+                    ).reset_index()
+                    df_strat_perf['Win Rate (%)'] = (df_strat_perf['Wins'] / df_strat_perf['Trades']) * 100
+                    df_strat_perf.sort_values("Total_PnL", ascending=False, inplace=True)
+                    fig_strategy = px.bar(df_strat_perf, x='Strategy Used', y='Total_PnL', color='Win Rate (%)',
+                                        title='Total P&L by Strategy Used (Colored by Win Rate)',
+                                        labels={'Total_PnL': 'Total P&L ($)', 'Win Rate (%)': 'Win Rate (%)'},
+                                        color_continuous_scale=px.colors.sequential.Plasma)
+                    fig_strategy.update_layout(template="plotly_dark")
+                    st.plotly_chart(fig_strategy, use_container_width=True)
+
+
                     # R-Multiples Distribution
-                    st.subheader("R-Multiples Distribution")
+                    st.subheader("Realized R-Multiples Distribution")
                     df_analytics_r = df_analytics[df_analytics['Realized R'].notna() & (df_analytics['Realized R'] != 0)].copy()
                     if not df_analytics_r.empty:
                         fig_r_dist = px.histogram(df_analytics_r, x="Realized R", nbins=20,
                                                   title="Distribution of Realized R-Multiples",
-                                                  labels={'Realized R': 'Realized R-Multiple'})
+                                                  labels={'Realized R': 'Realized R-Multiple'},
+                                                  color_discrete_sequence=['#4d7171'])
                         fig_r_dist.update_layout(template="plotly_dark")
                         st.plotly_chart(fig_r_dist, use_container_width=True)
                     else:
@@ -1667,12 +1875,16 @@ elif st.session_state.current_page == 'backtesting':
                     df_emo_grouped = df_emo_perf.groupby("Emotion").agg(
                         Avg_PnL=('PnL ($)', 'mean'),
                         Trades=('Trade ID', 'count'),
-                        Win_Rate=('Win/Loss', lambda x: (x == "Win").sum() / len(x) * 100)
-                    ).reset_index().sort_values("Avg_PnL", ascending=False)
+                        Wins=('Win/Loss', lambda x: (x == "Win").sum()),
+                        Losses=('Win/Loss', lambda x: (x == "Loss").sum())
+                    ).reset_index()
+                    df_emo_grouped['Win Rate (%)'] = (df_emo_grouped['Wins'] / df_emo_grouped['Trades']) * 100
+                    df_emo_grouped.sort_values("Avg_PnL", ascending=False, inplace=True)
                     if not df_emo_grouped.empty:
-                        fig_emotion = px.bar(df_emo_grouped, x='Emotion', y='Avg_PnL', color='Win_Rate',
+                        fig_emotion = px.bar(df_emo_grouped, x='Emotion', y='Avg_PnL', color='Win Rate (%)',
                                              title='Average P&L by In-Trade Emotion',
-                                             labels={'Avg_PnL': 'Average P&L ($)', 'Win_Rate': 'Win Rate (%)'})
+                                             labels={'Avg_PnL': 'Average P&L ($)', 'Win Rate (%)': 'Win Rate (%)'},
+                                             color_continuous_scale=px.colors.sequential.Magenta)
                         fig_emotion.update_layout(template="plotly_dark")
                         st.plotly_chart(fig_emotion, use_container_width=True)
                     else:
@@ -1680,11 +1892,12 @@ elif st.session_state.current_page == 'backtesting':
 
                     # Discipline Score correlation
                     st.subheader("Discipline Score vs. P&L")
-                    df_discipline = df_analytics[df_analytics['Discipline Score 1-5'].notna() & (df_analytics['Discipline Score 1-5'] > 0)]
+                    df_discipline = df_analytics[df_analytics['Discipline Score 1-5'].notna() & (df_analytics['Discipline Score 1-5'] > 0)].copy()
                     if not df_discipline.empty:
                         fig_discipline = px.scatter(df_discipline, x="Discipline Score 1-5", y="PnL ($)",
                                                     trendline="ols", title="P&L vs. Discipline Score",
-                                                    labels={'Discipline Score 1-5': 'Discipline Score', 'PnL ($)': 'Profit/Loss ($)'})
+                                                    labels={'Discipline Score 1-5': 'Discipline Score', 'PnL ($)': 'Profit/Loss ($)'},
+                                                    color_discrete_sequence=['#58b3b1'])
                         fig_discipline.update_layout(template="plotly_dark")
                         st.plotly_chart(fig_discipline, use_container_width=True)
                     else:
@@ -1698,12 +1911,12 @@ elif st.session_state.current_page == 'backtesting':
     # =========================================================
     with tab_history:
         st.subheader("📜 Detailed Trade History & Review")
-        st.markdown("Select a trade to review its detailed parameters, performance, and your notes.")
+        st.markdown("Select a trade to review its detailed parameters, performance, and your comprehensive notes.")
     
         if not st.session_state.tools_trade_journal.empty:
             df_history = st.session_state.tools_trade_journal.sort_values(by="Date", ascending=False).reset_index(drop=True)
             trade_to_review_options = [
-                f"{row['Date'].strftime('%Y-%m-%d')} - {row['Symbol']} ({row['Trade ID']})"
+                f"{row['Date'].strftime('%Y-%m-%d %H:%M')} - {row['Symbol']} ({row['Trade ID']}) ({row['Win/Loss']}: ${row['PnL ($)']:.2f})"
                 for _, row in df_history.iterrows()
             ]
             
@@ -1713,152 +1926,188 @@ elif st.session_state.current_page == 'backtesting':
             )
 
             # Get the actual row based on the selected display string (which includes Trade ID for uniqueness)
-            selected_trade_row = df_history[df_history.apply(lambda row: f"{row['Date'].strftime('%Y-%m-%d')} - {row['Symbol']} ({row['Trade ID']})" == selected_trade_display, axis=1)].iloc[0]
-            trade_idx_in_df = df_history[df_history['Trade ID'] == selected_trade_row['Trade ID']].index[0] # Get the original index to allow direct editing
+            # Find the full trade row by matching its Trade ID part
+            selected_trade_id = selected_trade_display.split('(')[-2].strip(')')
+            selected_trade_row = df_history[df_history['Trade ID'] == selected_trade_id].iloc[0]
+            trade_idx_in_df = df_history[df_history['Trade ID'] == selected_trade_id].index[0] # Get the original index to allow direct editing
             
             if selected_trade_row is not None:
-                st.markdown(f"### Reviewing Trade: {selected_trade_row['Trade ID']}")
-                
-                # Use st.expander for better organization of many fields
-                with st.expander("General Trade Information", expanded=True):
-                    cols_info_1, cols_info_2, cols_info_3 = st.columns(3)
-                    cols_info_1.metric("Date", selected_trade_row['Date'].strftime('%Y-%m-%d'))
-                    cols_info_2.metric("Symbol", selected_trade_row['Symbol'])
-                    cols_info_3.metric("Trade Type", selected_trade_row['Trade Type'])
+                st.markdown(f"### Reviewing Trade: `{selected_trade_row['Trade ID']}`")
+                st.markdown("---")
 
-                    cols_info_4, cols_info_5, cols_info_6 = st.columns(3)
-                    cols_info_4.metric("Lots", f"{selected_trade_row['Lots']:.2f}")
-                    cols_info_5.metric("Initial R", f"{selected_trade_row['Initial R']:.2f}")
-                    cols_info_6.metric("Realized R", f"{selected_trade_row['Realized R']:.2f}")
+                # --- Section: Summary Overview ---
+                with st.expander("📊 Trade Summary", expanded=True):
+                    cols_summary_r1, cols_summary_r2, cols_summary_r3 = st.columns(3)
+                    cols_summary_r1.metric("Date", selected_trade_row['Date'].strftime('%Y-%m-%d'))
+                    cols_summary_r2.metric("Symbol", selected_trade_row['Symbol'])
+                    cols_summary_r3.metric("Strategy Used", selected_trade_row['Strategy Used'] if selected_trade_row['Strategy Used'] else "N/A")
 
-                with st.expander("Pricing & Outcomes"):
-                    cols_pricing_r1, cols_pricing_r2, cols_pricing_r3 = st.columns(3)
-                    cols_pricing_r1.metric("Entry Price", f"{selected_trade_row['Entry Price']:.5f}")
-                    cols_pricing_r2.metric("Stop Loss Price", f"{selected_trade_row['Stop Loss Price']:.5f}")
-                    cols_pricing_r3.metric("Take Profit Price", f"{selected_trade_row['Take Profit Price']:.5f}")
-
-                    cols_pricing_r4, cols_pricing_r5, cols_pricing_r6 = st.columns(3)
-                    cols_pricing_r4.metric("Final Exit Price", f"{selected_trade_row['Final Exit Price']:.5f}")
-                    cols_pricing_r5.metric("P&L ($)", f"${selected_trade_row['PnL ($)']:.2f}",
+                    cols_summary_r4, cols_summary_r5, cols_summary_r6 = st.columns(3)
+                    cols_summary_r4.metric("Trade Type", selected_trade_row['Trade Type'])
+                    cols_summary_r5.metric("Win/Loss", selected_trade_row['Win/Loss'])
+                    cols_summary_r6.metric("PnL ($)", f"${selected_trade_row['PnL ($)']:.2f}",
+                                            delta=f"{selected_trade_row['Pips']:.2f} pips",
                                             delta_color="normal" if selected_trade_row['PnL ($)'] != 0 else "off")
-                    cols_pricing_r6.metric("Pips", f"{selected_trade_row['Pips']:.2f}")
-                
-                with st.expander("Market & Bias Analysis"):
-                    st.write(f"**Weekly Bias:** {selected_trade_row['Weekly Bias']}")
-                    st.write(f"**Daily Bias:** {selected_trade_row['Daily Bias']}")
-                    st.write(f"**4H Structure:** {selected_trade_row['4H Structure']}")
-                    st.write(f"**1H Structure:** {selected_trade_row['1H Structure']}")
-                    st.write(f"**Primary Correlation:** {selected_trade_row['Primary Correlation']}")
-                    st.write(f"**Secondary Correlation:** {selected_trade_row['Secondary Correlation']}")
-                    st.write(f"**News Event Impact:** {selected_trade_row['News Event Impact']}")
-                    st.write(f"**Market State (HTF):** {selected_trade_row['Market State (HTF)']}")
+                    
+                    cols_summary_r7, cols_summary_r8 = st.columns(2)
+                    cols_summary_r7.metric("Initial R", f"{selected_trade_row['Initial R']:.2f}")
+                    cols_summary_r8.metric("Realized R", f"{selected_trade_row['Realized R']:.2f}")
 
-                with st.expander("Setup & Entry Details"):
+
+                # --- Section: Detailed Execution ---
+                with st.expander("📈 Execution Details"):
+                    cols_exec_time, cols_pricing_ex, cols_lots_type = st.columns(3)
+                    cols_exec_time.write(f"**Entry Time:** {selected_trade_row['Entry Time'].strftime('%H:%M:%S')}")
+                    cols_exec_time.write(f"**Exit Time:** {selected_trade_row['Exit Time'].strftime('%H:%M:%S')}")
+
+                    cols_pricing_ex.write(f"**Entry Price:** {selected_trade_row['Entry Price']:.5f}")
+                    cols_pricing_ex.write(f"**Stop Loss Price:** {selected_trade_row['Stop Loss Price']:.5f}")
+                    cols_pricing_ex.write(f"**Take Profit Price:** {selected_trade_row['Take Profit Price']:.5f}")
+                    cols_pricing_ex.write(f"**Final Exit Price:** {selected_trade_row['Final Exit Price']:.5f}")
+                    
+                    cols_lots_type.write(f"**Lots:** {selected_trade_row['Lots']:.2f}")
+                    cols_lots_type.write(f"**Order Type:** {selected_trade_row['Order Type']}")
+                    cols_lots_type.write(f"**Partial Exits:** {'Yes' if selected_trade_row['Partial Exits'] else 'No'}")
+
+
+                # --- Section: Market & Bias Analysis ---
+                with st.expander("🌍 Market Context & Bias"):
+                    cols_mb_1, cols_mb_2, cols_mb_3 = st.columns(3)
+                    with cols_mb_1:
+                        st.write(f"**Weekly Bias:** {selected_trade_row['Weekly Bias']}")
+                        st.write(f"**Daily Bias:** {selected_trade_row['Daily Bias']}")
+                    with cols_mb_2:
+                        st.write(f"**4H Structure:** {selected_trade_row['4H Structure']}")
+                        st.write(f"**1H Structure:** {selected_trade_row['1H Structure']}")
+                    with cols_mb_3:
+                        st.write(f"**Market State (HTF):** {selected_trade_row['Market State (HTF)']}")
+                        st.write(f"**Primary Correlation:** {selected_trade_row['Primary Correlation']}")
+                        st.write(f"**Secondary Correlation:** {selected_trade_row['Secondary Correlation']}")
+                        st.write(f"**News Event Impact:** {selected_trade_row['News Event Impact'].replace(',', ', ')}")
+
+                # --- Section: Setup & Entry Details ---
+                with st.expander("🎯 Setup & Entry Details"):
                     st.write(f"**Setup Name:** {selected_trade_row['Setup Name']}")
-                    st.write(f"**Indicators Used:** {selected_trade_row['Indicators Used']}")
+                    st.write(f"**Indicators Used:** {selected_trade_row['Indicators Used'].replace(',', ', ')}")
                     st.write(f"**Entry Trigger:** {selected_trade_row['Entry Trigger']}")
                     
-                    st.markdown("**Reasons for Entry:**")
+                    st.markdown("#### Reasons for Entry:")
                     try:
                         entry_reason_data = json.loads(selected_trade_row["Reasons for Entry"])
                         st.markdown(apply_text_styles(
                             entry_reason_data['text'], **entry_reason_data['style']),
                             unsafe_allow_html=True
                         )
-                    except json.JSONDecodeError:
-                        st.markdown(selected_trade_row["Reasons for Entry"])
+                    except (json.JSONDecodeError, KeyError):
+                        st.markdown(f'<div class="styled-text-area-display" style="font-size: 14px; color: #FFFFFF;">{selected_trade_row["Reasons for Entry"]}</div>', unsafe_allow_html=True)
 
 
-                with st.expander("Execution & Exit Details"):
-                    st.write(f"**Order Type:** {selected_trade_row['Order Type']}")
-                    st.write(f"**Partial Exits:** {'Yes' if st.checkbox('Enabled', value=st.session_state.get(f'pexit_{selected_trade_row["Trade ID"]}', False), disabled=True, key=f'pexitchk_{selected_trade_row["Trade ID"]}') else 'No'}")
-
-                    st.markdown("**Reasons for Exit:**")
+                # --- Section: Exit Details ---
+                with st.expander("🚪 Exit Details"):
+                    st.markdown("#### Reasons for Exit:")
                     try:
                         exit_reason_data = json.loads(selected_trade_row["Reasons for Exit"])
                         st.markdown(apply_text_styles(
                             exit_reason_data['text'], **exit_reason_data['style']),
                             unsafe_allow_html=True
                         )
-                    except json.JSONDecodeError:
-                        st.markdown(selected_trade_row["Reasons for Exit"])
+                    except (json.JSONDecodeError, KeyError):
+                        st.markdown(f'<div class="styled-text-area-display" style="font-size: 14px; color: #FFFFFF;">{selected_trade_row["Reasons for Exit"]}</div>', unsafe_allow_html=True)
 
-                    screenshot_hashes = [s.strip() for s in selected_trade_row['Screenshot Links/Hashes'].split(',') if s.strip()]
-                    if screenshot_hashes:
+                    entry_screenshot_link = selected_trade_row['Entry Screenshot Link/Hash'].split(',')[0].strip() if selected_trade_row['Entry Screenshot Link/Hash'] else ""
+                    exit_screenshot_link = selected_trade_row['Exit Screenshot Link/Hash'].split(',')[-1].strip() if selected_trade_row['Exit Screenshot Link/Hash'] else ""
+                    
+                    if entry_screenshot_link or exit_screenshot_link:
                         st.markdown("---")
                         st.markdown("#### Screenshots")
-                        for s_hash in screenshot_hashes:
-                            # Assuming hashes are actual file paths or accessible URLs
-                            if s_hash.startswith("http") or os.path.exists(s_hash):
-                                try:
-                                    st.image(s_hash, caption=f"Screenshot: {s_hash.split('/')[-1]}", use_column_width=True)
-                                except Exception:
-                                    st.warning(f"Could not load screenshot: {s_hash}. Check path or URL.")
-                            else:
-                                st.info(f"Screenshot reference: `{s_hash}` (link/image not found or is a hash for local retrieval)")
+                        col_screens_1, col_screens_2 = st.columns(2)
+                        if entry_screenshot_link:
+                            with col_screens_1:
+                                if os.path.exists(entry_screenshot_link):
+                                    st.image(entry_screenshot_link, caption="Entry Screenshot", use_column_width=True)
+                                else:
+                                    st.info(f"Entry screenshot referenced, but file not found: `{os.path.basename(entry_screenshot_link)}`")
+                        if exit_screenshot_link:
+                            with col_screens_2:
+                                if os.path.exists(exit_screenshot_link):
+                                    st.image(exit_screenshot_link, caption="Exit Screenshot", use_column_width=True)
+                                else:
+                                    st.info(f"Exit screenshot referenced, but file not found: `{os.path.basename(exit_screenshot_link)}`")
                     else:
                         st.info("No screenshots linked to this trade.")
                 
-                with st.expander("Psychological Factors"):
+                # --- Section: Psychological Factors ---
+                with st.expander("🧠 Psychological Factors"):
                     st.write(f"**Pre-Trade Mindset / Plan:** {selected_trade_row['Pre-Trade Mindset']}")
-                    st.write(f"**In-Trade Emotions:** {selected_trade_row['In-Trade Emotions']}")
+                    st.write(f"**In-Trade Emotions:** {selected_trade_row['In-Trade Emotions'].replace(',', ', ')}")
                     st.write(f"**Emotional Triggers:** {selected_trade_row['Emotional Triggers']}")
                     st.write(f"**Discipline Score:** {selected_trade_row['Discipline Score 1-5']:.0f}/5")
 
-                with st.expander("Reflections & Learning"):
-                    st.markdown("**Post-Trade Analysis:**")
+                # --- Section: Reflections & Learning ---
+                with st.expander("💡 Reflections & Learning"):
+                    st.markdown("#### Post-Trade Analysis:")
                     try:
                         pta_data = json.loads(selected_trade_row["Post-Trade Analysis"])
                         st.markdown(apply_text_styles(
                             pta_data['text'], **pta_data['style']),
                             unsafe_allow_html=True
                         )
-                    except json.JSONDecodeError:
-                        st.markdown(selected_trade_row["Post-Trade Analysis"])
+                    except (json.JSONDecodeError, KeyError):
+                         st.markdown(f'<div class="styled-text-area-display" style="font-size: 14px; color: #FFFFFF;">{selected_trade_row["Post-Trade Analysis"]}</div>', unsafe_allow_html=True)
 
-                    st.markdown("**Lessons Learned:**")
+                    st.markdown("#### Lessons Learned:")
                     try:
                         ll_data = json.loads(selected_trade_row["Lessons Learned"])
                         st.markdown(apply_text_styles(
                             ll_data['text'], **ll_data['style']),
                             unsafe_allow_html=True
                         )
-                    except json.JSONDecodeError:
-                        st.markdown(selected_trade_row["Lessons Learned"])
+                    except (json.JSONDecodeError, KeyError):
+                        st.markdown(f'<div class="styled-text-area-display" style="font-size: 14px; color: #FFFFFF;">{selected_trade_row["Lessons Learned"]}</div>', unsafe_allow_html=True)
 
                     st.write(f"**Adjustments for Future Trades:** {selected_trade_row['Adjustments']}")
                 
-                with st.expander("General Journal Notes"):
+                # --- Section: General Journal Notes & Tags ---
+                with st.expander("📚 General Notes & Tags"):
+                    st.markdown("#### General Journal Notes:")
                     try:
                         notes_data = json.loads(selected_trade_row["Journal Notes"])
                         st.markdown(apply_text_styles(
                             notes_data['text'], **notes_data['style']),
                             unsafe_allow_html=True
                         )
-                    except json.JSONDecodeError:
-                        st.markdown(selected_trade_row["Journal Notes"])
+                    except (json.JSONDecodeError, KeyError):
+                        st.markdown(f'<div class="styled-text-area-display" style="font-size: 14px; color: #FFFFFF;">{selected_trade_row["Journal Notes"]}</div>', unsafe_allow_html=True)
 
-                st.markdown(f"**Tags:** {selected_trade_row['Tags']}")
+                    st.markdown(f"**Tags:** {selected_trade_row['Tags'].replace(',', ', ')}")
 
                 st.markdown("---")
-                col_review_buttons = st.columns(2)
-                with col_review_buttons[0]:
-                    if st.button("Delete Trade", key=f"delete_trade_{selected_trade_row['Trade ID']}"):
+                col_review_buttons_final = st.columns(2)
+                with col_review_buttons_final[0]:
+                    if st.button("Edit This Trade", key=f"edit_trade_history_{selected_trade_row['Trade ID']}", type="primary"):
+                        # Pre-fill form on 'Log Trade' tab
+                        st.session_state.edit_trade_data = selected_trade_row.to_dict()
+                        # Manually convert datetime objects to Python's date/time for st.date_input etc. if necessary
+                        for k in ["Date", "Entry Time", "Exit Time"]:
+                            if pd.notna(st.session_state.edit_trade_data.get(k)):
+                                st.session_state.edit_trade_data[k] = pd.to_datetime(st.session_state.edit_trade_data[k]).to_pydatetime()
+
+                        # For image paths, need to pass individual string not concatenated
+                        st.session_state.current_page = 'backtesting' # Stay on backtesting
+                        # Direct the user to the log tab. The reruning will apply the new state.
+                        # It is not possible to programmatically switch active tabs in Streamlit,
+                        # so the user will have to manually click the "Log Trade" tab.
+                        st.success(f"Form pre-filled for Trade ID `{selected_trade_row['Trade ID']}`. Please go to the **Log Trade** tab to modify.")
+                        st.rerun() # Rerun to ensure session state updates
+                with col_review_buttons_final[1]:
+                    if st.button("Delete This Trade", key=f"delete_trade_history_{selected_trade_row['Trade ID']}"):
                         st.session_state.tools_trade_journal = st.session_state.tools_trade_journal.drop(index=trade_idx_in_df).reset_index(drop=True)
                         if 'logged_in_user' in st.session_state:
                             _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal)
                         st.success("Trade deleted successfully!")
                         st.rerun()
-                with col_review_buttons[1]:
-                    if st.button("Edit Trade", key=f"edit_trade_{selected_trade_row['Trade ID']}"):
-                        # Pre-fill form (might require reloading the 'Log Trade' tab)
-                        st.session_state.edit_trade_data = selected_trade_row.to_dict()
-                        st.session_state.current_page = 'backtesting'
-                        st.session_state.current_subpage = 'log_trade' # Custom flag for pre-filling
-                        # In a real app, you would direct to the 'Log Trade' tab
-                        st.info("To edit, please switch to the 'Log Trade' tab. The form will be pre-filled.")
             else:
-                st.info("Select a trade from the dropdown above to view its details.")
+                st.info("No trade data found for the selected entry.")
 
         else:
             st.info("No trades logged yet. Add trades in the 'Log Trade' tab.")
@@ -1887,8 +2136,8 @@ elif st.session_state.current_page == 'backtesting':
         # Ensure 'tools_trade_journal' key is correctly handled when counting
         journal_entries = user_d.get("tools_trade_journal", [])
         # Only count actual 'trades' (Win/Loss/Breakeven), exclude No-Trade(Study) if detailed data present
-        if isinstance(journal_entries, list): # Check if it's a list of dicts
-            trade_count = sum(1 for entry in journal_entries if entry.get("Win/Loss") in ["Win", "Loss", "Breakeven"])
+        if isinstance(journal_entries, list): # Check if it's a list of dicts (actual rows)
+            trade_count = sum(1 for entry in journal_entries if entry.get("Win/Loss") in ["Win", "Loss", "Breakeven", "Pending / Invalid Prices"])
         else: # If for some reason it's a non-list or older format, fall back to overall length
             trade_count = len(journal_entries) if isinstance(journal_entries, (list, dict)) else 0 
 
