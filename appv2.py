@@ -1366,15 +1366,7 @@ elif st.session_state.current_page == 'backtesting':
                                 st.error("Please log in to delete trades.")
                     # --- END MODIFICATION ---
 
-                    # --- Display saved rich text notes (render HTML directly) ---
-                    # Only display if there's content. We need to use st.markdown with unsafe_allow_html=True
-                    # to render the HTML output from the rich-text editor.
-                    if edited_notes_html and edited_notes_html.strip() != "<p><br></p>": # Quill's default empty can be <p><br></p>
-                        st.markdown(f"""
-                        <div class="trade-notes-display">
-                            {edited_notes_html}
-                        </div>
-                        """, unsafe_allow_html=True)
+                    
                     # --- Original screenshot display ---
                     screenshot_cols = st.columns(2)
                     if row['EntryScreenshot']:
