@@ -306,7 +306,7 @@ def show_xp_notification(xp_gained):
         border-radius: 10px;
         box-shadow: 0 4px 15px rgba(88, 179, 177, 0.3);
         z-index: 9999;
-        animation: slideInRight 0.5s ease-out, fadeOut 0.5s ease-out 3s forwards;
+        animation: slideInRight 0.5s ease-out, fadeOut 0.5s ease-out 5.5s forwards;
         font-weight: bold;
         border: 2px solid #fff;
         backdrop-filter: blur(10px);
