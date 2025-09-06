@@ -728,8 +728,8 @@ elif st.session_state.current_page == 'trading_journal': # Renamed page key
     st.markdown('---')
 
     # --- TradingView Widget and its buttons are REMOVED from here ---
-    # This section would have contained:
-    # - pair selection dropdown
+    # This section previously contained:
+    # - pair selection dropdown (e.g., `pair = st.selectbox(...)`)
     # - tv_html rendering the TradingView widget
     # - Save Drawings, Load Drawings, Refresh Account buttons
     # All that content is now gone as requested.
@@ -751,14 +751,18 @@ elif st.session_state.current_page == 'trading_journal': # Renamed page key
             with col1:
                 date_val = st.date_input("Date", dt.date.today())
                 
-                # Use a generic list of pairs or fetch from an external source, 
-                # as `pairs_map` was primarily for TradingView.
-                default_pairs = ["EUR/USD", "USD/JPY", "GBP/USD", "AUD/USD", "USD/CAD", "EUR/GBP"]
-                symbol_options = sorted(list(set(default_pairs + st.session_state.tools_trade_journal['Symbol'].unique().tolist())))
+                # Use a generic list of pairs for the journal, and include any symbols already in the journal
+                default_trade_symbols = ["EUR/USD", "USD/JPY", "GBP/USD", "AUD/USD", "USD/CAD", "EUR/GBP"]
+                
+                # Combine default symbols with unique symbols already in the journal
+                # Ensure 'Symbol' column exists and handle potential non-string types
+                existing_journal_symbols = st.session_state.tools_trade_journal['Symbol'].dropna().astype(str).unique().tolist()
+                
+                symbol_options = sorted(list(set(default_trade_symbols + existing_journal_symbols)))
                 symbol_options.append("Other")
 
                 symbol = st.selectbox("Symbol", symbol_options, index=0) # Default to first symbol
-                if symbol == "Other": symbol = st.text_input("Custom Symbol", value="")
+                if symbol == "Other": symbol = st.text_input("Custom Symbol", value="") # Ensure custom symbol has default empty string
             with col2:
                 direction = st.radio("Direction", ["Long", "Short"], horizontal=True)
                 lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f")
