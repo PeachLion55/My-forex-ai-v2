@@ -2637,9 +2637,10 @@ elif st.session_state.current_page == 'account':
         
 
         # --- Main Dashboard Layout using Columns ---
-        col1, col2 = st.columns([2, 1])
+        # Adjusted for 4 KPI cards
+        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
 
-        with col1:
+        with kpi_col1:
             st.subheader("📈 Progress Snapshot")
             
             # --- Custom CSS for the KPI cards ---
@@ -2675,97 +2676,113 @@ elif st.session_state.current_page == 'account':
             </style>
             """, unsafe_allow_html=True)
 
-            # --- Row 1: KPI Cards ---
-            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
-            with kpi_col1:
-                level = st.session_state.get('level', 0)
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-icon">🧙‍♂️</div>
-                    <div class="kpi-value">Level {level}</div>
-                    <div class="kpi-label">Trader's Rank</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with kpi_col2:
-                streak = st.session_state.get('streak', 0)
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-icon">🔥</div>
-                    <div class="kpi-value">{streak} Days</div>
-                    <div class="kpi-label">Journaling Streak</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with kpi_col3:
-                total_xp = st.session_state.get('xp', 0)
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-icon">⭐</div>
-                    <div class="kpi-value">{total_xp:,}</div>
-                    <div class="kpi-label">Total Experience</div>
-                </div>
-                """, unsafe_allow_html=True)
+            # --- KPI Cards (Row 1 now has 4 columns) ---
+            level = st.session_state.get('level', 0)
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-icon">🧙‍♂️</div>
+                <div class="kpi-value">Level {level}</div>
+                <div class="kpi-label">Trader's Rank</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with kpi_col2:
+            streak = st.session_state.get('streak', 0)
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-icon">🔥</div>
+                <div class="kpi-value">{streak} Days</div>
+                <div class="kpi-label">Journaling Streak</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with kpi_col3:
+            total_xp = st.session_state.get('xp', 0)
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-icon">⭐</div>
+                <div class="kpi-value">{total_xp:,}</div>
+                <div class="kpi-label">Total Experience</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with kpi_col4:
+            total_xp = st.session_state.get('xp', 0) # Recalculate if needed, or use the one from kpi_col3
+            redeemable_xp = (total_xp // 100) * 20 # 100 XP = 20 RXP
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-icon">💎</div>
+                <div class="kpi-value">{redeemable_xp:,}</div>
+                <div class="kpi-label">Redeemable XP (RXP)</div>
+            </div>
+            """, unsafe_allow_html=True)
             
-            st.markdown("---")
+        st.markdown("---")
 
-            # --- Row 2: Progress Chart and Insights ---
-            # Use the 'gap' parameter to create significant horizontal space between the columns
-            chart_col, spacer_col, insights_col = st.columns([10, 1, 10])
+        # --- Row 2: Progress Chart, Insights, and Badges ---
+        # Adjusted layout: [Chart, Insights, Badges]
+        chart_col, insights_col, badges_col = st.columns([0.8, 1, 0.7]) # Adjusted ratios for better visual balance
 
-            with chart_col:
-                st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-                total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
-                xp_in_level = total_xp % 100
-                xp_needed = 100 - xp_in_level
+        with chart_col:
+            st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+            total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
+            xp_in_level = total_xp % 100
+            xp_needed = 100 - xp_in_level
 
-                fig = go.Figure(go.Pie(
-                    values=[xp_in_level, xp_needed],
-                    labels=['XP Gained', 'XP Needed'],
-                    hole=0.6,
-                    marker_colors=['#58b3b1', '#2d4646'],
-                    textinfo='none',
-                    hoverinfo='label+value',
-                    direction='clockwise',
-                    sort=False
-                ))
-                fig.update_layout(
-                    showlegend=False,
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
-                    margin=dict(t=0, b=0, l=0, r=0)
-                )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            fig = go.Figure(go.Pie(
+                values=[xp_in_level, xp_needed],
+                labels=['XP Gained', 'XP Needed'],
+                hole=0.6,
+                marker_colors=['#58b3b1', '#2d4646'],
+                textinfo='none',
+                hoverinfo='label+value',
+                direction='clockwise',
+                sort=False
+            ))
+            fig.update_layout(
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
+                margin=dict(t=0, b=0, l=0, r=0)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        
+        with insights_col:
+            st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
+            streak = st.session_state.get('streak', 0) # Ensure streak is defined here
             
-            # The spacer column is left empty to create the space.
-            with spacer_col:
-                st.empty()
+            insight_message = ""
+            if streak > 21:
+                insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
+            elif streak > 7:
+                insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
+            else:
+                insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
+            
+            st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
 
-            with insights_col:
-                st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
-                streak = st.session_state.get('streak', 0) # Ensure streak is defined here
-                
-                insight_message = ""
-                if streak > 21:
-                    insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
-                elif streak > 7:
-                    insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
-                else:
-                    insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
-                
-                st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
+            num_trades = len(st.session_state.tools_trade_journal)
+            next_milestone = ""
+            if num_trades < 10:
+                next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+            elif num_trades < 50:
+                next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+            else:
+                 next_milestone = "The next streak badge is at 30 days. You've got this!"
 
-                num_trades = len(st.session_state.tools_trade_journal)
-                next_milestone = ""
-                if num_trades < 10:
-                    next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
-                elif num_trades < 50:
-                    next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
-                else:
-                     next_milestone = "The next streak badge is at 30 days. You've got this!"
+            st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
-                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+        with badges_col: # Badges moved here
+            st.markdown("<h5 style='text-align: center;'>🏆 Badges</h5>", unsafe_allow_html=True) # Changed to h5
+            badges = st.session_state.get('badges', [])
+            if badges:
+                for badge in badges:
+                    st.markdown(f"- 🏅 {badge}")
+            else:
+                st.info("No badges earned yet. Keep up the great work to unlock them!")
 
-        # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
+        # --- XP Journey Chart (This part goes right after the `with chart_col`, `insights_col`, `badges_col` blocks) ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
         journal_df = st.session_state.tools_trade_journal
@@ -2791,14 +2808,36 @@ elif st.session_state.current_page == 'account':
             st.plotly_chart(fig_line, use_container_width=True)
         else:
             st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
-        with col2:
-            st.subheader("🏆 Badges")
-            badges = st.session_state.get('badges', [])
-            if badges:
-                for badge in badges:
-                    st.markdown(f"- 🏅 {badge}")
-            else:
-                st.info("No badges earned yet. Keep up the great work to unlock them!")
+
+        st.markdown("---")
+        
+        # --- NEW SECTION: Redeemable Items ---
+        st.subheader("🎁 Redeem Your RXP")
+        st.markdown(f"You have **{redeemable_xp:,} RXP** available to redeem!")
+        st.markdown("Here are some rewards you can unlock:")
+
+        rewards = [
+            {"item": "1 Month Premium Subscription", "cost": 100},
+            {"item": "Exclusive Trading E-Book", "cost": 50},
+            {"item": "Personalized Strategy Review Session (30 min)", "cost": 250},
+            {"item": "Zenvo Academy Advanced Course Access", "cost": 150},
+        ]
+
+        for reward in rewards:
+            col_reward_item, col_reward_btn = st.columns([3, 1])
+            with col_reward_item:
+                can_redeem = redeemable_xp >= reward["cost"]
+                status_text = "✨ Available" if can_redeem else f"🚫 Needs {reward['cost'] - redeemable_xp} more RXP"
+                st.markdown(f"**{reward['item']}** ({reward['cost']} RXP) - *{status_text}*")
+            with col_reward_btn:
+                if st.button("Redeem", key=f"redeem_{reward['item'].replace(' ', '_').lower()}", disabled=not can_redeem):
+                    st.success(f"Successfully redeemed '{reward['item']}'! (RXP deduction not implemented yet)")
+                    # In a real app, you would deduct RXP from user_data and save it to the DB
+                    # For now, it's a placeholder.
+                    # e.g., user_data['xp'] -= (reward['cost'] * 100 / 20)
+                    # _ta_save_user_data(st.session_state.logged_in_user, user_data)
+                    st.rerun() # Rerun to update RXP balance visually
+
 
         st.markdown("---")
 
@@ -2808,7 +2847,6 @@ elif st.session_state.current_page == 'account':
             st.write("**Email**: `trader.pro@email.com` (example)")
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
-
 # =========================================================
 # COMMUNITY TRADE IDEAS PAGE
 # =========================================================
