@@ -1316,7 +1316,7 @@ elif st.session_state.current_page == 'backtesting':
                     <div style="border-left: 8px solid {outcome_color}; border-radius: 8px 0 0 8px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;">
                         <h4 style="margin:0; padding:0;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
                         <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')}</span>
-                        {/* REMOVED: st.markdown("---") was here, now removed as per requirement */}
+                        
                     </div>
                     """, unsafe_allow_html=True)
 
