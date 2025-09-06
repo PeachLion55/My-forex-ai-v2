@@ -2636,47 +2636,45 @@ elif st.session_state.current_page == 'account':
         st.markdown("---")
         
 
-        # --- Main Dashboard Layout using Columns ---
-        # Adjusted for 4 KPI cards
+        # --- Custom CSS for the KPI cards ---
+        st.markdown("""
+        <style>
+        .kpi-card {
+            background-color: rgba(45, 70, 70, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #58b3b1;
+            margin-bottom: 10px;
+        }
+        .kpi-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .kpi-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #FFFFFF;
+        }
+        .kpi-label {
+            font-size: 0.9em;
+            color: #A0A0A0;
+        }
+        .insights-card {
+            background-color: rgba(45, 70, 70, 0.3);
+            border-left: 5px solid #58b3b1;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.subheader("📈 Progress Snapshot")
+
+        # --- KPI Cards (Now all 4 in a single row) ---
         kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
 
         with kpi_col1:
-            st.subheader("📈 Progress Snapshot")
-            
-            # --- Custom CSS for the KPI cards ---
-            st.markdown("""
-            <style>
-            .kpi-card {
-                background-color: rgba(45, 70, 70, 0.5);
-                border-radius: 10px;
-                padding: 20px;
-                text-align: center;
-                border: 1px solid #58b3b1;
-                margin-bottom: 10px;
-            }
-            .kpi-icon {
-                font-size: 2.5em;
-                margin-bottom: 10px;
-            }
-            .kpi-value {
-                font-size: 1.8em;
-                font-weight: bold;
-                color: #FFFFFF;
-            }
-            .kpi-label {
-                font-size: 0.9em;
-                color: #A0A0A0;
-            }
-            .insights-card {
-                background-color: rgba(45, 70, 70, 0.3);
-                border-left: 5px solid #58b3b1;
-                padding: 15px;
-                border-radius: 5px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
-            # --- KPI Cards (Row 1 now has 4 columns) ---
             level = st.session_state.get('level', 0)
             st.markdown(f"""
             <div class="kpi-card">
@@ -2707,8 +2705,9 @@ elif st.session_state.current_page == 'account':
             """, unsafe_allow_html=True)
         
         with kpi_col4:
-            total_xp = st.session_state.get('xp', 0) # Recalculate if needed, or use the one from kpi_col3
-            redeemable_xp = (total_xp // 100) * 20 # 100 XP = 20 RXP
+            total_xp = st.session_state.get('xp', 0)
+            # UPDATED RXP CALCULATION: Every 10 XP is 5 RXP
+            redeemable_xp = (total_xp // 10) * 5 
             st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-icon">💎</div>
@@ -2719,13 +2718,12 @@ elif st.session_state.current_page == 'account':
             
         st.markdown("---")
 
-        # --- Row 2: Progress Chart, Insights, and Badges ---
-        # Adjusted layout: [Chart, Insights, Badges]
+        # --- Row 2: Progress Chart, Insights, and Badges (rearranged) ---
         chart_col, insights_col, badges_col = st.columns([0.8, 1, 0.7]) # Adjusted ratios for better visual balance
 
         with chart_col:
             st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-            total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
+            total_xp = st.session_state.get('xp', 0)
             xp_in_level = total_xp % 100
             xp_needed = 100 - xp_in_level
 
@@ -2750,7 +2748,7 @@ elif st.session_state.current_page == 'account':
         
         with insights_col:
             st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
-            streak = st.session_state.get('streak', 0) # Ensure streak is defined here
+            streak = st.session_state.get('streak', 0)
             
             insight_message = ""
             if streak > 21:
@@ -2774,7 +2772,7 @@ elif st.session_state.current_page == 'account':
             st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
         with badges_col: # Badges moved here
-            st.markdown("<h5 style='text-align: center;'>🏆 Badges</h5>", unsafe_allow_html=True) # Changed to h5
+            st.markdown("<h5 style='text-align: center;'>🏆 Badges</h5>", unsafe_allow_html=True)
             badges = st.session_state.get('badges', [])
             if badges:
                 for badge in badges:
@@ -2782,7 +2780,7 @@ elif st.session_state.current_page == 'account':
             else:
                 st.info("No badges earned yet. Keep up the great work to unlock them!")
 
-        # --- XP Journey Chart (This part goes right after the `with chart_col`, `insights_col`, `badges_col` blocks) ---
+        # --- XP Journey Chart (This part goes right after the `chart_col`, `insights_col`, `badges_col` blocks) ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
         journal_df = st.session_state.tools_trade_journal
@@ -2833,9 +2831,10 @@ elif st.session_state.current_page == 'account':
                 if st.button("Redeem", key=f"redeem_{reward['item'].replace(' ', '_').lower()}", disabled=not can_redeem):
                     st.success(f"Successfully redeemed '{reward['item']}'! (RXP deduction not implemented yet)")
                     # In a real app, you would deduct RXP from user_data and save it to the DB
-                    # For now, it's a placeholder.
-                    # e.g., user_data['xp'] -= (reward['cost'] * 100 / 20)
-                    # _ta_save_user_data(st.session_state.logged_in_user, user_data)
+                    # To deduct XP (since RXP is derived from XP), you'd convert RXP cost back to XP:
+                    # xp_cost = (reward['cost'] * 10) / 5
+                    # user_data['xp'] = user_data.get('xp', 0) - xp_cost
+                    # _ta_save_user_data(st.session_state.logged_in_user, user_data) # You'd need a save_user_data function
                     st.rerun() # Rerun to update RXP balance visually
 
 
