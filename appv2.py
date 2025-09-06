@@ -678,9 +678,7 @@ def ta_update_xp(amount):
             st.session_state.badges = user_data['badges']
             
             # Show XP notification - This line is correctly placed here.
-            st.session_state['show_xp_notification_flag'] = True
-            st.session_state['xp_notification_amount'] = amount
-            st.session_state['xp_notification_timestamp'] = dt.datetime.now()
+            show_xp_notification(amount)
 
 def ta_update_streak():
     if "logged_in_user" in st.session_state:
@@ -3618,87 +3616,3 @@ elif st.session_state.current_page == "Zenvo Academy":
         logging.info("User logged out")
         st.session_state.current_page = "account" # Changed to 'account' as 'login' page state doesn't directly exist
         st.rerun()
-
-        # =========================================================
-# GLOBAL XP NOTIFICATION RENDERER (Appended at the end)
-# =========================================================
-
-# Initialize session state flags for the notification if they don't exist
-if "show_xp_notification_flag" not in st.session_state:
-    st.session_state["show_xp_notification_flag"] = False
-if "xp_notification_amount" not in st.session_state:
-    st.session_state["xp_notification_amount"] = 0
-if "xp_notification_timestamp" not in st.session_state:
-    st.session_state["xp_notification_timestamp"] = dt.datetime.min # Initialize to a very old date
-
-# This block executes on every rerun and conditionally renders the notification
-if st.session_state.get("show_xp_notification_flag", False):
-    triggered_at = st.session_state["xp_notification_timestamp"]
-    xp_amount = st.session_state["xp_notification_amount"]
-    
-    time_since_trigger = (dt.datetime.now() - triggered_at).total_seconds()
-    
-    total_display_duration = 6.0 # Notification should be visible for 6 seconds (before fading)
-    fade_out_animation_duration = 0.5 # CSS fadeOut animation duration
-    
-    # If the notification should still be actively displayed (and potentially fading)
-    if time_since_trigger < total_display_duration + fade_out_animation_duration:
-        # The CSS animation handles the timing. The '5.5s' delay for fadeOut
-        # combined with 0.5s slideIn and 0.5s fadeOut gives a total animation
-        # duration of 6.5s, with the element fully visible for 5.5s after sliding in.
-
-        notification_html = f"""
-        <div id="xp-notification" style="
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #58b3b1, #4d7171);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(88, 179, 177, 0.3);
-            z-index: 9999;
-            animation: slideInRight 0.5s ease-out forwards, fadeOut 0.5s ease-out 5.5s forwards;
-            font-weight: bold;
-            border: 2px solid #fff;
-            backdrop-filter: blur(10px);
-        ">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="font-size: 24px;">⭐</div>
-                <div>
-                    <div style="font-size: 16px;">+{xp_amount} XP Earned!</div>
-                    <div style="font-size: 12px; opacity: 0.8;">Keep up the great work!</div>
-                </div>
-            </div>
-        </div>
-        <style>
-            /* Ensure these keyframes are defined, they are critical for the animation to work */
-            /* If you already have these in a global CSS block, you can remove them from here */
-            @keyframes slideInRight {{
-                from {{ transform: translateX(100%); opacity: 0; }}
-                to {{ transform: translateX(0); opacity: 1; }}
-            }}
-            @keyframes fadeOut {{
-                from {{ opacity: 1; }}
-                to {{ opacity: 0; }}
-            }}
-        </style>
-        """
-        st.components.v1.html(notification_html, height=0, key="xp_notification_placeholder")
-        
-        # Use st_autorefresh to trigger a rerun that will eventually turn off the flag.
-        # This is essential to ensure the app checks the notification's expiry time.
-        # It triggers a rerun every 500ms while the notification is active.
-        st_autorefresh(interval=500, key="xp_notification_autorefresh_trigger")
-
-    else:
-        # If the notification's total display time has passed, deactivate the flag
-        st.session_state["show_xp_notification_flag"] = False
-        st.session_state["xp_notification_amount"] = 0
-        st.session_state["xp_notification_timestamp"] = dt.datetime.min # Reset for next use
-        # Remove the autorefresh key if it exists to stop unnecessary reruns
-        if "xp_notification_autorefresh_trigger" in st.session_state:
-            del st.session_state["xp_notification_autorefresh_trigger"]
-
-# --- You would no longer have a `show_xp_notification` function in your `DATABASE & XP SYSTEM SETUP` block ---
-# --- because its functionality is replaced by the above global renderer.                                  ---
