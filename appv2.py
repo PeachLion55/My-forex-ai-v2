@@ -1787,7 +1787,7 @@ elif st.session_state.current_page == 'mt5':
                 logging.error(f"Error processing CSV: {str(e)}", exc_info=True)
                 st.session_state.mt5_df = pd.DataFrame() # Clear session state if error
                 if "selected_calendar_month" in st.session_state: del st.session_state.selected_calendar_month
-                    st.stop() # Added to stop further execution on error
+                st.stop() # Added to stop further execution on error
 
     else:
         st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
