@@ -541,6 +541,13 @@ if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
 
 # =========================================================
+# PnL AND RR CALCULATION LOGIC (New/Updated Section)
+# This section is not a direct replacement, but rather the logic that
+# *uses* the journal schema and is placed within the 'Log New Trade' form.
+# You will find this within the 'backtesting' page, inside `tab_entry`.
+# =========================================================
+
+# =========================================================
 # GAMIFICATION HELPERS
 # =========================================================
 def ta_update_xp(amount):
@@ -1082,29 +1089,54 @@ elif st.session_state.current_page == 'backtesting':
                 tags = st.multiselect("Trade Tags", options=sorted(list(set(all_tags + suggested_tags))))
 
             submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
-            if submitted:
-                pnl, rr = 0.0, 0.0
-                risk_per_unit = abs(entry_price - stop_loss) if stop_loss > 0 else 0
-                
-                if outcome in ["Win", "Loss"]:
-                    # Adjust pip multiplier based on JPY pairs. Assuming 4 decimal places for most, 2 for JPY.
-                    multiplier = 10000
-                    if 'JPY' in symbol.upper():
-                        multiplier = 100
-                    pnl = ((final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)) * lots * (multiplier / 10000) # Simplified pnl calc
-                
-                if risk_per_unit > 0:
-                    pnl_per_unit = abs(final_exit - entry_price)
-                    rr = (pnl_per_unit / risk_per_unit) if pnl >= 0 else -(pnl_per_unit / risk_per_unit)
+                    if submitted:
+            # Determine pip unit for the symbol
+            # Most pairs have a pip of 0.0001 (e.g., EUR/USD, GBP/USD)
+            # JPY pairs have a pip of 0.01 (e.g., USD/JPY, EUR/JPY)
+            pip_size = 0.01 if 'JPY' in symbol.upper() else 0.0001
+            units_per_lot = 100000 # Standard lot size
 
-                new_trade_data = {
-                    "TradeID": f"TRD-{uuid.uuid4().hex[:6].upper()}", "Date": pd.to_datetime(date_val),
-                    "Symbol": symbol, "Direction": direction, "Outcome": outcome,
-                    "Lots": lots, "EntryPrice": entry_price, "StopLoss": stop_loss, "FinalExit": final_exit,
-                    "PnL": pnl, "RR": rr,
-                    "Tags": ','.join(tags), "EntryRationale": entry_rationale,
-                    "Strategy": '', "TradeJournalNotes": '', "EntryScreenshot": '', "ExitScreenshot": ''
-                }
+            calculated_pnl = 0.0
+            calculated_rr = 0.0
+
+            # Calculate PnL (in approximate USD equivalent for simplification, assuming direct quote currency value)
+            if outcome in ["Win", "Loss"]:
+                price_difference = (final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)
+                # PnL is (price change in quote currency) * units traded.
+                # Example: For EUR/USD, 1 lot (100k units), 1.1000 to 1.1001 (1 pip) = 0.0001 * 100,000 = $10 profit.
+                # For USD/JPY, 1 lot (100k units), 150.00 to 150.01 (1 pip) = 0.01 * 100,000 = 1000 JPY profit.
+                # The PnL stored here will be in the quote currency value.
+                calculated_pnl = price_difference * lots * units_per_lot
+            
+            # Calculate RR (Ratio of pips gained to pips risked)
+            risk_price_diff = abs(entry_price - stop_loss)
+            profit_price_diff = abs(final_exit - entry_price)
+
+            if risk_price_diff > 0:
+                # Convert raw price differences to pips based on the symbol's pip_size
+                pips_risked = risk_price_diff / pip_size
+                pips_gained = profit_price_diff / pip_size
+                
+                if pips_risked > 0: # Ensure no division by zero
+                    calculated_rr = pips_gained / pips_risked
+                    # If the outcome is a loss, represent RR as negative
+                    if outcome == "Loss":
+                        calculated_rr = -abs(calculated_rr)
+                else:
+                    calculated_rr = 0.0 # No risk defined, so RR is 0
+            else:
+                calculated_rr = 0.0 # No stop loss, so risk is 0 for RR calculation
+
+            new_trade_data = {
+                "TradeID": f"TRD-{uuid.uuid4().hex[:6].upper()}", "Date": pd.to_datetime(date_val),
+                "Symbol": symbol, "Direction": direction, "Outcome": outcome,
+                "Lots": lots, "EntryPrice": entry_price, "StopLoss": stop_loss, "FinalExit": final_exit,
+                "PnL": calculated_pnl, 
+                "RR": calculated_rr,
+                "Tags": ','.join(tags), "EntryRationale": entry_rationale,
+                "Strategy": '', "TradeJournalNotes": '', "EntryScreenshot": '', "ExitScreenshot": ''
+            }
+            # ... (rest of the submission logic remains the same)
                 new_df = pd.DataFrame([new_trade_data])
                 st.session_state.tools_trade_journal = pd.concat([st.session_state.tools_trade_journal, new_df], ignore_index=True)
                 
