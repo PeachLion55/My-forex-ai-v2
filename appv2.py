@@ -2295,15 +2295,18 @@ elif st.session_state.current_page == 'strategy':
 # =========================================================
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
-    st.markdown(
-        """
-        Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
-        - Keep your trading journal and strategies backed up.
-        - Track your progress and gamification stats.
-        - Sync across devices.
-        - Import/export your account data easily.
-        """
-    )
+    # >>> START REPLACEMENT HERE <<<
+    if "logged_in_user" not in st.session_state:
+        st.markdown(
+            """
+            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
+            - Keep your trading journal and strategies backed up.
+            - Track your progress and gamification stats.
+            - Sync across devices.
+            - Import/export your account data easily.
+            """
+        )
+    # >>> END REPLACEMENT HERE <<<
     st.write('---')
     if "logged_in_user" not in st.session_state:
         # Tabs for Sign In and Sign Up
