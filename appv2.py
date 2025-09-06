@@ -1277,10 +1277,9 @@ elif st.session_state.current_page == 'backtesting':
                     st.success(f"Trade {new_trade_data['TradeID']} logged successfully!")
                 st.rerun()
 
-    # --- TAB 2: TRADE PLAYBOOK (Replaces old Trade History from Code 2) ---
+    # --- TAB 2: TRADE PLAYBOOK ---
     with tab_playbook:
         st.header("Your Trade Playbook")
-        # Ensure using the correct session state variable name: tools_trade_journal
         df_playbook = st.session_state.tools_trade_journal
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
@@ -1293,7 +1292,7 @@ elif st.session_state.current_page == 'backtesting':
             direction_filter = filter_cols[2].multiselect("Filter Direction", df_playbook['Direction'].unique(), default=df_playbook['Direction'].unique())
             
             all_tags_in_df = df_playbook['Tags'].str.split(',').explode().dropna().str.strip()
-            tag_options = sorted(list(set(all_tags_in_df[all_tags_raw != '']))) # Filter out empty strings
+            tag_options = sorted(list(set(all_tags_in_df[all_tags_in_df != '']))) # Filter out empty strings
             tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options)
             
             filtered_df = df_playbook[
@@ -1314,11 +1313,10 @@ elif st.session_state.current_page == 'backtesting':
                 with st.container(border=True): # Using border=True for a subtle card effect
                     st.markdown(f"""
                     <div style="border-left: 8px solid {outcome_color}; border-radius: 8px 0 0 8px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;">
-                        <h4 style="margin:0; padding:0;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
+                        <h4 style="margin:0; padding:0; border-bottom: none !important;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
                         <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')}</span>
-                        
                     </div>
-                    """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True) # REMOVED: st.markdown("---") was here, now removed as per requirement
 
                     metric_cols = st.columns(3)
                     metric_cols[0].metric("Net PnL", f"${row['PnL']:.2f}")
@@ -1331,19 +1329,20 @@ elif st.session_state.current_page == 'backtesting':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    # --- START ADDITION: Editable Notes Section ---
-                    st.subheader(f"Notes for Trade {row['TradeID']}")
+                    # --- START ADDITION: Rich-Text Editor for Notes ---
+                    st.markdown("<h6 style='margin-top:1rem;'>Detailed Journal Notes:</h6>", unsafe_allow_html=True)
                     
-                    # Ensure 'TradeJournalNotes' is a string for text_area
-                    current_notes = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
+                    # Ensure 'TradeJournalNotes' is a string for st_quill
+                    current_notes_html = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
                     
-                    edited_notes = st.text_area("Detailed Notes", value=current_notes, height=150, key=f"notes_editor_{row['TradeID']}")
+                    # Use streamlit_quill for rich text editing
+                    edited_notes_html = st_quill(value=current_notes_html, key=f"notes_editor_{row['TradeID']}", html=True) # html=True to get HTML output
                     
                     save_delete_cols = st.columns(2)
                     with save_delete_cols[0]:
                         if st.button("💾 Save Notes", key=f"save_notes_{row['TradeID']}", use_container_width=True):
-                            # Update the DataFrame
-                            st.session_state.tools_trade_journal.loc[index, 'TradeJournalNotes'] = edited_notes
+                            # Update the DataFrame with the HTML content
+                            st.session_state.tools_trade_journal.loc[index, 'TradeJournalNotes'] = edited_notes_html
                             # Save to database
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
                                 st.success(f"Notes for Trade {row['TradeID']} saved successfully!")
@@ -1356,9 +1355,10 @@ elif st.session_state.current_page == 'backtesting':
                             if st.session_state.logged_in_user:
                                 # Remove the trade from the DataFrame
                                 st.session_state.tools_trade_journal = st.session_state.tools_trade_journal.drop(index).reset_index(drop=True)
+                                # Deduct 10 XP
+                                ta_update_xp(-10) 
                                 # Save the updated DataFrame to the database
                                 if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
-                                    ta_update_xp(-10) # Deduct 10 XP
                                     st.success(f"Trade {row['TradeID']} deleted successfully! -10 XP.")
                                 else:
                                     st.error("Failed to delete trade.")
@@ -1367,6 +1367,13 @@ elif st.session_state.current_page == 'backtesting':
                                 st.error("Please log in to delete trades.")
                     # --- END ADDITION ---
 
+                    # --- Display saved rich text notes ---
+                    if edited_notes_html: # Only display if there's content in the editor
+                        st.markdown(f"""
+                        <div class="trade-notes-display">
+                            {edited_notes_html}
+                        </div>
+                        """, unsafe_allow_html=True)
                     # --- Original screenshot display ---
                     screenshot_cols = st.columns(2)
                     if row['EntryScreenshot']:
@@ -1454,7 +1461,6 @@ elif st.session_state.current_page == 'backtesting':
         st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
     else:
         st.info("No leaderboard data yet.")
-
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
