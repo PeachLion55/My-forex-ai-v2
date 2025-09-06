@@ -1329,24 +1329,25 @@ elif st.session_state.current_page == 'backtesting':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    # --- START MODIFICATION: Rich-Text Editor for Notes ---
+                    # --- START MODIFICATION: Plain text_area for Notes ---
                     st.markdown("<h6 style='margin-top:1rem;'>Detailed Journal Notes:</h6>", unsafe_allow_html=True)
                     
-                    # Ensure 'TradeJournalNotes' is a string for st_quill. If it's rich text, it should already be HTML.
-                    current_notes_html = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
+                    # Ensure 'TradeJournalNotes' is a string for text_area
+                    current_notes = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
                     
-                     
+                    # Use st.text_area for plain text editing
+                    edited_notes = st.text_area("Detailed Notes", value=current_notes, height=150, key=f"notes_editor_{row['TradeID']}")
                     
                     save_delete_cols = st.columns(2)
                     with save_delete_cols[0]:
                         if st.button("💾 Save Notes", key=f"save_notes_{row['TradeID']}", use_container_width=True):
-                            # Update the DataFrame with the HTML content from the rich-text editor
-                            st.session_state.tools_trade_journal.loc[index, 'TradeJournalNotes'] = edited_notes_html
+                            # Update the DataFrame
+                            st.session_state.tools_trade_journal.loc[index, 'TradeJournalNotes'] = edited_notes
                             # Save to database
-                            if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
+                            if st.session_state.logged_in_user and _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
                                 st.success(f"Notes for Trade {row['TradeID']} saved successfully!")
                             else:
-                                st.error("Failed to save notes.")
+                                st.error("Failed to save notes. Please ensure you are logged in.")
                             st.rerun() # Rerun to reflect saved notes
 
                     with save_delete_cols[1]:
@@ -1366,7 +1367,13 @@ elif st.session_state.current_page == 'backtesting':
                                 st.error("Please log in to delete trades.")
                     # --- END MODIFICATION ---
 
-                    
+                    # --- Display saved plain text notes ---
+                    if current_notes: # Only display if there's content
+                        st.markdown(f"""
+                        <div class="trade-notes-display">
+                            <p>{current_notes}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                     # --- Original screenshot display ---
                     screenshot_cols = st.columns(2)
                     if row['EntryScreenshot']:
