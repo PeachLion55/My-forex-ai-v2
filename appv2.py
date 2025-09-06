@@ -1293,7 +1293,7 @@ elif st.session_state.current_page == 'backtesting':
             direction_filter = filter_cols[2].multiselect("Filter Direction", df_playbook['Direction'].unique(), default=df_playbook['Direction'].unique())
             
             all_tags_in_df = df_playbook['Tags'].str.split(',').explode().dropna().str.strip()
-            tag_options = sorted(list(set(all_tags_in_df[all_tags_in_df != '']))) # Filter out empty strings
+            tag_options = sorted(list(set(all_tags_in_df[all_tags_raw != '']))) # Filter out empty strings
             tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options)
             
             filtered_df = df_playbook[
@@ -1316,6 +1316,7 @@ elif st.session_state.current_page == 'backtesting':
                     <div style="border-left: 8px solid {outcome_color}; border-radius: 8px 0 0 8px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;">
                         <h4 style="margin:0; padding:0;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
                         <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')}</span>
+                        {/* REMOVED: st.markdown("---") was here, now removed as per requirement */}
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -1329,22 +1330,53 @@ elif st.session_state.current_page == 'backtesting':
                     if row['Tags']:
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         st.markdown(f"**Tags:** {', '.join(tags_list)}")
-                    if row['TradeJournalNotes']:
-                        st.markdown(f"""
-                        <div class="trade-notes-display">
-                            <h6>Detailed Journal Notes:</h6>
-                            <p>{row['TradeJournalNotes']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
                     
-                    # Placeholder for screenshots - you'd likely store paths/URLs in the df
+                    # --- START ADDITION: Editable Notes Section ---
+                    st.subheader(f"Notes for Trade {row['TradeID']}")
+                    
+                    # Ensure 'TradeJournalNotes' is a string for text_area
+                    current_notes = str(row.get('TradeJournalNotes', '')) if pd.notna(row.get('TradeJournalNotes')) else ''
+                    
+                    edited_notes = st.text_area("Detailed Notes", value=current_notes, height=150, key=f"notes_editor_{row['TradeID']}")
+                    
+                    save_delete_cols = st.columns(2)
+                    with save_delete_cols[0]:
+                        if st.button("💾 Save Notes", key=f"save_notes_{row['TradeID']}", use_container_width=True):
+                            # Update the DataFrame
+                            st.session_state.tools_trade_journal.loc[index, 'TradeJournalNotes'] = edited_notes
+                            # Save to database
+                            if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
+                                st.success(f"Notes for Trade {row['TradeID']} saved successfully!")
+                            else:
+                                st.error("Failed to save notes.")
+                            st.rerun() # Rerun to reflect saved notes
+
+                    with save_delete_cols[1]:
+                        if st.button("🗑️ Delete Trade", key=f"delete_trade_{row['TradeID']}", type="secondary", use_container_width=True):
+                            if st.session_state.logged_in_user:
+                                # Remove the trade from the DataFrame
+                                st.session_state.tools_trade_journal = st.session_state.tools_trade_journal.drop(index).reset_index(drop=True)
+                                # Save the updated DataFrame to the database
+                                if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
+                                    ta_update_xp(-10) # Deduct 10 XP
+                                    st.success(f"Trade {row['TradeID']} deleted successfully! -10 XP.")
+                                else:
+                                    st.error("Failed to delete trade.")
+                                st.rerun() # Rerun to update the trade list and XP
+                            else:
+                                st.error("Please log in to delete trades.")
+                    # --- END ADDITION ---
+
+                    # --- Original screenshot display ---
                     screenshot_cols = st.columns(2)
                     if row['EntryScreenshot']:
                         screenshot_cols[0].image(row['EntryScreenshot'], caption="Entry Screenshot", use_column_width=True)
                     if row['ExitScreenshot']:
                         screenshot_cols[1].image(row['ExitScreenshot'], caption="Exit Screenshot", use_column_width=True)
                     
-                    st.markdown("---")
+                    st.markdown("---") # Keep a separator between individual trade cards
+                                       # Moved from inside the initial header markdown
+                                       # to here, after all trade details.
 
 
     # --- TAB 3: ANALYTICS DASHBOARD (Replaces old Analytics tab from Code 2) ---
