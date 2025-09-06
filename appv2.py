@@ -1,3 +1,6 @@
+# =========================================================
+# IMPORTS
+# =========================================================
 import streamlit as st
 import pandas as pd
 import feedparser
@@ -21,7 +24,15 @@ import glob
 import time
 #import scipy.stats
 import streamlit as st
+from PIL import Image
+import io
+import base64
+import calendar
+from datetime import datetime, date, timedelta
 
+# =========================================================
+# GLOBAL CSS & GRIDLINE SETTINGS
+# =========================================================
 st.markdown(
     """
     <style>
@@ -92,10 +103,14 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Set up logging
+# =========================================================
+# LOGGING SETUP
+# =========================================================
 logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# === TA_PRO HELPERS START ===
+# =========================================================
+# TA_PRO HELPER FUNCTIONS
+# =========================================================
 def ta_safe_lower(s):
     return str(s).strip().lower().replace(" ", "")
 
@@ -181,16 +196,6 @@ def _ta_compute_streaks(df):
             streak = 0
     return {"current": streak, "best": best}
 
-def _ta_show_badges(df):
-    with st.expander("🎮 Gamification: Streaks & Badges", expanded=False):
-        streaks = _ta_compute_streaks(df) if df is not None else {"current":0,"best":0}
-        col1, col2 = st.columns(2)
-        col1.metric("Current Green-Day Streak", streaks.get("current",0))
-        col2.metric("Best Streak", streaks.get("best",0))
-        if df is not None and "emotions" in df.columns:
-            emo_logged = int((df["emotions"].fillna("").astype(str).str.len()>0).sum())
-            st.caption(f"💭 Emotion-logged trades: {emo_logged}")
-
 def _ta_save_journal(username, journal_df):
     try:
         c.execute("SELECT data FROM users WHERE username = ?", (username,))
@@ -206,8 +211,9 @@ def _ta_save_journal(username, journal_df):
         st.error(f"Failed to save journal: {str(e)}")
         return False
 
-# === TA_PRO HELPERS END ===
-
+# =========================================================
+# DATABASE & XP SYSTEM SETUP
+# =========================================================
 # Path to SQLite DB
 DB_FILE = "users.db"
 
@@ -286,19 +292,21 @@ def _ta_save_community(key, data):
 # Custom JSON encoder for handling datetime objects
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
+        # Handle datetime and date objects by returning ISO format. [6, 7, 8, 9, 10]
         if isinstance(obj, (dt.datetime, dt.date)):
             return obj.isoformat()
+        # Handle Pandas NA values by returning None, ensuring JSON compatibility. [7]
         if pd.isna(obj):
             return None
         return super().default(obj)
 
 # =========================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
+st.set_page_config(page_title="Forex Dashboard", layout="wide") # [1, 2, 3, 4, 5]
 
 # =========================================================
-# CUSTOM CSS + JS
+# CUSTOM SIDEBAR CSS
 # =========================================================
 bg_opacity = 0.5
 st.markdown(
@@ -371,7 +379,7 @@ st.markdown(
 )
 
 # =========================================================
-# HELPERS / DATA
+# NEWS & ECONOMIC CALENDAR DATA / HELPERS
 # =========================================================
 def detect_currency(title: str) -> str:
     t = title.upper()
@@ -457,6 +465,9 @@ econ_calendar_data = [
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
+# =========================================================
+# JOURNAL & DRAWING INITIALIZATION
+# =========================================================
 # Initialize drawings in session_state
 if "drawings" not in st.session_state:
     st.session_state.drawings = {}
@@ -497,7 +508,9 @@ else:
 if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
 
-# Gamification helpers
+# =========================================================
+# GAMIFICATION HELPERS
+# =========================================================
 def ta_update_xp(amount):
     if "logged_in_user" in st.session_state:
         username = st.session_state.logged_in_user
@@ -575,6 +588,9 @@ def ta_check_milestones(journal_df, mt5_df):
                     st.balloons()
                     st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
 
+# =========================================================
+# COMMUNITY DATA LOADING
+# =========================================================
 # Load community data
 if "trade_ideas" not in st.session_state:
     loaded_ideas = _ta_load_community('trade_ideas', [])
@@ -599,9 +615,6 @@ if 'show_tools_submenu' not in st.session_state:
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
-from PIL import Image
-import io
-import base64
 
 # ---- Reduce top padding in the sidebar ----
 st.markdown(
@@ -655,7 +668,10 @@ for page_key, page_name in nav_items:
         st.rerun()
 
 # =========================================================
-# MAIN APPLICATION
+# MAIN APPLICATION LOGIC
+# =========================================================
+# =========================================================
+# FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
     col1, col2 = st.columns([3, 1])
@@ -817,6 +833,9 @@ if st.session_state.current_page == 'fundamentals':
             """, unsafe_allow_html=True
         )
 
+# =========================================================
+# BACKTESTING PAGE
+# =========================================================
 elif st.session_state.current_page == 'backtesting':
     st.title("📈 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
@@ -1297,26 +1316,10 @@ elif st.session_state.current_page == 'backtesting':
     else:
         st.info("No leaderboard data yet.")
 
-# CORRECTED INDENTATION FOR THE 'mt5' BLOCK
-import pandas as pd
-import numpy as np
-import streamlit as st
-import logging
-import calendar # Needed for calendar operations
-from datetime import datetime, date, timedelta
-
-# Ensure logging is configured (optional, but good practice if not done globally)
-if not logging.getLogger().handlers:
-    logging.basicConfig(level=logging.INFO)
-
-# --- IMPORTANT: Ensure 'current_page' is set appropriately ---
-# For standalone testing of just this file, you might uncomment the line below.
-# st.session_state.current_page = 'mt5' # UNCOMMENT THIS FOR STANDALONE TESTING IF 'current_page' IS NOT SET ELSEWHERE
-
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'mt5' # Default for initial run or testing purposes
-
-if st.session_state.current_page == 'mt5':
+# =========================================================
+# PERFORMANCE DASHBOARD PAGE (MT5)
+# =========================================================
+elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
@@ -1584,9 +1587,9 @@ if st.session_state.current_page == 'mt5':
     )
 
     # --------------------------
-    # Helper functions
+    # Helper functions (MT5 page specific)
     # --------------------------
-    def _ta_human_pct(value):
+    def _ta_human_pct_mt5(value):
         try:
             if value is None or pd.isna(value):
                 return "N/A"
@@ -1594,7 +1597,7 @@ if st.session_state.current_page == 'mt5':
         except Exception:
             return "N/A"
 
-    def _ta_human_num(value):
+    def _ta_human_num_mt5(value):
         """
         Formats a numerical value to a comma-separated string with two decimal places.
         Returns 'N/A' for None, NaN, or non-numeric input.
@@ -1635,7 +1638,7 @@ if st.session_state.current_page == 'mt5':
         std_return = returns.std() * np.sqrt(252)  # Annualized
         return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
 
-    def _ta_daily_pnl(df):
+    def _ta_daily_pnl_mt5(df):
         """
         Returns a dictionary mapping datetime.date to total profit for that day.
         Includes all days that had at least one trade in the CSV, even if net profit is zero.
@@ -1647,12 +1650,12 @@ if st.session_state.current_page == 'mt5':
             return df_copy.groupby("date")["Profit"].sum().to_dict()
         return {}
 
-    def _ta_profit_factor(df):
+    def _ta_profit_factor_mt5(df):
         wins_sum = df[df["Profit"] > 0]["Profit"].sum()
         losses_sum = abs(df[df["Profit"] < 0]["Profit"].sum()) # Ensure losses sum is positive for the ratio
         return wins_sum / losses_sum if losses_sum != 0.0 else np.nan
 
-    def _ta_show_badges(df):
+    def _ta_show_badges_mt5(df):
         st.subheader("🎖️ Your Trading Badges")
         
         total_profit_val = df["Profit"].sum()
@@ -1685,7 +1688,7 @@ if st.session_state.current_page == 'mt5':
 
 
     # --------------------------
-    # File Uploader
+    # File Uploader (MT5 page)
     # --------------------------
     uploaded_file = st.file_uploader(
         "Upload MT5 History CSV",
@@ -1729,7 +1732,7 @@ if st.session_state.current_page == 'mt5':
 
                 # Calculate daily_pnl_map once for both metrics and calendar.
                 # This map contains entries for all days with at least one trade, including zero-net-profit days.
-                daily_pnl_map = _ta_daily_pnl(df)
+                daily_pnl_map = _ta_daily_pnl_mt5(df)
                 
                 # For aggregate stats (like drawdown, sharpe) that may require a continuous time series.
                 # Fill in zeros for days without trades between min/max trading days.
@@ -1771,7 +1774,7 @@ if st.session_state.current_page == 'mt5':
 
                     win_rate = len(wins_df) / total_trades if total_trades else 0.0
                     net_profit = df["Profit"].sum()
-                    profit_factor = _ta_profit_factor(df)
+                    profit_factor = _ta_profit_factor_mt5(df)
                     avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
                     avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0 # avg_loss will be negative or 0.0
                     
@@ -1846,7 +1849,7 @@ if st.session_state.current_page == 'mt5':
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Avg R:R</strong>
-                                <span class='metric-value'>{_ta_human_num(avg_r_r)}</span>
+                                <span class='metric-value'>{_ta_human_num_mt5(avg_r_r)}</span>
                                 <div class="progress-container">
                                     <div class="progress-bar green" style="width: {r_r_bar_width:.2f}%;"></div>
                                 </div>
@@ -1859,7 +1862,7 @@ if st.session_state.current_page == 'mt5':
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Win Rate</strong>
-                                <span class='metric-value'>{_ta_human_pct(win_rate)}</span>
+                                <span class='metric-value'>{_ta_human_pct_mt5(win_rate)}</span>
                                 <div class="win-loss-bar-container">
                                     <div class="win-bar" style="width: {win_rate_percent:.2f}%;"></div>
                                     <div class="loss-bar" style="width: {loss_rate_percent:.2f}%;"></div>
@@ -1871,7 +1874,7 @@ if st.session_state.current_page == 'mt5':
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Trading score</strong>
-                                <span class='metric-value'>{_ta_human_num(trading_score_value)}</span>
+                                <span class='metric-value'>{_ta_human_num_mt5(trading_score_value)}</span>
                                 <div class="trading-score-bar-container">
                                     <div class="trading-score-bar" style="width: {trading_score_percentage:.2f}%;"></div>
                                 </div>
@@ -1883,7 +1886,7 @@ if st.session_state.current_page == 'mt5':
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Hit Rate</strong>
-                                <span class='metric-value'>{_ta_human_pct(hit_rate)}</span>
+                                <span class='metric-value'>{_ta_human_pct_mt5(hit_rate)}</span>
                                 <div class="win-loss-bar-container">
                                     <div class="win-bar" style="width: {hit_rate_percent:.2f}%;"></div>
                                     <div class="loss-bar" style="width: {100-hit_rate_percent:.2f}%;"></div>
@@ -1895,7 +1898,7 @@ if st.session_state.current_page == 'mt5':
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Total Trades</strong>
-                                <span class='metric-value'>{_ta_human_num(total_trades)}</span>
+                                <span class='metric-value'>{_ta_human_num_mt5(total_trades)}</span>
                             </div>
                         """, unsafe_allow_html=True)
 
@@ -1905,7 +1908,7 @@ if st.session_state.current_page == 'mt5':
                     col6, col7, col8, col9, col10 = st.columns(5)
 
                     with col6:
-                        avg_win_formatted = _ta_human_num(avg_win)
+                        avg_win_formatted = _ta_human_num_mt5(avg_win)
                         avg_win_display = f"<span style='color: #5cb85c;'>${avg_win_formatted}</span>" if avg_win > 0.0 and avg_win_formatted != "N/A" else f"${avg_win_formatted}"
                         st.markdown(f"""
                             <div class='metric-box'>
@@ -1916,7 +1919,7 @@ if st.session_state.current_page == 'mt5':
 
                     with col7:
                         best_day_profit_val = best_day_profit 
-                        best_day_profit_formatted = _ta_human_num(best_day_profit_val)
+                        best_day_profit_formatted = _ta_human_num_mt5(best_day_profit_val)
 
                         if best_day_profit_val > 0.0 and best_day_profit_formatted != "N/A":
                             best_day_profit_display_html = f"<span style='color: #5cb85c;'>${best_day_profit_formatted}</span>"
@@ -1935,7 +1938,7 @@ if st.session_state.current_page == 'mt5':
 
                     with col8:
                         net_profit_val = net_profit 
-                        net_profit_formatted = _ta_human_num(abs(net_profit_val))
+                        net_profit_formatted = _ta_human_num_mt5(abs(net_profit_val))
 
                         if net_profit_val >= 0.0 and net_profit_formatted != "N/A":
                             net_profit_value_display_html = f"<span style='color: #5cb85c;'>${net_profit_formatted}</span>"
@@ -1946,7 +1949,7 @@ if st.session_state.current_page == 'mt5':
                         
                         # Total losses magnitude for the parentheses display. Image shows ($267,157.00) in red.
                         total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
-                        formatted_total_loss_in_parentheses_val = _ta_human_num(total_losses_magnitude)
+                        formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_magnitude)
 
                         if formatted_total_loss_in_parentheses_val != "N/A":
                             formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>($-{formatted_total_loss_in_parentheses_val})</span>"
@@ -1963,7 +1966,7 @@ if st.session_state.current_page == 'mt5':
 
                     with col9:
                         worst_day_loss_val = worst_day_loss 
-                        worst_day_loss_formatted = _ta_human_num(abs(worst_day_loss_val))
+                        worst_day_loss_formatted = _ta_human_num_mt5(abs(worst_day_loss_val))
 
                         if worst_day_loss_val < 0.0 and worst_day_loss_formatted != "N/A":
                             worst_day_loss_display_html = f"<span style='color: #d9534f;'>-${worst_day_loss_formatted}</span>"
@@ -1990,17 +1993,19 @@ if st.session_state.current_page == 'mt5':
                 # ---------- End of Summary Metrics Tab ----------
 
 
-                # ---------- The rest of your tabs (charts, edge, export) remain unchanged ----------
+                # ---------- Visualizations Tab ----------
                 with tab_charts:
                     st.subheader("Visualizations")
                     st.write("Visualizations will be displayed here.")
                     # Add your charting code here
 
+                # ---------- Edge Finder Tab ----------
                 with tab_edge:
                     st.subheader("Edge Finder")
                     st.write("Analyze your trading edge here.")
                     # Add your edge analysis code here
 
+                # ---------- Export Reports Tab ----------
                 with tab_export:
                     st.subheader("Export Reports")
                     st.write("Export your trading data and reports.")
@@ -2026,13 +2031,13 @@ if st.session_state.current_page == 'mt5':
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
         try:
             st.markdown("---") # Separator before badges
-            _ta_show_badges(st.session_state.mt5_df)
+            _ta_show_badges_mt5(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     else:
         pass # No trades uploaded, no badges to show yet.
     
-    # ----- Daily Performance Calendar (Now placed correctly below trading badges) -----
+    # ----- Daily Performance Calendar -----
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
         st.markdown("---") # Separator before calendar
         st.subheader("🗓️ Daily Performance Calendar")
@@ -2078,7 +2083,7 @@ if st.session_state.current_page == 'mt5':
             selected_month_date = date(datetime.now().year, datetime.now().month, 1)
 
         # --- Daily P&L for calendar display ---
-        daily_pnl_map_for_calendar = _ta_daily_pnl(df_for_calendar)
+        daily_pnl_map_for_calendar = _ta_daily_pnl_mt5(df_for_calendar)
         
         # --- Generate calendar grid HTML ---
         cal = calendar.Calendar(firstweekday=calendar.SUNDAY) 
@@ -2113,10 +2118,10 @@ if st.session_state.current_page == 'mt5':
                     if profit is not None: # This means there was *at least one trade* on this specific day in the CSV
                         if profit > 0.0:
                             day_class += " profitable"
-                            profit_amount_html = f"<span style='color:#5cb85c;'>${_ta_human_num(profit)}</span>"
+                            profit_amount_html = f"<span style='color:#5cb85c;'>${_ta_human_num_mt5(profit)}</span>"
                         elif profit < 0.0:
                             day_class += " losing"
-                            profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num(abs(profit))}</span>"
+                            profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num_mt5(abs(profit))}</span>"
                         else: # profit == 0.0 for the day, meaning trades occurred but summed to zero.
                             profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>" 
                     else: # No trades recorded at all for this day in the map (no data for this day in CSV for the current month)
@@ -2145,16 +2150,8 @@ if st.session_state.current_page == 'mt5':
         st.write("--- BEGINNING OF CALENDAR OUTPUT ---")
         st.markdown(f"Is calendar_html a string? {isinstance(calendar_html, str)}")
         st.markdown(f"Length of calendar_html: {len(calendar_html)}")
-        # You should NOT see the raw HTML code appear between these two st.write markers.
-        # If you DO see raw HTML, it means there's another hidden output mechanism at play.
-        # --- END DEBUGGING MARKERS ---
-
-        # THIS IS THE CRUCIAL LINE for rendering the HTML correctly
         st.markdown(calendar_html, unsafe_allow_html=True)
-        
-        # --- DEBUGGING MARKERS ---
         st.write("--- END OF CALENDAR OUTPUT ---")
-        # --- END DEBUGGING MARKERS ---
 
 
     # Report Export & Sharing
@@ -2166,7 +2163,7 @@ if st.session_state.current_page == 'mt5':
             losses_df = df[df["Profit"] < 0] 
             win_rate = len(wins_df) / total_trades if total_trades else 0.0
             net_profit = df["Profit"].sum()
-            profit_factor = _ta_profit_factor(df)
+            profit_factor = _ta_profit_factor_mt5(df)
             longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
             longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
 
@@ -2184,20 +2181,20 @@ if st.session_state.current_page == 'mt5':
             </head>
             <body>
             <h2>Performance Report</h2>
-            <p><strong>Total Trades:</strong> {_ta_human_num(total_trades)}</p>
-            <p><strong>Win Rate:</strong> {_ta_human_pct(win_rate)}</p>
+            <p><strong>Total Trades:</strong> {_ta_human_num_mt5(total_trades)}</p>
+            <p><strong>Win Rate:</strong> {_ta_human_pct_mt5(win_rate)}</p>
             <p><strong>Net Profit:</strong> <span class='{'positive' if net_profit >= 0 else 'negative'}'>
-            {'$' if net_profit >= 0 else '-$'}{_ta_human_num(abs(net_profit))}</span></p>
-            <p><strong>Profit Factor:</strong> {_ta_human_num(profit_factor)}</p>
-            <p><strong>Biggest Win:</strong> <span class='positive'>${_ta_human_num(wins_df["Profit"].max() if not wins_df.empty else 0.0)}</span></p>
-            <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
-            <p><strong>Longest Win Streak:</strong> {_ta_human_num(longest_win_streak)}</p>
-            <p><strong>Longest Loss Streak:</strong> {_ta_human_num(longest_loss_streak)}</p>
-            <p><strong>Avg Trade Duration:</strong> {_ta_human_num(df['Trade Duration'].mean())}h</p>
-            <p><strong>Total Volume:</strong> {_ta_human_num(df['Volume'].sum())}</p>
-            <p><strong>Avg Volume:</strong> {_ta_human_num(df['Volume'].mean())}</p>
+            {'$' if net_profit >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit))}</span></p>
+            <p><strong>Profit Factor:</strong> {_ta_human_num_mt5(profit_factor)}</p>
+            <p><strong>Biggest Win:</strong> <span class='positive'>${_ta_human_num_mt5(wins_df["Profit"].max() if not wins_df.empty else 0.0)}</span></p>
+            <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
+            <p><strong>Longest Win Streak:</strong> {_ta_human_num_mt5(longest_win_streak)}</p>
+            <p><strong>Longest Loss Streak:</strong> {_ta_human_num_mt5(longest_loss_streak)}</p>
+            <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(df['Trade Duration'].mean())}h</p>
+            <p><strong>Total Volume:</strong> {_ta_human_num_mt5(df['Volume'].sum())}</p>
+            <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(df['Volume'].mean())}</p>
             <p><strong>Profit / Trade:</strong> <span class='{'positive' if (net_profit/total_trades if total_trades else 0.0) >= 0 else 'negative'}'>
-            {'$' if (net_profit/total_trades if total_trades else 0.0) >= 0 else '-$'}{_ta_human_num(abs(net_profit/total_trades if total_trades else 0.0))}</span></p>
+            {'$' if (net_profit/total_trades if total_trades else 0.0) >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit/total_trades if total_trades else 0.0))}</span></p>
             </body>
             </html>
             """
@@ -2208,6 +2205,10 @@ if st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
+
+# =========================================================
+# MANAGE MY STRATEGY PAGE
+# =========================================================
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
@@ -2289,6 +2290,9 @@ elif st.session_state.current_page == 'strategy':
     else:
         st.info("Log more trades with symbols and outcomes to evolve your playbook.")
 
+# =========================================================
+# ACCOUNT PAGE
+# =========================================================
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
     st.markdown(
@@ -2615,6 +2619,9 @@ elif st.session_state.current_page == 'account':
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
 
+# =========================================================
+# COMMUNITY TRADE IDEAS PAGE
+# =========================================================
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
@@ -2726,7 +2733,9 @@ elif st.session_state.current_page == 'community':
         st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
     else:
         st.info("No leaderboard data yet.")
-# Tools
+# =========================================================
+# TOOLS PAGE
+# =========================================================
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
     st.markdown("""
@@ -2771,6 +2780,9 @@ elif st.session_state.current_page == 'tools':
         'Pre-Market Checklist'
     ]
     tabs = st.tabs(tools_options)
+    # --------------------------
+    # PROFIT / LOSS CALCULATOR
+    # --------------------------
     with tabs[0]:
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
@@ -2794,6 +2806,9 @@ elif st.session_state.current_page == 'tools':
         st.write(f"Pip Movement: {pip_movement:.2f} pips")
         st.write(f"Pip Value: {pip_value:.2f} {account_currency}")
         st.write(f"Potential Profit/Loss: {profit_loss:.2f} {account_currency}")
+    # --------------------------
+    # PRICE ALERTS
+    # --------------------------
     with tabs[1]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
@@ -2874,6 +2889,9 @@ elif st.session_state.current_page == 'tools':
                         logging.info(f"Cancelled alert at index {idx}")
         else:
             st.info("No price alerts set. Add one above to start monitoring prices.")
+    # --------------------------
+    # CURRENCY CORRELATION HEATMAP
+    # --------------------------
     with tabs[2]:
         st.header("📊 Currency Correlation Heatmap")
         st.markdown("Understand how forex pairs move relative to each other.")
@@ -2890,6 +2908,9 @@ elif st.session_state.current_page == 'tools':
         corr_df = pd.DataFrame(data, columns=pairs, index=pairs)
         fig = px.imshow(corr_df, text_auto=True, aspect="auto", color_continuous_scale="RdBu", title="Forex Pair Correlation Heatmap")
         st.plotly_chart(fig, use_container_width=True)
+    # --------------------------
+    # RISK MANAGEMENT CALCULATOR
+    # --------------------------
     with tabs[3]:
         st.header("🛡️ Risk Management Calculator")
         st.markdown(""" Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. It helps prevent large losses, preserves capital, and allows you to stay in the game during drawdowns. Always risk no more than 1-2% per trade, use stop losses, and calculate position sizes based on your account size and risk tolerance. """)
@@ -2934,6 +2955,9 @@ elif st.session_state.current_page == 'tools':
         fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines', name=f'What-If {alt_risk*100:.1f}%'))
         fig.update_layout(title='Equity Projection – Base vs What-If', xaxis_title='Trade #', yaxis_title='Equity')
         st.plotly_chart(fig, use_container_width=True)
+    # --------------------------
+    # TRADING SESSION TRACKER
+    # --------------------------
     with tabs[4]:
         st.header("🕒 Forex Market Sessions")
         st.markdown(""" Stay aware of active trading sessions to trade when volatility is highest. Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. Track your performance per session to identify your edge. """)
@@ -2987,6 +3011,9 @@ elif st.session_state.current_page == 'tools':
                 """,
                 unsafe_allow_html=True
             )
+    # --------------------------
+    # DRAWDOWN RECOVERY PLANNER
+    # --------------------------
     with tabs[5]:
         st.header("📉 Drawdown Recovery Planner")
         st.markdown(""" Plan your recovery from a drawdown. Understand the percentage gain required to recover losses and simulate recovery based on your trading parameters. """)
@@ -3013,6 +3040,9 @@ elif st.session_state.current_page == 'tools':
         fig.add_hline(y=initial_equity, line_dash="dash", line_color="green", annotation_text="Initial Equity")
         fig.update_layout(title='Drawdown Recovery Simulation', xaxis_title='Trade #', yaxis_title='Equity ($)')
         st.plotly_chart(fig, use_container_width=True)
+    # --------------------------
+    # PRE-TRADE CHECKLIST
+    # --------------------------
     with tabs[6]:
         st.header("✅ Pre-Trade Checklist")
         st.markdown(""" Ensure discipline by running through this checklist before every trade. A structured approach reduces impulsive decisions and aligns trades with your strategy. """)
@@ -3036,6 +3066,9 @@ elif st.session_state.current_page == 'tools':
             st.success("✅ All checks passed! Ready to trade.")
         else:
             st.warning(f"⚠ Complete all {len(checklist_items)} checklist items before trading.")
+    # --------------------------
+    # PRE-MARKET CHECKLIST
+    # --------------------------
     with tabs[7]:
         st.header("📅 Pre-Market Checklist")
         st.markdown(""" Build consistent habits with pre-market checklists and end-of-day reflections. These rituals help maintain discipline and continuous improvement. """)
@@ -3082,15 +3115,10 @@ elif st.session_state.current_page == 'tools':
         if "reflection_log" in st.session_state and not st.session_state.reflection_log.empty:
             st.dataframe(st.session_state.reflection_log)
 
-import streamlit as st
-import pandas as pd
-import logging
-
-# --- (Existing logout and session state management code remains the same) ---
-journal_cols = ["Trade ID", "Date", "Asset", "Strategy", "Position", "Entry Price", "Exit Price", "Stop Loss", "Take Profit", "Outcome", "Profit/Loss", "Notes"]
-journal_dtypes = {"Trade ID": "str", "Date": "str", "Asset": "str", "Strategy": "str", "Position": "str", "Entry Price": "float", "Exit Price": "float", "Stop Loss": "float", "Take Profit": "float", "Outcome": "str", "Profit/Loss": "float", "Notes": "str"}
-
-if st.session_state.current_page == "Zenvo Academy":
+# =========================================================
+# ZENVO ACADEMY PAGE
+# =========================================================
+elif st.session_state.current_page == "Zenvo Academy":
     st.title("📚 Zenvo Academy")
     st.caption("Your journey to trading mastery starts here. Explore interactive courses, track your progress, and unlock your potential.")
     st.markdown('---')
@@ -3169,8 +3197,9 @@ if st.session_state.current_page == "Zenvo Academy":
         if 'logged_in_user' in st.session_state:
             del st.session_state.logged_in_user
         st.session_state.drawings = {}
+        # Ensure correct journal_cols and journal_dtypes are used here, referencing the main app's definitions
         st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]) # Match structure defined in main app
         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
         st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
         st.session_state.xp = 0
@@ -3180,5 +3209,5 @@ if st.session_state.current_page == "Zenvo Academy":
         st.session_state.completed_courses = []
         st.success("Logged out successfully!")
         logging.info("User logged out")
-        st.session_state.current_page = "login"
+        st.session_state.current_page = "account" # Changed to 'account' as 'login' page state doesn't directly exist
         st.rerun()
