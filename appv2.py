@@ -1253,7 +1253,7 @@ with tab_entry:
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
- elif st.session_state.current_page == 'mt5':
+elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
