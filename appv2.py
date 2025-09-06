@@ -292,10 +292,10 @@ def _ta_save_community(key, data):
 # Custom JSON encoder for handling datetime objects
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
-        # Handle datetime and date objects by returning ISO format. [6, 7, 8, 9, 10]
+        # Handle datetime and date objects by returning ISO format.
         if isinstance(obj, (dt.datetime, dt.date)):
             return obj.isoformat()
-        # Handle Pandas NA values by returning None, ensuring JSON compatibility. [7]
+        # Handle Pandas NA values by returning None, ensuring JSON compatibility.
         if pd.isna(obj):
             return None
         return super().default(obj)
@@ -303,7 +303,7 @@ class CustomJSONEncoder(json.JSONEncoder):
 # =========================================================
 # PAGE CONFIGURATION
 # =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide") # [1, 2, 3, 4, 5]
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # =========================================================
 # CUSTOM SIDEBAR CSS
@@ -464,49 +464,6 @@ econ_calendar_data = [
 
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
-
-# =========================================================
-# JOURNAL & DRAWING INITIALIZATION
-# =========================================================
-# Initialize drawings in session_state
-if "drawings" not in st.session_state:
-    st.session_state.drawings = {}
-    logging.info("Initialized st.session_state.drawings")
-
-# Define journal columns and dtypes
-journal_cols = [
-    "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
-    "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
-    "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns", "Emotions",
-    "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
-    "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
-]
-
-journal_dtypes = {
-    "Date": "datetime64[ns]", "Symbol": str, "Weekly Bias": str, "Daily Bias": str,
-    "4H Structure": str, "1H Structure": str, "Positive Correlated Pair & Bias": str,
-    "Potential Entry Points": str, "5min/15min Setup?": str, "Entry Conditions": str,
-    "Planned R:R": str, "News Filter": str, "Alerts": str, "Concerns": str, "Emotions": str,
-    "Confluence Score 1-7": float, "Outcome / R:R Realised": str, "Notes/Journal": str,
-    "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Lots": float
-}
-
-# Initialize trading journal with proper dtypes
-if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
-    st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-else:
-    # Ensure existing journal matches new structure
-    current_journal = st.session_state.tools_trade_journal
-    missing_cols = [col for col in journal_cols if col not in current_journal.columns]
-    if missing_cols:
-        for col in missing_cols:
-            current_journal[col] = pd.Series(dtype=journal_dtypes[col])
-    # Reorder columns and apply dtypes
-    st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
-
-# Initialize temporary journal for form
-if "temp_journal" not in st.session_state:
-    st.session_state.temp_journal = None
 
 # =========================================================
 # GAMIFICATION HELPERS
@@ -840,6 +797,50 @@ elif st.session_state.current_page == 'backtesting':
     st.title("📈 Backtesting")
     st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
     st.markdown('---')
+
+    # =========================================================
+    # JOURNAL & DRAWING INITIALIZATION
+    # =========================================================
+    # Initialize drawings in session_state
+    if "drawings" not in st.session_state:
+        st.session_state.drawings = {}
+        logging.info("Initialized st.session_state.drawings")
+
+    # Define journal columns and dtypes
+    journal_cols = [
+        "Date", "Symbol", "Weekly Bias", "Daily Bias", "4H Structure", "1H Structure",
+        "Positive Correlated Pair & Bias", "Potential Entry Points", "5min/15min Setup?",
+        "Entry Conditions", "Planned R:R", "News Filter", "Alerts", "Concerns", "Emotions",
+        "Confluence Score 1-7", "Outcome / R:R Realised", "Notes/Journal",
+        "Entry Price", "Stop Loss Price", "Take Profit Price", "Lots"
+    ]
+
+    journal_dtypes = {
+        "Date": "datetime64[ns]", "Symbol": str, "Weekly Bias": str, "Daily Bias": str,
+        "4H Structure": str, "1H Structure": str, "Positive Correlated Pair & Bias": str,
+        "Potential Entry Points": str, "5min/15min Setup?": str, "Entry Conditions": str,
+        "Planned R:R": str, "News Filter": str, "Alerts": str, "Concerns": str, "Emotions": str,
+        "Confluence Score 1-7": float, "Outcome / R:R Realised": str, "Notes/Journal": str,
+        "Entry Price": float, "Stop Loss Price": float, "Take Profit Price": float, "Lots": float
+    }
+
+    # Initialize trading journal with proper dtypes
+    if "tools_trade_journal" not in st.session_state or st.session_state.tools_trade_journal.empty:
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+    else:
+        # Ensure existing journal matches new structure
+        current_journal = st.session_state.tools_trade_journal
+        missing_cols = [col for col in journal_cols if col not in current_journal.columns]
+        if missing_cols:
+            for col in missing_cols:
+                current_journal[col] = pd.Series(dtype=journal_dtypes[col])
+        # Reorder columns and apply dtypes
+        st.session_state.tools_trade_journal = current_journal[journal_cols].astype(journal_dtypes, errors='ignore')
+
+    # Initialize temporary journal for form
+    if "temp_journal" not in st.session_state:
+        st.session_state.temp_journal = None
+
     # Pair selector & symbol map
     pairs_map = {
         "EUR/USD": "FX:EURUSD",
