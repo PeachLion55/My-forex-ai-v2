@@ -7,4 +7,3 @@ plotly
 pytz
 streamlit-autorefresh
 supabase
-streamlit-quill
