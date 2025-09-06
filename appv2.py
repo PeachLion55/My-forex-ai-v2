@@ -1057,83 +1057,58 @@ elif st.session_state.current_page == 'backtesting':
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
 
     # --- TAB 1: LOG NEW TRADE ---
-    with tab_entry:
-        st.header("Log a New Trade")
-        st.caption("Focus on a quick, essential entry. You can add detailed notes and screenshots later in the Playbook.")
+with tab_entry:
+    st.header("Log a New Trade")
+    st.caption("Focus on a quick, essential entry. You can add detailed notes and screenshots later in the Playbook.")
 
-        with st.form("trade_entry_form", clear_on_submit=True):
-            st.markdown("##### ⚡ 30-Second Journal Entry")
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                date_val = st.date_input("Date", dt.date.today())
-                symbol_options = list(pairs_map.keys()) + ["Other"]
-                symbol = st.selectbox("Symbol", symbol_options, index=symbol_options.index(pair))
-                if symbol == "Other": symbol = st.text_input("Custom Symbol")
-            with col2:
-                direction = st.radio("Direction", ["Long", "Short"], horizontal=True)
-                lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f")
-            with col3:
-                entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
-                stop_loss = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
-            with col4:
-                final_exit = st.number_input("Final Exit Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
-                outcome = st.selectbox("Outcome", ["Win", "Loss", "Breakeven", "No Trade/Study"])
-            
-            with st.expander("Add Quick Rationale & Tags (Optional)"):
-                entry_rationale = st.text_area("Why did you enter this trade?", height=100)
-                # Ensure 'Tags' column exists for filtering options
-                if 'Tags' not in st.session_state.tools_trade_journal.columns:
-                    st.session_state.tools_trade_journal['Tags'] = ''
-                all_tags = sorted(list(set(st.session_state.tools_trade_journal['Tags'].str.split(',').explode().dropna().str.strip())))
-                suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
-                tags = st.multiselect("Trade Tags", options=sorted(list(set(all_tags + suggested_tags))))
+    with st.form("trade_entry_form", clear_on_submit=True):
+        st.markdown("##### ⚡ 30-Second Journal Entry")
+        # Adjusted to 6 columns to make space for PnL and RR inputs
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        
+        with col1:
+            date_val = st.date_input("Date", dt.date.today())
+            symbol_options = list(pairs_map.keys()) + ["Other"]
+            symbol = st.selectbox("Symbol", symbol_options, index=symbol_options.index(pair))
+            if symbol == "Other": symbol = st.text_input("Custom Symbol")
+        
+        with col2:
+            direction = st.radio("Direction", ["Long", "Short"], horizontal=True)
+            lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f")
+        
+        with col3:
+            entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+            stop_loss = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+        
+        with col4:
+            final_exit = st.number_input("Final Exit Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+            outcome = st.selectbox("Outcome", ["Win", "Loss", "Breakeven", "No Trade/Study"])
+        
+        with col5:
+            # Manual PnL input
+            manual_pnl = st.number_input("Profit/Loss ($)", value=0.00, step=0.01, format="%.2f")
+        
+        with col6:
+            # Manual RR input
+            manual_rr = st.number_input("Risk-Reward (R)", value=0.00, step=0.01, format="%.2f")
 
-                    submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
+        with st.expander("Add Quick Rationale & Tags (Optional)"):
+            entry_rationale = st.text_area("Why did you enter this trade?", height=100)
+            if 'Tags' not in st.session_state.tools_trade_journal.columns:
+                st.session_state.tools_trade_journal['Tags'] = ''
+            all_tags = sorted(list(set(st.session_state.tools_trade_journal['Tags'].str.split(',').explode().dropna().str.strip())))
+            suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
+            tags = st.multiselect("Trade Tags", options=sorted(list(set(all_tags + suggested_tags))))
+
+        submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
         if submitted:
-            # Determine pip unit for the symbol
-            # Most pairs have a pip of 0.0001 (e.g., EUR/USD, GBP/USD)
-            # JPY pairs have a pip of 0.01 (e.g., USD/JPY, EUR/JPY)
-            pip_size = 0.01 if 'JPY' in symbol.upper() else 0.0001
-            units_per_lot = 100000 # Standard lot size (1 lot = 100,000 units)
-
-            calculated_pnl = 0.0
-            calculated_rr = 0.0
-
-            # Calculate PnL
-            if outcome in ["Win", "Loss"]:
-                # Price difference for PnL calculation
-                price_diff_raw = (final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)
-                
-                # PnL in the quote currency's value
-                # Example: For EUR/USD (USD is quote), price_diff_raw is in USD. PnL = price_diff_raw * lots * units_per_lot.
-                # For USD/JPY (JPY is quote), price_diff_raw is in JPY. PnL = price_diff_raw * lots * units_per_lot.
-                calculated_pnl = price_diff_raw * lots * units_per_lot
-            
-            # Calculate RR (Risk-Reward Ratio)
-            # This is based on pips risked vs pips gained
-            
-            # Pips risked calculation
-            if stop_loss > 0 and entry_price != stop_loss:
-                pips_risked = abs(entry_price - stop_loss) / pip_size
-            else:
-                pips_risked = 0.0 # Effectively no stop loss or invalid stop loss
-
-            # Pips gained/lost calculation
-            pips_result = (final_exit - entry_price) / pip_size
-            if direction == "Short":
-                pips_result = -pips_result # Invert pips_result for short trades to reflect profit/loss from entry to exit
-
-            if pips_risked > 0:
-                calculated_rr = pips_result / pips_risked
-            else:
-                calculated_rr = 0.0 # Can't calculate RR if no risk (no stop loss)
-
+            # Use the manually entered PnL and RR values
             new_trade_data = {
                 "TradeID": f"TRD-{uuid.uuid4().hex[:6].upper()}", "Date": pd.to_datetime(date_val),
                 "Symbol": symbol, "Direction": direction, "Outcome": outcome,
                 "Lots": lots, "EntryPrice": entry_price, "StopLoss": stop_loss, "FinalExit": final_exit,
-                "PnL": calculated_pnl, 
-                "RR": calculated_rr,
+                "PnL": manual_pnl, # Now using manual input
+                "RR": manual_rr,   # Now using manual input
                 "Tags": ','.join(tags), "EntryRationale": entry_rationale,
                 "Strategy": '', "TradeJournalNotes": '', "EntryScreenshot": '', "ExitScreenshot": ''
             }
