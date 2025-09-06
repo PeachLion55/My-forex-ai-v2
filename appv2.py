@@ -292,76 +292,13 @@ def _ta_save_journal(username, journal_df):
 # Path to SQLite DB
 DB_FILE = "users.db"
 
-# XP notification system (Modified to use JavaScript for persistent display)
+# XP notification system (Modified to use Streamlit's native st.toast)
 def show_xp_notification(xp_gained):
     """
-    Show a visually appealing XP notification using JavaScript for persistence.
-    The notification will appear in the top-right corner and display for ~6 seconds.
+    Show a visually appealing XP notification using Streamlit's native st.toast.
+    This will appear in the top-right corner.
     """
-    # The animation definition includes a 0.5s slide-in, then 5.5s delay before a 0.5s fadeOut.
-    # Total effective visual display duration is 6 seconds.
-    js_code = f"""
-    <script>
-        // Use a unique ID and ensure only one notification is active at a time to prevent stacking
-        const notificationId = 'xp-notification-' + Date.now(); // Unique ID for each notification
-        let existingNotification = document.getElementById('xp-notification-active');
-        if (existingNotification) {{
-            existingNotification.remove(); // Remove any currently active notification
-        }}
-
-        const notificationDiv = document.createElement('div');
-        notificationDiv.id = 'xp-notification-active'; // A consistent ID to target for removal
-        notificationDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="font-size: 24px;">⭐</div>
-                <div>
-                    <div style="font-size: 16px;">+{xp_gained} XP Earned!</div>
-                    <div style="font-size: 12px; opacity: 0.8;">Keep up the great work!</div>
-                </div>
-            </div>
-        `;
-        notificationDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #58b3b1, #4d7171);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(88, 179, 177, 0.3);
-            z-index: 9999;
-            /* Animation timing: 0.5s slide-in, then wait 5.5s, then 0.5s fade-out */
-            animation: slideInRight 0.5s ease-out forwards, fadeOut 0.5s ease-out 5.5s forwards;
-            font-weight: bold;
-            border: 2px solid #fff;
-            backdrop-filter: blur(10px);
-        `;
-
-        document.body.appendChild(notificationDiv);
-
-        // Remove the notification from the DOM after the animation completes
-        // Total time for animation to complete: 0.5s (slideIn) + 5.5s (delay) + 0.5s (fadeOut) = 6.5 seconds
-        setTimeout(() => {{
-            const el = document.getElementById('xp-notification-active');
-            if (el) {{
-                el.remove();
-            }}
-        }}, 6500); // Remove after 6.5 seconds
-    </script>
-    <style>
-        /* These keyframes need to be defined. It's best practice to include them once in your main global CSS. */
-        /* However, for direct insertion as requested, they are included here as well. */
-        @keyframes slideInRight {{
-            from {{ transform: translateX(100%); opacity: 0; }}
-            to {{ transform: translateX(0); opacity: 1; }}
-        }}
-        @keyframes fadeOut {{
-            from {{ opacity: 1; }}
-            to {{ opacity: 0; }}
-        }}
-    </style>
-    """
-    st.components.v1.html(js_code, height=0)
+    st.toast(f"⭐ +{xp_gained} XP Earned!", icon="🎉")
 
 # Connect to SQLite with error handling
 try:
@@ -405,7 +342,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)):
             return None
         return super().default(obj)
-
 # =========================================================
 # PAGE CONFIGURATION
 # =========================================================
