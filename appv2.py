@@ -476,6 +476,16 @@ df_news = get_fxstreet_forex_news()
 # =========================================================
 # JOURNAL SCHEMA & ROBUST DATA MIGRATION (UPDATED from Code 1)
 # =========================================================
+
+# Helper function to get user data from DB (Moved here to resolve NameError in this block)
+# This assumes 'c' (sqlite cursor) and 'json' are already imported and 'users' table exists.
+def get_user_data(username):
+    # Ensure 'c' (sqlite cursor) is accessible. Assuming it's a global variable from DB setup.
+    # Also ensure 'json' is imported.
+    c.execute("SELECT data FROM users WHERE username = ?", (username,))
+    result = c.fetchone()
+    return json.loads(result[0]) if result and result[0] else {}
+
 # CLEANED UP SCHEMA with safe names for columns (from Code 1)
 journal_cols = [
     "TradeID", "Date", "Symbol", "Direction", "Outcome", "PnL", "RR", 
@@ -503,6 +513,7 @@ if 'tools_trade_journal' not in st.session_state:
         # Also ensure this user exists in DB for get_user_data to work
         hashed_password = hashlib.sha256("password".encode()).hexdigest()
         initial_data_db = json.dumps({'xp': 0, 'streak': 0, 'tools_trade_journal': []}) # Use tools_trade_journal
+        # Assuming 'c' and 'conn' are globally available from DB_FILE setup.
         c.execute("INSERT OR IGNORE INTO users (username, password, data) VALUES (?, ?, ?)", 
                   (st.session_state.logged_in_user, hashed_password, initial_data_db))
         conn.commit()
