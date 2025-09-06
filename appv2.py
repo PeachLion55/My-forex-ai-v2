@@ -480,8 +480,6 @@ df_news = get_fxstreet_forex_news()
 # Helper function to get user data from DB (Moved here to resolve NameError in this block)
 # This assumes 'c' (sqlite cursor) and 'json' are already imported and 'users' table exists.
 def get_user_data(username):
-    # Ensure 'c' (sqlite cursor) is accessible. Assuming it's a global variable from DB setup.
-    # Also ensure 'json' is imported.
     c.execute("SELECT data FROM users WHERE username = ?", (username,))
     result = c.fetchone()
     return json.loads(result[0]) if result and result[0] else {}
@@ -507,46 +505,36 @@ if "drawings" not in st.session_state:
 
 # Initialize trading journal with robust data migration (adapted from Code 1)
 if 'tools_trade_journal' not in st.session_state:
-    # Ensure a default logged-in user for initial data loading if not set
-    if 'logged_in_user' not in st.session_state:
-        st.session_state.logged_in_user = "pro_trader" # Default mock user
-        # Also ensure this user exists in DB for get_user_data to work
-        hashed_password = hashlib.sha256("password".encode()).hexdigest()
-        initial_data_db = json.dumps({'xp': 0, 'streak': 0, 'tools_trade_journal': []}) # Use tools_trade_journal
-        # Assuming 'c' and 'conn' are globally available from DB_FILE setup.
-        c.execute("INSERT OR IGNORE INTO users (username, password, data) VALUES (?, ?, ?)", 
-                  (st.session_state.logged_in_user, hashed_password, initial_data_db))
-        conn.commit()
+    # Check if a user is currently logged in.
+    # If not, initialize an empty journal. The user will be prompted to log in via the account page.
+    if 'logged_in_user' in st.session_state:
+        username = st.session_state.logged_in_user
+        user_data = get_user_data(username)
+        journal_data = user_data.get("tools_trade_journal", []) # Load from "tools_trade_journal" key
+        df = pd.DataFrame(journal_data)
+        
+        # Safely migrate data to the new, safer schema
+        legacy_col_map = {
+            "Trade ID": "TradeID", "Entry Price": "EntryPrice", "Stop Loss": "StopLoss",
+            "Final Exit": "FinalExit", "PnL ($)": "PnL", "R:R": "RR",
+            "Entry Rationale": "EntryRationale", "Trade Journal Notes": "TradeJournalNotes",
+            "Entry Screenshot": "EntryScreenshot", "Exit Screenshot": "ExitScreenshot",
+        }
+        df.rename(columns=legacy_col_map, inplace=True)
 
-    user_data = get_user_data(st.session_state.logged_in_user)
-    journal_data = user_data.get("tools_trade_journal", []) # Load from "tools_trade_journal" key
-    df = pd.DataFrame(journal_data)
-    
-    # Safely migrate data to the new, safer schema
-    # This mapping is based on Code 1's internal migration, ensuring consistency with the new schema.
-    # It also covers potential older Code 2 column names to map to the new schema.
-    legacy_col_map = {
-        "Trade ID": "TradeID", "Entry Price": "EntryPrice", "Stop Loss": "StopLoss",
-        "Final Exit": "FinalExit", "PnL ($)": "PnL", "R:R": "RR",
-        "Entry Rationale": "EntryRationale", "Trade Journal Notes": "TradeJournalNotes",
-        "Entry Screenshot": "EntryScreenshot", "Exit Screenshot": "ExitScreenshot",
-        # Add mappings for Code 2's old columns if they should transition
-        # For instance, if an old "Outcome / R:R Realised" existed, how would it map to "Outcome", "PnL", "RR"?
-        # This is complex. For simplicity, we assume new data will populate PnL/RR, and old data might
-        # have these as default values if not directly convertible.
-        # If 'Outcome / R:R Realised' needs to be parsed, add a pre-processing step here before rename.
-    }
-    df.rename(columns=legacy_col_map, inplace=True)
+        for col, dtype in journal_dtypes.items():
+            if col not in df.columns:
+                if dtype == str: df[col] = ''
+                elif 'datetime' in str(dtype): df[col] = pd.NaT
+                elif dtype == float: df[col] = 0.0
+                else: df[col] = None
+        
+        st.session_state.tools_trade_journal = df[journal_cols].astype(journal_dtypes, errors='ignore')
+        st.session_state.tools_trade_journal['Date'] = pd.to_datetime(st.session_state.tools_trade_journal['Date'], errors='coerce') # Coerce to handle NaT more robustly
+    else:
+        # If no user is logged in, initialize an empty DataFrame
+        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
 
-    for col, dtype in journal_dtypes.items():
-        if col not in df.columns:
-            if dtype == str: df[col] = ''
-            elif 'datetime' in str(dtype): df[col] = pd.NaT
-            elif dtype == float: df[col] = 0.0
-            else: df[col] = None
-    
-    st.session_state.tools_trade_journal = df[journal_cols].astype(journal_dtypes, errors='ignore')
-    st.session_state.tools_trade_journal['Date'] = pd.to_datetime(st.session_state.tools_trade_journal['Date'], errors='coerce') # Coerce to handle NaT more robustly
 
 # Initialize temporary journal for form
 if "temp_journal" not in st.session_state:
