@@ -2721,7 +2721,7 @@ elif st.session_state.current_page == 'account':
         # --- Row 2: Progress Chart, Insights, and Badges (rearranged) ---
         chart_col, insights_col, badges_col = st.columns([0.8, 1, 0.7]) # Adjusted ratios for better visual balance
 
-        with chart_col:
+                with chart_col:
             st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
             total_xp = st.session_state.get('xp', 0)
             xp_in_level = total_xp % 100
@@ -2742,9 +2742,15 @@ elif st.session_state.current_page == 'account':
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
                 annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
-                margin=dict(t=0, b=0, l=0, r=0)
+                margin=dict(t=0, b=0, l=0, r=0),
+                # --- START EDIT HERE ---
+                width=180,  # Set a fixed width for the chart (e.g., 180 pixels)
+                height=180  # Set a fixed height for the chart (e.g., 180 pixels)
+                # --- END EDIT HERE ---
             )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            # --- ALSO EDIT THIS LINE ---
+            st.plotly_chart(fig, use_container_width=False, config={'displayModeBar': False})
+            # --- END EDIT ---
         
         with insights_col:
             st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
