@@ -292,12 +292,13 @@ def _ta_save_journal(username, journal_df):
 # Path to SQLite DB
 DB_FILE = "users.db"
 
-# XP notification system (Modified to use Streamlit's native st.toast)
+# XP notification system
 def show_xp_notification(xp_gained):
     """
     Show a visually appealing XP notification using Streamlit's native st.toast.
     This will appear in the top-right corner.
     """
+    # st.toast automatically handles top-right positioning and a default duration (~3 seconds).
     st.toast(f"⭐ +{xp_gained} XP Earned!", icon="🎉")
 
 # Connect to SQLite with error handling
@@ -676,7 +677,7 @@ def ta_update_xp(amount):
             st.session_state.level = user_data['level']
             st.session_state.badges = user_data['badges']
             
-            # Show XP notification
+            # Show XP notification - This line is correctly placed here.
             show_xp_notification(amount)
 
 def ta_update_streak():
