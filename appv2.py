@@ -2330,19 +2330,21 @@ elif st.session_state.current_page == 'strategy':
 # ACCOUNT PAGE
 # =========================================================
 elif st.session_state.current_page == 'account':
-    st.title("👤 My Account")
-    st.markdown(
-        """
-        Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
-        - Keep your trading journal and strategies backed up.
-        - Track your progress and gamification stats.
-        - Sync across devices.
-        - Import/export your account data easily.
-        """
-    )
-    st.write('---')
-    
+    # This introductory section should ONLY show when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
+        st.title("👤 My Account")
+        st.markdown(
+            """
+            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
+            - Keep your trading journal and strategies backed up.
+            - Track your progress and gamification stats.
+            - Sync across devices.
+            - Import/export your account data easily.
+            """
+        )
+        st.write('---')
+    
+        # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
         # --------------------------
         # SIGN IN TAB
@@ -2547,7 +2549,7 @@ elif st.session_state.current_page == 'account':
             
             fig_line = px.area(xp_data, x='Date', y='cumulative_xp', title="XP Growth Over Time")
             fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(45, 70, 70, 0.3)', font_color="white")
-            st.plotly_chart(fig_line, use_container_width=True)
+            st.plotly_chart(fig_line, use_container_width=True, config={'displayModeBar': False}) # Added config to hide plotly toolbar
         else:
             st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
 
@@ -2579,8 +2581,8 @@ elif st.session_state.current_page == 'account':
 
         st.markdown("---")
 
-        # --- NEW FEATURE: How to Earn XP Section ---
-        st.subheader("❓ How to Earn XP")
+        # --- How to Earn XP Section (Directly Visible) ---
+        st.subheader("❓ How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
 
@@ -2600,16 +2602,17 @@ elif st.session_state.current_page == 'account':
         
         Keep exploring the dashboard and trading to earn more XP and climb the ranks!
         """, unsafe_allow_html=True)
+        # --- END How to Earn XP Section ---
         
         st.markdown("---")
 
-        # --- NEW FEATURE: XP Leaderboard ---
+        # --- XP Leaderboard ---
         render_xp_leaderboard()
-        # --- END NEW FEATURE ---
+        # --- END XP Leaderboard ---
 
         st.markdown("---")
 
-        # --- NEW FEATURE: XP Transaction History ---
+        # --- XP Transaction History ---
         st.subheader("📜 Your XP Transaction History")
         
         xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
@@ -2619,24 +2622,22 @@ elif st.session_state.current_page == 'account':
             xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
 
             # Define the styling function that operates on numeric values for the 'Amount' column.
-            # This function returns CSS styles.
             def style_amount_column_numeric(val):
                 if val > 0:
                     return 'color: green; font-weight: bold;'
                 elif val < 0:
                     return 'color: red; font-weight: bold;'
-                return '' # No specific style for zero
+                return ''
 
-            # Apply the style directly to the numeric 'Amount' column's cells
             styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
 
-            # Now, apply numeric formatting for display purposes (adds the '+' sign, ensures integer).
+            # Apply numeric formatting for display purposes (adds the '+' sign, ensures integer).
             styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
 
             st.dataframe(styled_xp_log, use_container_width=True)
         else:
             st.info("Your XP transaction history is empty. Start interacting to earn XP!")
-        # --- END NEW FEATURE ---
+        # --- END XP Transaction History ---
 
         st.markdown("---")
 
