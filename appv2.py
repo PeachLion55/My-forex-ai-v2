@@ -796,7 +796,7 @@ st.sidebar.markdown(
 # Navigation items
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
-    ('backtesting', 'Backtesting'),
+    ('trade_journal', 'trade_journal'),
     ('mt5', 'Performance Dashboard'),
     ('tools', 'Tools'),
     ('strategy', 'Manage My Strategy'),
@@ -979,195 +979,41 @@ if st.session_state.current_page == 'fundamentals':
         )
 
 # =========================================================
-# BACKTESTING PAGE
+# TRADING JOURNAL PAGE
 # =========================================================
-elif st.session_state.current_page == 'backtesting':
-    st.title("📈 Backtesting")
-    st.caption("Live TradingView chart for backtesting and enhanced trading journal for tracking and analyzing trades.")
+elif st.session_state.current_page == 'trade_journal':
+    st.title("📈 Trading Journal") # Keep page name same as Code B
+    st.caption("A streamlined interface for professional trade analysis.") # Keep caption same as Code B
     st.markdown('---')
-    # Pair selector & symbol map
+
+    # --- CHARTING AREA (From Code A) ---
     pairs_map = {
-        "EUR/USD": "FX:EURUSD",
-        "USD/JPY": "FX:USDJPY",
-        "GBP/USD": "FX:GBPUSD",
-        "USD/CHF": "OANDA:USDCHF",
-        "AUD/USD": "FX:AUDUSD",
-        "NZD/USD": "OANDA:NZDUSD",
-        "USD/CAD": "CMCMARKETS:USDCAD",
-        "EUR/GBP": "FX:EURGBP",
-        "EUR/JPY": "FX:EURJPY",
-        "GBP/JPY": "FX:GBPJPY",
-        "AUD/JPY": "FX:AUDJPY",
-        "AUD/NZD": "FX:AUDNZD",
-        "AUD/CAD": "FX:AUDCAD",
-        "AUD/CHF": "FX:AUDCHF",
-        "CAD/JPY": "FX:CADJPY",
-        "CHF/JPY": "FX:CHFJPY",
-        "EUR/AUD": "FX:EURAUD",
-        "EUR/CAD": "FX:EURCAD",
-        "EUR/CHF": "FX:EURCHF",
-        "GBP/AUD": "FX:GBPAUD",
-        "GBP/CAD": "FX:GBPCAD",
-        "GBP/CHF": "FX:GBPCHF",
-        "NZD/JPY": "FX:NZDJPY",
-        "NZD/CAD": "FX:NZDCAD",
-        "NZD/CHF": "FX:NZDCHF",
-        "CAD/CHF": "FX:CADCHF",
+        "EUR/USD": "FX:EURUSD", "USD/JPY": "FX:USDJPY", "GBP/USD": "FX:GBPUSD", "USD/CHF": "OANDA:USDCHF",
+        "AUD/USD": "FX:AUDUSD", "NZD/USD": "OANDA:NZDUSD", "USD/CAD": "FX:USDCAD"
     }
-    pair = st.selectbox("Select pair", list(pairs_map.keys()), index=0, key="tv_pair")
+    # Use 'pair' from session state if it exists, otherwise default
+    default_pair_key = list(pairs_map.keys())[0]
+    pair = st.selectbox("Select Chart Pair", list(pairs_map.keys()), 
+                        index=list(pairs_map.keys()).index(st.session_state.get('tv_pair_select_journal', default_pair_key)), # Unique key
+                        key="tv_pair_select_journal")
+    st.session_state.tv_pair_select_journal = pair # Store selection for persistence
     tv_symbol = pairs_map[pair]
-    # Initialize drawings in session state if not present
-    if 'drawings' not in st.session_state:
-        st.session_state.drawings = {}
-    # Load initial drawings if available
-    if "logged_in_user" in st.session_state and pair not in st.session_state.drawings:
-        username = st.session_state.logged_in_user
-        logging.info(f"Loading drawings for user {username}, pair {pair}")
-        try:
-            c.execute("SELECT data FROM users WHERE username = ?", (username,))
-            result = c.fetchone()
-            if result:
-                user_data = json.loads(result[0])
-                st.session_state.drawings[pair] = user_data.get("drawings", {}).get(pair, {})
-                logging.info(f"Loaded drawings for {pair}: {st.session_state.drawings[pair]}")
-            else:
-                logging.warning(f"No data found for user {username}")
-        except Exception as e:
-            logging.error(f"Error loading drawings for {username}: {str(e)}")
-            st.error(f"Failed to load drawings: {str(e)}")
-    
-    # Using TradingView widget from Code 1, which has `height=550` or `height=560`, using 800 from Code 2
+
     tv_html = f"""
     <div id="tradingview_widget"></div>
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    new TradingView.widget({{
-        "container_id": "tradingview_widget",
-        "width": "100%",
-        "height": 800, /* Retaining Code 2's larger height for backtesting */
-        "symbol": "{tv_symbol}",
-        "interval": "D",
-        "timezone": "Etc/UTC",
-        "theme": "dark",
-        "style": "1",
-        "locale": "en",
-        "toolbar_bg": "#f1f3f6", /* Code 2's toolbar bg, consistent with its look */
-        "enable_publishing": false,
-        "allow_symbol_change": true,
-        "studies": [],
-        "show_popup_button": true,
-        "popup_width": "1000",
-        "popup_height": "650"
-    }});
-    </script>
+    <script> new TradingView.widget({{
+        "container_id": "tradingview_widget", "width": "100%", "height": 550, "symbol": "{tv_symbol}",
+        "interval": "D", "timezone": "Etc/UTC", "theme": "dark", "style": "1", "locale": "en",
+        "enable_publishing": false, "allow_symbol_change": true, "hide_side_toolbar": false, "autosize": true
+    }});</script>
     """
-    st.components.v1.html(tv_html, height=820, scrolling=False)
-    # Save, Load, and Refresh buttons
-    if "logged_in_user" in st.session_state:
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col1:
-            if st.button("Save Drawings", key="bt_save_drawings"):
-                logging.info(f"Save Drawings button clicked for pair {pair}")
-                save_script = f"""
-                <script>
-                parent.window.postMessage({{action: 'save_drawings', pair: '{pair}'}}, '*'); /* Changed targetOrigin to '*' for broader compatibility, ensure security */
-                </script>
-                """
-                st.components.v1.html(save_script, height=0)
-                logging.info(f"Triggered save script for {pair}")
-                st.session_state[f"bt_save_trigger_{pair}"] = True
-        with col2:
-            if st.button("Load Drawings", key="bt_load_drawings"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Load Drawings button clicked for user {username}, pair {pair}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        content = user_data.get("drawings", {}).get(pair, {})
-                        if content:
-                            load_script = f"""
-                            <script>
-                            parent.window.postMessage({{action: 'load_drawings', pair: '{pair}', content: {json.dumps(content)}}}, '*'); /* Changed targetOrigin to '*' for broader compatibility, ensure security */
-                            </script>
-                            """
-                            st.components.v1.html(load_script, height=0)
-                            st.success("Drawings loaded successfully!")
-                            logging.info(f"Successfully loaded drawings for {pair}")
-                        else:
-                            st.info("No saved drawings for this pair.")
-                            logging.info(f"No saved drawings found for {pair}")
-                    else:
-                        st.error("Failed to load user data.")
-                        logging.error(f"No user data found for {username}")
-                except Exception as e:
-                    st.error(f"Failed to load drawings: {str(e)}")
-                    logging.error(f"Error loading drawings for {username}: {str(e)}")
-        with col3:
-            if st.button("Refresh Account", key="bt_refresh_account"):
-                username = st.session_state.logged_in_user
-                logging.info(f"Refresh Account button clicked for user {username}")
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result:
-                        user_data = json.loads(result[0])
-                        st.session_state.drawings = user_data.get("drawings", {})
-                        st.session_state.tools_trade_journal = pd.DataFrame(user_data.get("tools_trade_journal", [])).astype(journal_dtypes, errors='ignore')
-                        st.session_state.tools_trade_journal['Date'] = pd.to_datetime(st.session_state.tools_trade_journal['Date'], errors='coerce')
-                        st.success("Account synced successfully!")
-                        logging.info(f"Account synced for {username}: {st.session_state.drawings}")
-                    else:
-                        st.error("Failed to sync account.")
-                        logging.error(f"No user data found for {username}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to sync account: {str(e)}")
-                    logging.error(f"Error syncing account for {username}: {str(e)}")
-        # Check for saved drawings from postMessage
-        drawings_key = f"bt_drawings_key_{pair}"
-        if drawings_key in st.session_state and st.session_state.get(f"bt_save_trigger_{pair}", False):
-            content = st.session_state[drawings_key]
-            logging.info(f"Received drawing content for {pair}: {content}")
-            if content and isinstance(content, dict) and content:
-                username = st.session_state.logged_in_user
-                try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
-                    user_data.setdefault("drawings", {})[pair] = content
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
-                    conn.commit()
-                    st.session_state.drawings[pair] = content
-                    st.success(f"Drawings for {pair} saved successfully!")
-                    logging.info(f"Drawings saved to database for {pair}: {content}")
-                except Exception as e:
-                    st.error(f"Failed to save drawings: {str(e)}")
-                    logging.error(f"Database error saving drawings for {pair}: {str(e)}")
-                finally:
-                    # Clean up session state flags
-                    if drawings_key in st.session_state:
-                        del st.session_state[drawings_key]
-                    if f"bt_save_trigger_{pair}" in st.session_state:
-                        del st.session_state[f"bt_save_trigger_{pair}"]
-            else:
-                st.warning("No valid drawing content received. Ensure you have drawn on the chart.")
-                logging.warning(f"No valid drawing content received for {pair}: {content}")
-                # Still clean up flags if no valid content
-                if drawings_key in st.session_state:
-                    del st.session_state[drawings_key]
-                if f"bt_save_trigger_{pair}" in st.session_state:
-                    del st.session_state[f"bt_save_trigger_{pair}"]
-    else:
-        st.info("Sign in via the My Account tab to save/load drawings and trading journal.")
-        logging.info("User not logged in, save/load drawings disabled")
+    st.components.v1.html(tv_html, height=560)
+    st.markdown("---")
 
-
-    # Trading Journal Tabs (UPDATED FROM CODE 1)
-    st.markdown("### 📝 Trading Journal")
-    st.markdown("A streamlined interface for professional trade analysis.") # Adjusted caption
-
+    # =========================================================
+    # TRADING JOURNAL TABS (FROM CODE A - Integrated and updated)
+    # =========================================================
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
 
     # --- TAB 1: LOG NEW TRADE ---
@@ -1182,119 +1028,105 @@ elif st.session_state.current_page == 'backtesting':
             with col1:
                 date_val = st.date_input("Date", dt.date.today())
                 symbol_options = list(pairs_map.keys()) + ["Other"]
-                # Use the 'pair' selected for TradingView as default
-                default_symbol_index = symbol_options.index(pair) if pair in symbol_options else 0
-                symbol = st.selectbox("Symbol", symbol_options, index=default_symbol_index)
-                if symbol == "Other": symbol = st.text_input("Custom Symbol", value="") # Ensure custom symbol has default empty string
+                # Use the 'pair' selected for TradingView as default, if applicable
+                default_symbol_index_entry = symbol_options.index(st.session_state.tv_pair_select_journal) if st.session_state.tv_pair_select_journal in symbol_options else 0
+                symbol = st.selectbox("Symbol", symbol_options, index=default_symbol_index_entry, key="symbol_input")
+                if symbol == "Other": symbol = st.text_input("Custom Symbol", key="custom_symbol_input")
             with col2:
-                direction = st.radio("Direction", ["Long", "Short"], horizontal=True)
-                lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f")
+                direction = st.radio("Direction", ["Long", "Short"], horizontal=True, key="direction_input")
+                lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f", key="lots_input")
             with col3:
-                entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
-                stop_loss = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+                entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f", key="entry_price_input")
+                stop_loss = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.00001, format="%.5f", key="stop_loss_input")
             
             st.markdown("---")
             st.markdown("##### Trade Results & Metrics")
             res_col1, res_col2, res_col3 = st.columns(3)
 
             with res_col1:
-                final_exit = st.number_input("Final Exit Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
-                outcome = st.selectbox("Outcome", ["Win", "Loss", "Breakeven", "No Trade/Study"])
+                final_exit = st.number_input("Final Exit Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f", key="final_exit_input")
+                outcome = st.selectbox("Outcome", ["Win", "Loss", "Breakeven", "No Trade/Study"], key="outcome_input")
             
             with res_col2:
-                manual_pnl_input = st.number_input("Manual PnL ($)", value=0.0, format="%.2f", help="Enter the profit/loss amount manually.")
+                manual_pnl_input = st.number_input("Manual PnL ($)", value=0.0, format="%.2f", help="Enter the profit/loss amount manually.", key="manual_pnl_input")
             
             with res_col3:
-                manual_rr_input = st.number_input("Manual Risk:Reward (R)", value=0.0, format="%.2f", help="Enter the risk-to-reward ratio manually.")
+                manual_rr_input = st.number_input("Manual Risk:Reward (R)", value=0.0, format="%.2f", help="Enter the risk-to-reward ratio manually.", key="manual_rr_input")
             
             calculate_pnl_rr = st.checkbox("Calculate PnL/RR from Entry/Stop/Exit Prices", value=False, 
-                                           help="Check this to automatically calculate PnL and R:R based on prices entered above, overriding manual inputs.")
-
-            with st.expander("Add Quick Rationale & Tags (Optional)"):
-                entry_rationale = st.text_area("Why did you enter this trade?", height=100)
-                # Ensure tags are pulled from the correct session state variable
-                # Handle cases where 'Tags' might be empty or contain non-string values
-                all_tags_raw = st.session_state.tools_trade_journal['Tags'].str.split(',').explode().dropna().str.strip()
-                all_tags = sorted(list(set(all_tags_raw[all_tags_raw != '']))) # Filter out empty strings
-                
-                suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
-                tags = st.multiselect("Trade Tags", options=sorted(list(set(all_tags + suggested_tags))))
+                                           help="Check this to automatically calculate PnL and R:R based on prices entered above, overriding manual inputs.", key="calculate_pnl_rr_input")
+            st.markdown("---")
+            st.markdown("##### Rationale & Tags")
+            entry_rationale = st.text_area("Why did you enter this trade?", height=100, key="entry_rationale_input")
+            
+            all_tags = sorted(list(set(st.session_state.trade_journal['Tags'].str.split(',').explode().dropna().str.strip())))
+            suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
+            tags_selection = st.multiselect("Select Existing Tags", options=sorted(list(set(all_tags + suggested_tags))), key="tags_selection_input")
+            
+            new_tags_input = st.text_input("Add New Tags (comma-separated)", placeholder="e.g., strong momentum, poor entry, ...", key="new_tags_input")
 
             submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
             if submitted:
-                final_pnl, final_rr = 0.0, 0.0
+                final_pnl, final_rr = 0.0, 0.0 # Initialize final values
 
                 if calculate_pnl_rr:
-                    # Determine pip value based on symbol for more accurate PnL
-                    # Assuming standard lot (100,000 units) and typical pip values
-                    if entry_price > 0 and stop_loss > 0:
-                        risk_pips_amount = abs(entry_price - stop_loss)
-                    else:
-                        risk_pips_amount = 0.0
-
-                    if "JPY" in symbol:
-                        pip_scale = 100 # JPY pairs move 2 decimal places, 1 pip = 0.01
-                        pip_value_per_lot = 1000 # 100,000 units * 0.01 JPY/unit = 1000 JPY/pip/lot
-                    else:
-                        pip_scale = 10000 # Most other pairs move 4 decimal places, 1 pip = 0.0001
-                        pip_value_per_lot = 1000 # 100,000 units * 0.0001 USD/unit = 10 USD/pip/lot (simplified)
+                    risk_per_unit = abs(entry_price - stop_loss) if stop_loss > 0 else 0
                     
-                    # PnL calculation based on price difference * lot size * pip value per lot
-                    if outcome in ["Win", "Loss"] and final_exit > 0 and entry_price > 0:
-                        price_diff_raw = (final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)
-                        pnl_calculated = (price_diff_raw * pip_scale) * (lots * (pip_value_per_lot / pip_scale)) # Simplified example
+                    if outcome in ["Win", "Loss"]:
+                        pnl_calculated = ((final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)) * lots * 100000 * 0.0001 # Simplified pip value calculation
                     else:
                         pnl_calculated = 0.0
-                    
-                    if risk_pips_amount > 0:
-                        profit_pips = abs(final_exit - entry_price) * pip_scale
-                        risk_pips = risk_pips_amount * pip_scale
-                        final_rr = (profit_pips / risk_pips) if pnl_calculated >= 0 else -(profit_pips / risk_pips)
+
+                    if risk_per_unit > 0:
+                        pnl_per_unit_abs = abs(final_exit - entry_price)
+                        rr_calculated = (pnl_per_unit_abs / risk_per_unit) if pnl_calculated >= 0 else -(pnl_per_unit_abs / risk_per_unit)
                     else:
-                        final_rr = 0.0
-                    
+                        rr_calculated = 0.0 
+
                     final_pnl = pnl_calculated
+                    final_rr = rr_calculated
                 else:
                     final_pnl = manual_pnl_input
                     final_rr = manual_rr_input
 
+                # Combine tags from multiselect and new text input
+                newly_added_tags = [tag.strip() for tag in new_tags_input.split(',') if tag.strip()]
+                final_tags_list = sorted(list(set(tags_selection + newly_added_tags)))
+                
                 new_trade_data = {
                     "TradeID": f"TRD-{uuid.uuid4().hex[:6].upper()}", "Date": pd.to_datetime(date_val),
                     "Symbol": symbol, "Direction": direction, "Outcome": outcome,
                     "Lots": lots, "EntryPrice": entry_price, "StopLoss": stop_loss, "FinalExit": final_exit,
                     "PnL": final_pnl, "RR": final_rr, 
-                    "Tags": ','.join(tags), "EntryRationale": entry_rationale,
+                    "Tags": ','.join(final_tags_list), "EntryRationale": entry_rationale,
                     "Strategy": '', "TradeJournalNotes": '', "EntryScreenshot": '', "ExitScreenshot": ''
                 }
                 new_df = pd.DataFrame([new_trade_data])
-                # Ensure using the correct session state variable name: tools_trade_journal
-                st.session_state.tools_trade_journal = pd.concat([st.session_state.tools_trade_journal, new_df], ignore_index=True)
+                st.session_state.trade_journal = pd.concat([st.session_state.trade_journal, new_df], ignore_index=True)
                 
-                # Use code 2's existing save and gamification functions
-                if _ta_save_journal(st.session_state.logged_in_user, st.session_state.tools_trade_journal):
-                    ta_update_xp(10) # Call code 2's ta_update_xp
-                    ta_update_streak() # Call code 2's ta_update_streak
+                if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
+                    ta_update_xp(st.session_state.logged_in_user, 10) # Updated gamification call
+                    ta_update_streak(st.session_state.logged_in_user) # Updated gamification call
                     st.success(f"Trade {new_trade_data['TradeID']} logged successfully!")
                 st.rerun()
 
-    # --- TAB 2: TRADE PLAYBOOK (Replaces old Trade History from Code 2) ---
+    # --- TAB 2: TRADE PLAYBOOK ---
     with tab_playbook:
         st.header("Your Trade Playbook")
-        # Ensure using the correct session state variable name: tools_trade_journal
-        df_playbook = st.session_state.tools_trade_journal
+        df_playbook = st.session_state.trade_journal # Referencing Code A's session state variable
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
             
             filter_cols = st.columns([1, 1, 1, 2])
-            outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
-            symbol_filter = filter_cols[1].multiselect("Filter Symbol", df_playbook['Symbol'].unique(), default=df_playbook['Symbol'].unique())
-            direction_filter = filter_cols[2].multiselect("Filter Direction", df_playbook['Direction'].unique(), default=df_playbook['Direction'].unique())
+            outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique(), key="playbook_outcome_filter")
+            symbol_filter = filter_cols[1].multiselect("Filter Symbol", df_playbook['Symbol'].unique(), default=df_playbook['Symbol'].unique(), key="playbook_symbol_filter")
+            direction_filter = filter_cols[2].multiselect("Filter Direction", df_playbook['Direction'].unique(), default=df_playbook['Direction'].unique(), key="playbook_direction_filter")
             
             all_tags_in_df = df_playbook['Tags'].str.split(',').explode().dropna().str.strip()
-            tag_options = sorted(list(set(all_tags_in_df[all_tags_in_df != '']))) # Filter out empty strings
-            tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options)
+            tag_options = sorted(list(set(all_tags_in_df[all_tags_in_df != ''])))
+            tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options, key="playbook_tag_filter")
             
             filtered_df = df_playbook[
                 (df_playbook['Outcome'].isin(outcome_filter)) &
@@ -1302,20 +1134,15 @@ elif st.session_state.current_page == 'backtesting':
                 (df_playbook['Direction'].isin(direction_filter))
             ]
             if tag_filter:
-                # Filter by checking if ANY selected tag is present in the 'Tags' string
-                filtered_df = filtered_df[
-                    filtered_df['Tags'].astype(str).apply(lambda x: 
-                        any(tag.lower() in t.lower() for t in x.split(',') for tag in tag_filter) 
-                    )
-                ]
+                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in str(x) for tag in tag_filter))] # Code A's simpler tag filter
 
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#30363d"}.get(row['Outcome'], "#30363d")
-                with st.container(border=True): # Using border=True for a subtle card effect
+                with st.container(border=True): # Retaining border styling from Code B's previous journal display
                     st.markdown(f"""
                     <div style="border-left: 8px solid {outcome_color}; border-radius: 8px 0 0 8px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;">
                         <h4 style="margin:0; padding:0;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
-                        <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')}</span>
+                        <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -1329,30 +1156,57 @@ elif st.session_state.current_page == 'backtesting':
                     if row['Tags']:
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         st.markdown(f"**Tags:** {', '.join(tags_list)}")
-                    if row['TradeJournalNotes']:
+                    
+                    # Original display for Trade Journal Notes from Code A (or a styled one)
+                    if row['TradeJournalNotes']: 
                         st.markdown(f"""
                         <div class="trade-notes-display">
                             <h6>Detailed Journal Notes:</h6>
                             <p>{row['TradeJournalNotes']}</p>
                         </div>
                         """, unsafe_allow_html=True)
+
+                    with st.expander("Journal Notes & Actions"):
+                        notes = st.text_area(
+                            "Trade Journal Notes", 
+                            value=row['TradeJournalNotes'], 
+                            key=f"notes_{row['TradeID']}",
+                            height=150
+                        )
+                        
+                        action_cols = st.columns([1, 1, 4]) 
+                        
+                        if action_cols[0].button("Save Notes", key=f"save_notes_{row['TradeID']}", type="primary"): # Unique key
+                            st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == row['TradeID'], 'TradeJournalNotes'] = notes
+                            if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
+                                st.toast(f"Notes for {row['TradeID']} saved!", icon="✅")
+                                st.rerun()
+                            else:
+                                st.error("Failed to save notes.")
+
+                        if action_cols[1].button("Delete Trade", key=f"delete_trade_{row['TradeID']}"): # Unique key
+                            index_to_drop = st.session_state.trade_journal[st.session_state.trade_journal['TradeID'] == row['TradeID']].index
+                            st.session_state.trade_journal.drop(index_to_drop, inplace=True)
+                            if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
+                                st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
+                                st.rerun()
+                            else: 
+                                st.error("Failed to delete trade.")
                     
-                    # Placeholder for screenshots - you'd likely store paths/URLs in the df
+                    # Placeholder for screenshots (from Code A/B, ensure they exist in data if referenced)
                     screenshot_cols = st.columns(2)
                     if row['EntryScreenshot']:
                         screenshot_cols[0].image(row['EntryScreenshot'], caption="Entry Screenshot", use_column_width=True)
                     if row['ExitScreenshot']:
                         screenshot_cols[1].image(row['ExitScreenshot'], caption="Exit Screenshot", use_column_width=True)
-                    
-                    st.markdown("---")
+
+                st.markdown("---")
 
 
-    # --- TAB 3: ANALYTICS DASHBOARD (Replaces old Analytics tab from Code 2) ---
+    # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
         st.header("Your Performance Dashboard")
-        # Ensure using the correct session state variable name: tools_trade_journal
-        # Only consider trades with 'Win' or 'Loss' for performance metrics
-        df_analytics = st.session_state.tools_trade_journal[st.session_state.tools_trade_journal['Outcome'].isin(['Win', 'Loss'])].copy()
+        df_analytics = st.session_state.trade_journal[st.session_state.trade_journal['Outcome'].isin(['Win', 'Loss'])].copy() # Referencing Code A's session state variable
         
         if df_analytics.empty:
             st.info("Complete at least one winning or losing trade to view your performance analytics.")
@@ -1366,7 +1220,6 @@ elif st.session_state.current_page == 'backtesting':
             win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0
             avg_win = wins['PnL'].mean() if not wins.empty else 0
             avg_loss = losses['PnL'].mean() if not losses.empty else 0
-            # Ensure no division by zero for profit factor
             profit_factor = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else (float('inf') if wins['PnL'].sum() > 0 else 0)
 
             kpi_cols = st.columns(4)
@@ -1381,7 +1234,7 @@ elif st.session_state.current_page == 'backtesting':
             chart_cols = st.columns(2)
             with chart_cols[0]:
                 st.subheader("Cumulative PnL")
-                df_analytics_sorted = df_analytics.sort_values(by='Date')
+                df_analytics_sorted = df_analytics.sort_values(by='Date') # Ensure sorting for accurate cumulative PnL
                 df_analytics_sorted['CumulativePnL'] = df_analytics_sorted['PnL'].cumsum()
                 fig_equity = px.area(df_analytics_sorted, x='Date', y='CumulativePnL', title="Your Equity Curve", template="plotly_dark")
                 fig_equity.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
@@ -1394,8 +1247,7 @@ elif st.session_state.current_page == 'backtesting':
                 fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False, font_color="#c9d1d9")
                 st.plotly_chart(fig_pnl_symbol, use_container_width=True)
 
-    # --- Gamification Features (kept from Code 2, references updated) ---
-    # Challenge Mode
+    # --- Gamification Features (from Code A/B - adapted for Code A functions) ---
     st.subheader("🏅 Challenge Mode")
     st.write("30-Day Journaling Discipline Challenge - Gain 300 XP for completing, XP can be exchanged for gift cards!")
     streak = st.session_state.get('streak', 0)
@@ -1403,18 +1255,16 @@ elif st.session_state.current_page == 'backtesting':
     st.progress(progress)
     if progress >= 1.0:
         if "challenge_30_days_completed" not in st.session_state or not st.session_state.challenge_30_days_completed:
-            ta_update_xp(300) # Bonus XP for completion
-            st.session_state.challenge_30_days_completed = True # Prevent multiple XP awards
+            ta_update_xp(st.session_state.logged_in_user, 300) # Pass username
+            st.session_state.challenge_30_days_completed = True
         st.success("Challenge completed! Great job on your consistency.")
 
-    # Leaderboard / Self-Competition
     st.subheader("🏆 Leaderboard - Consistency")
     users = c.execute("SELECT username, data FROM users").fetchall()
     leader_data = []
     for u, d in users:
         user_d = json.loads(d) if d else {}
-        # Ensure to use 'tools_trade_journal'
-        trades = len(user_d.get("tools_trade_journal", []))
+        trades = len(user_d.get("trade_journal", [])) # Referencing Code A's 'trade_journal' key
         leader_data.append({"Username": u, "Journaled Trades": trades})
     if leader_data:
         leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
