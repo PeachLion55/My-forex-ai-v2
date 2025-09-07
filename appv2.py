@@ -129,8 +129,6 @@ st.markdown(
 # Ensure Code A's logging config is used (INFO level is sufficient for general ops)
 logging.basicConfig(filename='debug.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Using Code B's DB_FILE "users.db" and structure for overall app consistency.
-# Code A's logic will be adapted to store journal in 'data' field.
 DB_FILE = "users.db"
 
 # Custom JSON encoder for handling datetime objects and NaNs (from Code A, as it's provided in prompt)
