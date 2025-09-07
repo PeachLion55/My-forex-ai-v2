@@ -487,7 +487,7 @@ def render_xp_leaderboard():
 
             def highlight_current_user_row(row):
                 if st.session_state.logged_in_user is not None and row['Username'] == st.session_state.logged_in_user:
-                    return ['background-color: #4d7171; color: white;'] * len(row)
+                    return ['background-color: #000000; color: white;'] * len(row)
                 return [''] * len(row)
             
             st.dataframe(leaderboard_df[['Rank', 'Username', 'XP Earned']].style.apply(highlight_current_user_row, axis=1), use_container_width=True)
