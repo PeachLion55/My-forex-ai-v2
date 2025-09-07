@@ -482,7 +482,7 @@ def render_xp_leaderboard():
 
             def highlight_current_user_row(row):
                 if st.session_state.logged_in_user is not None and row['Username'] == st.session_state.logged_in_user:
-                    return ['background-color: #000000; color: white;'] * len(row)
+                    return ['background-color: #4d7171; color: white;'] * len(row)
                 return [''] * len(row)
             
             st.dataframe(leaderboard_df[['Rank', 'Username', 'XP Earned']].style.apply(highlight_current_user_row, axis=1), use_container_width=True)
@@ -497,7 +497,6 @@ def render_xp_leaderboard():
 
 # =========================================================
 # SESSION STATE INITIALIZATION (GLOBAL)
-# This is now centralized and ensures consistent state.
 # =========================================================
 
 DEFAULT_APP_STATE = {
@@ -1149,7 +1148,7 @@ elif st.session_state.current_page == 'trading_journal':
             filtered_df = df_playbook[
                 (df_playbook['Outcome'].isin(outcome_filter)) &
                 (df_playbook['Symbol'].isin(symbol_filter)) &
-                (df_playplaybook['Direction'].isin(direction_filter))
+                (df_playbook['Direction'].isin(direction_filter))
             ]
             if tag_filter:
                 filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
@@ -2332,7 +2331,7 @@ elif st.session_state.current_page == 'account':
             st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
                 username = st.text_input("Username")
-                password = st.text_input("Password", type="password") # Corrected: st.text_input
+                password = st.text_input("Password", type="password") # Corrected typo: st.text_input
                 login_button = st.form_submit_button("Login")
                 if login_button:
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
@@ -2569,7 +2568,7 @@ elif st.session_state.current_page == 'account':
 
         st.subheader("❓ How to Earn XP") 
         st.markdown("""
-        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
+        Earn Experience Points (XP) and unlock new badges as you pRogress in your trading journey!
 
         -   **Daily Login**: Log in each day to earn **10 XP** for your consistency.
         -   **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
