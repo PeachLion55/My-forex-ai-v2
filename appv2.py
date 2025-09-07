@@ -2288,24 +2288,45 @@ elif st.session_state.current_page == 'account':
                     if result and result[0] == hashed_password:
                         st.session_state.logged_in_user = username
                         user_data = json.loads(result[1]) if result[1] else {}
+                        
+                        # --- FIX START: Ensure all session state keys are initialized ---
                         st.session_state.drawings = user_data.get("drawings", {})
-                        if "tools_trade_journal" in user_data:
+
+                        # Securely load tools_trade_journal
+                        if "tools_trade_journal" in user_data and user_data["tools_trade_journal"]:
                             loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
                             for col in journal_cols:
                                 if col not in loaded_df.columns:
                                     loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
                             st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                        if "strategies" in user_data:
+                        else:
+                            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+
+                        # Securely load strategies
+                        if "strategies" in user_data and user_data["strategies"]:
                             st.session_state.strategies = pd.DataFrame(user_data["strategies"])
-                        if "emotion_log" in user_data:
+                        else:
+                            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+
+                        # Securely load emotion_log
+                        if "emotion_log" in user_data and user_data["emotion_log"]:
                             st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
-                        if "reflection_log" in user_data:
+                        else:
+                             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+
+                        # Securely load reflection_log
+                        if "reflection_log" in user_data and user_data["reflection_log"]:
                             st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
+                        else:
+                            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+                        
                         st.session_state.xp = user_data.get('xp', 0)
                         st.session_state.level = user_data.get('level', 0)
                         st.session_state.badges = user_data.get('badges', [])
                         st.session_state.streak = user_data.get('streak', 0)
                         st.session_state.last_journal_date = user_data.get('last_journal_date', None)
+                        # --- FIX END ---
+                        
                         st.success(f"Welcome back, {username}!")
                         logging.info(f"User {username} logged in successfully")
                         st.rerun()
@@ -2380,13 +2401,8 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
-
-        # --- MODIFICATION START: HELPER FUNCTION TO SAVE USER DATA ---
+        
         def save_user_data(username):
-            """
-            Saves the current session state data for the logged-in user to the database.
-            """
-            # Create a dictionary with the user's data from the session state
             user_data = {
                 "drawings": st.session_state.get("drawings", {}),
                 "tools_trade_journal": st.session_state.get("tools_trade_journal", pd.DataFrame()).to_dict('records'),
@@ -2399,10 +2415,8 @@ elif st.session_state.current_page == 'account':
                 "streak": st.session_state.get("streak", 0),
                 "last_journal_date": st.session_state.get("last_journal_date", None)
             }
-            # Convert dictionary to a JSON string
-            user_data_json = json.dumps(user_data, default=str) # Using default=str to handle any non-serializable types
+            user_data_json = json.dumps(user_data, default=str)
             try:
-                # Update the database
                 c.execute("UPDATE users SET data = ? WHERE username = ?", (user_data_json, username))
                 conn.commit()
                 logging.info(f"Successfully saved data for user {username}")
@@ -2411,14 +2425,8 @@ elif st.session_state.current_page == 'account':
                 logging.error(f"Failed to save data for user {username}: {e}")
                 st.error("Could not save your progress. Please contact support.")
                 return False
-        # --- MODIFICATION END ---
         
         def handle_logout():
-            """
-            Clears all user-specific data from the session state upon logout.
-            This modular function makes the main code cleaner and the logic reusable.
-            """
-            # Save final data before logging out
             if 'logged_in_user' in st.session_state:
                 save_user_data(st.session_state.logged_in_user)
 
@@ -2430,7 +2438,6 @@ elif st.session_state.current_page == 'account':
                 if key in st.session_state:
                     del st.session_state[key]
 
-            # Re-initialize core data structures to their empty state
             st.session_state.drawings = {}
             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
@@ -2442,7 +2449,7 @@ elif st.session_state.current_page == 'account':
             st.session_state.streak = 0
 
             logging.info("User logged out")
-            st.session_state.current_page = "account" # Ensure redirection to the same page
+            st.session_state.current_page = "account"
             st.rerun()
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
@@ -2450,101 +2457,38 @@ elif st.session_state.current_page == 'account':
         st.markdown("---")
         
 
-        # --- Main Dashboard Layout ---
         st.subheader("📈 Progress Snapshot")
         
-        # --- Custom CSS for the KPI cards ---
         st.markdown("""
         <style>
-        .kpi-card {
-            background-color: rgba(45, 70, 70, 0.5);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            border: 1px solid #58b3b1;
-            margin-bottom: 10px;
-        }
-        .kpi-icon {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        .kpi-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #FFFFFF;
-        }
-        .kpi-label {
-            font-size: 0.9em;
-            color: #A0A0A0;
-        }
-        .insights-card {
-            background-color: rgba(45, 70, 70, 0.3);
-            border-left: 5px solid #58b3b1;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 10px; /* MODIFICATION: Added margin-bottom */
-        }
-        .redeem-card {
-            background-color: rgba(45, 70, 70, 0.5);
-            border-radius: 10px;
-            padding: 20px;
-            border: 1px solid #58b3b1;
-            text-align: center;
-            height: 100%;
-        }
+        .kpi-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #58b3b1; margin-bottom: 10px; }
+        .kpi-icon { font-size: 2.5em; margin-bottom: 10px; }
+        .kpi-value { font-size: 1.8em; font-weight: bold; color: #FFFFFF; }
+        .kpi-label { font-size: 0.9em; color: #A0A0A0; }
+        .insights-card { background-color: rgba(45, 70, 70, 0.3); border-left: 5px solid #58b3b1; padding: 15px; border-radius: 5px; margin-bottom: 10px; }
+        .redeem-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; border: 1px solid #58b3b1; text-align: center; height: 100%; }
         </style>
         """, unsafe_allow_html=True)
 
-        # --- MODIFICATION START: Row 1: KPI Cards (Now with 4 columns for RXP) ---
         kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
         with kpi_col1:
             level = st.session_state.get('level', 0)
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">🧙‍♂️</div>
-                <div class="kpi-value">Level {level}</div>
-                <div class="kpi-label">Trader's Rank</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {level}</div><div class="kpi-label">Trader\'s Rank</div></div>', unsafe_allow_html=True)
         with kpi_col2:
             streak = st.session_state.get('streak', 0)
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">🔥</div>
-                <div class="kpi-value">{streak} Days</div>
-                <div class="kpi-label">Journaling Streak</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{streak} Days</div><div class="kpi-label">Journaling Streak</div></div>', unsafe_allow_html=True)
         with kpi_col3:
             total_xp = st.session_state.get('xp', 0)
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">⭐</div>
-                <div class="kpi-value">{total_xp:,}</div>
-                <div class="kpi-label">Total Experience (XP)</div>
-            </div>
-            """, unsafe_allow_html=True)
-        # --- NEW RXP KPI CARD ---
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{total_xp:,}</div><div class="kpi-label">Total Experience (XP)</div></div>', unsafe_allow_html=True)
         with kpi_col4:
-            total_xp = st.session_state.get('xp', 0)
-            redeemable_xp = int(total_xp / 2) # Every 10 XP = 5 RXP
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">💎</div>
-                <div class="kpi-value">{redeemable_xp:,}</div>
-                <div class="kpi-label">Redeemable XP (RXP)</div>
-            </div>
-            """, unsafe_allow_html=True)
-        # --- MODIFICATION END ---
+            redeemable_xp = int(st.session_state.get('xp', 0) / 2)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{redeemable_xp:,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
         
         st.markdown("---")
 
-        # --- Row 2: Progress Chart, Insights, and Badges ---
-        # --- MODIFICATION: Adjusted column ratios to make chart smaller ---
         chart_col, insights_col = st.columns([1, 2])
 
         with chart_col:
-            # --- MODIFICATION: The container is now smaller ---
             st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
             total_xp = st.session_state.get('xp', 0)
             xp_in_level = total_xp % 100
@@ -2552,67 +2496,42 @@ elif st.session_state.current_page == 'account':
 
             fig = go.Figure(go.Pie(
                 values=[xp_in_level, xp_needed],
-                labels=['XP Gained', 'XP Needed'],
                 hole=0.6,
                 marker_colors=['#58b3b1', '#2d4646'],
                 textinfo='none',
-                hoverinfo='label+value',
-                direction='clockwise',
-                sort=False
+                hoverinfo='label+value'
             ))
             fig.update_layout(
-                showlegend=False,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                # Made font slightly smaller to fit better in the smaller chart
+                showlegend=False, paper_bgcolor='rgba(0,0,0,0)',
                 annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")],
-                margin=dict(t=20, b=20, l=20, r=20) # Added some margin
+                margin=dict(t=20, b=20, l=20, r=20)
             )
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         
-        # --- MODIFICATION: Badges moved here, into insights_col ---
         with insights_col:
             st.markdown("<h5 style='text-align: center;'>Personalized Insights & Badges</h5>", unsafe_allow_html=True)
-            
-            # Insights sub-column
             insight_sub_col, badge_sub_col = st.columns(2)
             
             with insight_sub_col:
                 st.markdown("<h6>💡 Insights</h6>", unsafe_allow_html=True)
                 streak = st.session_state.get('streak', 0)
-                
-                insight_message = ""
-                if streak > 21:
-                    insight_message = "Your journaling consistency is elite! This is a key trait of professional traders."
-                elif streak > 7:
-                    insight_message = "Over a week of consistent journaling! You're building a powerful habit."
-                else:
-                    insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
-                
+                insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
                 st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
-
+                
                 num_trades = len(st.session_state.tools_trade_journal)
-                next_milestone = ""
-                if num_trades < 10:
-                    next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
-                elif num_trades < 50:
-                    next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
-                else:
-                    next_milestone = "The next streak badge is at 30 days. You've got this!"
-
+                if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                else: next_milestone = "The next streak badge is at 30 days. You've got this!"
                 st.markdown(f"<div class='insights-card'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
-            # Badges sub-column
             with badge_sub_col:
                 st.markdown("<h6>🏆 Badges Earned</h6>", unsafe_allow_html=True)
                 badges = st.session_state.get('badges', [])
                 if badges:
-                    for badge in badges:
-                        st.markdown(f"- 🏅 {badge}")
+                    for badge in badges: st.markdown(f"- 🏅 {badge}")
                 else:
                     st.info("No badges earned yet. Keep trading to unlock them!")
         
-        # --- XP Journey Chart ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
         journal_df = st.session_state.tools_trade_journal
@@ -2622,72 +2541,40 @@ elif st.session_state.current_page == 'account':
             xp_data['xp_gained'] = 10 
             xp_data['cumulative_xp'] = xp_data['xp_gained'].cumsum()
             
-            fig_line = px.area(xp_data, x='Date', y='cumulative_xp', 
-                                title="XP Growth Over Time (Based on Journal Entries)",
-                                labels={'Date': 'Journal Entry Date', 'cumulative_xp': 'Cumulative XP'})
-            fig_line.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(45, 70, 70, 0.3)',
-                xaxis=dict(gridcolor='#4d7171'),
-                yaxis=dict(gridcolor='#4d7171'),
-                font_color="white"
-            )
+            fig_line = px.area(xp_data, x='Date', y='cumulative_xp', title="XP Growth Over Time")
+            fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(45, 70, 70, 0.3)', font_color="white")
             st.plotly_chart(fig_line, use_container_width=True)
         else:
             st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
 
         st.markdown("---")
         
-        # --- MODIFICATION START: NEW SECTION "REDEEM RXP" ---
         st.subheader("💎 Redeem Your RXP")
-        
         current_rxp = int(st.session_state.get('xp', 0) / 2)
         st.info(f"You have **{current_rxp:,} RXP** available to spend.")
         
-        # Define redeemable items
         items = {
             "1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"},
             "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"},
             "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}
         }
-
         redeem_cols = st.columns(len(items))
-
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
-                st.markdown(
-                    f"""
-                    <div class="redeem-card">
-                        <h3>{item_details['icon']}</h3>
-                        <h5>{item_details['name']}</h5>
-                        <p>Cost: <strong>{item_details['cost']:,} RXP</strong></p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                st.markdown(f'<div class="redeem-card"><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem {item_details['name']}", key=f"redeem_{item_key}", use_container_width=True):
-                    # Check if user has enough RXP
                     if current_rxp >= item_details['cost']:
-                        # Calculate the cost in XP (RXP * 2)
                         xp_cost = item_details['cost'] * 2
-                        
-                        # Update session state
                         st.session_state.xp -= xp_cost
-                        
-                        # Save the updated data to the database
                         if save_user_data(st.session_state.logged_in_user):
                             st.success(f"Successfully redeemed '{item_details['name']}'!")
-                            time.sleep(1) # Brief pause to let user see message
+                            time.sleep(1)
                             st.rerun()
-                        # If saving fails, the helper function will show an error.
-                            
                     else:
                         st.warning("You do not have enough RXP for this item.")
-        # --- MODIFICATION END ---
 
         st.markdown("---")
 
-        # --- Account Details and Actions using an Expander ---
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)")
