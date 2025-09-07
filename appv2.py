@@ -2326,6 +2326,8 @@ elif st.session_state.current_page == 'account':
                         st.session_state.badges = user_data.get('badges', [])
                         st.session_state.streak = user_data.get('streak', 0)
                         st.session_state.last_journal_date = user_data.get('last_journal_date', None)
+                        st.session_state.redeemed_rxp = user_data.get('redeemed_rxp', 0) # Load redeemed RXP for existing users
+
                         st.success(f"Welcome back, {username}!")
                         logging.info(f"User {username} logged in successfully")
                         st.rerun()
@@ -2357,7 +2359,11 @@ elif st.session_state.current_page == 'account':
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
                             # Use 'trade_journal' key, matching Code A's approach
-                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
+                            initial_data = json.dumps({
+                                "xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {},
+                                "trade_journal": [], "strategies": [], "emotion_log": [],
+                                "reflection_log": [], "redeemed_rxp": 0 # Initialize redeemed RXP for new users
+                            })
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
@@ -2371,6 +2377,7 @@ elif st.session_state.current_page == 'account':
                                 st.session_state.level = 0
                                 st.session_state.badges = []
                                 st.session_state.streak = 0
+                                st.session_state.redeemed_rxp = 0 # Initialize redeemed RXP in session state for new user
                                 st.success(f"Account created for {new_username}!")
                                 logging.info(f"User {new_username} registered successfully")
                                 st.rerun()
@@ -2401,14 +2408,46 @@ elif st.session_state.current_page == 'account':
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
+        def save_user_data(username):
+            """
+            Saves all relevant session state data for a given user to the database.
+            """
+            user_data = {
+                "drawings": st.session_state.get('drawings', {}),
+                # Convert DataFrame to list of dicts for JSON serialization
+                "trade_journal": st.session_state.get('trade_journal', pd.DataFrame()).to_dict(orient='records'),
+                "strategies": st.session_state.get('strategies', pd.DataFrame()).to_dict(orient='records'),
+                "emotion_log": st.session_state.get('emotion_log', pd.DataFrame()).to_dict(orient='records'),
+                "reflection_log": st.session_state.get('reflection_log', pd.DataFrame()).to_dict(orient='records'),
+                "xp": st.session_state.get('xp', 0),
+                "level": st.session_state.get('level', 0),
+                "badges": st.session_state.get('badges', []),
+                "streak": st.session_state.get('streak', 0),
+                "last_journal_date": st.session_state.get('last_journal_date', None),
+                "redeemed_rxp": st.session_state.get('redeemed_rxp', 0) # Save redeemed RXP
+            }
+            try:
+                c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), username))
+                conn.commit()
+                logging.info(f"User data saved for {username}")
+            except Exception as e:
+                st.error(f"Error saving user data: {str(e)}")
+                logging.error(f"Failed to save user data for {username}: {str(e)}")
+
+
         def handle_logout():
             """
             Clears all user-specific data from the session state upon logout.
             This modular function makes the main code cleaner and the logic reusable.
             """
+            # First, save current user's data before logging out
+            if st.session_state.get('logged_in_user'):
+                save_user_data(st.session_state.logged_in_user)
+
             user_session_keys = [
-                'logged_in_user', 'drawings', 'trade_journal', 'strategies', # changed tools_trade_journal to trade_journal
-                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak', 'last_journal_date'
+                'logged_in_user', 'drawings', 'trade_journal', 'strategies',
+                'emotion_log', 'reflection_log', 'xp', 'level', 'badges',
+                'streak', 'last_journal_date', 'redeemed_rxp'
             ]
             for key in user_session_keys:
                 if key in st.session_state:
@@ -2416,7 +2455,7 @@ elif st.session_state.current_page == 'account':
 
             # Re-initialize core data structures to their empty state
             st.session_state.drawings = {}
-            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # changed tools_trade_journal to trade_journal
+            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
             st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -2424,6 +2463,7 @@ elif st.session_state.current_page == 'account':
             st.session_state.level = 0
             st.session_state.badges = []
             st.session_state.streak = 0
+            st.session_state.redeemed_rxp = 0 # Reset redeemed RXP in session state
 
             logging.info("User logged out")
             st.session_state.current_page = "account" # Ensure redirection to the same page
@@ -2435,7 +2475,7 @@ elif st.session_state.current_page == 'account':
 
 
         # --- Main Dashboard Layout using Columns ---
-        col1, col2 = st.columns([2, 1])
+        col1, col2_empty = st.columns([3, 1]) # Adjusted for badges moving into col1, col2 is now primarily a spacer/placeholder
 
         with col1:
             st.subheader("📈 Progress Snapshot")
@@ -2450,19 +2490,28 @@ elif st.session_state.current_page == 'account':
                 text-align: center;
                 border: 1px solid #58b3b1;
                 margin-bottom: 10px;
+                display: flex; /* For internal alignment */
+                flex-direction: column; /* Stack children vertically */
+                justify-content: center; /* Center content vertically */
+                align-items: center; /* Center content horizontally */
+                height: 100%; /* Make cards fill their column height */
             }
             .kpi-icon {
                 font-size: 2.5em;
                 margin-bottom: 10px;
+                line-height: 1; /* Adjust line height for icon to center better */
             }
             .kpi-value {
                 font-size: 1.8em;
                 font-weight: bold;
                 color: #FFFFFF;
+                line-height: 1; /* Adjust line height */
+                margin-bottom: 5px; /* Small gap between value and label */
             }
             .kpi-label {
                 font-size: 0.9em;
                 color: #A0A0A0;
+                line-height: 1; /* Adjust line height */
             }
             .insights-card {
                 background-color: rgba(45, 70, 70, 0.3);
@@ -2470,11 +2519,21 @@ elif st.session_state.current_page == 'account':
                 padding: 15px;
                 border-radius: 5px;
             }
+            /* Smaller plotly chart container */
+            .stPlotlyChart {
+                width: 100% !important; /* Ensure it takes full width of its column */
+                height: 250px; /* Smaller fixed height for the chart */
+            }
             </style>
             """, unsafe_allow_html=True)
 
-            # --- Row 1: KPI Cards ---
-            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            # --- Row 1: KPI Cards (now with RXP) ---
+            kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+            total_xp = st.session_state.get('xp', 0) # Define total_xp early for all KPI calculations
+            redeemed_rxp = st.session_state.get('redeemed_rxp', 0)
+            potential_rxp = (total_xp // 10) * 5
+            available_rxp = potential_rxp - redeemed_rxp
+
             with kpi_col1:
                 level = st.session_state.get('level', 0)
                 st.markdown(f"""
@@ -2494,7 +2553,6 @@ elif st.session_state.current_page == 'account':
                 </div>
                 """, unsafe_allow_html=True)
             with kpi_col3:
-                total_xp = st.session_state.get('xp', 0)
                 st.markdown(f"""
                 <div class="kpi-card">
                     <div class="kpi-icon">⭐</div>
@@ -2502,16 +2560,25 @@ elif st.session_state.current_page == 'account':
                     <div class="kpi-label">Total Experience</div>
                 </div>
                 """, unsafe_allow_html=True)
+            with kpi_col4: # New RXP box
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">💎</div>
+                    <div class="kpi-value">{available_rxp:,}</div>
+                    <div class="kpi-label">Redeemable XP (RXP)</div>
+                </div>
+                """, unsafe_allow_html=True)
+
 
             st.markdown("---")
 
-            # --- Row 2: Progress Chart and Insights ---
-            # Use the 'gap' parameter to create significant horizontal space between the columns
-            chart_col, spacer_col, insights_col = st.columns([10, 1, 10])
+            # --- Row 2: Progress Chart, Insights, and Badges (adjusted columns for sizing) ---
+            # Adjusted ratios to make the circle graph smaller and place badges next to insights
+            # Combined for responsiveness and smaller chart
+            chart_col_inner, insights_col_inner, badges_col_inner = st.columns([1, 1.5, 1]) # Smaller ratio for chart_col
 
-            with chart_col:
+            with chart_col_inner:
                 st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-                total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
                 xp_in_level = total_xp % 100
                 xp_needed = 100 - xp_in_level
 
@@ -2532,15 +2599,13 @@ elif st.session_state.current_page == 'account':
                     annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
                     margin=dict(t=0, b=0, l=0, r=0)
                 )
+                # Reduced height for the plotly chart
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-            # The spacer column is left empty to create the space.
-            with spacer_col:
-                st.empty()
 
-            with insights_col:
+            with insights_col_inner:
                 st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
-                streak = st.session_state.get('streak', 0) # Ensure streak is defined here
+                streak = st.session_state.get('streak', 0)
 
                 insight_message = ""
                 if streak > 21:
@@ -2563,7 +2628,21 @@ elif st.session_state.current_page == 'account':
 
                 st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
-        # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
+            with badges_col_inner: # Badges section moved here, next to insights
+                st.markdown("<h5 style='text-align: center;'>🏆 Badges</h5>", unsafe_allow_html=True)
+                badges = st.session_state.get('badges', [])
+                if badges:
+                    for badge in badges:
+                        st.markdown(f"- 🏅 {badge}")
+                else:
+                    st.info("No badges earned yet. Keep up the great work to unlock them!")
+
+        # col2 is now primarily a spacer since badges moved. You can add something here if desired or leave empty.
+        with col2_empty:
+            st.empty()
+
+
+        # --- Row 3: XP Journey Chart ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
         journal_df = st.session_state.trade_journal # Accessing the unified journal
@@ -2593,17 +2672,62 @@ elif st.session_state.current_page == 'account':
         else:
             st.info("Log your first trade in the 'Trading Journal' tab to start your XP Journey!")
 
-
-        with col2:
-            st.subheader("🏆 Badges")
-            badges = st.session_state.get('badges', [])
-            if badges:
-                for badge in badges:
-                    st.markdown(f"- 🏅 {badge}")
-            else:
-                st.info("No badges earned yet. Keep up the great work to unlock them!")
-
         st.markdown("---")
+
+        # --- New Section: Redeem RXP ---
+        with st.expander("🎁 Redeem Rewards"):
+            st.markdown(f"**Your available RXP**: `{available_rxp:,}`")
+            st.write("Redeem your Redeemable XP (RXP) for exclusive rewards!")
+
+            reward_items = [
+                {"name": "1 Month Free Access", "cost": 100, "description": "Get one month of premium features."},
+                {"name": "Exclusive Strategy Guide (PDF)", "cost": 50, "description": "Unlock a premium trading strategy guide."},
+                {"name": "Custom Profile Icon", "cost": 25, "description": "Personalize your profile with a unique icon."}
+            ]
+
+            # Custom CSS for redeem buttons for better spacing if needed
+            st.markdown("""
+            <style>
+            .redeem-row {
+                display: flex;
+                align-items: center;
+                gap: 10px; /* Space between columns */
+                margin-bottom: 15px; /* Space between rows */
+                background-color: rgba(45, 70, 70, 0.15); /* Slightly darker background for clarity */
+                padding: 10px;
+                border-radius: 5px;
+            }
+            .redeem-row > div:nth-child(1) { flex: 2; font-weight: bold; } /* Item Name */
+            .redeem-row > div:nth-child(2) { flex: 3; font-size: 0.9em; color: #A0A0A0; } /* Description */
+            .redeem-row > div:nth-child(3) { flex: 1; text-align: right; } /* Cost */
+            .redeem-row > div:nth-child(4) { flex: 1.5; } /* Button */
+            </style>
+            """, unsafe_allow_html=True)
+
+
+            for item in reward_items:
+                # Using columns within a markdown div for custom styling
+                col_item_name, col_item_desc, col_item_cost, col_item_button = st.columns([2, 3, 1, 1.5])
+                with col_item_name:
+                    st.write(f"**{item['name']}**")
+                with col_item_desc:
+                    st.write(item['description'])
+                with col_item_cost:
+                    st.write(f"*{item['cost']} RXP*")
+                with col_item_button:
+                    if st.button(f"Redeem", key=f"redeem_{item['name'].replace(' ', '_').lower()}", use_container_width=True):
+                        if available_rxp >= item['cost']:
+                            st.session_state.redeemed_rxp += item['cost']
+                            # Important: save user data immediately after redemption
+                            save_user_data(st.session_state.logged_in_user)
+                            st.success(f"Successfully redeemed '{item['name']}'! Check your email for details. Your remaining RXP: {available_rxp - item['cost']:,}")
+                            st.balloons()
+                            st.rerun() # Rerun to update available_rxp and refresh page
+                        else:
+                            st.error(f"Not enough RXP! You need {item['cost']} RXP, but have {available_rxp}.")
+            st.markdown("<small><i>Note: Redeemable items are examples. Actual features/rewards would be handled by your backend.</i></small>", unsafe_allow_html=True)
+        st.markdown("---")
+
 
         # --- Account Details and Actions using an Expander ---
         with st.expander("⚙️ Manage Account"):
@@ -2611,7 +2735,6 @@ elif st.session_state.current_page == 'account':
             st.write("**Email**: `trader.pro@email.com` (example)") # This is hardcoded
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
-
 # =========================================================
 # COMMUNITY TRADE IDEAS PAGE (Code B, adapted journal reference)
 # =========================================================
