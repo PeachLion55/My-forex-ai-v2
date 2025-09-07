@@ -2290,28 +2290,31 @@ elif st.session_state.current_page == 'account':
                         st.session_state.logged_in_user = username
                         user_data = json.loads(result[1]) if result[1] else {}
                         
-                        # --- FIX START: Ensure all session state keys are initialized using 'trade_journal' ---
                         st.session_state.drawings = user_data.get("drawings", {})
 
-                        if "trade_journal" in user_data and user_data["trade_journal"]: # Corrected from tools_trade_journal
-                            loaded_df = pd.DataFrame(user_data["trade_journal"]) # Corrected from tools_trade_journal
+                        # Securely load trade_journal
+                        if "trade_journal" in user_data and user_data["trade_journal"]:
+                            loaded_df = pd.DataFrame(user_data["trade_journal"])
                             for col in journal_cols:
                                 if col not in loaded_df.columns:
                                     loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            st.session_state.trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore') # Corrected
+                            st.session_state.trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
                         else:
-                            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
+                            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
 
+                        # Securely load strategies
                         if "strategies" in user_data and user_data["strategies"]:
                             st.session_state.strategies = pd.DataFrame(user_data["strategies"])
                         else:
                             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
 
+                        # Securely load emotion_log
                         if "emotion_log" in user_data and user_data["emotion_log"]:
                             st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
                         else:
                              st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
 
+                        # Securely load reflection_log
                         if "reflection_log" in user_data and user_data["reflection_log"]:
                             st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
                         else:
@@ -2322,7 +2325,6 @@ elif st.session_state.current_page == 'account':
                         st.session_state.badges = user_data.get('badges', [])
                         st.session_state.streak = user_data.get('streak', 0)
                         st.session_state.last_journal_date = user_data.get('last_journal_date', None)
-                        # --- FIX END ---
                         
                         st.success(f"Welcome back, {username}!")
                         logging.info(f"User {username} logged in successfully")
@@ -2353,15 +2355,14 @@ elif st.session_state.current_page == 'account':
                             st.error("Username already exists.")
                             logging.warning(f"Registration failed: Username {new_username} already exists")
                         else:
-                            # --- FIX START: Correct initial_data JSON and session_state assignment ---
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []}) # Corrected key
+                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
                                 st.session_state.drawings = {}
-                                st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
+                                st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
                                 st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
                                 st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
                                 st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -2375,7 +2376,6 @@ elif st.session_state.current_page == 'account':
                             except Exception as e:
                                 st.error(f"Failed to create account: {str(e)}")
                                 logging.error(f"Registration error for {new_username}: {str(e)}")
-                            # --- FIX END ---
         # --------------------------
         # DEBUG TAB
         # --------------------------
@@ -2401,22 +2401,28 @@ elif st.session_state.current_page == 'account':
         # LOGGED-IN USER VIEW
         # --------------------------
         
-        # --- Using the GLOBAL save_user_data function now ---
+        # NOTE: The global `save_user_data` and `handle_logout` functions are assumed to be defined earlier in the script.
         
         def handle_logout():
+            """
+            Clears all user-specific data from the session state upon logout.
+            """
             if 'logged_in_user' in st.session_state:
-                save_user_data(st.session_state.logged_in_user) # Calls the global save_user_data
+                save_user_data(st.session_state.logged_in_user) # Calls the global save_user_data to persist changes
 
-            user_session_keys = [
-                'logged_in_user', 'drawings', 'trade_journal', 'strategies', # Corrected from tools_trade_journal
-                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak'
+            user_session_keys_to_clear = [
+                'logged_in_user', 'drawings', 'trade_journal', 'strategies',
+                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak',
+                'last_journal_date'
             ]
-            for key in user_session_keys:
+            for key in user_session_keys_to_clear:
                 if key in st.session_state:
                     del st.session_state[key]
-
+            
+            # Re-initialize core data structures to their empty state, if needed by other parts of the app that don't check for 'logged_in_user'
+            # (though good practice is to only access these if logged in)
             st.session_state.drawings = {}
-            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
+            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
             st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -2425,8 +2431,9 @@ elif st.session_state.current_page == 'account':
             st.session_state.badges = []
             st.session_state.streak = 0
 
-            logging.info("User logged out")
-            st.session_state.current_page = "account"
+
+            logging.info("User logged out successfully")
+            st.session_state.current_page = "account" # Directs to the account page (login/signup tabs) after logout
             st.rerun()
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
@@ -2495,7 +2502,6 @@ elif st.session_state.current_page == 'account':
                 insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
                 st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
                 
-                # --- FIX: Changed to trade_journal ---
                 num_trades = len(st.session_state.trade_journal) 
                 if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
                 elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
@@ -2512,7 +2518,7 @@ elif st.session_state.current_page == 'account':
         
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
-        journal_df = st.session_state.trade_journal # Corrected from tools_trade_journal
+        journal_df = st.session_state.trade_journal
         if not journal_df.empty and 'Date' in journal_df.columns:
             journal_df['Date'] = pd.to_datetime(journal_df['Date'])
             xp_data = journal_df.sort_values(by='Date').copy()
