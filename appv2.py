@@ -299,7 +299,7 @@ def ta_update_xp(username, amount):
     if new_level > st.session_state.get('level', 0):
         st.session_state.level = new_level
         badge_name = f"Level {new_level}"
-        if badge_name not in st.session_state.badges:
+        if badge_name not in st.session_state.badges: # Prevent adding duplicates
             st.session_state.badges.append(badge_name)
         st.balloons()
         st.success(f"Level up! You are now level {new_level}!")
@@ -308,43 +308,202 @@ def ta_update_xp(username, amount):
     show_xp_notification(amount)
 
 def ta_update_streak(username):
-    user_data = get_user_data(username) # This should actually retrieve user_data from session state's user_data if needed directly.
-                                        # Or better, just rely on st.session_state for mutable attributes, save global after
+    # This function uses session state directly for streak, which is saved via save_user_data implicitly
     today = dt.date.today()
     last_journal_date_str = st.session_state.get('last_journal_date')
     current_streak = st.session_state.get('streak', 0)
 
-    # Convert existing streak to a datetime.date object for comparison
     last_journal_date = dt.date.fromisoformat(last_journal_date_str) if last_journal_date_str else None
     
-    # Update streak if applicable
-    if last_journal_date is None: # First entry ever
+    # Logic for updating the journaling streak itself
+    if last_journal_date is None: # First journal entry ever
         current_streak = 1
-        st.session_state.xp += 10 # 10 XP for starting first streak
-        show_xp_notification(10)
+        # No base XP for starting streak, as 'Log New Trade' gives 10 XP already
     elif last_journal_date == today - dt.timedelta(days=1): # Consecutive day
         current_streak += 1
-    elif last_journal_date == today: # Already journaled today, no change
-        return 
-    else: # Streak broken
+    elif last_journal_date == today: # Already journaled today, no change to streak
+        return # Exit without changing streak or date
+    else: # Streak broken (non-consecutive day, not today)
         current_streak = 1
         
     st.session_state.streak = current_streak
     st.session_state.last_journal_date = today.isoformat() # Update last journaling date
 
-    # Award streak badges
-    if current_streak > 0 and current_streak % 7 == 0:
+    # Award streak badges (this can still give XP)
+    if current_streak > 0 and current_streak % 7 == 0: # Every 7-day multiple
         badge_name = f"{current_streak}-Day Streak"
-        if badge_name not in st.session_state.badges:
+        if badge_name not in st.session_state.badges: # Only award once per streak badge
             st.session_state.badges.append(badge_name)
             ta_update_xp(username, 15) # Bonus XP for streak badge
             st.balloons()
             st.success(f"Unlocked: {badge_name} Discipline Badge!")
     
-    save_user_data(username) # Save updated streak, date, and possibly badge/XP
+    save_user_data(username) # Persist updated streak, date, and possibly badge/XP
+
+
+# =========================================================
+# NEW GAMIFICATION FEATURES - Helper Functions (moved up for NameError fix)
+# =========================================================
+
+def award_xp_for_notes_added_if_changed(username, trade_id, current_notes):
+    """
+    Awards XP if notes are added or significantly changed for a trade.
+    Uses a content hash in gamification_flags to prevent repeat awards for the same notes.
+    """
+    # Get gamification flags from session_state for the logged-in user
+    gamification_flags = st.session_state.get('gamification_flags', {})
+    
+    notes_award_key = f"notes_xp_for_trade_{trade_id}_content_hash"
+    
+    current_notes_hash = hashlib.md5(current_notes.strip().encode()).hexdigest() if current_notes.strip() else ""
+
+    last_awarded_notes_hash = gamification_flags.get(notes_award_key)
+
+    # Award XP if non-empty notes have been provided AND they are different from the last saved/awarded content
+    if current_notes.strip() and current_notes_hash != last_awarded_notes_hash:
+        gamification_flags[notes_award_key] = current_notes_hash # Update the hash
+        st.session_state.gamification_flags = gamification_flags # Update session state's flags
+
+        ta_update_xp(username, 5) # Award 5 XP
+        st.toast(f"Notes updated for trade {trade_id}! +5 XP for your detailed notes!", icon="📝")
+        return True
+    return False
+
+def check_and_award_trade_milestones(username):
+    """
+    Checks if trade count milestones have been hit and awards XP/badges.
+    Prevents re-awarding by checking gamification_flags.
+    """
+    current_total_trades = len(st.session_state.trade_journal)
+    
+    trade_milestones = {
+        10: {"xp": 20, "badge_name": "Ten Trades Novice"},
+        50: {"xp": 50, "badge_name": "Fifty Trades Apprentice"},
+        100: {"xp": 100, "badge_name": "Centurion Trader"}
+        # Add more milestones as needed
+    }
+
+    gamification_flags = st.session_state.get('gamification_flags', {})
+
+    for milestone_count, details in trade_milestones.items():
+        badge = details["badge_name"]
+        milestone_key = f"trade_count_{milestone_count}_awarded" # Unique key for this milestone award
+        
+        if current_total_trades >= milestone_count and not gamification_flags.get(milestone_key):
+            gamification_flags[milestone_key] = True # Mark as achieved
+            st.session_state.gamification_flags = gamification_flags # Update session state flags
+            
+            # Add badge if not already present in user's badges (session_state.badges)
+            if badge not in st.session_state.badges:
+                st.session_state.badges.append(badge)
+                # Note: badges are part of `save_user_data`'s persisted `user_data` dictionary.
+                # When `ta_update_xp` calls `save_user_data`, the `st.session_state.badges` is used.
+            
+            ta_update_xp(username, details["xp"]) # Award bonus XP (this calls save_user_data implicitly)
+            st.balloons()
+            st.success(f"Trade Milestone Achieved: '{badge}'! Bonus {details['xp']} XP!")
+            logging.info(f"User {username} hit trade milestone {badge}. Awarded {details['xp']} XP.")
+    
+    # No explicit save_user_data needed here as ta_update_xp would trigger it and
+    # `st.session_state.gamification_flags` would be correctly passed into `save_user_data`.
+
+def check_and_award_performance_milestones(username):
+    """
+    Checks and awards XP for performance milestones (Profit Factor, Avg R:R, Win Rate).
+    Prevents re-awarding by checking gamification_flags.
+    """
+    df_analytics = st.session_state.trade_journal[st.session_state.trade_journal['Outcome'].isin(['Win', 'Loss'])].copy()
+
+    if df_analytics.empty or len(df_analytics) < 5: # Require minimum trades for meaningful stats
+        return
+
+    df_analytics['PnL'] = pd.to_numeric(df_analytics['PnL'], errors='coerce').fillna(0.0)
+    df_analytics['RR'] = pd.to_numeric(df_analytics['RR'], errors='coerce').fillna(0.0)
+
+    total_wins_sum = df_analytics[df_analytics['Outcome'] == 'Win']['PnL'].sum()
+    total_losses_sum_abs = abs(df_analytics[df_analytics['Outcome'] == 'Loss']['PnL'].sum())
+
+    profit_factor_val = total_wins_sum / total_losses_sum_abs if total_losses_sum_abs > 0 else (float('inf') if total_wins_sum > 0 else 0)
+    avg_rr = df_analytics['RR'].mean() # Average R for all logged winning/losing trades
+    if len(df_analytics) > 0:
+        win_rate = (len(df_analytics[df_analytics['Outcome'] == 'Win']) / len(df_analytics)) * 100
+    else:
+        win_rate = 0.0
+
+    gamification_flags = st.session_state.get('gamification_flags', {})
+
+    # Milestone 1: High Profit Factor
+    profit_factor_threshold = 2.0
+    pf_milestone_key = 'milestone_high_profit_factor_2.0'
+    if profit_factor_val >= profit_factor_threshold and not gamification_flags.get(pf_milestone_key):
+        gamification_flags[pf_milestone_key] = True
+        st.session_state.gamification_flags = gamification_flags # Update session state flags
+        ta_update_xp(username, 30) # Bonus 30 XP
+        st.balloons()
+        st.success(f"Performance Milestone: Achieved Profit Factor of {profit_factor_val:.2f}! Bonus 30 XP!")
+
+    # Milestone 2: High Average R:R
+    avg_rr_threshold = 1.5
+    avg_rr_milestone_key = 'milestone_high_avg_rr_1.5'
+    if avg_rr >= avg_rr_threshold and not gamification_flags.get(avg_rr_milestone_key):
+        gamification_flags[avg_rr_milestone_key] = True
+        st.session_state.gamification_flags = gamification_flags # Update session state flags
+        ta_update_xp(username, 25) # Bonus 25 XP
+        st.balloons()
+        st.success(f"Performance Milestone: Achieved average R:R of {avg_rr:.2f}! Bonus 25 XP!")
+
+    # Milestone 3: High Win Rate
+    win_rate_threshold = 60 # 60% win rate
+    wr_milestone_key = 'milestone_high_win_rate_60_percent'
+    if win_rate >= win_rate_threshold and not gamification_flags.get(wr_milestone_key):
+        gamification_flags[wr_milestone_key] = True
+        st.session_state.gamification_flags = gamification_flags # Update session state flags
+        ta_update_xp(username, 20) # Bonus 20 XP
+        st.balloons()
+        st.success(f"Performance Milestone: Achieved {win_rate:.1f}% Win Rate! Bonus 20 XP!")
+    
+    # No explicit save_user_data needed here as ta_update_xp would trigger it and
+    # `st.session_state.gamification_flags` would be correctly passed into `save_user_data`.
+
+
+def render_xp_leaderboard():
+    """
+    Renders the global XP leaderboard on the Account page.
+    """
+    st.subheader("🏆 Global XP Leaderboard")
+
+    try:
+        c.execute("SELECT username, data FROM users")
+        all_users_raw = c.fetchall()
+
+        leaderboard_data = []
+        for uname, udata_json in all_users_raw:
+            user_d = json.loads(udata_json) if udata_json else {}
+            user_xp = user_d.get('xp', 0)
+            leaderboard_data.append({"Username": uname, "XP Earned": user_xp})
+        
+        if leaderboard_data:
+            leaderboard_df = pd.DataFrame(leaderboard_data).sort_values(by="XP Earned", ascending=False).reset_index(drop=True)
+            leaderboard_df["Rank"] = leaderboard_df.index + 1
+
+            def highlight_current_user_row(row):
+                if st.session_state.logged_in_user is not None and row['Username'] == st.session_state.logged_in_user:
+                    return ['background-color: #4d7171; color: white;'] * len(row)
+                return [''] * len(row)
+            
+            st.dataframe(leaderboard_df[['Rank', 'Username', 'XP Earned']].style.apply(highlight_current_user_row, axis=1), use_container_width=True)
+            
+        else:
+            st.info("No users registered yet. Be the first to earn XP!")
+
+    except Exception as e:
+        st.error(f"Error loading leaderboard: {e}")
+        logging.error(f"Leaderboard load error: {e}", exc_info=True)
+
 
 # =========================================================
 # SESSION STATE INITIALIZATION (GLOBAL)
+# This is now centralized and ensures consistent state.
 # =========================================================
 
 # Define default empty dataframes and values for initial session state setup
@@ -456,7 +615,7 @@ def initialize_and_load_session_state():
                 st.success(f"Level up! You are now level {new_level_from_login} from daily login bonus!")
 
             save_user_data(username) # Persist changes immediately after XP award and date update
-            show_xp_notification(10) # Notify user about login XP
+            show_xp_notification(10) # Notify user
             logging.info(f"Daily login XP (10) awarded to {username}")
         # --- END NEW FEATURE: AWARD DAILY LOGIN XP ---
 
@@ -465,9 +624,8 @@ def initialize_and_load_session_state():
     st.session_state.trade_ideas = pd.DataFrame(_ta_load_community('trade_ideas', []), columns=DEFAULT_APP_STATE['trade_ideas'].columns).copy()
     st.session_state.community_templates = pd.DataFrame(_ta_load_community('templates', []), columns=DEFAULT_APP_STATE['community_templates'].columns).copy()
 
-# Execute the central initialization and data loading when the script runs
+# Call the central initialization and data loading when the script runs
 initialize_and_load_session_state()
-
 # =========================================================
 # PAGE CONFIGURATION (Streamlit requires this at top level)
 # =========================================================
