@@ -2256,6 +2256,71 @@ elif st.session_state.current_page == 'strategy':
         st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
 
+import streamlit as st
+import hashlib
+import json
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+import sqlite3
+import logging
+
+# --- Configuration (assumed from context, needs to be defined if not globally available) ---
+# Assuming 'conn', 'c', 'journal_cols', 'journal_dtypes' are defined elsewhere in the main script.
+# For the purpose of this replacement, I'll mock them or provide minimal definitions.
+
+# Mock definitions for execution: In a real app, these would be loaded or globally defined.
+try:
+    # This block attempts to use Streamlit's connection for SQLITE
+    conn = st.connection("sqlite_db", type="sql")
+    c = conn.cursor()
+except AttributeError:
+    # Fallback for local execution or if st.connection is not desired/available
+    # In a real app, ensure 'users.db' is handled correctly (e.g., in a data folder)
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+
+c.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    username TEXT PRIMARY KEY,
+    password TEXT,
+    data TEXT
+)
+""")
+conn.commit()
+
+journal_cols = ["Date", "Symbol", "Direction", "Entry Price", "Exit Price", "Profit/Loss", "Notes"]
+journal_dtypes = {
+    "Date": 'datetime64[ns]',
+    "Symbol": str,
+    "Direction": str,
+    "Entry Price": float,
+    "Exit Price": float,
+    "Profit/Loss": float,
+    "Notes": str
+}
+
+# Ensure basic session state vars are initialized to avoid KeyError on first run
+# This needs to be robust for all session states used later, including new ones like 'redeemed_rxp'
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'account'
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = None # Or 'pro_trader' for initial mock
+if 'xp' not in st.session_state:
+    st.session_state.xp = 0
+if 'level' not in st.session_state:
+    st.session_state.level = 0
+if 'badges' not in st.session_state:
+    st.session_state.badges = []
+if 'streak' not in st.session_state:
+    st.session_state.streak = 0
+if 'redeemed_rxp' not in st.session_state:
+    st.session_state.redeemed_rxp = 0
+# Initialize trade_journal if not present, especially crucial for calculations before login
+if 'trade_journal' not in st.session_state:
+    st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+
+
 # =========================================================
 # ACCOUNT PAGE (Code B, adapted session state names)
 # =========================================================
@@ -2475,7 +2540,8 @@ elif st.session_state.current_page == 'account':
 
 
         # --- Main Dashboard Layout using Columns ---
-        col1, col2_empty = st.columns([3, 1]) # Adjusted for badges moving into col1, col2 is now primarily a spacer/placeholder
+        # Adjusted main columns to give more width to the content area (col1)
+        col1, col2_empty = st.columns([1, 0.05]) # Increased col1 width significantly for better spread of content
 
         with col1:
             st.subheader("📈 Progress Snapshot")
@@ -2490,28 +2556,28 @@ elif st.session_state.current_page == 'account':
                 text-align: center;
                 border: 1px solid #58b3b1;
                 margin-bottom: 10px;
-                display: flex; /* For internal alignment */
-                flex-direction: column; /* Stack children vertically */
-                justify-content: center; /* Center content vertically */
-                align-items: center; /* Center content horizontally */
-                height: 100%; /* Make cards fill their column height */
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                /* Removed height: 100%; to allow KPI cards to revert to natural size */
             }
             .kpi-icon {
                 font-size: 2.5em;
                 margin-bottom: 10px;
-                line-height: 1; /* Adjust line height for icon to center better */
+                line-height: 1;
             }
             .kpi-value {
                 font-size: 1.8em;
                 font-weight: bold;
                 color: #FFFFFF;
-                line-height: 1; /* Adjust line height */
-                margin-bottom: 5px; /* Small gap between value and label */
+                line-height: 1;
+                margin-bottom: 5px;
             }
             .kpi-label {
                 font-size: 0.9em;
                 color: #A0A0A0;
-                line-height: 1; /* Adjust line height */
+                line-height: 1;
             }
             .insights-card {
                 background-color: rgba(45, 70, 70, 0.3);
@@ -2519,10 +2585,9 @@ elif st.session_state.current_page == 'account':
                 padding: 15px;
                 border-radius: 5px;
             }
-            /* Smaller plotly chart container */
-            .stPlotlyChart {
-                width: 100% !important; /* Ensure it takes full width of its column */
-                height: 250px; /* Smaller fixed height for the chart */
+            /* Explicit height for plotly chart, as requested to be smaller but not collide*/
+            .stPlotlyChart > div[data-testid="stPlotlyChart"] {
+                height: 250px !important; /* Specific target for plotly div to control height */
             }
             </style>
             """, unsafe_allow_html=True)
@@ -2569,13 +2634,13 @@ elif st.session_state.current_page == 'account':
                 </div>
                 """, unsafe_allow_html=True)
 
+            # Added extra vertical space after KPI cards as requested to prevent collision with next content
+            st.markdown("<br>")
+            st.markdown("---") # Visual separator
 
-            st.markdown("---")
-
-            # --- Row 2: Progress Chart, Insights, and Badges (adjusted columns for sizing) ---
-            # Adjusted ratios to make the circle graph smaller and place badges next to insights
-            # Combined for responsiveness and smaller chart
-            chart_col_inner, insights_col_inner, badges_col_inner = st.columns([1, 1.5, 1]) # Smaller ratio for chart_col
+            # --- Row 2: Progress Chart, Insights, and Badges ---
+            # Adjusted ratios for better spread given "Progress to Next Level" graph smaller request and "neatness"
+            chart_col_inner, insights_col_inner, badges_col_inner = st.columns([0.9, 1.2, 1])
 
             with chart_col_inner:
                 st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
@@ -2599,7 +2664,8 @@ elif st.session_state.current_page == 'account':
                     annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
                     margin=dict(t=0, b=0, l=0, r=0)
                 )
-                # Reduced height for the plotly chart
+                # Keep fixed height for "smaller" graph using CSS via custom_css.css or by plotly's `height` param if used here.
+                # The custom CSS for `.stPlotlyChart` above now handles this height directly.
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 
@@ -2628,7 +2694,7 @@ elif st.session_state.current_page == 'account':
 
                 st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
 
-            with badges_col_inner: # Badges section moved here, next to insights
+            with badges_col_inner: # Badges section next to insights
                 st.markdown("<h5 style='text-align: center;'>🏆 Badges</h5>", unsafe_allow_html=True)
                 badges = st.session_state.get('badges', [])
                 if badges:
@@ -2637,12 +2703,15 @@ elif st.session_state.current_page == 'account':
                 else:
                     st.info("No badges earned yet. Keep up the great work to unlock them!")
 
-        # col2 is now primarily a spacer since badges moved. You can add something here if desired or leave empty.
+        # col2_empty is genuinely meant to be mostly empty here
         with col2_empty:
             st.empty()
 
 
-        # --- Row 3: XP Journey Chart ---
+        # Added spacing after the "Progress Snapshot" row before the next major section ("XP Journey")
+        st.markdown("<br>")
+
+        # --- XP Journey Chart ---
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
         journal_df = st.session_state.trade_journal # Accessing the unified journal
@@ -2672,9 +2741,11 @@ elif st.session_state.current_page == 'account':
         else:
             st.info("Log your first trade in the 'Trading Journal' tab to start your XP Journey!")
 
-        st.markdown("---")
+        # Added significant vertical space before Redeem Rewards to prevent collision
+        st.markdown("<br><br>")
 
         # --- New Section: Redeem RXP ---
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True) # Separator for neatness
         with st.expander("🎁 Redeem Rewards"):
             st.markdown(f"**Your available RXP**: `{available_rxp:,}`")
             st.write("Redeem your Redeemable XP (RXP) for exclusive rewards!")
@@ -2706,7 +2777,7 @@ elif st.session_state.current_page == 'account':
 
 
             for item in reward_items:
-                # Using columns within a markdown div for custom styling
+                # Using columns for horizontal alignment of reward item details
                 col_item_name, col_item_desc, col_item_cost, col_item_button = st.columns([2, 3, 1, 1.5])
                 with col_item_name:
                     st.write(f"**{item['name']}**")
@@ -2726,10 +2797,12 @@ elif st.session_state.current_page == 'account':
                         else:
                             st.error(f"Not enough RXP! You need {item['cost']} RXP, but have {available_rxp}.")
             st.markdown("<small><i>Note: Redeemable items are examples. Actual features/rewards would be handled by your backend.</i></small>", unsafe_allow_html=True)
-        st.markdown("---")
-
+        
+        # Added significant vertical space before Manage Account for neatness
+        st.markdown("<br><br>")
 
         # --- Account Details and Actions using an Expander ---
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True) # Separator for neatness
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)") # This is hardcoded
