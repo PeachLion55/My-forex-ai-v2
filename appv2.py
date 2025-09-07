@@ -2628,4 +2628,4 @@ elif st.session_state.current_page == 'account':
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)")
             if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()```
+                handle_logout()
