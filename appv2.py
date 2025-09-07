@@ -2325,7 +2325,6 @@ elif st.session_state.current_page == 'strategy':
     else:
         st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
-
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
@@ -2353,7 +2352,7 @@ elif st.session_state.current_page == 'account':
             st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
                 username = st.text_input("Username")
-                password = st.text.input("Password", type="password")
+                password = st.text_input("Password", type="password") # Corrected here
                 login_button = st.form_submit_button("Login")
                 if login_button:
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
@@ -2376,8 +2375,8 @@ elif st.session_state.current_page == 'account':
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
                 new_username = st.text_input("New Username")
-                new_password = st.text_input("New Password", type="password")
-                confirm_password = st.text_input("Confirm Password", type="password")
+                new_password = st.text_input("New Password", type="password") # Corrected here
+                confirm_password = st.text_input("Confirm Password", type="password") # Corrected here
                 register_button = st.form_submit_button("Register")
                 if register_button:
                     if new_password != confirm_password:
@@ -2629,6 +2628,139 @@ elif st.session_state.current_page == 'account':
             st.write("**Email**: `trader.pro@email.com` (example)")
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
+# =========================================================
+# COMMUNITY TRADE IDEAS PAGE
+# =========================================================
+elif st.session_state.current_page == 'community':
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to participate in Community Trade Ideas.")
+        st.session_state.current_page = 'account'
+        st.rerun()
+
+    st.title("🌐 Community Trade Ideas")
+    st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
+    st.write('---')
+    st.subheader("➕ Share a Trade Idea")
+    with st.form("trade_idea_form"):
+        trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
+        trade_direction = st.radio("Direction", ["Long", "Short"])
+        trade_description = st.text_area("Trade Description")
+        uploaded_image = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg", "jpeg"])
+        submit_idea = st.form_submit_button("Share Idea")
+        if submit_idea:
+            if st.session_state.logged_in_user is not None:
+                username = st.session_state.logged_in_user
+                user_data_dir = os.path.join("user_data", username) 
+                os.makedirs(os.path.join(user_data_dir, "community_images"), exist_ok=True)
+
+                idea_id = _ta_hash()
+                idea_data = {
+                    "Username": username,
+                    "Pair": trade_pair,
+                    "Direction": trade_direction,
+                    "Description": trade_description,
+                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "IdeaID": idea_id,
+                    "ImagePath": None
+                }
+                if uploaded_image:
+                    image_path = os.path.join(user_data_dir, "community_images", f"{idea_id}.png")
+                    try:
+                        with open(image_path, "wb") as f:
+                            f.write(uploaded_image.getbuffer())
+                        idea_data["ImagePath"] = image_path
+                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                        st.success("Trade idea shared successfully!")
+                        logging.info(f"Trade idea shared by {username}: {idea_id}")
+                    except Exception as e:
+                        st.error(f"Failed to save image: {e}. Trade idea not saved.")
+                        logging.error(f"Error saving image for trade idea: {e}")
+                else:
+                    st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                    _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                    st.success("Trade idea shared successfully!")
+                    logging.info(f"Trade idea shared by {username}: {idea_id} (no image)")
+                st.rerun()
+            else:
+                st.error("Please log in to share trade ideas.")
+                logging.warning("Attempt to share trade idea without login")
+
+    st.subheader("📈 Community Trade Ideas")
+    if not st.session_state.trade_ideas.empty:
+        for idx, idea in st.session_state.trade_ideas.iterrows():
+            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
+                st.markdown(f"Description: {idea['Description']}")
+                if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
+                    st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
+                if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
+                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == idea["Username"]:
+                        st.session_state.trade_ideas = st.session_state.trade_ideas.drop(idx).reset_index(drop=True)
+                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                        st.success("Trade idea deleted successfully!")
+                        logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own trade ideas.")
+                        logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
+    else:
+        st.info("No trade ideas shared yet. Be the first to contribute!")
+    
+    st.subheader("📄 Community Templates")
+    with st.form("template_form"):
+        template_type = st.selectbox("Template Type", ["Journaling Template", "Checklist", "Strategy Playbook"])
+        template_name = st.text_input("Template Name")
+        template_content = st.text_area("Template Content")
+        submit_template = st.form_submit_button("Share Template")
+        if submit_template:
+            if st.session_state.logged_in_user is not None:
+                username = st.session_state.logged_in_user
+                template_id = _ta_hash()
+                template_data = {
+                    "Username": username,
+                    "Type": template_type,
+                    "Name": template_name,
+                    "Content": template_content,
+                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "ID": template_id
+                }
+                st.session_state.community_templates = pd.concat([st.session_state.community_templates, pd.DataFrame([template_data])], ignore_index=True)
+                _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
+                st.success("Template shared successfully!")
+                logging.info(f"Template shared by {username}: {template_id}")
+                st.rerun()
+            else:
+                st.error("Please log in to share templates.")
+    if not st.session_state.community_templates.empty:
+        for idx, template in st.session_state.community_templates.iterrows():
+            with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp']})"):
+                st.markdown(template['Content'])
+                if st.button("Delete Template", key=f"delete_template_{template['ID']}"):
+                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == template["Username"]:
+                        st.session_state.community_templates = st.session_state.community_templates.drop(idx).reset_index(drop=True)
+                        _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
+                        st.success("Template deleted successfully!")
+                        logging.info(f"Template {template['ID']} deleted by {st.session_state.logged_in_user}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own templates.")
+    else:
+        st.info("No templates shared yet. Share one above!")
+    
+    st.subheader("🏆 Leaderboard - Consistency")
+    users = c.execute("SELECT username, data FROM users").fetchall()
+    leader_data = []
+    for u, d in users:
+        user_d = json.loads(d) if d else {}
+        trades = len(user_d.get("trade_journal", []))
+        leader_data.append({"Username": u, "Journaled Trades": trades})
+    if leader_data:
+        leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
+        leader_df["Rank"] = leader_df.index + 1
+        st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
+    else:
+        st.info("No leaderboard data yet.")
+
 # =========================================================
 # COMMUNITY TRADE IDEAS PAGE
 # =========================================================
