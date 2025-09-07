@@ -2437,7 +2437,7 @@ elif st.session_state.current_page == 'account':
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
-    else:
+    else: # This block displays when a user IS logged in.
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
@@ -2580,7 +2580,7 @@ elif st.session_state.current_page == 'account':
         st.markdown("---")
 
         # --- NEW FEATURE: How to Earn XP Section ---
-        st.subheader("❓ How to Earn XP") # Directly visible (no longer in expander)
+        st.subheader("❓ How to Earn XP")
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
 
@@ -2595,12 +2595,11 @@ elif st.session_state.current_page == 'account':
             *   Maintain a Profit Factor of 2.0 or higher: **+30 XP**
             *   Achieve an Average R:R of 1.5 or higher: **+25 XP**
             *   Reach a Win Rate of 60% or higher: **+20 XP**
-        -   **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
+        -   **Level Up!**: Every 100 XP earned levels up your Trader\'s Rank and rewards a new Level Badge.
         -   **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
         
         Keep exploring the dashboard and trading to earn more XP and climb the ranks!
         """, unsafe_allow_html=True)
-        # --- END NEW FEATURE ---
         
         st.markdown("---")
 
@@ -2619,13 +2618,20 @@ elif st.session_state.current_page == 'account':
             xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
             xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
 
-            def style_amount_column(s):
-                return ['color: green;' if v > 0 else ('color: red;' if v < 0 else '') for v in s]
-            
-            xp_log_df_display = xp_log_df.copy()
-            xp_log_df_display['Amount'] = xp_log_df_display['Amount'].apply(lambda x: f'+{x}' if x > 0 else str(x))
+            # Define the styling function that operates on numeric values for the 'Amount' column.
+            # This function returns CSS styles.
+            def style_amount_column_numeric(val):
+                if val > 0:
+                    return 'color: green; font-weight: bold;'
+                elif val < 0:
+                    return 'color: red; font-weight: bold;'
+                return '' # No specific style for zero
 
-            styled_xp_log = xp_log_df_display.style.apply(style_amount_column, subset=['Amount'])
+            # Apply the style directly to the numeric 'Amount' column's cells
+            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
+
+            # Now, apply numeric formatting for display purposes (adds the '+' sign, ensures integer).
+            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
 
             st.dataframe(styled_xp_log, use_container_width=True)
         else:
