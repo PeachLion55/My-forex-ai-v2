@@ -2353,7 +2353,7 @@ elif st.session_state.current_page == 'account':
             st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
                 username = st.text_input("Username")
-                password = st.text_input("Password", type="password")
+                password = st.text.input("Password", type="password")
                 login_button = st.form_submit_button("Login")
                 if login_button:
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
@@ -2539,21 +2539,8 @@ elif st.session_state.current_page == 'account':
                     st.info("No badges earned yet. Keep trading to unlock them!")
         
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
-        st.subheader("🚀 Your XP Journey")
-        journal_df = st.session_state.trade_journal
-        if not journal_df.empty and 'Date' in journal_df.columns:
-            journal_df['Date'] = pd.to_datetime(journal_df['Date'])
-            xp_data = journal_df.sort_values(by='Date').copy()
-            xp_data['xp_gained'] = 10 
-            xp_data['cumulative_xp'] = xp_data['xp_gained'].cumsum()
-            
-            fig_line = px.area(xp_data, x='Date', y='cumulative_xp', title="XP Growth Over Time")
-            fig_line.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(45, 70, 70, 0.3)', font_color="white")
-            st.plotly_chart(fig_line, use_container_width=True, config={'displayModeBar': False}) # Added config to hide plotly toolbar
-        else:
-            st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
-
-        st.markdown("---")
+        # Removed "🚀 Your XP Journey" chart from here
+        # Removed "---" separator as the chart above it is now gone.
         
         st.subheader("💎 Redeem Your RXP")
         current_rxp = int(st.session_state.get('xp', 0) / 2)
@@ -2581,6 +2568,32 @@ elif st.session_state.current_page == 'account':
 
         st.markdown("---")
 
+        # --- XP Transaction History (Now Above How to Earn XP) ---
+        st.subheader("📜 Your XP Transaction History")
+        
+        xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
+
+        if not xp_log_df.empty:
+            xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
+            xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
+
+            def style_amount_column_numeric(val):
+                if val > 0:
+                    return 'color: green; font-weight: bold;'
+                elif val < 0:
+                    return 'color: red; font-weight: bold;'
+                return ''
+
+            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
+            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
+
+            st.dataframe(styled_xp_log, use_container_width=True)
+        else:
+            st.info("Your XP transaction history is empty. Start interacting to earn XP!")
+        # --- END XP Transaction History ---
+        
+        st.markdown("---")
+
         # --- How to Earn XP Section (Directly Visible) ---
         st.subheader("❓ How to Earn XP") 
         st.markdown("""
@@ -2606,40 +2619,10 @@ elif st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- XP Leaderboard ---
-        render_xp_leaderboard()
-        # --- END XP Leaderboard ---
+        # Removed "🏆 Global XP Leaderboard" from here
+        # No more render_xp_leaderboard() call.
 
-        st.markdown("---")
-
-        # --- XP Transaction History ---
-        st.subheader("📜 Your XP Transaction History")
-        
-        xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
-
-        if not xp_log_df.empty:
-            xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
-            xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
-
-            # Define the styling function that operates on numeric values for the 'Amount' column.
-            def style_amount_column_numeric(val):
-                if val > 0:
-                    return 'color: green; font-weight: bold;'
-                elif val < 0:
-                    return 'color: red; font-weight: bold;'
-                return ''
-
-            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
-
-            # Apply numeric formatting for display purposes (adds the '+' sign, ensures integer).
-            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
-
-            st.dataframe(styled_xp_log, use_container_width=True)
-        else:
-            st.info("Your XP transaction history is empty. Start interacting to earn XP!")
-        # --- END XP Transaction History ---
-
-        st.markdown("---")
+        st.markdown("---") # Retain a final separator before Manage Account if desired.
 
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
