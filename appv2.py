@@ -350,7 +350,6 @@ def ta_update_streak(username):
 
 # =========================================================
 # NEW GAMIFICATION FEATURES - HELPER FUNCTIONS
-# (Defined here so they are available globally)
 # =========================================================
 
 def award_xp_for_notes_added_if_changed(username, trade_id, current_notes):
@@ -663,7 +662,7 @@ st.markdown(
         }
         section[data-testid="stSidebar"] div.stButton > button:hover {
             transform: scale(1.05) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+            box_shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
         }
     }
     @media (max-height: 600px) {
@@ -1150,7 +1149,7 @@ elif st.session_state.current_page == 'trading_journal':
             filtered_df = df_playbook[
                 (df_playbook['Outcome'].isin(outcome_filter)) &
                 (df_playbook['Symbol'].isin(symbol_filter)) &
-                (df_playbook['Direction'].isin(direction_filter))
+                (df_playplaybook['Direction'].isin(direction_filter))
             ]
             if tag_filter:
                 filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
@@ -2506,7 +2505,7 @@ elif st.session_state.current_page == 'account':
 
                 ten_trades_badge_displayed = False
                 if "Ten Trades Novice" in badges_earned_list:
-                    st.image("Badges/10 logged trades.png", caption="Ten Trades Novice", width=100) # Updated filename to .png
+                    st.image("Badges/10 logged trades.png", caption="Ten Trades Novice", width=100)
                     ten_trades_badge_displayed = True
                 
                 if badges_earned_list:
