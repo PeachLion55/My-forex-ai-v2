@@ -186,14 +186,35 @@ def get_user_data(username):
     result = c.fetchone()
     return json.loads(result[0]) if result and result[0] else {}
 
-def save_user_data(username, data):
+# Global save_user_data function
+def save_user_data(username):
+    """
+    Saves the current session state data for the logged-in user to the database.
+    """
+    # Create a dictionary with the user's data from the session state
+    user_data = {
+        "drawings": st.session_state.get("drawings", {}),
+        "trade_journal": st.session_state.get("trade_journal", pd.DataFrame(columns=journal_cols).astype(journal_dtypes, errors='ignore')).to_dict('records'),
+        "strategies": st.session_state.get("strategies", pd.DataFrame()).to_dict('records'),
+        "emotion_log": st.session_state.get("emotion_log", pd.DataFrame()).to_dict('records'),
+        "reflection_log": st.session_state.get("reflection_log", pd.DataFrame()).to_dict('records'),
+        "xp": st.session_state.get("xp", 0),
+        "level": st.session_state.get("level", 0),
+        "badges": st.session_state.get("badges", []),
+        "streak": st.session_state.get("streak", 0),
+        "last_journal_date": st.session_state.get("last_journal_date", None)
+    }
+    # Convert dictionary to a JSON string
+    user_data_json = json.dumps(user_data, default=str) # Using default=str to handle any non-serializable types
     try:
-        json_data = json.dumps(data, cls=CustomJSONEncoder)
-        c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
+        # Update the database
+        c.execute("UPDATE users SET data = ? WHERE username = ?", (user_data_json, username))
         conn.commit()
+        logging.info(f"Successfully saved data for user {username}")
         return True
     except Exception as e:
-        logging.error(f"Failed to save data for {username}: {e}", exc_info=True)
+        logging.error(f"Failed to save data for user {username}: {e}")
+        st.error("Could not save your progress. Please contact support.")
         return False
 
 # Community Data Management (from Code B)
@@ -217,16 +238,14 @@ def _ta_save_community(key, data):
     except Exception as e:
         logging.error(f"Failed to save community data for {key}: {str(e)}")
 
-# Trade Journal Save (Adapted from Code A to use get/save_user_data)
+# Trade Journal Save (Adapted from Code A to use global save_user_data indirectly)
 def _ta_save_journal(username, journal_df):
-    user_data = get_user_data(username)
-    # The journal data will be stored under the key 'trade_journal'
-    user_data["trade_journal"] = journal_df.to_dict('records')
-    if save_user_data(username, user_data):
-        logging.info(f"Journal saved for user {username}: {len(journal_df)} trades")
-        return True
-    st.error("Failed to save journal.")
-    return False
+    """
+    Updates the session state's trade_journal and then calls the global save_user_data.
+    """
+    st.session_state.trade_journal = journal_df # Ensure session state is up-to-date before global save
+    return save_user_data(username) # Call the global save function
+
 
 # XP notification system (from Code B)
 def show_xp_notification(xp_gained):
@@ -273,16 +292,22 @@ def ta_update_xp(username, amount): # from Code A
     user_data = get_user_data(username)
     user_data['xp'] = user_data.get('xp', 0) + amount
     level = user_data['xp'] // 100 # From Code B's XP update logic for levelling
+    
+    # Update current session state XP
+    st.session_state.xp = user_data['xp']
+
     if level > user_data.get('level', 0):
         user_data['level'] = level
         user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
         st.balloons()
         st.success(f"Level up! You are now level {level}.")
-    save_user_data(username, user_data)
-    # The session state needs to be updated for other parts of the app
-    st.session_state.xp = user_data['xp']
-    st.session_state.level = user_data['level']
-    st.session_state.badges = user_data['badges']
+        # Update current session state level and badges
+        st.session_state.level = user_data['level']
+        st.session_state.badges = user_data['badges']
+
+    # Directly save all user data after changes
+    save_user_data(username) 
+    
     show_xp_notification(amount) # Integrates Code B's notification system
 
 
@@ -303,33 +328,18 @@ def ta_update_streak(username): # from Code A
     user_data.update({'streak': streak, 'last_journal_date': today.isoformat()})
     
     # Badge for streak achievement (from Code B, adapted)
-    if streak % 7 == 0:
+    if streak % 7 == 0 and streak > 0: # Ensure streak is positive for badge
         badge = f"{streak}-Day Streak"
         if badge not in user_data.get('badges', []):
             user_data['badges'] = user_data.get('badges', []) + [badge]
             st.balloons()
             st.success(f"Unlocked: {badge} Discipline Badge!")
 
-    save_user_data(username, user_data)
+    # Directly save all user data after changes
+    save_user_data(username)
     st.session_state.streak = streak # Update session state directly
     st.session_state.badges = user_data['badges'] # Update session state badges
 
-
-# MOCK AUTHENTICATION & SESSION STATE SETUP (Code A, adapted slightly)
-# This mock is for initial setup, the full login in the account page will take precedence.
-if 'logged_in_user' not in st.session_state:
-    st.session_state.logged_in_user = "pro_trader"
-    c.execute("SELECT username FROM users WHERE username = ?", (st.session_state.logged_in_user,))
-    if not c.fetchone():
-        hashed_password = hashlib.sha256("password".encode()).hexdigest()
-        # Initialize with Code A's trade_journal key and empty structures
-        initial_data = json.dumps({
-            'xp': 0, 'streak': 0, 'trade_journal': [], 'level': 0, 'badges': [],
-            'drawings': {}, 'strategies': [], 'emotion_log': [], 'reflection_log': []
-        })
-        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
-                  (st.session_state.logged_in_user, hashed_password, initial_data))
-        conn.commit()
 
 # =========================================================
 # JOURNAL SCHEMA & ROBUST DATA MIGRATION (from Code A)
@@ -347,109 +357,66 @@ journal_dtypes = {
     "EntryScreenshot": str, "ExitScreenshot": str
 }
 
-if 'trade_journal' not in st.session_state:
+# MOCK AUTHENTICATION & SESSION STATE SETUP (Code A, adapted slightly)
+# This mock is for initial setup, the full login in the account page will take precedence.
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = "pro_trader"
+    c.execute("SELECT username FROM users WHERE username = ?", (st.session_state.logged_in_user,))
+    if not c.fetchone():
+        hashed_password = hashlib.sha256("password".encode()).hexdigest()
+        # Initialize with 'trade_journal' key
+        initial_data = json.dumps({
+            'xp': 0, 'streak': 0, 'trade_journal': [], 'level': 0, 'badges': [],
+            'drawings': {}, 'strategies': [], 'emotion_log': [], 'reflection_log': []
+        })
+        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
+                  (st.session_state.logged_in_user, hashed_password, initial_data))
+        conn.commit()
+
+# --- Initial check and load of user data for the mock user or actual logged-in user ---
+# This block runs every time to ensure st.session_state mirrors the DB, 
+# preventing `AttributeError` for new sessions or pages.
+if 'logged_in_user' in st.session_state:
     user_data = get_user_data(st.session_state.logged_in_user)
-    journal_data = user_data.get("trade_journal", []) # Consistent with 'trade_journal' key
-    df = pd.DataFrame(journal_data)
 
-    # Safely migrate data to the new, safer schema
-    # Extended legacy_col_map to try and cover potential old Code B journal columns
-    legacy_col_map = {
-        "Trade ID": "TradeID", "Entry Price": "EntryPrice", "Stop Loss": "StopLoss",
-        "Final Exit": "FinalExit", "PnL ($)": "PnL", "R:R": "RR",
-        "Entry Rationale": "EntryRationale", "Trade Journal Notes": "TradeJournalNotes",
-        "Entry Screenshot": "EntryScreenshot", "Exit Screenshot": "ExitScreenshot",
-        # --- Potential mappings from Code B's older, different journal structure ---
-        "Date": "Date", # Date is already fine
-        "Weekly Bias": "Strategy",
-        "Daily Bias": "Strategy",
-        "4H Structure": "Strategy",
-        "1H Structure": "Strategy",
-        "Positive Correlated Pair & Bias": "EntryRationale", # Can merge with EntryRationale
-        "Potential Entry Points": "EntryRationale", # Can merge
-        "5min/15min Setup?": "EntryRationale", # Can merge
-        "Entry Conditions": "EntryRationale", # Can merge
-        "Planned R:R": "RR", # Can map to RR directly if numeric or extract
-        "News Filter": "EntryRationale",
-        "Alerts": "TradeJournalNotes", # Move to notes
-        "Concerns": "TradeJournalNotes", # Move to notes
-        "Emotions": "TradeJournalNotes", # Move to notes
-        "Confluence Score 1-7": "Strategy", # Could be part of strategy/rationale
-        "Outcome / R:R Realised": "Outcome", # Map Outcome and then parse RR if needed
-        "Notes/Journal": "TradeJournalNotes",
-        "Entry Price": "EntryPrice", # These are direct matches now but good to be explicit
-        "Stop Loss Price": "StopLoss",
-        "Take Profit Price": "FinalExit", # Map to FinalExit for A's schema
-        "Lots": "Lots",
-        "Tags": "Tags",
-        "Direction": "Direction", # Ensure this is also mapped
-        "Symbol": "Symbol" # Ensure this is also mapped
-    }
+    st.session_state.drawings = user_data.get("drawings", {})
 
-    df.rename(columns=legacy_col_map, inplace=True)
+    # Always initialize trade_journal
+    if "trade_journal" in user_data and user_data["trade_journal"]:
+        loaded_df = pd.DataFrame(user_data["trade_journal"])
+        for col in journal_cols:
+            if col not in loaded_df.columns:
+                loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
+        st.session_state.trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+    else:
+        st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
 
-    # Clean up and ensure data types and consistent values
-    if 'Outcome' in df.columns:
-        def standardize_outcome(x):
-            if pd.isna(x):
-                return 'No Trade/Study'
-            x_str = str(x).lower().strip()
-            if 'win' in x_str:
-                return 'Win'
-            elif 'loss' in x_str:
-                return 'Loss'
-            elif 'breakeven' in x_str:
-                return 'Breakeven'
-            elif 'no trade' in x_str or x_str in ('0.0', 'nan', '', '0.0r'):
-                return 'No Trade/Study'
-            return x # return original if unable to parse (might be raw RR string like '1:2.5')
+    if "strategies" in user_data and user_data["strategies"]:
+        st.session_state.strategies = pd.DataFrame(user_data["strategies"])
+    else:
+        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
 
-        df['Outcome'] = df['Outcome'].apply(standardize_outcome)
+    if "emotion_log" in user_data and user_data["emotion_log"]:
+        st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
+    else:
+         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
 
-    if 'RR' in df.columns:
-        # Convert any '1:X.XX' strings to float, handling existing floats as-is
-        def parse_rr_to_float(x):
-            if isinstance(x, str) and ':' in x:
-                try:
-                    return float(x.split(':')[1])
-                except (ValueError, IndexError):
-                    return 0.0 # Default if parse fails
-            elif pd.isna(x):
-                return 0.0
-            return float(x) # Convert existing numbers (or NaN) to float
+    if "reflection_log" in user_data and user_data["reflection_log"]:
+        st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
+    else:
+        st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+    
+    st.session_state.xp = user_data.get('xp', 0)
+    st.session_state.level = user_data.get('level', 0)
+    st.session_state.badges = user_data.get('badges', [])
+    st.session_state.streak = user_data.get('streak', 0)
+    st.session_state.last_journal_date = user_data.get('last_journal_date', None)
 
-        df['RR'] = df['RR'].apply(parse_rr_to_float)
-
-    # Convert PnL to float explicitly after potential merges and if it was incorrectly string formatted
-    if 'PnL' in df.columns:
-        df['PnL'] = pd.to_numeric(df['PnL'], errors='coerce').fillna(0.0)
-
-    # Ensure all new columns (from journal_cols) exist with appropriate default values
-    for col, dtype in journal_dtypes.items():
-        if col not in df.columns:
-            if dtype == str:
-                df[col] = ''
-            elif 'datetime' in str(dtype):
-                df[col] = pd.NaT
-            elif dtype == float:
-                df[col] = 0.0
-            else:
-                df[col] = None
-        else:
-            # Attempt to convert existing column to correct dtype
-            try:
-                df[col] = df[col].astype(dtype, errors='coerce')
-            except Exception as e:
-                logging.warning(f"Failed to cast column {col} to {dtype}: {e}")
-                if 'datetime' in str(dtype): df[col] = pd.to_datetime(df[col], errors='coerce')
-                elif dtype == float: df[col] = pd.to_numeric(df[col], errors='coerce')
-
-
-    st.session_state.trade_journal = df[journal_cols].astype(journal_dtypes, errors='ignore')
-    st.session_state.trade_journal['Date'] = pd.to_datetime(st.session_state.trade_journal['Date'], errors='coerce')
-    # Fill any remaining NaT in 'Date' with a default or drop for consistency
-    st.session_state.trade_journal['Date'] = st.session_state.trade_journal['Date'].fillna(pd.Timestamp.now().floor('D'))
-
+# --- Community data loading ---
+if 'trade_ideas' not in st.session_state:
+    st.session_state.trade_ideas = pd.DataFrame(_ta_load_community('trade_ideas', []), columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"])
+if 'community_templates' not in st.session_state:
+    st.session_state.community_templates = pd.DataFrame(_ta_load_community('templates', []), columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
 
 # =========================================================
 # PAGE CONFIGURATION (Code B global)
@@ -632,9 +599,6 @@ if 'current_subpage' not in st.session_state:
 if 'show_tools_submenu' not in st.session_state:
     st.session_state.show_tools_submenu = False
 
-# This was 'tools_trade_journal' in Code B, but Code A uses 'trade_journal'
-# It's now handled by the journal_schema setup directly, so no need for 'if' here.
-# But keeping any other journal-like states initialized empty if not used elsewhere explicitly.
 if "temp_journal" not in st.session_state:
     st.session_state.temp_journal = None
 
@@ -870,10 +834,6 @@ elif st.session_state.current_page == 'trading_journal': # RENAMED HERE
     st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
 
-    # --- CHARTING AREA (REMOVED - per request: "remove tradingview widget and save, load buttons") ---
-    # The Code A's 'pairs_map' and all the 'tv_html' and `st.components.v1.html(tv_html, height=560)` are REMOVED.
-    # Also, any save/load buttons for drawings specific to the chart are REMOVED from this section.
-
     # =========================================================
     # TRADING JOURNAL TABS (FROM CODE A)
     # =========================================================
@@ -947,53 +907,96 @@ elif st.session_state.current_page == 'trading_journal': # RENAMED HERE
                     if stop_loss == 0.0 or entry_price == 0.0: # Cannot calculate RR or reliable PnL without proper prices
                         st.error("Entry Price and Stop Loss must be greater than 0 to calculate PnL/RR automatically.")
                         st.stop() # Prevent form submission
+                    
+                    risk_per_unit = abs(entry_price - stop_loss) # Calculate actual risk in price units
 
-                    # Define multipliers for lot size (1 lot = 100,000 units usually) and pip value.
-                    # This is a generic estimation; actual values depend on the pair and account currency.
-                    # Assuming a base account currency (e.g., USD) for PnL
+                    # Define pip_size based on symbol
                     pip_size_for_pair = 0.0001 # Default for most pairs
                     if "JPY" in symbol.upper():
                         pip_size_for_pair = 0.01
 
-                    # Crude Pip Value calculation (highly dependent on quote currency, can be improved)
-                    # For simplicity: assuming 1 lot value is roughly 10 USD per pip for non-JPY, 1000 JPY per pip for JPY
-                    # For accuracy, you'd need live exchange rates for conversion.
-                    if "JPY" in symbol.upper(): # E.g., USD/JPY - if JPY is quote, pip value is USD amount per pip
-                        pip_value_per_lot = 1000 # Example: 1000 JPY/pip, then converted to USD later for PnL. Or more simply directly use dollar per pip = $10 / (USD/JPY rate)
-                        # To be more realistic for PnL in USD, for JPY pairs (e.g., USDJPY, GBPJPY):
-                        # Pips = (exit - entry) / pip_size
-                        # For USDJPY, PnL = pips * (1 USD / (current USDJPY rate)) * Lot_size_units (100000)
-                        # We need an "implied" USD equivalent for PnL and RR in USD terms.
-                        # Simplification for PnL, for USD denominated account:
-                        # (change in points * (Lot Size / value of point in quote) ) * quote to USD rate
-                        if symbol.upper() == 'USD/JPY': # Assuming PnL in USD
-                            # Simplified, rough USD/JPY pips calc, value of one standard lot (100k) 1000 JPY/pip.
-                            # Converted to USD: 1000 JPY / JPY/USD rate (which is 1 / USD/JPY rate) => 1000 * (USD/JPY rate). Approx $10/pip.
-                            # Change in value in JPY terms
-                            # Example for rough estimate
-                            final_pnl = ((final_exit - entry_price) * lots * 100) if direction == "Long" else ((entry_price - final_exit) * lots * 100) # Times 100 for crude $ PnL per pip on 0.01 pips, if 1 lot=$10
-                            final_pnl *= (final_exit + entry_price)/2 / (100 * pip_size_for_pair) # Correction attempt using price average. Very simplified.
+                    # Simplified PnL calculation in account currency (assuming USD base here for simplicity)
+                    price_diff_pips = (final_exit - entry_price) / pip_size_for_pair
+                    
+                    # Approximating pip value in USD. This is highly simplified and depends on the specific pair.
+                    # For non-JPY pairs: typically $10 per standard lot (100,000 units) per pip.
+                    # For JPY pairs (like USD/JPY): often approx. $7-$10 per standard lot per pip (varies with current USD/JPY rate)
+                    if "JPY" in symbol.upper():
+                        # A rough fixed USD pip value for JPY pairs
+                        pip_value_usd_per_lot = 8 # $8 per pip for a standard lot is a common rough estimate for JPY pairs
+                    else:
+                        pip_value_usd_per_lot = 10 # $10 per pip for a standard lot for non-JPY pairs
 
-                        else: # JPY as counter like EUR/JPY
-                             final_pnl = ((final_exit - entry_price) * lots * 100) if direction == "Long" else ((entry_price - final_exit) * lots * 100)
-                             final_pnl *= 0.007 # A very crude conversion from JPY to USD
-                    else: # Non-JPY pairs like EUR/USD
-                        pip_value_per_lot = 10 # Assuming roughly $10/pip for standard lot in USD terms
-                        final_pnl = ((final_exit - entry_price) * pip_multiplier * lots * pip_value_per_lot / 10000) if direction == "Long" else ((entry_price - final_exit) * pip_multiplier * lots * pip_value_per_lot / 10000)
+                    # Convert lots to 'standard lots' multiplier for PnL calculation
+                    lot_size_multiplier = lots / 1 # If lot size is already in standard lots, this is 1. If micro, 0.01 etc.
+                                                # For direct PnL formula with actual lots, 1 standard lot = 100,000 units.
+                                                # so lot_size (0.1 for mini lot) * 10,000 unit-equivalent per lot
+                    
+                    # Calculate PnL in USD based on assumed pip value
+                    pips_realized = (final_exit - entry_price) / pip_size_for_pair # Points for normal pairs, actual value for JPY in this definition
+                    
+                    if direction == "Long":
+                        final_pnl = pips_realized * (pip_size_for_pair * (100000 / pip_size_for_pair)) * lots * pip_value_usd_per_lot / 100000
+                    else: # Short
+                        final_pnl = -pips_realized * (pip_size_for_pair * (100000 / pip_size_for_pair)) * lots * pip_value_usd_per_lot / 100000
+                    
+                    # Simplify the final_pnl for clarity assuming pip_value_usd_per_lot already accounts for lot size units
+                    # For a cleaner and more direct PnL calculation:
+                    # A single pip movement for 1 standard lot for EUR/USD (1.0000 to 1.0001) means $10.
+                    # Price change * units (100,000 for standard lot, or lots * 100,000)
+                    if "JPY" in symbol.upper():
+                        # For JPY pairs (e.g., USDJPY), 1 pip (0.01 move). If USD base, this is 1/USDJPY rate * 100000 * 0.01 per lot.
+                        # Approx $10/pip for standard lot with 100,000 units
+                        if symbol.upper().endswith("JPY"): # like EUR/JPY or GBP/JPY
+                            current_rate_for_quote_to_usd = 0.007 # Crude example: 1 JPY = 0.007 USD
+                            final_pnl = (final_exit - entry_price) / pip_size_for_pair * lots * pip_value_usd_per_lot # Here pip_value_usd_per_lot could be e.g. $1 per JPY pip if 0.01 value is accounted
+                            final_pnl = (final_exit - entry_price) / pip_size_for_pair * lots * (current_rate_for_quote_to_usd * 100000 * pip_size_for_pair) if direction == "Long" else (entry_price - final_exit) / pip_size_for_pair * lots * (current_rate_for_quote_to_usd * 100000 * pip_size_for_pair)
 
+                        else: # like USD/JPY
+                            final_pnl = (final_exit - entry_price) / pip_size_for_pair * lots * pip_value_usd_per_lot if direction == "Long" else (entry_price - final_exit) / pip_size_for_pair * lots * pip_value_usd_per_lot
 
-                    # For RR calculation, it's about price difference, so relative units are fine.
+                    else: # Non-JPY pair (most common like EUR/USD, GBP/USD, AUD/USD, NZD/USD, USD/CAD)
+                         # e.g., if price moves 0.005 (50 pips) and lots=0.1 (1 mini lot, 10,000 units)
+                         # PnL = (price change) * units * conversion_factor (for 5th decimal vs 4th decimal for standard pairs)
+                         # Simple: PnL in USD = pips * (lots * 10) for 0.0001 pip values or for 5th decimal pairs = pips/10 * (lots * 10)
+                        pips_total = (final_exit - entry_price) / pip_size_for_pair
+                        final_pnl = pips_total * lots * pip_value_usd_per_lot / 10 if direction == "Long" else -pips_total * lots * pip_value_usd_per_lot / 10 # This assumes standard $10 per full lot/pip
+                        
+
+                    # Corrected simplified PnL in dollars for a typical USD account for majors (very simplified, actual logic more complex)
+                    points_moved = (final_exit - entry_price)
+                    if direction == "Long":
+                        final_pnl = points_moved * (100000 * lots) # Multiplied by contract size
+                    else: # Short
+                        final_pnl = -points_moved * (100000 * lots)
+                    
+                    # Convert to account currency approximation
+                    # Using assumed fixed rates (as current app has no API for this)
+                    if symbol.upper().endswith("JPY"):
+                        final_pnl /= (entry_price + final_exit) / 2 # Normalize JPY PnL by the exchange rate itself if quoting currency is JPY
+                    else:
+                        # For pairs like EUR/USD, if EUR is the quote (as it would be a conversion issue):
+                        # PnL will be in terms of counter currency. E.g., for EUR/USD, profit in USD. No direct conversion needed IF USD account.
+                        # If account currency is something else, this needs external conversion logic.
+
+                        pass # Default, assume PnL is in USD for major pairs or for non-JPY against USD
+
+                    
+                    # Final RR Calculation: This should be based on initial risk (distance to SL)
                     if risk_per_unit > 0.0:
-                        reward_amount = abs(final_exit - entry_price)
-                        final_rr = reward_amount / risk_per_unit
+                        reward_per_unit = abs(final_exit - entry_price)
+                        final_rr = reward_per_unit / risk_per_unit
+                        
+                        # Apply sign based on actual trade direction and outcome relative to entry
+                        if (direction == "Long" and final_exit < entry_price) or (direction == "Short" and final_exit > entry_price):
+                            final_rr *= -1 # If it's a loss, RR should be negative.
 
-                        # Adjust RR sign based on actual outcome relative to direction
-                        is_win = (direction == "Long" and final_exit > entry_price) or (direction == "Short" and final_exit < entry_price)
-                        if not is_win and final_exit != entry_price: # Not breakeven
-                             final_rr *= -1 # This implies a loss-making trade, even if a small one
+                        # Also consider if trade was breakeven (entry == final_exit)
+                        if final_exit == entry_price:
+                            final_rr = 0.0 # Breakeven is 0R
 
                     else:
-                        final_rr = 0.0
+                        final_rr = 0.0 # Cannot calculate if risk is zero.
 
 
                 else: # Manual PnL and RR inputs are used
@@ -1648,7 +1651,8 @@ elif st.session_state.current_page == 'mt5':
                         return {"current_win": current_win_streak, "best_win": best_win_streak,
                                 "current_loss": current_loss_streak, "best_loss": best_loss_streak}
 
-                    streaks = _ta_compute_streaks(daily_pnl_df_for_stats) # Use daily PnL for streaks
+                    # Ensure daily_pnl_df_for_stats is not empty when passed
+                    streaks = _ta_compute_streaks(daily_pnl_df_for_stats) 
                     longest_win_streak = streaks["best_win"]
                     longest_loss_streak = streaks["best_loss"]
 
@@ -2154,9 +2158,9 @@ elif st.session_state.current_page == 'strategy':
             if "logged_in_user" in st.session_state:
                 username = st.session_state.logged_in_user
                 try:
-                    user_data = get_user_data(username) # Use global helper
-                    user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
-                    save_user_data(username, user_data) # Use global helper
+                    # Update session_state.strategies before saving user data
+                    st.session_state.strategies = st.session_state.strategies.reset_index(drop=True) 
+                    save_user_data(username) # Call the global save function which takes from session state
                     st.success("Strategy saved to your account!")
                     logging.info(f"Strategy saved for {username}: {strategy_name}")
                 except Exception as e:
@@ -2178,9 +2182,7 @@ elif st.session_state.current_page == 'strategy':
                     if "logged_in_user" in st.session_state:
                         username = st.session_state.logged_in_user
                         try:
-                            user_data = get_user_data(username) # Use global helper
-                            user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
-                            save_user_data(username, user_data) # Use global helper
+                            save_user_data(username) # Call the global save function
                             st.success("Strategy deleted and account updated!")
                             logging.info(f"Strategy deleted for {username}")
                         except Exception as e:
@@ -2206,7 +2208,8 @@ elif st.session_state.current_page == 'strategy':
         mt5_temp['Symbol'] = mt5_df['Symbol']
         mt5_temp['Outcome'] = mt5_df['Profit'].apply(lambda x: 'Win' if x > 0 else ('Loss' if x < 0 else 'Breakeven'))
         # For 'RR', MT5 raw data usually doesn't have it. Will need to calculate or default.
-        mt5_temp['RR'] = mt5_df.apply(lambda row: row['Profit'] / abs(row['StopLoss']) if 'StopLoss' in mt5_df.columns and row['StopLoss'] != 0 else 0, axis=1) # Simplified RR calculation
+        # This RR calc is a placeholder, a full MT5 history often doesn't give R:R directly
+        mt5_temp['RR'] = mt5_df.apply(lambda row: row['Profit'] / abs(row['StopLoss']) if 'StopLoss' in mt5_df.columns and pd.notna(row['StopLoss']) and row['StopLoss'] != 0 else 0, axis=1)
 
         # Pad with empty columns to match journal_cols
         for col in journal_cols:
@@ -2225,8 +2228,6 @@ elif st.session_state.current_page == 'strategy':
         # Calculate expectancy, ensuring not to pass NaN to agg
         g = combined_df.dropna(subset=["r"]).groupby(group_cols)
 
-        # Simplified _ta_expectancy_by_group to work with Code A's definitions where possible
-        # This part requires robust functions from original Code B, which were not in provided snippet, re-creating minimal necessary
         res_data = []
         for name, group in g:
             wins_r = group[group['r'] > 0]['r']
@@ -2289,32 +2290,28 @@ elif st.session_state.current_page == 'account':
                         st.session_state.logged_in_user = username
                         user_data = json.loads(result[1]) if result[1] else {}
                         
-                        # --- FIX START: Ensure all session state keys are initialized ---
+                        # --- FIX START: Ensure all session state keys are initialized using 'trade_journal' ---
                         st.session_state.drawings = user_data.get("drawings", {})
 
-                        # Securely load tools_trade_journal
-                        if "tools_trade_journal" in user_data and user_data["tools_trade_journal"]:
-                            loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
+                        if "trade_journal" in user_data and user_data["trade_journal"]: # Corrected from tools_trade_journal
+                            loaded_df = pd.DataFrame(user_data["trade_journal"]) # Corrected from tools_trade_journal
                             for col in journal_cols:
                                 if col not in loaded_df.columns:
                                     loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                            st.session_state.trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore') # Corrected
                         else:
-                            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
 
-                        # Securely load strategies
                         if "strategies" in user_data and user_data["strategies"]:
                             st.session_state.strategies = pd.DataFrame(user_data["strategies"])
                         else:
                             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
 
-                        # Securely load emotion_log
                         if "emotion_log" in user_data and user_data["emotion_log"]:
                             st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
                         else:
                              st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
 
-                        # Securely load reflection_log
                         if "reflection_log" in user_data and user_data["reflection_log"]:
                             st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
                         else:
@@ -2356,14 +2353,15 @@ elif st.session_state.current_page == 'account':
                             st.error("Username already exists.")
                             logging.warning(f"Registration failed: Username {new_username} already exists")
                         else:
+                            # --- FIX START: Correct initial_data JSON and session_state assignment ---
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "tools_trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
+                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []}) # Corrected key
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
                                 st.session_state.drawings = {}
-                                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                                st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
                                 st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
                                 st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
                                 st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -2377,6 +2375,7 @@ elif st.session_state.current_page == 'account':
                             except Exception as e:
                                 st.error(f"Failed to create account: {str(e)}")
                                 logging.error(f"Registration error for {new_username}: {str(e)}")
+                            # --- FIX END ---
         # --------------------------
         # DEBUG TAB
         # --------------------------
@@ -2402,36 +2401,14 @@ elif st.session_state.current_page == 'account':
         # LOGGED-IN USER VIEW
         # --------------------------
         
-        def save_user_data(username):
-            user_data = {
-                "drawings": st.session_state.get("drawings", {}),
-                "tools_trade_journal": st.session_state.get("tools_trade_journal", pd.DataFrame()).to_dict('records'),
-                "strategies": st.session_state.get("strategies", pd.DataFrame()).to_dict('records'),
-                "emotion_log": st.session_state.get("emotion_log", pd.DataFrame()).to_dict('records'),
-                "reflection_log": st.session_state.get("reflection_log", pd.DataFrame()).to_dict('records'),
-                "xp": st.session_state.get("xp", 0),
-                "level": st.session_state.get("level", 0),
-                "badges": st.session_state.get("badges", []),
-                "streak": st.session_state.get("streak", 0),
-                "last_journal_date": st.session_state.get("last_journal_date", None)
-            }
-            user_data_json = json.dumps(user_data, default=str)
-            try:
-                c.execute("UPDATE users SET data = ? WHERE username = ?", (user_data_json, username))
-                conn.commit()
-                logging.info(f"Successfully saved data for user {username}")
-                return True
-            except Exception as e:
-                logging.error(f"Failed to save data for user {username}: {e}")
-                st.error("Could not save your progress. Please contact support.")
-                return False
+        # --- Using the GLOBAL save_user_data function now ---
         
         def handle_logout():
             if 'logged_in_user' in st.session_state:
-                save_user_data(st.session_state.logged_in_user)
+                save_user_data(st.session_state.logged_in_user) # Calls the global save_user_data
 
             user_session_keys = [
-                'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
+                'logged_in_user', 'drawings', 'trade_journal', 'strategies', # Corrected from tools_trade_journal
                 'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak'
             ]
             for key in user_session_keys:
@@ -2439,7 +2416,7 @@ elif st.session_state.current_page == 'account':
                     del st.session_state[key]
 
             st.session_state.drawings = {}
-            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
             st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -2518,7 +2495,8 @@ elif st.session_state.current_page == 'account':
                 insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
                 st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
                 
-                num_trades = len(st.session_state.tools_trade_journal)
+                # --- FIX: Changed to trade_journal ---
+                num_trades = len(st.session_state.trade_journal) 
                 if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
                 elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
                 else: next_milestone = "The next streak badge is at 30 days. You've got this!"
@@ -2534,7 +2512,7 @@ elif st.session_state.current_page == 'account':
         
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
         st.subheader("🚀 Your XP Journey")
-        journal_df = st.session_state.tools_trade_journal
+        journal_df = st.session_state.trade_journal # Corrected from tools_trade_journal
         if not journal_df.empty and 'Date' in journal_df.columns:
             journal_df['Date'] = pd.to_datetime(journal_df['Date'])
             xp_data = journal_df.sort_values(by='Date').copy()
@@ -2566,7 +2544,7 @@ elif st.session_state.current_page == 'account':
                     if current_rxp >= item_details['cost']:
                         xp_cost = item_details['cost'] * 2
                         st.session_state.xp -= xp_cost
-                        if save_user_data(st.session_state.logged_in_user):
+                        if save_user_data(st.session_state.logged_in_user): # Calls the global save_user_data
                             st.success(f"Successfully redeemed '{item_details['name']}'!")
                             time.sleep(1)
                             st.rerun()
@@ -2616,7 +2594,11 @@ elif st.session_state.current_page == 'community':
                         with open(image_path, "wb") as f:
                             f.write(uploaded_image.getbuffer())
                         idea_data["ImagePath"] = image_path
-                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                        # Ensuring session_state.trade_ideas is a DataFrame
+                        if 'trade_ideas' not in st.session_state or st.session_state.trade_ideas.empty:
+                            st.session_state.trade_ideas = pd.DataFrame([idea_data])
+                        else:
+                            st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
                         _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
                         st.success("Trade idea shared successfully!")
                         logging.info(f"Trade idea shared by {username}: {idea_id}")
@@ -2624,7 +2606,11 @@ elif st.session_state.current_page == 'community':
                         st.error(f"Failed to save image: {e}. Trade idea not saved.")
                         logging.error(f"Error saving image for trade idea: {e}")
                 else:
-                    st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                    # Ensuring session_state.trade_ideas is a DataFrame
+                    if 'trade_ideas' not in st.session_state or st.session_state.trade_ideas.empty:
+                            st.session_state.trade_ideas = pd.DataFrame([idea_data])
+                    else:
+                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
                     _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
                     st.success("Trade idea shared successfully!")
                     logging.info(f"Trade idea shared by {username}: {idea_id} (no image)")
@@ -2671,7 +2657,10 @@ elif st.session_state.current_page == 'community':
                     "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "ID": template_id
                 }
-                st.session_state.community_templates = pd.concat([st.session_state.community_templates, pd.DataFrame([template_data])], ignore_index=True)
+                if 'community_templates' not in st.session_state or st.session_state.community_templates.empty:
+                     st.session_state.community_templates = pd.DataFrame([template_data])
+                else:
+                    st.session_state.community_templates = pd.concat([st.session_state.community_templates, pd.DataFrame([template_data])], ignore_index=True)
                 _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
                 st.success("Template shared successfully!")
                 logging.info(f"Template shared by {username}: {template_id}")
@@ -2699,7 +2688,7 @@ elif st.session_state.current_page == 'community':
     leader_data = []
     for u, d in users:
         user_d = json.loads(d) if d else {}
-        trades = len(user_d.get("trade_journal", [])) # Changed from "tools_trade_journal"
+        trades = len(user_d.get("trade_journal", [])) # Corrected from "tools_trade_journal"
         leader_data.append({"Username": u, "Journaled Trades": trades})
     if leader_data:
         leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
@@ -2770,36 +2759,57 @@ elif st.session_state.current_page == 'tools':
             account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"], index=0, key="pl_account_currency")
             open_price = st.number_input("Open Price", value=1.1000, step=0.0001, format="%.5f", key="pl_open_price")
             trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction")
-        pip_multiplier = 100 if "JPY" in currency_pair else 10000
-        pip_movement = abs(close_price - open_price) * pip_multiplier
-        # The exchange rate and pip value calculation are placeholders and would need actual real-time data
-        # For simplicity and given the example, assuming a flat $10 per pip for non-JPY for a standard lot and approx $1 for JPY.
-        # This part requires a proper FX rate API for real accuracy for account_currency conversion
-        if "JPY" in currency_pair:
-            # Very crude approximation, assuming a USD account
-            pip_value_basis = 0.01 * (100000 / ( (open_price + close_price)/2) ) # Pip value for JPY in terms of base currency * 100k units
-            # Converting to USD: If USDJPY is 150, 1 pip (0.01 JPY) is 0.01/150 USD approx 0.000067 USD.
-            # 1 lot (100,000 units) * 0.000067 = 6.7 USD/pip for USDJPY (varies by current rate)
-            # Placeholder simplified conversion: assume for a lot, value is '10' for non-JPY. For JPY, assume average of $7 per pip per standard lot.
-            pip_dollar_value_per_lot = 7.0
-            # For general P/L cal, using price difference as 'points' and converting based on lot size and fixed multiplier
-            profit_loss = ( (close_price - open_price) if trade_direction == "Long" else (open_price - close_price) ) * (1 / pip_size_for_pair) * position_size * pip_dollar_value_per_lot
+        pip_multiplier = 10000 if "JPY" not in currency_pair else 100 # Adjusted pip multiplier logic
+        pip_size_for_pair_calc = 0.0001 if "JPY" not in currency_pair else 0.01 # Consistent pip size
 
-        else: # Non-JPY pair
-            # e.g., EUR/USD, if current EURUSD is 1.1, 1 pip (0.0001) means for 1 lot ($100,000 of base currency)
-            # You get 10 USD per pip * lot size
-            pip_dollar_value_per_lot = 10.0 # Standard approx. $10 per pip per lot
-            profit_loss = ( (close_price - open_price) if trade_direction == "Long" else (open_price - close_price) ) * pip_multiplier * position_size * (pip_dollar_value_per_lot / 10) # Div 10 because pip_multiplier for non-JPY is 10000
+        # Calculating pip movement directly
+        pip_movement = abs(close_price - open_price) / pip_size_for_pair_calc
+
+        # Simplified PnL calculation assuming pip_value_usd_per_lot for a 1 standard lot
+        # For a standard lot (100,000 units):
+        # For non-JPY pairs (e.g., EUR/USD): 1 pip (0.0001) is usually $10.
+        # For JPY pairs (e.g., USD/JPY): 1 pip (0.01) varies, but often around $8-$10 (can be averaged to $7 as in example)
         
-        # Apply conversion if account currency is not USD, very rough, uses flat exchange rate as placeholder
-        # Actual impl. would need `api.exchangerate.host` to get current rates.
-        if account_currency == "EUR": profit_loss /= 1.08 # Example rate
-        elif account_currency == "GBP": profit_loss /= 1.25 # Example rate
-        elif account_currency == "JPY": profit_loss /= 0.0067 # Example rate (for converting USD PnL to JPY PnL)
+        # Determine base pip value in USD per 1 standard lot (100,000 units)
+        pip_value_usd_per_standard_lot = 10.0 # Default for most USD-quoted pairs (0.0001 pip)
+        if "JPY" in currency_pair:
+            # If the base currency is USD, the pip value calculation is simpler: 100,000 units * 0.01 pip / current_rate
+            # E.g., for USDJPY, if rate is 150, (100,000 * 0.01)/150 = 6.66 USD.
+            # Sticking with a rough approximation like the example:
+            pip_value_usd_per_standard_lot = 7.0 # Approx. USD pip value for JPY pairs per standard lot
+
+        # Calculate PnL based on points moved and per-unit value
+        if trade_direction == "Long":
+            # For EUR/USD, EURGBP, etc.: (Close - Open) * (Contract Size) * conversion (if any)
+            # Example: 1 mini lot (0.1 standard lot) = 10,000 units.
+            # PnL = (price change * 10,000 units for mini lot) in terms of Quote Currency.
+            # Then if Quote is not Account Currency, conversion is needed.
+            profit_loss = (close_price - open_price) * (100000 * position_size) 
+        else: # Short
+            profit_loss = (open_price - close_price) * (100000 * position_size)
+
+        # Apply a conversion if the calculated PnL (implicitly in Quote Currency for most cases or Base Currency if JPY related)
+        # needs to be explicitly converted to Account Currency
+        # This is a very rough estimate without an actual real-time FX rate API
+        if account_currency == "EUR":
+            # Assuming calculated PnL is in USD, convert to EUR.
+            # A fixed, simplified rate for demonstration: 1 USD = 0.92 EUR (1/1.08)
+            profit_loss *= 0.92
+        elif account_currency == "GBP":
+            # Assuming calculated PnL is in USD, convert to GBP.
+            # A fixed, simplified rate for demonstration: 1 USD = 0.8 GBP (1/1.25)
+            profit_loss *= 0.8
+        elif account_currency == "JPY":
+            # Assuming calculated PnL is in USD, convert to JPY.
+            # A fixed, simplified rate for demonstration: 1 USD = 150 JPY
+            profit_loss *= 150 
+        # If account_currency is USD, no explicit conversion from USD PnL.
 
 
         st.write(f"Pip Movement: {pip_movement:.2f} pips")
-        st.write(f"Estimated Value Per Pip: {pip_dollar_value_per_lot * position_size:.2f} {account_currency}") # Display lot adjusted pip value
+        # For display, estimate total pip value for *current* position size
+        total_pip_value_for_position = (pip_value_usd_per_standard_lot / 1) * position_size # Adjust for position size vs 1 standard lot
+        st.write(f"Estimated Value Per Pip: {total_pip_value_for_position:.2f} {account_currency} (for {position_size:.2f} lots)")
         st.write(f"Potential Profit/Loss: {profit_loss:.2f} {account_currency}")
     # --------------------------
     # PRICE ALERTS
@@ -3016,43 +3026,43 @@ elif st.session_state.current_page == 'tools':
         current_journal_df = st.session_state.trade_journal.copy()
 
         # Rename relevant columns from Code A's journal to match potential 'session' concept from Code B or derive.
-        # This part requires some inference of "session" for Code A's journal. We don't have direct session in Code A
-        # For this demo, let's create a dummy session or assume for a simplified integration from 'Date'.
-        # For simplicity, assign based on time of day in a simplified way, this isn't true "session" but can simulate
         def assign_session(timestamp):
             if pd.isna(timestamp):
                 return 'Unknown'
             hour = timestamp.hour
-            if 0 <= hour < 9: return 'Tokyo'
-            if 8 <= hour < 17: return 'London' # Overlaps slightly with Tokyo in the start
-            if 13 <= hour < 22: return 'New York' # Overlaps with London
-            return 'Sydney' # Roughly from 22-7 UTC for previous day's end/new day's start
+            # These are UTC hours based on general understanding of sessions, may need precise adjustments for daylight savings etc.
+            if 0 <= hour < 9: return 'Tokyo' # approx 8am JST = 11pm UTC -> 0am-9am UTC approx for Tokyo session
+            if 8 <= hour < 17: return 'London' # approx 8am BST/GMT -> 8am-5pm UTC approx for London session
+            if 13 <= hour < 22: return 'New York' # approx 8am EST/EDT -> 1pm-10pm UTC approx for New York session
+            return 'Sydney' # approx 7am AEST/AEDT -> 10pm UTC -> 10pm-7am UTC approx for Sydney session
 
         if not current_journal_df.empty:
-            current_journal_df['datetime'] = pd.to_datetime(current_journal_df['Date'])
+            current_journal_df['datetime'] = pd.to_datetime(current_journal_df['Date'], errors='coerce')
             current_journal_df['r'] = pd.to_numeric(current_journal_df['RR'], errors='coerce')
             current_journal_df['session'] = current_journal_df['datetime'].apply(assign_session) # Assign a session based on 'Date' field from Code A
+            current_journal_df = current_journal_df.dropna(subset=['datetime', 'r'])
+
 
         # If MT5 data exists, convert its columns and combine
         if not mt5_df.empty:
             mt5_for_sessions = mt5_df.copy()
-            mt5_for_sessions['datetime'] = pd.to_datetime(mt5_for_sessions['Close Time'])
-            mt5_for_sessions['r'] = mt5_for_sessions['Profit'] # For expectancy calculation
+            mt5_for_sessions['datetime'] = pd.to_datetime(mt5_for_sessions['Close Time'], errors='coerce')
+            mt5_for_sessions['r'] = pd.to_numeric(mt5_for_sessions['Profit'], errors='coerce') # For expectancy calculation
             mt5_for_sessions['session'] = mt5_for_sessions['datetime'].apply(assign_session) # Apply session logic
+            mt5_for_sessions = mt5_for_sessions.dropna(subset=['datetime', 'r'])
             
             # Select common columns and concatenate
             cols_to_combine = ['datetime', 'r', 'session']
-            if 'Symbol' in current_journal_df.columns:
-                mt5_for_sessions['Symbol'] = mt5_for_sessions['Symbol'] # Use MT5 Symbol
+            if 'Symbol' in current_journal_df.columns and 'Symbol' in mt5_for_sessions.columns:
                 cols_to_combine.append('Symbol')
             
-            # Only use columns that exist in both for concatenation without issues, then add others if needed
-            filtered_journal = current_journal_df[[col for col in cols_to_combine if col in current_journal_df.columns]].dropna(subset=['r', 'datetime'])
-            filtered_mt5 = mt5_for_sessions[[col for col in cols_to_combine if col in mt5_for_sessions.columns]].dropna(subset=['r', 'datetime'])
+            # Filter DataFrames to only contain `cols_to_combine` before concatenating
+            filtered_journal = current_journal_df[current_journal_df.columns.intersection(cols_to_combine)]
+            filtered_mt5 = mt5_for_sessions[mt5_for_sessions.columns.intersection(cols_to_combine)]
 
             df_sessions_combined = pd.concat([filtered_journal, filtered_mt5], ignore_index=True)
         else:
-            df_sessions_combined = current_journal_df[['datetime', 'r', 'session']].dropna(subset=['r', 'datetime'])
+            df_sessions_combined = current_journal_df[current_journal_df.columns.intersection(['datetime', 'r', 'session'])]
 
 
         if not df_sessions_combined.empty and 'session' in df_sessions_combined.columns and not df_sessions_combined['r'].isnull().all():
@@ -3101,14 +3111,15 @@ elif st.session_state.current_page == 'tools':
                 # Calculate time until open
                 if local_hour < start:
                     time_diff_hours = start - local_hour
-                else: # local_hour > end
+                else: # local_hour > end (next day logic)
                     time_diff_hours = (24 - local_hour) + start
                 time_until_label = "Opens in"
             else:
                 # Calculate time until close
                 if local_hour < end:
                     time_diff_hours = end - local_hour
-                else: # Should not happen if is_open is true
+                else: # this shouldn't be reached if is_open is true unless session wraps midnight.
+                    # if a session like (22, 7) means start is late, end is early next day
                     pass
                 time_until_label = "Closes in"
 
@@ -3159,7 +3170,7 @@ elif st.session_state.current_page == 'tools':
             trades_needed = float('inf') # Impossible recovery
         elif drawdown_pct >= 1.0: # 100% drawdown or more, technically impossible to recover to original state purely on percentage basis
              trades_needed = float('inf')
-        elif 1 / (1 - drawdown_pct) <= 0 : # Defensive check
+        elif (1 - drawdown_pct) <= 0 : # Defensive check
             trades_needed = float('inf')
         elif (1 + risk_per_trade * expectancy_sim) == 1.0: # No growth if expectancy is 0, or 0 risk, etc.
              trades_needed = float('inf')
@@ -3167,8 +3178,13 @@ elif st.session_state.current_page == 'tools':
             trades_needed = float('inf')
         else:
             try:
-                # More accurate log calculation for trades needed
-                numerator = math.log(initial_equity / (initial_equity * (1 - drawdown_pct))) # Log of the recovery multiplier
+                # The target multiplier is 1 / (1 - drawdown_pct) to reach back to original equity
+                target_multiplier = 1 / (1 - drawdown_pct)
+                # (1 + R*E) ^ N_trades = target_multiplier
+                # N_trades * log(1 + R*E) = log(target_multiplier)
+                # N_trades = log(target_multiplier) / log(1 + R*E)
+                
+                numerator = math.log(target_multiplier) 
                 denominator = math.log(1 + risk_per_trade * expectancy_sim)
                 trades_needed = math.ceil(numerator / denominator) if denominator != 0 else float('inf')
 
@@ -3180,13 +3196,11 @@ elif st.session_state.current_page == 'tools':
         sim_equity = [initial_equity * (1 - drawdown_pct)]
         if trades_needed != float('inf') :
             for _ in range(min(trades_needed + 10, 100)): # Limit max trades to prevent excessively long simulations
-                if (1 + risk_per_trade * expectancy_sim) > 0:
+                if len(sim_equity) > 0 and (1 + risk_per_trade * expectancy_sim) > 0: # Check the last equity value before multiplying
                     sim_equity.append(sim_equity[-1] * (1 + risk_per_trade * expectancy_sim))
                 else:
-                    # If factor drops to zero or negative, equity becomes zero
-                    sim_equity.append(0.0) # Or previous low if only positive factor allowed
-                    break # Stop further growth
-
+                    sim_equity.append(0.0)
+                    break 
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=list(range(len(sim_equity))), y=sim_equity, mode='lines', name='Equity'))
@@ -3256,9 +3270,7 @@ elif st.session_state.current_page == 'tools':
                 if "logged_in_user" in st.session_state:
                     username = st.session_state.logged_in_user
                     try:
-                        user_data = get_user_data(username) # Use global helper
-                        user_data["reflection_log"] = st.session_state.reflection_log.to_dict(orient="records")
-                        save_user_data(username, user_data) # Use global helper
+                        save_user_data(username) # Call the global save_user_data
                     except Exception as e:
                         logging.error(f"Error saving reflection: {str(e)}")
                 st.success("Reflection logged!")
@@ -3305,15 +3317,13 @@ elif st.session_state.current_page == "Zenvo Academy":
                         if "Forex Fundamentals" not in completed_courses:
                             completed_courses.append("Forex Fundamentals")
                             user_data['completed_courses'] = completed_courses
-                            save_user_data(username, user_data)
-                            ta_update_xp(username, 100) # Award XP
+                            # Don't directly save user_data here, call global save_user_data to ensure session_state update
+                            save_user_data(username) # This should reflect user_data in session state (if updated by ta_update_xp logic)
+                            ta_update_xp(username, 100) # Award XP, and this updates and saves via global save_user_data
                 
-                # Assume a 'forex_fundamentals_progress' in session state is maintained externally for visual
                 if 'forex_fundamentals_progress' not in st.session_state:
-                    # Initialize progress, possibly loading from user data later
                     st.session_state.forex_fundamentals_progress = 0
 
-                # Example of linking progress to XP, very simplified.
                 st.progress(st.session_state.forex_fundamentals_progress)
 
 
@@ -3343,8 +3353,9 @@ elif st.session_state.current_page == "Zenvo Academy":
                             if "Technical Analysis 101" not in completed_courses:
                                 completed_courses.append("Technical Analysis 101")
                                 user_data['completed_courses'] = completed_courses
-                                save_user_data(username, user_data)
-                                ta_update_xp(username, 150) # Award XP
+                                # Don't directly save user_data here, call global save_user_data to ensure session_state update
+                                save_user_data(username) # This should reflect user_data in session state
+                                ta_update_xp(username, 150) # Award XP, and this updates and saves via global save_user_data
 
 
     with tab2:
@@ -3386,11 +3397,10 @@ elif st.session_state.current_page == "Zenvo Academy":
 
     if st.button("Log Out", key="logout_academy_page"):
         if 'logged_in_user' in st.session_state:
-            del st.session_state.logged_in_user
-        
-        # Clear/reset all session states relevant to a logged-in user
+            save_user_data(st.session_state.logged_in_user) # Save final data before logout
+
         user_session_keys_to_reset = [
-            'drawings', 'trade_journal', 'strategies',
+            'logged_in_user', 'drawings', 'trade_journal', 'strategies', # Corrected from tools_trade_journal
             'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak',
             'last_journal_date', 'selected_calendar_month', 'forex_fundamentals_progress',
             'current_subpage', 'show_tools_submenu'
@@ -3401,7 +3411,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         
         # Re-initialize to default empty structures
         st.session_state.drawings = {}
-        st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Corrected
         st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
         st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -3410,9 +3420,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         st.session_state.badges = []
         st.session_state.streak = 0
         
-        # The academy page doesn't have a concept of 'completed_courses' in session_state, but in DB
-        # If it was in session_state for faster access, clear it too.
-        if 'completed_courses' in st.session_state:
+        if 'completed_courses' in st.session_state: # Clear if this was ever put into session_state for Academy
             del st.session_state['completed_courses']
         
 
