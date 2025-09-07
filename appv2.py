@@ -2538,7 +2538,7 @@ elif st.session_state.current_page == 'account':
                 ten_trades_badge_displayed = False
                 if "Ten Trades Novice" in badges_earned_list:
                     # Display the image badge first
-                    st.image("Badges/10 logged trades.jpeg", caption="Ten Trades Novice", width=100) # Adjust width as needed
+                    st.image("Badges/10 logged trades.png", caption="Ten Trades Novice", width=100) # Adjust width as needed
                     ten_trades_badge_displayed = True
                 
                 # Now display other badges (or all if you want text + image)
