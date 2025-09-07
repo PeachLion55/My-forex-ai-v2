@@ -2532,9 +2532,22 @@ elif st.session_state.current_page == 'account':
 
             with badge_sub_col:
                 st.markdown("<h6>🏆 Badges Earned</h6>", unsafe_allow_html=True)
-                badges = st.session_state.get('badges', [])
-                if badges:
-                    for badge in badges: st.markdown(f"- 🏅 {badge}")
+                badges_earned_list = st.session_state.get('badges', []) # Get the list of badge names
+
+                # Check if the "Ten Trades Novice" badge has been earned
+                ten_trades_badge_displayed = False
+                if "Ten Trades Novice" in badges_earned_list:
+                    # Display the image badge first
+                    st.image("Badges/10 logged trades.jpeg", caption="Ten Trades Novice", width=100) # Adjust width as needed
+                    ten_trades_badge_displayed = True
+                
+                # Now display other badges (or all if you want text + image)
+                if badges_earned_list:
+                    for badge_name in badges_earned_list:
+                        # Only display as bullet point if it's not the 'Ten Trades Novice' badge,
+                        # or if you chose not to display the image for it.
+                        if not ten_trades_badge_displayed or (badge_name != "Ten Trades Novice"):
+                            st.markdown(f"- 🏅 {badge_name}")
                 else:
                     st.info("No badges earned yet. Keep trading to unlock them!")
         
