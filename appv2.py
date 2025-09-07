@@ -2270,6 +2270,7 @@ elif st.session_state.current_page == 'account':
         """
     )
     st.write('---')
+    # This block displays login/signup/debug tabs IF NO USER IS LOGGED IN.
     if "logged_in_user" not in st.session_state:
         # Tabs for Sign In and Sign Up
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
@@ -2292,7 +2293,6 @@ elif st.session_state.current_page == 'account':
                         
                         st.session_state.drawings = user_data.get("drawings", {})
 
-                        # Securely load trade_journal
                         if "trade_journal" in user_data and user_data["trade_journal"]:
                             loaded_df = pd.DataFrame(user_data["trade_journal"])
                             for col in journal_cols:
@@ -2302,19 +2302,16 @@ elif st.session_state.current_page == 'account':
                         else:
                             st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
 
-                        # Securely load strategies
                         if "strategies" in user_data and user_data["strategies"]:
                             st.session_state.strategies = pd.DataFrame(user_data["strategies"])
                         else:
                             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
 
-                        # Securely load emotion_log
                         if "emotion_log" in user_data and user_data["emotion_log"]:
                             st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
                         else:
                              st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
 
-                        # Securely load reflection_log
                         if "reflection_log" in user_data and user_data["reflection_log"]:
                             st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
                         else:
@@ -2396,31 +2393,42 @@ elif st.session_state.current_page == 'account':
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
                 logging.error(f"Debug error: {str(e)}")
-    else:
+    else: # This block displays when a user IS logged in.
         # --------------------------
         # LOGGED-IN USER VIEW
         # --------------------------
         
-        # NOTE: The global `save_user_data` and `handle_logout` functions are assumed to be defined earlier in the script.
-        
         def handle_logout():
             """
-            Clears all user-specific data from the session state upon logout.
+            Clears all user-specific data from the session state upon logout,
+            and persists current session data to the database before clearing.
             """
             if 'logged_in_user' in st.session_state:
-                save_user_data(st.session_state.logged_in_user) # Calls the global save_user_data to persist changes
+                save_user_data(st.session_state.logged_in_user) # Persist user data before clearing
 
+            # List all user-specific keys to be removed from session state
             user_session_keys_to_clear = [
                 'logged_in_user', 'drawings', 'trade_journal', 'strategies',
                 'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak',
                 'last_journal_date'
             ]
+            # Ensure proper handling for mt5_df which is not loaded on login, but uploaded
+            if 'mt5_df' in st.session_state:
+                user_session_keys_to_clear.append('mt5_df') 
+            if 'selected_calendar_month' in st.session_state:
+                 user_session_keys_to_clear.append('selected_calendar_month')
+            # For Academy progress if stored directly in session_state, add it here too
+            if 'forex_fundamentals_progress' in st.session_state:
+                user_session_keys_to_clear.append('forex_fundamentals_progress')
+            
             for key in user_session_keys_to_clear:
                 if key in st.session_state:
                     del st.session_state[key]
             
-            # Re-initialize core data structures to their empty state, if needed by other parts of the app that don't check for 'logged_in_user'
-            # (though good practice is to only access these if logged in)
+            # As a safeguard for code that might rely on these always existing,
+            # re-initialize to empty DataFrames/structures (if the app logic needs them to exist for non-logged-in views).
+            # If your app purely hides components based on 'logged_in_user', these re-initializations might be optional
+            # but provide robustness.
             st.session_state.drawings = {}
             st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Date Added"])
@@ -2430,10 +2438,11 @@ elif st.session_state.current_page == 'account':
             st.session_state.level = 0
             st.session_state.badges = []
             st.session_state.streak = 0
-
-
-            logging.info("User logged out successfully")
-            st.session_state.current_page = "account" # Directs to the account page (login/signup tabs) after logout
+            
+            logging.info("User logged out successfully.")
+            # Important: Rerun after deleting 'logged_in_user' so Streamlit re-evaluates the page logic
+            # and shows the sign-in/sign-up tabs.
+            st.session_state.current_page = "account" # Explicitly navigate to the account page.
             st.rerun()
 
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
@@ -2550,7 +2559,7 @@ elif st.session_state.current_page == 'account':
                     if current_rxp >= item_details['cost']:
                         xp_cost = item_details['cost'] * 2
                         st.session_state.xp -= xp_cost
-                        if save_user_data(st.session_state.logged_in_user): # Calls the global save_user_data
+                        if save_user_data(st.session_state.logged_in_user):
                             st.success(f"Successfully redeemed '{item_details['name']}'!")
                             time.sleep(1)
                             st.rerun()
