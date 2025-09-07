@@ -19,7 +19,6 @@ import math
 import uuid
 import glob
 import time
-#import scipy.stats # Uncomment if scipy is actually used
 from PIL import Image
 import io
 import base64
@@ -32,43 +31,47 @@ from datetime import datetime, date, timedelta
 st.markdown(
     """
     <style>
-    /* --- Global Horizontal Line Style --- */
+    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
+    .stApp {
+        /* Retain Code B's background styling, adding only text color */
+        background-color: #000000; /* black background */
+        color: #c9d1d9; /* Text color from Code A */
+        /* Code B gridline background */
+        background-image:
+        linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
+        background-size: 40px 40px;
+        background-attachment: fixed;
+    }
+
+    .block-container {
+        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
+    }
+
+    h1, h2, h3, h4 {
+        color: #c9d1d9 !important; /* From Code A */
+    }
+
+    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
     hr {
         margin-top: 1.5rem !important;
         margin-bottom: 1.5rem !important;
-        border-top: 1px solid #4d7171 !important; /* Code 2 default */
+        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
         border-bottom: none !important;
         background-color: transparent !important;
         height: 1px !important;
     }
 
-    /* Hide Streamlit branding (merged from Code 1 for comprehensive hiding) */
-    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; height: 0 !important; overflow: hidden !important; }
+    /* Hide Streamlit Branding (From Code A & B merged) */
+    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
 
-    /* Remove top padding and margins for main content */
+    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
     .css-18e3th9, .css-1d391kg {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-    }
-    /* Optional: reduce padding inside Streamlit containers */
-    .block-container {
-        /* Code 2's general padding, adjusted slightly to be less aggressive for overall layout */
-        padding-top: 1rem !important; 
-        padding-bottom: 1rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
     }
 
-    /* --- Main App Styling (merged from Code 1, preserving Code 2's background) --- */
-    .stApp {
-        /* Code 2's background: #000000 with grid - kept */
-        color: #c9d1d9; /* Code 1's text color for better readability in journal */
-    }
-    h1, h2, h3, h4 { /* Updated to include h4 for journal consistency */
-        color: #c9d1d9 !important; /* Code 1's header color */
-    }
-    
-    /* --- Metric Card Styling from Code 1 (for the new journal analytics) --- */
+    /* --- Metric Card Styling (from Code A) --- */
     [data-testid="stMetric"] {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -84,33 +87,30 @@ st.markdown(
         color: #8b949e;
     }
 
-    /* --- Tab Styling from Code 1 (for the new journal tabs, higher specificity) --- */
+    /* --- Tab Styling (from Code A, adapted) --- */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
-    /* Default tab styling */
     .stTabs [data-baseweb="tab"] {
         height: 48px;
         background-color: transparent;
-        border: 1px solid #30363d;
+        border: 1px solid #30363d; /* Adjusted border from Code A */
         border-radius: 8px;
         padding: 0 24px;
         transition: all 0.2s ease-in-out;
-        color: #c9d1d9 !important; /* Ensure text is visible for default state */
+        color: #c9d1d9; /* Default text color for tabs */
     }
-    /* Hover state for tabs */
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #161b22;
-        color: #58a6ff !important; /* Highlight color on hover */
+        color: #58a6ff;
     }
-    /* Selected tab state */
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
         background-color: #161b22;
-        border-color: #58a6ff; /* Border color for selected tab */
-        color: #c9d1d9 !important; /* Ensure text is visible for selected tab */
+        border-color: #58a6ff;
+        color: #c9d1d9; /* Active tab text color from Code A */
     }
 
-    /* --- Styling for Markdown in Trade Playbook from Code 1 --- */
+    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
     .trade-notes-display {
         background-color: #161b22;
         border-left: 4px solid #58a6ff;
@@ -121,198 +121,84 @@ st.markdown(
     .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
     .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
     </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# --- Gridline background settings --- 
-grid_color = "#58b3b1" # gridline color
-grid_opacity = 0.16 # 0.0 (transparent) to 1.0 (solid)
-grid_size = 40 # distance between gridlines in px
-
-# Convert HEX to RGB
-r = int(grid_color[1:3], 16)
-g = int(grid_color[3:5], 16)
-b = int(grid_color[5:7], 16)
-
-st.markdown(
-    f"""
-    <style>
-    .stApp {{
-        background-color: #000000; /* black background */
-        background-image:
-        linear-gradient(rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px),
-        linear-gradient(90deg, rgba({r}, {g}, {b}, {grid_opacity}) 1px, transparent 1px);
-        background-size: {grid_size}px {grid_size}px;
-        background-attachment: fixed;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
 
 # =========================================================
-# LOGGING SETUP
+# LOGGING & DATABASE SETUP (Merged Code A & B)
 # =========================================================
-logging.basicConfig(filename='debug.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Ensure Code A's logging config is used (INFO level is sufficient for general ops)
+logging.basicConfig(filename='debug.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Using Code B's DB_FILE "users.db" and structure for overall app consistency.
+# Code A's logic will be adapted to store journal in 'data' field.
+DB_FILE = "users.db"
+
+# Custom JSON encoder for handling datetime objects and NaNs (from Code A, as it's provided in prompt)
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (dt.datetime, dt.date)): return obj.isoformat()
+        # pandas NA and numpy NaN handling added for robustness from Code A
+        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)): return None
+        return super().default(obj)
+
+try:
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS community_data (key TEXT PRIMARY KEY, data TEXT)''') # From Code B
+    conn.commit()
+    logging.info("SQLite database initialized successfully")
+except Exception as e:
+    st.error("Fatal Error: Could not connect to the database.")
+    logging.critical(f"Failed to initialize SQLite database: {str(e)}", exc_info=True)
+    st.stop()
+
 
 # =========================================================
-# TA_PRO HELPER FUNCTIONS
+# HELPER & GAMIFICATION FUNCTIONS (Adapted from Code A and B)
 # =========================================================
+# Code B helper for logging info in case no-ops (kept, generally useful)
 def ta_safe_lower(s):
     return str(s).strip().lower().replace(" ", "")
 
+# Code A formatting functions (more specific) for general use
 def ta_human_pct(x, nd=1):
     if pd.isna(x):
         return "—"
     return f"{x*100:.{nd}f}%"
 
-def _ta_human_num(x, nd=2):
+def _ta_human_num(x, nd=2): # Code A's _ta_human_num (non-MT5 specific)
     if pd.isna(x):
         return "—"
     return f"{x:.{nd}f}"
 
-def _ta_user_dir(user_id="guest"):
-    root = os.path.join(os.path.dirname(__file__), "user_data")
-    os.makedirs(root, exist_ok=True)
-    d = os.path.join(root, user_id)
-    os.makedirs(d, exist_ok=True)
-    os.makedirs(os.path.join(d, "community_images"), exist_ok=True)
-    os.makedirs(os.path.join(d, "playbooks"), exist_ok=True)
-    return d
-
-def _ta_load_json(path, default):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-def _ta_save_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-def _ta_hash():
+def _ta_hash(): # from Code B
     return uuid.uuid4().hex[:12]
 
-def _ta_percent_gain_to_recover(drawdown_pct):
+def _ta_percent_gain_to_recover(drawdown_pct): # from Code B
     if drawdown_pct <= 0:
         return 0.0
     if drawdown_pct >= 0.99:
         return float("inf")
     return drawdown_pct / (1 - drawdown_pct)
 
-def _ta_expectancy_by_group(df, group_cols):
-    # Ensure 'r' column exists before trying to access it
-    if 'r' not in df.columns:
-        return pd.DataFrame() # Return empty if 'r' column is missing
-
-    g = df.dropna(subset=["r"]).groupby(group_cols)
-    if g.empty: # Check if groupby resulted in an empty object
-        return pd.DataFrame()
-
-    res = g["r"].agg(
-        trades="count",
-        winrate=lambda s: (s>0).mean(),
-        avg_win=lambda s: s[s>0].mean() if (s>0).any() else 0.0,
-        avg_loss=lambda s: -s[s<0].mean() if (s<0).any() else 0.0,
-        expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
-    ).reset_index()
-    return res
-
-def _ta_profit_factor(df):
-    if "pnl" not in df.columns:
-        return np.nan
-    gp = df.loc[df["pnl"]>0, "pnl"].sum()
-    gl = -df.loc[df["pnl"]<0, "pnl"].sum()
-    if gl == 0:
-        return np.nan if gp == 0 else float("inf")
-    return gp / gl
-
-# Code 1's get_user_data function, added to Code 2's helpers
+# User Data Management (Adapted from Code A to fit Code B's DB structure)
 def get_user_data(username):
     c.execute("SELECT data FROM users WHERE username = ?", (username,))
     result = c.fetchone()
     return json.loads(result[0]) if result and result[0] else {}
 
-# Original _ta_daily_pnl (for MT5, expects 'datetime' and 'pnl')
-def _ta_daily_pnl(df):
-    if "datetime" in df.columns and "pnl" in df.columns:
-        tmp = df.dropna(subset=["datetime"]).copy()
-        tmp["date"] = pd.to_datetime(tmp["datetime"]).dt.date
-        return tmp.groupby("date", as_index=False)["pnl"].sum()
-    return pd.DataFrame(columns=["date","pnl"])
-
-# New _ta_daily_pnl_journal for the updated journal schema (from code 1's logic, adapted for code 2's naming)
-def _ta_daily_pnl_journal(df):
-    if "Date" in df.columns and "PnL" in df.columns:
-        tmp = df.dropna(subset=["Date"]).copy()
-        tmp["date_only"] = pd.to_datetime(tmp["Date"]).dt.date
-        tmp["PnL"] = pd.to_numeric(tmp["PnL"], errors='coerce').fillna(0.0) # Ensure PnL is numeric
-        return tmp.groupby("date_only", as_index=False)["PnL"].sum()
-    return pd.DataFrame(columns=["date_only","PnL"]) # Return a dataframe matching the structure if empty
-
-def _ta_compute_streaks(df):
-    # This function is used in Code 2's gamification for 'streak'
-    # It relies on _ta_daily_pnl, which processes MT5-like data with 'datetime' and 'pnl'.
-    # For user journaling streak, `ta_update_streak` handles it directly.
-    # If this function was intended for the new journal, it would need modification or a separate call.
-    d = _ta_daily_pnl(df)
-    if d.empty:
-        return {"current": 0, "best": 0}
-    streak = 0
-    best = 0
-    for pnl in d["pnl"]:
-        if pnl > 0:
-            streak += 1
-            best = max(best, streak)
-        else:
-            streak = 0
-    return {"current": streak, "best": best}
-
-def _ta_save_journal(username, journal_df):
+def save_user_data(username, data):
     try:
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        user_data = json.loads(result[0]) if result else {}
-        user_data["tools_trade_journal"] = journal_df.replace({pd.NA: None, float('nan'): None}).to_dict('records')
-        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
+        json_data = json.dumps(data, cls=CustomJSONEncoder)
+        c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
         conn.commit()
-        logging.info(f"Journal saved for user {username}: {len(journal_df)} trades")
         return True
     except Exception as e:
-        logging.error(f"Failed to save journal for {username}: {str(e)}")
-        st.error(f"Failed to save journal: {str(e)}")
+        logging.error(f"Failed to save data for {username}: {e}", exc_info=True)
         return False
 
-# =========================================================
-# DATABASE & XP SYSTEM SETUP
-# =========================================================
-# Path to SQLite DB
-DB_FILE = "users.db"
-
-# XP notification system
-def show_xp_notification(xp_gained):
-    """
-    Show a visually appealing XP notification using Streamlit's native st.toast.
-    This will appear in the top-right corner.
-    """
-    # st.toast automatically handles top-right positioning and a default duration (~3 seconds).
-    st.toast(f"⭐ +{xp_gained} XP Earned!", icon="🎉")
-
-# Connect to SQLite with error handling
-try:
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, data TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS community_data (key TEXT PRIMARY KEY, data TEXT)''')
-    conn.commit()
-    logging.info("SQLite database initialized successfully")
-except Exception as e:
-    logging.error(f"Failed to initialize SQLite database: {str(e)}")
-    st.error(f"Database initialization failed: {str(e)}")
-
+# Community Data Management (from Code B)
 def _ta_load_community(key, default=[]):
     try:
         c.execute("SELECT data FROM community_data WHERE key = ?", (key,))
@@ -333,23 +219,248 @@ def _ta_save_community(key, data):
     except Exception as e:
         logging.error(f"Failed to save community data for {key}: {str(e)}")
 
-# Custom JSON encoder for handling datetime objects
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        # Handle datetime and date objects by returning ISO format.
-        if isinstance(obj, (dt.datetime, dt.date)):
-            return obj.isoformat()
-        # Handle Pandas NA values by returning None, ensuring JSON compatibility.
-        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)):
-            return None
-        return super().default(obj)
-# =========================================================
-# PAGE CONFIGURATION
-# =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide", initial_sidebar_state="collapsed") # Updated from Code 1
+# Trade Journal Save (Adapted from Code A to use get/save_user_data)
+def _ta_save_journal(username, journal_df):
+    user_data = get_user_data(username)
+    # The journal data will be stored under the key 'trade_journal'
+    user_data["trade_journal"] = journal_df.to_dict('records')
+    if save_user_data(username, user_data):
+        logging.info(f"Journal saved for user {username}: {len(journal_df)} trades")
+        return True
+    st.error("Failed to save journal.")
+    return False
+
+# XP notification system (from Code B)
+def show_xp_notification(xp_gained):
+    """Show a visually appealing XP notification"""
+    notification_html = f"""
+    <div id="xp-notification" style="
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #58b3b1, #4d7171);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(88, 179, 177, 0.3);
+        z-index: 9999;
+        animation: slideInRight 0.5s ease-out, fadeOut 0.5s ease-out 3s forwards;
+        font-weight: bold;
+        border: 2px solid #fff;
+        backdrop-filter: blur(10px);
+    ">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 24px;">⭐</div>
+            <div>
+                <div style="font-size: 16px;">+{xp_gained} XP Earned!</div>
+                <div style="font-size: 12px; opacity: 0.8;">Keep up the great work!</div>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes slideInRight {{
+            from {{ transform: translateX(100%); opacity: 0; }}
+            to {{ transform: translateX(0); opacity: 1; }}
+        }}
+        @keyframes fadeOut {{
+            from {{ opacity: 1; }}
+            to {{ opacity: 0; }}
+        }}
+    </style>
+    """
+    st.components.v1.html(notification_html, height=0)
+
+# XP Update (Adapted from Code A to integrate with Code B's XP notification)
+def ta_update_xp(username, amount): # from Code A
+    user_data = get_user_data(username)
+    user_data['xp'] = user_data.get('xp', 0) + amount
+    level = user_data['xp'] // 100 # From Code B's XP update logic for levelling
+    if level > user_data.get('level', 0):
+        user_data['level'] = level
+        user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
+        st.balloons()
+        st.success(f"Level up! You are now level {level}.")
+    save_user_data(username, user_data)
+    # The session state needs to be updated for other parts of the app
+    st.session_state.xp = user_data['xp']
+    st.session_state.level = user_data['level']
+    st.session_state.badges = user_data['badges']
+    show_xp_notification(amount) # Integrates Code B's notification system
+
+
+# Streak Update (Adapted from Code A, ensuring correct session state update)
+def ta_update_streak(username): # from Code A
+    user_data = get_user_data(username)
+    today = dt.date.today()
+    last_date_str = user_data.get('last_journal_date')
+    streak = user_data.get('streak', 0)
+
+    if last_date_str:
+        last_date = dt.date.fromisoformat(last_date_str)
+        if last_date == today: return # Already journaled today
+        if last_date == today - dt.timedelta(days=1): streak += 1
+        else: streak = 1 # Streak broken or new streak begins
+    else: streak = 1 # First time journaling or no previous streak
+        
+    user_data.update({'streak': streak, 'last_journal_date': today.isoformat()})
+    
+    # Badge for streak achievement (from Code B, adapted)
+    if streak % 7 == 0:
+        badge = f"{streak}-Day Streak"
+        if badge not in user_data.get('badges', []):
+            user_data['badges'] = user_data.get('badges', []) + [badge]
+            st.balloons()
+            st.success(f"Unlocked: {badge} Discipline Badge!")
+
+    save_user_data(username, user_data)
+    st.session_state.streak = streak # Update session state directly
+    st.session_state.badges = user_data['badges'] # Update session state badges
+
+
+# MOCK AUTHENTICATION & SESSION STATE SETUP (Code A, adapted slightly)
+# This mock is for initial setup, the full login in the account page will take precedence.
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = "pro_trader"
+    c.execute("SELECT username FROM users WHERE username = ?", (st.session_state.logged_in_user,))
+    if not c.fetchone():
+        hashed_password = hashlib.sha256("password".encode()).hexdigest()
+        # Initialize with Code A's trade_journal key and empty structures
+        initial_data = json.dumps({
+            'xp': 0, 'streak': 0, 'trade_journal': [], 'level': 0, 'badges': [],
+            'drawings': {}, 'strategies': [], 'emotion_log': [], 'reflection_log': []
+        })
+        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)",
+                  (st.session_state.logged_in_user, hashed_password, initial_data))
+        conn.commit()
 
 # =========================================================
-# CUSTOM SIDEBAR CSS
+# JOURNAL SCHEMA & ROBUST DATA MIGRATION (from Code A)
+# CLEANED UP SCHEMA with safe names for columns
+journal_cols = [
+    "TradeID", "Date", "Symbol", "Direction", "Outcome", "PnL", "RR",
+    "Strategy", "Tags", "EntryPrice", "StopLoss", "FinalExit", "Lots",
+    "EntryRationale", "TradeJournalNotes", "EntryScreenshot", "ExitScreenshot"
+]
+journal_dtypes = {
+    "TradeID": str, "Date": "datetime64[ns]", "Symbol": str, "Direction": str,
+    "Outcome": str, "PnL": float, "RR": float, "Strategy": str,
+    "Tags": str, "EntryPrice": float, "StopLoss": float, "FinalExit": float, "Lots": float,
+    "EntryRationale": str, "TradeJournalNotes": str,
+    "EntryScreenshot": str, "ExitScreenshot": str
+}
+
+if 'trade_journal' not in st.session_state:
+    user_data = get_user_data(st.session_state.logged_in_user)
+    journal_data = user_data.get("trade_journal", []) # Consistent with 'trade_journal' key
+    df = pd.DataFrame(journal_data)
+
+    # Safely migrate data to the new, safer schema
+    # Extended legacy_col_map to try and cover potential old Code B journal columns
+    legacy_col_map = {
+        "Trade ID": "TradeID", "Entry Price": "EntryPrice", "Stop Loss": "StopLoss",
+        "Final Exit": "FinalExit", "PnL ($)": "PnL", "R:R": "RR",
+        "Entry Rationale": "EntryRationale", "Trade Journal Notes": "TradeJournalNotes",
+        "Entry Screenshot": "EntryScreenshot", "Exit Screenshot": "ExitScreenshot",
+        # --- Potential mappings from Code B's older, different journal structure ---
+        "Date": "Date", # Date is already fine
+        "Weekly Bias": "Strategy",
+        "Daily Bias": "Strategy",
+        "4H Structure": "Strategy",
+        "1H Structure": "Strategy",
+        "Positive Correlated Pair & Bias": "EntryRationale", # Can merge with EntryRationale
+        "Potential Entry Points": "EntryRationale", # Can merge
+        "5min/15min Setup?": "EntryRationale", # Can merge
+        "Entry Conditions": "EntryRationale", # Can merge
+        "Planned R:R": "RR", # Can map to RR directly if numeric or extract
+        "News Filter": "EntryRationale",
+        "Alerts": "TradeJournalNotes", # Move to notes
+        "Concerns": "TradeJournalNotes", # Move to notes
+        "Emotions": "TradeJournalNotes", # Move to notes
+        "Confluence Score 1-7": "Strategy", # Could be part of strategy/rationale
+        "Outcome / R:R Realised": "Outcome", # Map Outcome and then parse RR if needed
+        "Notes/Journal": "TradeJournalNotes",
+        "Entry Price": "EntryPrice", # These are direct matches now but good to be explicit
+        "Stop Loss Price": "StopLoss",
+        "Take Profit Price": "FinalExit", # Map to FinalExit for A's schema
+        "Lots": "Lots",
+        "Tags": "Tags",
+        "Direction": "Direction", # Ensure this is also mapped
+        "Symbol": "Symbol" # Ensure this is also mapped
+    }
+
+    df.rename(columns=legacy_col_map, inplace=True)
+
+    # Clean up and ensure data types and consistent values
+    if 'Outcome' in df.columns:
+        def standardize_outcome(x):
+            if pd.isna(x):
+                return 'No Trade/Study'
+            x_str = str(x).lower().strip()
+            if 'win' in x_str:
+                return 'Win'
+            elif 'loss' in x_str:
+                return 'Loss'
+            elif 'breakeven' in x_str:
+                return 'Breakeven'
+            elif 'no trade' in x_str or x_str in ('0.0', 'nan', '', '0.0r'):
+                return 'No Trade/Study'
+            return x # return original if unable to parse (might be raw RR string like '1:2.5')
+
+        df['Outcome'] = df['Outcome'].apply(standardize_outcome)
+
+    if 'RR' in df.columns:
+        # Convert any '1:X.XX' strings to float, handling existing floats as-is
+        def parse_rr_to_float(x):
+            if isinstance(x, str) and ':' in x:
+                try:
+                    return float(x.split(':')[1])
+                except (ValueError, IndexError):
+                    return 0.0 # Default if parse fails
+            elif pd.isna(x):
+                return 0.0
+            return float(x) # Convert existing numbers (or NaN) to float
+
+        df['RR'] = df['RR'].apply(parse_rr_to_float)
+
+    # Convert PnL to float explicitly after potential merges and if it was incorrectly string formatted
+    if 'PnL' in df.columns:
+        df['PnL'] = pd.to_numeric(df['PnL'], errors='coerce').fillna(0.0)
+
+    # Ensure all new columns (from journal_cols) exist with appropriate default values
+    for col, dtype in journal_dtypes.items():
+        if col not in df.columns:
+            if dtype == str:
+                df[col] = ''
+            elif 'datetime' in str(dtype):
+                df[col] = pd.NaT
+            elif dtype == float:
+                df[col] = 0.0
+            else:
+                df[col] = None
+        else:
+            # Attempt to convert existing column to correct dtype
+            try:
+                df[col] = df[col].astype(dtype, errors='coerce')
+            except Exception as e:
+                logging.warning(f"Failed to cast column {col} to {dtype}: {e}")
+                if 'datetime' in str(dtype): df[col] = pd.to_datetime(df[col], errors='coerce')
+                elif dtype == float: df[col] = pd.to_numeric(df[col], errors='coerce')
+
+
+    st.session_state.trade_journal = df[journal_cols].astype(journal_dtypes, errors='ignore')
+    st.session_state.trade_journal['Date'] = pd.to_datetime(st.session_state.trade_journal['Date'], errors='coerce')
+    # Fill any remaining NaT in 'Date' with a default or drop for consistency
+    st.session_state.trade_journal['Date'] = st.session_state.trade_journal['Date'].fillna(pd.Timestamp.now().floor('D'))
+
+
+# =========================================================
+# PAGE CONFIGURATION (Code B global)
+# =========================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide") # From Code B
+
+
+# =========================================================
+# CUSTOM SIDEBAR CSS (Code B global)
 # =========================================================
 bg_opacity = 0.5
 st.markdown(
@@ -421,8 +532,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 # =========================================================
-# NEWS & ECONOMIC CALENDAR DATA / HELPERS
+# NEWS & ECONOMIC CALENDAR DATA / HELPERS (Code B global)
 # =========================================================
 def detect_currency(title: str) -> str:
     t = title.upper()
@@ -463,18 +575,18 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
     except Exception as e:
         logging.error(f"Failed to parse FXStreet RSS feed: {str(e)}")
         return pd.DataFrame(columns=["Date","Currency","Headline","Polarity","Impact","Summary","Link"])
-    
+
     rows = []
     for entry in getattr(feed, "entries", []):
         title = entry.title
         published = getattr(entry, "published", "")
-        date = published[:10] if published else ""
+        date_str = published[:10] if published else ""
         currency = detect_currency(title)
         polarity = TextBlob(title).sentiment.polarity
         impact = rate_impact(polarity)
         summary = getattr(entry, "summary", "")
         rows.append({
-            "Date": date,
+            "Date": date_str, # Keep as string for now
             "Currency": currency,
             "Headline": title,
             "Polarity": polarity,
@@ -482,7 +594,7 @@ def get_fxstreet_forex_news() -> pd.DataFrame:
             "Summary": summary,
             "Link": entry.link
         })
-    
+
     if rows:
         df = pd.DataFrame(rows)
         try:
@@ -508,246 +620,11 @@ econ_calendar_data = [
 econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
-# =========================================================
-# JOURNAL & DRAWING INITIALIZATION (UPDATED FROM CODE 1)
-# =========================================================
-# Initialize drawings in session_state
-if "drawings" not in st.session_state:
-    st.session_state.drawings = {}
-    logging.info("Initialized st.session_state.drawings")
-
-# Define journal columns and dtypes (UPDATED FROM CODE 1)
-journal_cols = [
-    "TradeID", "Date", "Symbol", "Direction", "Outcome", "PnL", "RR", 
-    "Strategy", "Tags", "EntryPrice", "StopLoss", "FinalExit", "Lots",
-    "EntryRationale", "TradeJournalNotes", "EntryScreenshot", "ExitScreenshot"
-]
-journal_dtypes = {
-    "TradeID": str, "Date": "datetime64[ns]", "Symbol": str, "Direction": str, 
-    "Outcome": str, "PnL": float, "RR": float, "Strategy": str, 
-    "Tags": str, "EntryPrice": float, "StopLoss": float, "FinalExit": float, "Lots": float,
-    "EntryRationale": str, "TradeJournalNotes": str, 
-    "EntryScreenshot": str, "ExitScreenshot": str
-}
-
-# Initialize trading journal with proper dtypes and robust data migration (UPDATED FROM CODE 1)
-if 'tools_trade_journal' not in st.session_state:
-    # Ensure logged_in_user is set for fetching data.
-    # If not logged in, attempt a mock login for initial setup (consistent with Code 1's mock behavior)
-    if 'logged_in_user' not in st.session_state:
-        st.session_state.logged_in_user = "pro_trader" 
-        try:
-            c.execute("SELECT username FROM users WHERE username = ?", (st.session_state.logged_in_user,))
-            if not c.fetchone():
-                hashed_password = hashlib.sha256("password".encode()).hexdigest()
-                initial_data_mock = json.dumps({'xp': 0, 'streak': 0, 'tools_trade_journal': []}) # Using tools_trade_journal key
-                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", 
-                          (st.session_state.logged_in_user, hashed_password, initial_data_mock))
-                conn.commit()
-                logging.info("Mock user 'pro_trader' created for initial journal setup.")
-        except Exception as e:
-            logging.error(f"Error initializing mock user for journal: {e}")
-            # st.warning("Could not initialize mock user for journal. Some features may not work.") # Commented to reduce noise
-
-    user_data = get_user_data(st.session_state.logged_in_user)
-    # Use 'tools_trade_journal' as the key to store journal data in user_data
-    journal_data = user_data.get("tools_trade_journal", []) 
-    df = pd.DataFrame(journal_data)
-    
-    # Safely migrate data to the new, safer schema from code 1
-    # This mapping covers common old columns from code 2's journal_cols
-    # and maps them to the new schema's generic columns.
-    legacy_col_map = {
-        "Trade ID": "TradeID", # From old code 1
-        "Entry Price": "EntryPrice", "Stop Loss Price": "StopLoss", # Old Code 2's column name
-        "Take Profit Price": "FinalExit", # Old Code 2's column name mapped to new FinalExit
-        "PnL ($)": "PnL", # From old code 1
-        "R:R": "RR", # From old code 1
-        "Entry Rationale": "EntryRationale", # From old code 1
-        "Trade Journal Notes": "TradeJournalNotes", # From old code 1
-        "Entry Screenshot": "EntryScreenshot", # From old code 1
-        "Exit Screenshot": "ExitScreenshot", # From old code 1
-        
-        # Mapping old code 2 specific columns to new generic ones for consolidation
-        "Weekly Bias": "Strategy", 
-        "Daily Bias": "Strategy", 
-        "4H Structure": "TradeJournalNotes_temp", # Use temp to avoid direct overwrite
-        "1H Structure": "TradeJournalNotes_temp",
-        "Positive Correlated Pair & Bias": "TradeJournalNotes_temp", 
-        "Potential Entry Points": "EntryRationale_temp", 
-        "5min/15min Setup?": "TradeJournalNotes_temp", 
-        "Entry Conditions": "EntryRationale_temp", 
-        "Planned R:R": "RR_temp", # Use temp for RR that will be calculated
-        "News Filter": "TradeJournalNotes_temp", 
-        "Alerts": "TradeJournalNotes_temp", 
-        "Concerns": "TradeJournalNotes_temp", 
-        "Emotions": "TradeJournalNotes_temp", 
-        "Confluence Score 1-7": "TradeJournalNotes_temp", 
-        "Outcome / R:R Realised": "Outcome_temp" # Use temp for Outcome that needs parsing
-    }
-    df.rename(columns=legacy_col_map, inplace=True)
-
-    # Process and consolidate 'Outcome / R:R Realised' -> 'Outcome' and 'RR'
-    if "Outcome_temp" in df.columns:
-        df["Outcome_original"] = df["Outcome_temp"].copy() # Keep original for debugging/migration
-        def parse_outcome_rr(value):
-            if isinstance(value, str) and ':' in value:
-                parts = value.split(' ', 1) # Split only on first space
-                outcome = parts[0] if parts[0] in ["Win", "Loss", "Breakeven", "No Trade/Study"] else "Undefined"
-                rr_str = parts[1] if len(parts) > 1 else "0.0"
-                try:
-                    rr = float(rr_str.split(':')[1])
-                except (ValueError, IndexError):
-                    rr = 0.0
-                return outcome, rr
-            return "Undefined", 0.0 # Default if format is not as expected
-
-        outcome_parsed, rr_parsed = zip(*df["Outcome_temp"].apply(parse_outcome_rr))
-        df["Outcome"] = pd.Series(outcome_parsed)
-        df["RR"] = pd.Series(rr_parsed)
-        df.drop(columns=["Outcome_temp", "Outcome_original"], errors='ignore', inplace=True) # Drop temporary columns
-    else:
-        df["Outcome"] = "Undefined" # Default if no old outcome column
-        df["RR"] = 0.0
-
-    # Consolidate temporary rationale and notes into their final columns
-    if "EntryRationale_temp" in df.columns:
-        if "EntryRationale" not in df.columns:
-            df["EntryRationale"] = ''
-        df["EntryRationale"] = df["EntryRationale"].fillna('') + " " + df["EntryRationale_temp"].fillna('')
-        df.drop(columns=["EntryRationale_temp"], errors='ignore', inplace=True)
-
-    if "TradeJournalNotes_temp" in df.columns:
-        if "TradeJournalNotes" not in df.columns:
-            df["TradeJournalNotes"] = ''
-        # Filter out empty strings before joining
-        df["TradeJournalNotes"] = df.apply(lambda row: 
-            " ".join(filter(None, [row["TradeJournalNotes"].strip() if pd.notna(row["TradeJournalNotes"]) else '', row["TradeJournalNotes_temp"].strip() if pd.notna(row["TradeJournalNotes_temp"]) else ''])),
-            axis=1
-        ).str.strip()
-        df.drop(columns=["TradeJournalNotes_temp"], errors='ignore', inplace=True)
-
-    # Convert any old 'Planned R:R' or similar to RR if 'RR' is still 0.0 or None
-    if "RR_temp" in df.columns:
-        df["RR"] = df.apply(lambda row: float(str(row["RR_temp"]).split(':')[1]) if isinstance(row["RR_temp"], str) and ':' in str(row["RR_temp"]) else row["RR"], axis=1)
-        df.drop(columns=["RR_temp"], errors='ignore', inplace=True)
-
-    # Fill any missing columns from the new schema
-    for col, dtype in journal_dtypes.items():
-        if col not in df.columns:
-            if dtype == str: df[col] = ''
-            elif 'datetime' in str(dtype): df[col] = pd.NaT
-            elif dtype == float: df[col] = 0.0
-            else: df[col] = None
-    
-    # Ensure 'Tags' column exists and is string type
-    if 'Tags' not in df.columns:
-        df['Tags'] = ''
-    df['Tags'] = df['Tags'].astype(str).fillna('')
-
-    st.session_state.tools_trade_journal = df[journal_cols].astype(journal_dtypes, errors='ignore')
-    st.session_state.tools_trade_journal['Date'] = pd.to_datetime(st.session_state.tools_trade_journal['Date'], errors='coerce')
-
-
-# Initialize temporary journal for form
-if "temp_journal" not in st.session_state:
-    st.session_state.temp_journal = None
 
 # =========================================================
-# GAMIFICATION HELPERS
+# SESSION STATE INITIALIZATION (from Code B, adapted for unified journal name)
 # =========================================================
-def ta_update_xp(amount):
-    if "logged_in_user" in st.session_state:
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
-            old_xp = user_data.get('xp', 0)
-            user_data['xp'] = old_xp + amount
-            level = user_data['xp'] // 100
-            if level > user_data.get('level', 0):
-                user_data['level'] = level
-                user_data['badges'] = user_data.get('badges', []) + [f"Level {level}"]
-                st.balloons()
-                st.success(f"Level up! You are now level {level}.")
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
-            conn.commit()
-            st.session_state.xp = user_data['xp']
-            st.session_state.level = user_data['level']
-            st.session_state.badges = user_data['badges']
-            
-            # Show XP notification - This line is correctly placed here.
-            show_xp_notification(amount)
-
-def ta_update_streak():
-    if "logged_in_user" in st.session_state:
-        username = st.session_state.logged_in_user
-        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-        result = c.fetchone()
-        if result:
-            user_data = json.loads(result[0])
-            today = dt.date.today().isoformat()
-            last_date = user_data.get('last_journal_date')
-            streak = user_data.get('streak', 0)
-            
-            if last_date:
-                last = dt.date.fromisoformat(last_date)
-                if last == dt.date.fromisoformat(today) - dt.timedelta(days=1):
-                    streak += 1
-                elif last < dt.date.fromisoformat(today) - dt.timedelta(days=1):
-                    streak = 1
-            else:
-                streak = 1
-                
-            user_data['streak'] = streak
-            user_data['last_journal_date'] = today
-            
-            if streak % 7 == 0:
-                badge = f"Discipline Badge ({streak} Days)" # Added streak amount to badge name
-                if badge not in user_data.get('badges', []):
-                    user_data['badges'] = user_data.get('badges', []) + [badge]
-                    st.balloons()
-                    st.success(f"Unlocked: {badge} for {streak} day streak!")
-            
-            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
-            conn.commit()
-            st.session_state.streak = streak
-            st.session_state.badges = user_data['badges']
-
-def ta_check_milestones(journal_df, mt5_df):
-    total_trades = len(journal_df)
-    if total_trades >= 100:
-        st.balloons()
-        st.success("Milestone achieved: 100 trades journaled!")
-    
-    if not mt5_df.empty:
-        daily_pnl = _ta_daily_pnl(mt5_df) # This assumes MT5 df has 'datetime' and 'pnl' columns
-        if not daily_pnl.empty:
-            daily_pnl['date'] = pd.to_datetime(daily_pnl['date'])
-            recent = daily_pnl[daily_pnl['date'] >= pd.to_datetime('today') - pd.Timedelta(days=90)]
-            if not recent.empty:
-                equity = recent['pnl'].cumsum()
-                dd = (equity - equity.cummax()).min() / equity.max() if equity.max() != 0 else 0
-                if abs(dd) < 0.1:
-                    st.balloons()
-                    st.success("Milestone achieved: Survived 3 months without >10% drawdown!")
-
-# =========================================================
-# COMMUNITY DATA LOADING
-# =========================================================
-# Load community data
-if "trade_ideas" not in st.session_state:
-    loaded_ideas = _ta_load_community('trade_ideas', [])
-    st.session_state.trade_ideas = pd.DataFrame(loaded_ideas, columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]) if loaded_ideas else pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"])
-
-if "community_templates" not in st.session_state:
-    loaded_templates = _ta_load_community('templates', [])
-    st.session_state.community_templates = pd.DataFrame(loaded_templates, columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]) if loaded_templates else pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
-
-# =========================================================
-# SESSION STATE INITIALIZATION
-# =========================================================
+# Init other session states if not already done by auth or journal init
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
@@ -757,8 +634,15 @@ if 'current_subpage' not in st.session_state:
 if 'show_tools_submenu' not in st.session_state:
     st.session_state.show_tools_submenu = False
 
+# This was 'tools_trade_journal' in Code B, but Code A uses 'trade_journal'
+# It's now handled by the journal_schema setup directly, so no need for 'if' here.
+# But keeping any other journal-like states initialized empty if not used elsewhere explicitly.
+if "temp_journal" not in st.session_state:
+    st.session_state.temp_journal = None
+
+
 # =========================================================
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (Code B global, adapted page name)
 # =========================================================
 
 # ---- Reduce top padding in the sidebar ----
@@ -775,7 +659,7 @@ st.markdown(
 )
 
 # ---- Load and resize the logo ----
-logo = Image.open("logo22.png")
+logo = Image.open("logo22.png") # Assuming 'logo22.png' exists
 logo = logo.resize((60, 50)) # adjust width/height as needed
 
 # ---- Convert logo to base64 ----
@@ -793,10 +677,10 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Navigation items
+# Navigation items (UPDATED: 'backtesting' to 'trading_journal')
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
-    ('trade_journal', 'trade_journal'),
+    ('trading_journal', 'Trading Journal'), # RENAMED HERE
     ('mt5', 'Performance Dashboard'),
     ('tools', 'Tools'),
     ('strategy', 'Manage My Strategy'),
@@ -815,8 +699,9 @@ for page_key, page_name in nav_items:
 # =========================================================
 # MAIN APPLICATION LOGIC
 # =========================================================
+
 # =========================================================
-# FUNDAMENTALS PAGE
+# FUNDAMENTALS PAGE (Code B)
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
     col1, col2 = st.columns([3, 1])
@@ -825,7 +710,7 @@ if st.session_state.current_page == 'fundamentals':
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
         st.markdown('---')
     with col2:
-        st.info("See the Backtesting tab for live charts + detailed news.")
+        st.info("See the Trading Journal tab for live charts + detailed news.") # Updated page reference
     # Economic Calendar
     st.markdown("### 🗓️ Upcoming Economic Events")
     if 'selected_currency_1' not in st.session_state:
@@ -901,7 +786,7 @@ if st.session_state.current_page == 'fundamentals':
                 "EUR/USD": "↑ EUR strengthens vs USD",
                 "GBP/USD": "↑ GBP strengthens vs USD",
                 "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ AUD weakens vs USD",
+                "AUD/USD": "↑ AUD strengthens vs USD",
                 "USD/CAD": "↓ USD weakens vs CAD"
             },
         },
@@ -979,40 +864,20 @@ if st.session_state.current_page == 'fundamentals':
         )
 
 # =========================================================
-# TRADING JOURNAL PAGE
+# TRADING JOURNAL PAGE (Replaces old 'Backtesting' from Code B with Code A's Journal)
 # =========================================================
-elif st.session_state.current_page == 'trade_journal':
-    st.title("📈 Trading Journal") # Keep page name same as Code B
-    st.caption("A streamlined interface for professional trade analysis.") # Keep caption same as Code B
-    st.markdown('---')
-
-    # --- CHARTING AREA (From Code A) ---
-    pairs_map = {
-        "EUR/USD": "FX:EURUSD", "USD/JPY": "FX:USDJPY", "GBP/USD": "FX:GBPUSD", "USD/CHF": "OANDA:USDCHF",
-        "AUD/USD": "FX:AUDUSD", "NZD/USD": "OANDA:NZDUSD", "USD/CAD": "FX:USDCAD"
-    }
-    # Use 'pair' from session state if it exists, otherwise default
-    default_pair_key = list(pairs_map.keys())[0]
-    pair = st.selectbox("Select Chart Pair", list(pairs_map.keys()), 
-                        index=list(pairs_map.keys()).index(st.session_state.get('tv_pair_select_journal', default_pair_key)), # Unique key
-                        key="tv_pair_select_journal")
-    st.session_state.tv_pair_select_journal = pair # Store selection for persistence
-    tv_symbol = pairs_map[pair]
-
-    tv_html = f"""
-    <div id="tradingview_widget"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script> new TradingView.widget({{
-        "container_id": "tradingview_widget", "width": "100%", "height": 550, "symbol": "{tv_symbol}",
-        "interval": "D", "timezone": "Etc/UTC", "theme": "dark", "style": "1", "locale": "en",
-        "enable_publishing": false, "allow_symbol_change": true, "hide_side_toolbar": false, "autosize": true
-    }});</script>
-    """
-    st.components.v1.html(tv_html, height=560)
+elif st.session_state.current_page == 'trading_journal': # RENAMED HERE
+    # PAGE LAYOUT (FROM CODE A, adapted)
+    st.title("📊 Trading Journal") # Renamed from 'Pro Journal & Backtesting Environment'
+    st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
 
+    # --- CHARTING AREA (REMOVED - per request: "remove tradingview widget and save, load buttons") ---
+    # The Code A's 'pairs_map' and all the 'tv_html' and `st.components.v1.html(tv_html, height=560)` are REMOVED.
+    # Also, any save/load buttons for drawings specific to the chart are REMOVED from this section.
+
     # =========================================================
-    # TRADING JOURNAL TABS (FROM CODE A - Integrated and updated)
+    # TRADING JOURNAL TABS (FROM CODE A)
     # =========================================================
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
 
@@ -1023,126 +888,181 @@ elif st.session_state.current_page == 'trade_journal':
 
         with st.form("trade_entry_form", clear_on_submit=True):
             st.markdown("##### ⚡ Trade Entry Details")
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3) # Adjusted to 3 columns
+
+            # Defined map, now just for Symbol selection and removed direct TV symbol use
+            pairs_map_for_selection = {
+                "EUR/USD": "FX:EURUSD", "USD/JPY": "FX:USDJPY", "GBP/USD": "FX:GBPUSD", "USD/CHF": "OANDA:USDCHF",
+                "AUD/USD": "FX:AUDUSD", "NZD/USD": "OANDA:NZDUSD", "USD/CAD": "FX:USDCAD"
+            } # Keeping this map as a list for symbol dropdown only
 
             with col1:
                 date_val = st.date_input("Date", dt.date.today())
-                symbol_options = list(pairs_map.keys()) + ["Other"]
-                # Use the 'pair' selected for TradingView as default, if applicable
-                default_symbol_index_entry = symbol_options.index(st.session_state.tv_pair_select_journal) if st.session_state.tv_pair_select_journal in symbol_options else 0
-                symbol = st.selectbox("Symbol", symbol_options, index=default_symbol_index_entry, key="symbol_input")
-                if symbol == "Other": symbol = st.text_input("Custom Symbol", key="custom_symbol_input")
+                # Symbol selection will just use keys of the map, without direct TV integration here
+                symbol_options = list(pairs_map_for_selection.keys()) + ["Other"]
+                symbol = st.selectbox("Symbol", symbol_options, index=0) # Default to EUR/USD or first
+                if symbol == "Other": symbol = st.text_input("Custom Symbol")
             with col2:
-                direction = st.radio("Direction", ["Long", "Short"], horizontal=True, key="direction_input")
-                lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f", key="lots_input")
+                direction = st.radio("Direction", ["Long", "Short"], horizontal=True)
+                lots = st.number_input("Size (Lots)", min_value=0.01, max_value=1000.0, value=0.10, step=0.01, format="%.2f")
             with col3:
-                entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f", key="entry_price_input")
-                stop_loss = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.00001, format="%.5f", key="stop_loss_input")
-            
+                entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+                stop_loss = st.number_input("Stop Loss", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+
             st.markdown("---")
             st.markdown("##### Trade Results & Metrics")
-            res_col1, res_col2, res_col3 = st.columns(3)
+            res_col1, res_col2, res_col3 = st.columns(3) # New 3-column row for results
 
             with res_col1:
-                final_exit = st.number_input("Final Exit Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f", key="final_exit_input")
-                outcome = st.selectbox("Outcome", ["Win", "Loss", "Breakeven", "No Trade/Study"], key="outcome_input")
-            
+                final_exit = st.number_input("Final Exit Price", min_value=0.0, value=0.0, step=0.00001, format="%.5f")
+                outcome = st.selectbox("Outcome", ["Win", "Loss", "Breakeven", "No Trade/Study"])
+
             with res_col2:
-                manual_pnl_input = st.number_input("Manual PnL ($)", value=0.0, format="%.2f", help="Enter the profit/loss amount manually.", key="manual_pnl_input")
-            
+                manual_pnl_input = st.number_input("Manual PnL ($)", value=0.0, format="%.2f", help="Enter the profit/loss amount manually.")
+
             with res_col3:
-                manual_rr_input = st.number_input("Manual Risk:Reward (R)", value=0.0, format="%.2f", help="Enter the risk-to-reward ratio manually.", key="manual_rr_input")
-            
-            calculate_pnl_rr = st.checkbox("Calculate PnL/RR from Entry/Stop/Exit Prices", value=False, 
-                                           help="Check this to automatically calculate PnL and R:R based on prices entered above, overriding manual inputs.", key="calculate_pnl_rr_input")
+                manual_rr_input = st.number_input("Manual Risk:Reward (R)", value=0.0, format="%.2f", help="Enter the risk-to-reward ratio manually.")
+
+            calculate_pnl_rr = st.checkbox("Calculate PnL/RR from Entry/Stop/Exit Prices", value=False,
+                                           help="Check this to automatically calculate PnL and R:R based on prices entered above, overriding manual inputs.")
             st.markdown("---")
             st.markdown("##### Rationale & Tags")
-            entry_rationale = st.text_area("Why did you enter this trade?", height=100, key="entry_rationale_input")
-            
-            all_tags = sorted(list(set(st.session_state.trade_journal['Tags'].str.split(',').explode().dropna().str.strip())))
+            entry_rationale = st.text_area("Why did you enter this trade?", height=100)
+
+            all_tags_list = []
+            if 'Tags' in st.session_state.trade_journal.columns:
+                 all_tags_list = st.session_state.trade_journal['Tags'].str.split(',').explode().dropna().str.strip().tolist()
+
+            all_tags = sorted(list(set(all_tags_list)))
+
             suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
-            tags_selection = st.multiselect("Select Existing Tags", options=sorted(list(set(all_tags + suggested_tags))), key="tags_selection_input")
-            
-            new_tags_input = st.text_input("Add New Tags (comma-separated)", placeholder="e.g., strong momentum, poor entry, ...", key="new_tags_input")
+            tags_selection = st.multiselect("Select Existing Tags", options=sorted(list(set(all_tags + suggested_tags))))
+
+            new_tags_input = st.text_input("Add New Tags (comma-separated)", placeholder="e.g., strong momentum, poor entry, ...")
 
             submitted = st.form_submit_button("Save Trade", type="primary", use_container_width=True)
             if submitted:
                 final_pnl, final_rr = 0.0, 0.0 # Initialize final values
 
                 if calculate_pnl_rr:
-                    risk_per_unit = abs(entry_price - stop_loss) if stop_loss > 0 else 0
-                    
-                    if outcome in ["Win", "Loss"]:
-                        pnl_calculated = ((final_exit - entry_price) if direction == "Long" else (entry_price - final_exit)) * lots * 100000 * 0.0001 # Simplified pip value calculation
-                    else:
-                        pnl_calculated = 0.0
+                    # Logic adapted from Code A, robustified.
+                    if stop_loss == 0.0 or entry_price == 0.0: # Cannot calculate RR or reliable PnL without proper prices
+                        st.error("Entry Price and Stop Loss must be greater than 0 to calculate PnL/RR automatically.")
+                        st.stop() # Prevent form submission
 
-                    if risk_per_unit > 0:
-                        pnl_per_unit_abs = abs(final_exit - entry_price)
-                        rr_calculated = (pnl_per_unit_abs / risk_per_unit) if pnl_calculated >= 0 else -(pnl_per_unit_abs / risk_per_unit)
-                    else:
-                        rr_calculated = 0.0 
+                    # Define multipliers for lot size (1 lot = 100,000 units usually) and pip value.
+                    # This is a generic estimation; actual values depend on the pair and account currency.
+                    # Assuming a base account currency (e.g., USD) for PnL
+                    pip_size_for_pair = 0.0001 # Default for most pairs
+                    if "JPY" in symbol.upper():
+                        pip_size_for_pair = 0.01
 
-                    final_pnl = pnl_calculated
-                    final_rr = rr_calculated
-                else:
+                    # Crude Pip Value calculation (highly dependent on quote currency, can be improved)
+                    # For simplicity: assuming 1 lot value is roughly 10 USD per pip for non-JPY, 1000 JPY per pip for JPY
+                    # For accuracy, you'd need live exchange rates for conversion.
+                    if "JPY" in symbol.upper(): # E.g., USD/JPY - if JPY is quote, pip value is USD amount per pip
+                        pip_value_per_lot = 1000 # Example: 1000 JPY/pip, then converted to USD later for PnL. Or more simply directly use dollar per pip = $10 / (USD/JPY rate)
+                        # To be more realistic for PnL in USD, for JPY pairs (e.g., USDJPY, GBPJPY):
+                        # Pips = (exit - entry) / pip_size
+                        # For USDJPY, PnL = pips * (1 USD / (current USDJPY rate)) * Lot_size_units (100000)
+                        # We need an "implied" USD equivalent for PnL and RR in USD terms.
+                        # Simplification for PnL, for USD denominated account:
+                        # (change in points * (Lot Size / value of point in quote) ) * quote to USD rate
+                        if symbol.upper() == 'USD/JPY': # Assuming PnL in USD
+                            # Simplified, rough USD/JPY pips calc, value of one standard lot (100k) 1000 JPY/pip.
+                            # Converted to USD: 1000 JPY / JPY/USD rate (which is 1 / USD/JPY rate) => 1000 * (USD/JPY rate). Approx $10/pip.
+                            # Change in value in JPY terms
+                            # Example for rough estimate
+                            final_pnl = ((final_exit - entry_price) * lots * 100) if direction == "Long" else ((entry_price - final_exit) * lots * 100) # Times 100 for crude $ PnL per pip on 0.01 pips, if 1 lot=$10
+                            final_pnl *= (final_exit + entry_price)/2 / (100 * pip_size_for_pair) # Correction attempt using price average. Very simplified.
+
+                        else: # JPY as counter like EUR/JPY
+                             final_pnl = ((final_exit - entry_price) * lots * 100) if direction == "Long" else ((entry_price - final_exit) * lots * 100)
+                             final_pnl *= 0.007 # A very crude conversion from JPY to USD
+                    else: # Non-JPY pairs like EUR/USD
+                        pip_value_per_lot = 10 # Assuming roughly $10/pip for standard lot in USD terms
+                        final_pnl = ((final_exit - entry_price) * pip_multiplier * lots * pip_value_per_lot / 10000) if direction == "Long" else ((entry_price - final_exit) * pip_multiplier * lots * pip_value_per_lot / 10000)
+
+
+                    # For RR calculation, it's about price difference, so relative units are fine.
+                    if risk_per_unit > 0.0:
+                        reward_amount = abs(final_exit - entry_price)
+                        final_rr = reward_amount / risk_per_unit
+
+                        # Adjust RR sign based on actual outcome relative to direction
+                        is_win = (direction == "Long" and final_exit > entry_price) or (direction == "Short" and final_exit < entry_price)
+                        if not is_win and final_exit != entry_price: # Not breakeven
+                             final_rr *= -1 # This implies a loss-making trade, even if a small one
+
+                    else:
+                        final_rr = 0.0
+
+
+                else: # Manual PnL and RR inputs are used
                     final_pnl = manual_pnl_input
                     final_rr = manual_rr_input
 
                 # Combine tags from multiselect and new text input
                 newly_added_tags = [tag.strip() for tag in new_tags_input.split(',') if tag.strip()]
                 final_tags_list = sorted(list(set(tags_selection + newly_added_tags)))
-                
+
                 new_trade_data = {
                     "TradeID": f"TRD-{uuid.uuid4().hex[:6].upper()}", "Date": pd.to_datetime(date_val),
                     "Symbol": symbol, "Direction": direction, "Outcome": outcome,
                     "Lots": lots, "EntryPrice": entry_price, "StopLoss": stop_loss, "FinalExit": final_exit,
-                    "PnL": final_pnl, "RR": final_rr, 
+                    "PnL": final_pnl, "RR": final_rr,
                     "Tags": ','.join(final_tags_list), "EntryRationale": entry_rationale,
                     "Strategy": '', "TradeJournalNotes": '', "EntryScreenshot": '', "ExitScreenshot": ''
                 }
                 new_df = pd.DataFrame([new_trade_data])
                 st.session_state.trade_journal = pd.concat([st.session_state.trade_journal, new_df], ignore_index=True)
-                
+
                 if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
-                    ta_update_xp(st.session_state.logged_in_user, 10) # Updated gamification call
-                    ta_update_streak(st.session_state.logged_in_user) # Updated gamification call
+                    ta_update_xp(st.session_state.logged_in_user, 10)
+                    ta_update_streak(st.session_state.logged_in_user)
                     st.success(f"Trade {new_trade_data['TradeID']} logged successfully!")
                 st.rerun()
 
     # --- TAB 2: TRADE PLAYBOOK ---
     with tab_playbook:
         st.header("Your Trade Playbook")
-        df_playbook = st.session_state.trade_journal # Referencing Code A's session state variable
+        df_playbook = st.session_state.trade_journal
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
-            
+
             filter_cols = st.columns([1, 1, 1, 2])
-            outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique(), key="playbook_outcome_filter")
-            symbol_filter = filter_cols[1].multiselect("Filter Symbol", df_playbook['Symbol'].unique(), default=df_playbook['Symbol'].unique(), key="playbook_symbol_filter")
-            direction_filter = filter_cols[2].multiselect("Filter Direction", df_playbook['Direction'].unique(), default=df_playbook['Direction'].unique(), key="playbook_direction_filter")
-            
-            all_tags_in_df = df_playbook['Tags'].str.split(',').explode().dropna().str.strip()
-            tag_options = sorted(list(set(all_tags_in_df[all_tags_in_df != ''])))
-            tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options, key="playbook_tag_filter")
-            
+            outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
+            symbol_filter = filter_cols[1].multiselect("Filter Symbol", df_playbook['Symbol'].unique(), default=df_playbook['Symbol'].unique())
+            direction_filter = filter_cols[2].multiselect("Filter Direction", df_playbook['Direction'].unique(), default=df_playbook['Direction'].unique())
+
+            # Safely handle 'Tags' column for filter options
+            tag_options_raw = df_playbook['Tags'].astype(str).str.split(',').explode().dropna().str.strip()
+            if not tag_options_raw.empty:
+                tag_options = sorted(list(set(tag_options_raw)))
+            else:
+                tag_options = []
+
+            tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options)
+
             filtered_df = df_playbook[
                 (df_playbook['Outcome'].isin(outcome_filter)) &
                 (df_playbook['Symbol'].isin(symbol_filter)) &
                 (df_playbook['Direction'].isin(direction_filter))
             ]
             if tag_filter:
-                filtered_df = filtered_df[filtered_df['Tags'].apply(lambda x: any(tag in str(x) for tag in tag_filter))] # Code A's simpler tag filter
+                # Filter where *any* of the selected tags are in the trade's tags string
+                filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
+
 
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
-                outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#30363d"}.get(row['Outcome'], "#30363d")
-                with st.container(border=True): # Retaining border styling from Code B's previous journal display
+                outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d") # Added "No Trade/Study"
+                with st.container():
                     st.markdown(f"""
-                    <div style="border-left: 8px solid {outcome_color}; border-radius: 8px 0 0 8px; padding: 0.5rem 1rem; margin-bottom: 0.5rem;">
-                        <h4 style="margin:0; padding:0;">{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
-                        <span style="color: #8b949e; font-size: 0.85em;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
+                    <div style="border: 1px solid #30363d; border-left: 8px solid {outcome_color}; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1rem;">
+                        <h4>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
+                        <span style="color: #8b949e; font-size: 0.9em;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -1150,64 +1070,51 @@ elif st.session_state.current_page == 'trade_journal':
                     metric_cols[0].metric("Net PnL", f"${row['PnL']:.2f}")
                     metric_cols[1].metric("R-Multiple", f"{row['RR']:.2f}R")
                     metric_cols[2].metric("Position Size", f"{row['Lots']:.2f} lots")
-                    
+
                     if row['EntryRationale']:
                         st.markdown(f"**Entry Rationale:** *{row['EntryRationale']}*")
                     if row['Tags']:
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
-                        st.markdown(f"**Tags:** {', '.join(tags_list)}")
-                    
-                    # Original display for Trade Journal Notes from Code A (or a styled one)
-                    if row['TradeJournalNotes']: 
-                        st.markdown(f"""
-                        <div class="trade-notes-display">
-                            <h6>Detailed Journal Notes:</h6>
-                            <p>{row['TradeJournalNotes']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        if tags_list: # Ensure tags_list is not empty after filtering out empty strings
+                            st.markdown(f"**Tags:** {', '.join(tags_list)}")
+
 
                     with st.expander("Journal Notes & Actions"):
+                        # Using unique keys based on TradeID is critical inside a loop
                         notes = st.text_area(
-                            "Trade Journal Notes", 
-                            value=row['TradeJournalNotes'], 
+                            "Trade Journal Notes",
+                            value=row['TradeJournalNotes'],
                             key=f"notes_{row['TradeID']}",
                             height=150
                         )
-                        
-                        action_cols = st.columns([1, 1, 4]) 
-                        
-                        if action_cols[0].button("Save Notes", key=f"save_notes_{row['TradeID']}", type="primary"): # Unique key
+
+                        action_cols = st.columns([1, 1, 4])
+
+                        if action_cols[0].button("Save Notes", key=f"save_{row['TradeID']}", type="primary"):
                             st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == row['TradeID'], 'TradeJournalNotes'] = notes
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
                                 st.toast(f"Notes for {row['TradeID']} saved!", icon="✅")
-                                st.rerun()
+                                st.rerun() # Rerun to reflect saved notes in the textarea if the user re-opens
                             else:
                                 st.error("Failed to save notes.")
 
-                        if action_cols[1].button("Delete Trade", key=f"delete_trade_{row['TradeID']}"): # Unique key
+                        if action_cols[1].button("Delete Trade", key=f"delete_{row['TradeID']}"):
                             index_to_drop = st.session_state.trade_journal[st.session_state.trade_journal['TradeID'] == row['TradeID']].index
                             st.session_state.trade_journal.drop(index_to_drop, inplace=True)
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
                                 st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
                                 st.rerun()
-                            else: 
+                            else:
                                 st.error("Failed to delete trade.")
-                    
-                    # Placeholder for screenshots (from Code A/B, ensure they exist in data if referenced)
-                    screenshot_cols = st.columns(2)
-                    if row['EntryScreenshot']:
-                        screenshot_cols[0].image(row['EntryScreenshot'], caption="Entry Screenshot", use_column_width=True)
-                    if row['ExitScreenshot']:
-                        screenshot_cols[1].image(row['ExitScreenshot'], caption="Exit Screenshot", use_column_width=True)
 
-                st.markdown("---")
+                    st.markdown("---")
 
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
         st.header("Your Performance Dashboard")
-        df_analytics = st.session_state.trade_journal[st.session_state.trade_journal['Outcome'].isin(['Win', 'Loss'])].copy() # Referencing Code A's session state variable
-        
+        df_analytics = st.session_state.trade_journal[st.session_state.trade_journal['Outcome'].isin(['Win', 'Loss'])].copy()
+
         if df_analytics.empty:
             st.info("Complete at least one winning or losing trade to view your performance analytics.")
         else:
@@ -1216,65 +1123,42 @@ elif st.session_state.current_page == 'trade_journal':
             total_trades = len(df_analytics)
             wins = df_analytics[df_analytics['Outcome'] == 'Win']
             losses = df_analytics[df_analytics['Outcome'] == 'Loss']
-            
+
             win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0
             avg_win = wins['PnL'].mean() if not wins.empty else 0
             avg_loss = losses['PnL'].mean() if not losses.empty else 0
+            # Ensure profit factor calculation handles zero losses gracefully (from Code A's approach)
             profit_factor = wins['PnL'].sum() / abs(losses['PnL'].sum()) if not losses.empty and losses['PnL'].sum() != 0 else (float('inf') if wins['PnL'].sum() > 0 else 0)
+
 
             kpi_cols = st.columns(4)
             kpi_cols[0].metric("Net PnL ($)", f"${total_pnl:,.2f}", delta=f"{total_pnl:+.2f}")
             kpi_cols[1].metric("Win Rate", f"{win_rate:.1f}%")
             kpi_cols[2].metric("Profit Factor", f"{profit_factor:.2f}")
             kpi_cols[3].metric("Avg. Win / Loss ($)", f"${avg_win:,.2f} / ${abs(avg_loss):,.2f}")
-            
+
             st.markdown("---")
 
             # Visualizations
             chart_cols = st.columns(2)
             with chart_cols[0]:
                 st.subheader("Cumulative PnL")
-                df_analytics_sorted = df_analytics.sort_values(by='Date') # Ensure sorting for accurate cumulative PnL
+                df_analytics_sorted = df_analytics.sort_values(by='Date').copy() # Ensure sorted by date for cumulative sum
                 df_analytics_sorted['CumulativePnL'] = df_analytics_sorted['PnL'].cumsum()
                 fig_equity = px.area(df_analytics_sorted, x='Date', y='CumulativePnL', title="Your Equity Curve", template="plotly_dark")
-                fig_equity.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
+                fig_equity.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22")
                 st.plotly_chart(fig_equity, use_container_width=True)
-                
+
             with chart_cols[1]:
                 st.subheader("Performance by Symbol")
-                pnl_by_symbol = df_analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False).reset_index()
-                fig_pnl_symbol = px.bar(pnl_by_symbol, x='Symbol', y='PnL', title="Net PnL by Symbol", template="plotly_dark")
-                fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False, font_color="#c9d1d9")
+                pnl_by_symbol = df_analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
+                fig_pnl_symbol = px.bar(pnl_by_symbol, title="Net PnL by Symbol", template="plotly_dark")
+                fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False)
                 st.plotly_chart(fig_pnl_symbol, use_container_width=True)
 
-    # --- Gamification Features (from Code A/B - adapted for Code A functions) ---
-    st.subheader("🏅 Challenge Mode")
-    st.write("30-Day Journaling Discipline Challenge - Gain 300 XP for completing, XP can be exchanged for gift cards!")
-    streak = st.session_state.get('streak', 0)
-    progress = min(streak / 30.0, 1.0)
-    st.progress(progress)
-    if progress >= 1.0:
-        if "challenge_30_days_completed" not in st.session_state or not st.session_state.challenge_30_days_completed:
-            ta_update_xp(st.session_state.logged_in_user, 300) # Pass username
-            st.session_state.challenge_30_days_completed = True
-        st.success("Challenge completed! Great job on your consistency.")
-
-    st.subheader("🏆 Leaderboard - Consistency")
-    users = c.execute("SELECT username, data FROM users").fetchall()
-    leader_data = []
-    for u, d in users:
-        user_d = json.loads(d) if d else {}
-        trades = len(user_d.get("trade_journal", [])) # Referencing Code A's 'trade_journal' key
-        leader_data.append({"Username": u, "Journaled Trades": trades})
-    if leader_data:
-        leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
-        leader_df["Rank"] = leader_df.index + 1
-        st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
-    else:
-        st.info("No leaderboard data yet.")
 
 # =========================================================
-# PERFORMANCE DASHBOARD PAGE (MT5)
+# PERFORMANCE DASHBOARD PAGE (MT5) (Code B, adapted session state name for journal)
 # =========================================================
 elif st.session_state.current_page == 'mt5':
     st.title("📊 Performance Dashboard")
@@ -1544,7 +1428,7 @@ elif st.session_state.current_page == 'mt5':
     )
 
     # --------------------------
-    # Helper functions (MT5 page specific)
+    # Helper functions (MT5 page specific, from Code B)
     # --------------------------
     def _ta_human_pct_mt5(value):
         try:
@@ -1570,12 +1454,12 @@ elif st.session_state.current_page == 'mt5':
     def _ta_compute_sharpe(df, risk_free_rate=0.02):
         if "Profit" not in df.columns or df.empty:
             return np.nan
-        
+
         # Ensure 'Close Time' is datetime and then set as DatetimeIndex for resampling
         df_for_sharpe = df.copy()
         df_for_sharpe["Close Time"] = pd.to_datetime(df_for_sharpe["Close Time"], errors='coerce')
         df_for_sharpe = df_for_sharpe.dropna(subset=["Close Time"]) # Remove NaT
-        
+
         if df_for_sharpe.empty:
             return np.nan
 
@@ -1585,16 +1469,12 @@ elif st.session_state.current_page == 'mt5':
             return np.nan
 
         # Calculate returns, then drop NaNs from returns (e.g. first value will be NaN)
-        # Assuming percentage change in portfolio value for Sharpe, not PnL directly
-        # For PnL, one might use PnL / initial_capital or similar, but percentage change is more standard for returns.
-        # This is a simplification; a full Sharpe calculation needs proper equity curve or return series.
-        daily_equity = daily_pnl_series.cumsum()
-        returns = daily_equity.pct_change().dropna()
-        
+        returns = daily_pnl_series.pct_change().dropna()
+
         # Ensure we have enough actual return data points
         if len(returns) < 2:
             return np.nan
-        
+
         mean_return = returns.mean() * 252  # Annualized (assuming trading 252 days/year)
         std_return = returns.std() * np.sqrt(252)  # Annualized
         return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
@@ -1614,14 +1494,14 @@ elif st.session_state.current_page == 'mt5':
     def _ta_profit_factor_mt5(df):
         wins_sum = df[df["Profit"] > 0]["Profit"].sum()
         losses_sum = abs(df[df["Profit"] < 0]["Profit"].sum()) # Ensure losses sum is positive for the ratio
-        return wins_sum / losses_sum if losses_sum != 0.0 else np.nan
+        return wins_sum / losses_sum if losses_sum != 0.0 else (np.inf if wins_sum > 0 else np.nan)
 
     def _ta_show_badges_mt5(df):
         st.subheader("🎖️ Your Trading Badges")
-        
+
         total_profit_val = df["Profit"].sum()
         total_trades_val = len(df)
-        
+
         col_badge1, col_badge2, col_badge3 = st.columns(3)
         with col_badge1:
             if total_profit_val > 10000:
@@ -1630,14 +1510,14 @@ elif st.session_state.current_page == 'mt5':
                 st.markdown("<div class='metric-box'><strong>🎖️ Profit Pioneer</strong><br><span class='metric-value'>Goal: $10,000 profit</span></div>", unsafe_allow_html=True)
 
         with col_badge2:
-            if total_trades_val >= 30: 
+            if total_trades_val >= 30:
                 st.markdown("<div class='metric-box profitable'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Completed over 30 trades!</span></div>", unsafe_allow_html=True)
             else:
                 st.markdown(f"<div class='metric-box'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({max(0, 30 - total_trades_val)} left)</span></div>", unsafe_allow_html=True)
-        
+
         avg_win_for_badge = df[df["Profit"] > 0]["Profit"].mean()
-        avg_loss_for_badge = df[df["Profit"] < 0]["Profit"].mean() 
-        
+        avg_loss_for_badge = df[df["Profit"] < 0]["Profit"].mean()
+
         with col_badge3:
             if pd.notna(avg_win_for_badge) and pd.notna(avg_loss_for_badge) and avg_loss_for_badge < 0.0:
                 if avg_win_for_badge > abs(avg_loss_for_badge):
@@ -1674,10 +1554,10 @@ elif st.session_state.current_page == 'mt5':
                 # Coerce 'Open Time' and 'Close Time' to datetime, handling errors by setting to NaT
                 df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
                 df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-                
+
                 # Coerce 'Profit' to numeric, handling errors by setting to NaN, then fill NaNs with 0.0
                 df["Profit"] = pd.to_numeric(df["Profit"], errors='coerce').fillna(0.0)
-                
+
                 # Filter out rows where 'Close Time' or 'Open Time' became NaT after coercion
                 df = df.dropna(subset=["Open Time", "Close Time"])
 
@@ -1694,7 +1574,7 @@ elif st.session_state.current_page == 'mt5':
                 # Calculate daily_pnl_map once for both metrics and calendar.
                 # This map contains entries for all days with at least one trade, including zero-net-profit days.
                 daily_pnl_map = _ta_daily_pnl_mt5(df)
-                
+
                 # For aggregate stats (like drawdown, sharpe) that may require a continuous time series.
                 # Fill in zeros for days without trades between min/max trading days.
                 daily_pnl_df_for_stats = pd.DataFrame(columns=["date", "Profit"]) # Initialize empty
@@ -1738,17 +1618,47 @@ elif st.session_state.current_page == 'mt5':
                     profit_factor = _ta_profit_factor_mt5(df)
                     avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
                     avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0 # avg_loss will be negative or 0.0
-                    
+
                     max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
                     sharpe_ratio = _ta_compute_sharpe(df)
-                    expectancy = win_rate * avg_win + (1 - win_rate) * avg_loss if total_trades else 0.0 # avg_loss is already negative
-                    longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
-                    longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+                    expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0.0
+                    
+                    # For win/loss streaks on daily data
+                    def _ta_compute_streaks(df):
+                        d = df.sort_values(by="date") # Ensure sorted
+                        if d.empty:
+                            return {"current_win": 0, "best_win": 0, "current_loss": 0, "best_loss": 0}
+
+                        current_win_streak = 0
+                        best_win_streak = 0
+                        current_loss_streak = 0
+                        best_loss_streak = 0
+
+                        for pnl in d["Profit"]:
+                            if pnl > 0:
+                                current_win_streak += 1
+                                best_win_streak = max(best_win_streak, current_win_streak)
+                                current_loss_streak = 0 # Reset loss streak
+                            elif pnl < 0:
+                                current_loss_streak += 1
+                                best_loss_streak = max(best_loss_streak, current_loss_streak)
+                                current_win_streak = 0 # Reset win streak
+                            else: # Break even days, typically don't count towards streak
+                                current_win_streak = 0
+                                current_loss_streak = 0
+
+                        return {"current_win": current_win_streak, "best_win": best_win_streak,
+                                "current_loss": current_loss_streak, "best_loss": best_loss_streak}
+
+                    streaks = _ta_compute_streaks(daily_pnl_df_for_stats) # Use daily PnL for streaks
+                    longest_win_streak = streaks["best_win"]
+                    longest_loss_streak = streaks["best_loss"]
+
 
                     # Calculate additional metrics for the top row
                     # Avg R:R - assuming this is (Avg Win / Avg Loss magnitude)
                     avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan # Calculate the numerical ratio
-                    
+
 
                     # Trading Score (example: could be a composite of factors, here just a placeholder for visual)
                     trading_score_value = 90.98 # Example value, replace with your actual calculation
@@ -1764,20 +1674,19 @@ elif st.session_state.current_page == 'mt5':
                         profitable_assets = df.groupby("Symbol")["Profit"].sum()
                         if not profitable_assets.empty and profitable_assets.max() > 0.0: # Ensure there is actual positive profit
                             most_profitable_asset_calc = profitable_assets.idxmax()
-                        elif not profitable_assets.empty and profitable_assets.max() <= 0.0 and profitable_assets.min() <= 0.0:
-                             most_profitable_asset_calc = "None Profitable" # All symbols had losses or zero profit
-                        # If profitable_assets is empty, it remains "N/A"
+                        elif not profitable_assets.empty and profitable_assets.min() <= 0.0 and profitable_assets.max() <= 0.0: # All symbols were zero or loss
+                             most_profitable_asset_calc = "None Profitable"
                     
                     # Best and Worst Performing Day
                     best_day_profit = 0.0
                     best_performing_day_name = "N/A"
-                    worst_day_loss = 0.0 
+                    worst_day_loss = 0.0
                     worst_performing_day_name = "N/A"
 
                     if not daily_pnl_df_for_stats.empty and not daily_pnl_df_for_stats["Profit"].empty:
                         # Filter for days with actual non-zero P&L for "best/worst day"
-                        days_with_pnl_actual_trades = daily_pnl_df_for_stats[daily_pnl_df_for_stats["Profit"] != 0.0] 
-                        
+                        days_with_pnl_actual_trades = daily_pnl_df_for_stats[daily_pnl_df_for_stats["Profit"] != 0.0]
+
                         if not days_with_pnl_actual_trades.empty:
                             # Best Performing Day
                             best_day_profit = days_with_pnl_actual_trades["Profit"].max()
@@ -1879,17 +1788,17 @@ elif st.session_state.current_page == 'mt5':
                         """, unsafe_allow_html=True)
 
                     with col7:
-                        best_day_profit_val = best_day_profit 
+                        best_day_profit_val = best_day_profit
                         best_day_profit_formatted = _ta_human_num_mt5(best_day_profit_val)
 
                         if best_day_profit_val > 0.0 and best_day_profit_formatted != "N/A":
                             best_day_profit_display_html = f"<span style='color: #5cb85c;'>${best_day_profit_formatted}</span>"
-                            day_info_text = f"{best_performing_day_name}"
+                            day_info_text = f"{best_performing_day_name} with profit of {best_day_profit_display_html}."
                         elif best_performing_day_name in ["No Profitable Days", "No P&L Data", "No Trades With Non-Zero P&L"]:
                             day_info_text = best_performing_day_name
                         else:
                             day_info_text = "N/A" # Fallback if specific status isn't caught
-                        
+
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Best Performing Day</strong>
@@ -1898,7 +1807,7 @@ elif st.session_state.current_page == 'mt5':
                         """, unsafe_allow_html=True)
 
                     with col8:
-                        net_profit_val = net_profit 
+                        net_profit_val = net_profit
                         net_profit_formatted = _ta_human_num_mt5(abs(net_profit_val))
 
                         if net_profit_val >= 0.0 and net_profit_formatted != "N/A":
@@ -1907,13 +1816,13 @@ elif st.session_state.current_page == 'mt5':
                             net_profit_value_display_html = f"<span style='color: #d9534f;'>-${net_profit_formatted}</span>"
                         else:
                             net_profit_value_display_html = "N/A"
-                        
+
                         # Total losses magnitude for the parentheses display. Image shows ($267,157.00) in red.
                         total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
                         formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_magnitude)
 
                         if formatted_total_loss_in_parentheses_val != "N/A":
-                            formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>(-${formatted_total_loss_in_parentheses_val})</span>"
+                            formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>($-{formatted_total_loss_in_parentheses_val})</span>"
                         else:
                             formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>(N/A)</span>"
 
@@ -1926,17 +1835,17 @@ elif st.session_state.current_page == 'mt5':
                         """, unsafe_allow_html=True)
 
                     with col9:
-                        worst_day_loss_val = worst_day_loss 
+                        worst_day_loss_val = worst_day_loss
                         worst_day_loss_formatted = _ta_human_num_mt5(abs(worst_day_loss_val))
 
                         if worst_day_loss_val < 0.0 and worst_day_loss_formatted != "N/A":
                             worst_day_loss_display_html = f"<span style='color: #d9534f;'>-${worst_day_loss_formatted}</span>"
-                            day_info_text = f"{worst_performing_day_name}"
+                            day_info_text = f"{worst_performing_day_name} with loss of {worst_day_loss_display_html}."
                         elif worst_performing_day_name in ["No Losing Days", "No P&L Data", "No Trades With Non-Zero P&L"]:
                             day_info_text = worst_performing_day_name
                         else:
                             day_info_text = "N/A" # Fallback
-                        
+
                         st.markdown(f"""
                             <div class='metric-box'>
                                 <strong>Worst Performing Day</strong>
@@ -1958,69 +1867,64 @@ elif st.session_state.current_page == 'mt5':
                 with tab_charts:
                     st.subheader("Visualizations")
                     if not daily_pnl_df_for_stats.empty:
-                        df_for_charting = daily_pnl_df_for_stats.copy()
-                        df_for_charting['Cumulative Profit'] = df_for_charting['Profit'].cumsum()
+                        df_for_chart = daily_pnl_df_for_stats.copy()
+                        df_for_chart["Cumulative Profit"] = df_for_chart["Profit"].cumsum()
+                        fig_equity = px.line(df_for_chart, x="date", y="Cumulative Profit", title="Equity Curve")
+                        st.plotly_chart(fig_equity, use_container_width=True)
 
-                        st.write("#### Equity Curve")
-                        fig_equity_mt5 = px.line(df_for_charting, x='date', y='Cumulative Profit', title='Cumulative Profit (Equity Curve)', template='plotly_dark')
-                        fig_equity_mt5.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                        st.plotly_chart(fig_equity_mt5, use_container_width=True)
+                        profit_by_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+                        fig_symbol = px.bar(profit_by_symbol, x="Symbol", y="Profit", title="Profit by Symbol")
+                        st.plotly_chart(fig_symbol, use_container_width=True)
 
-                        st.write("#### Daily Profit Distribution")
-                        fig_dist = px.histogram(df_for_charting[df_for_charting['Profit'] != 0], x='Profit', nbins=50, title='Daily Profit Distribution', template='plotly_dark')
-                        fig_dist.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                        st.plotly_chart(fig_dist, use_container_width=True)
-
-                        st.write("#### Profit by Symbol")
-                        pnl_by_symbol_mt5 = df.groupby('Symbol')['Profit'].sum().reset_index()
-                        fig_symbol_pnl_mt5 = px.bar(pnl_by_symbol_mt5, x='Symbol', y='Profit', title='Profit by Symbol', template='plotly_dark')
-                        fig_symbol_pnl_mt5.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                        st.plotly_chart(fig_symbol_pnl_mt5, use_container_width=True)
+                        trade_types = df["Type"].value_counts().reset_index(name="Count")
+                        trade_types.columns = ['Type', 'Count']
+                        fig_type = px.pie(trade_types, names="Type", values="Count", title="Trades by Type")
+                        st.plotly_chart(fig_type, use_container_width=True)
                     else:
-                        st.info("Upload trade data to see visualizations.")
+                        st.info("Upload your MT5 data to see visualizations.")
+
 
                 # ---------- Edge Finder Tab ----------
                 with tab_edge:
                     st.subheader("Edge Finder")
-                    st.markdown("Analyze your trading edge by various dimensions. Understand where your profits truly come from.")
+                    st.write("Analyze your trading edge here by breaking down performance by various factors.")
 
                     if not df.empty:
-                        st.write("#### Profitability by Trade Type")
-                        pnl_by_type = df.groupby('Type')['Profit'].sum().reset_index()
-                        fig_type = px.bar(pnl_by_type, x='Type', y='Profit', title='Profit by Trade Type (Buy/Sell)', template='plotly_dark')
-                        fig_type.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                        st.plotly_chart(fig_type, use_container_width=True)
+                        analysis_options = ['Symbol', 'Type', 'Trade Duration']
+                        analysis_by = st.selectbox("Analyze by:", analysis_options)
 
-                        st.write("#### Profitability by Trade Duration (Hours)")
-                        # Define duration bins
-                        bins = [0, 1, 4, 8, 24, 72, 168, 720, np.inf] # 0-1h, 1-4h, 4-8h, 8-24h, 1-3d, 3-7d, 1-4w, >1m
-                        labels = ['<1h', '1-4h', '4-8h', '8-24h', '1-3d', '3-7d', '1-4w', '>1m']
-                        df['Duration_Bins'] = pd.cut(df['Trade Duration'], bins=bins, labels=labels, right=False)
-                        pnl_by_duration = df.groupby('Duration_Bins')['Profit'].sum().reset_index()
-                        
-                        if not pnl_by_duration.empty:
-                            fig_duration = px.bar(pnl_by_duration, x='Duration_Bins', y='Profit', title='Profit by Trade Duration', template='plotly_dark')
-                            fig_duration.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                            st.plotly_chart(fig_duration, use_container_width=True)
+                        if analysis_by == 'Trade Duration':
+                            df_for_edge = df.copy()
+                            df_for_edge['Duration Bin'] = pd.cut(df_for_edge['Trade Duration'], bins=5, labels=False)
+                            grouped_data = df_for_edge.groupby('Duration Bin')['Profit'].agg(['sum', 'count', 'mean']).reset_index()
+                            grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}") # For better display
+                            fig_edge = px.bar(grouped_data, x='Duration Bin', y='sum', title=f"Profit by {analysis_by}")
+                            st.plotly_chart(fig_edge, use_container_width=True)
                         else:
-                            st.info("Not enough data to analyze profit by trade duration.")
+                            grouped_data = df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
+                            fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
+                            st.plotly_chart(fig_edge, use_container_width=True)
 
                     else:
-                        st.info("Upload trade data to find your trading edge.")
+                        st.info("Upload your MT5 data to use the Edge Finder.")
 
                 # ---------- Export Reports Tab ----------
                 with tab_export:
                     st.subheader("Export Reports")
                     st.write("Export your trading data and reports.")
-                    
-                    csv_export = df.to_csv(index=False).encode('utf-8')
+
+                    # Download processed dataframe
+                    csv_processed = df.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        label="Download Raw Data CSV",
-                        data=csv_export,
-                        file_name="mt5_history_processed.csv",
+                        label="Download Processed CSV",
+                        data=csv_processed,
+                        file_name="processed_mt5_history.csv",
                         mime="text/csv",
                     )
-                    st.info("Download your processed MT5 history as a CSV file.")
+                    
+                    # Placeholder for more complex PDF reports or interactive dashboards (e.g., as HTML)
+                    st.info("Further reporting options (e.g., custom PDF reports) could be integrated here.")
+
 
             except Exception as e:
                 st.error(f"Error processing CSV: {str(e)}. Please check your CSV format and ensure it contains the required columns with valid data.")
@@ -2035,7 +1939,7 @@ elif st.session_state.current_page == 'mt5':
         # Remove selected calendar month when no file is uploaded
         if "selected_calendar_month" in st.session_state:
             del st.session_state.selected_calendar_month
-            
+
 
     # Gamification Badges (Now placed correctly below the tabs section)
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
@@ -2046,35 +1950,35 @@ elif st.session_state.current_page == 'mt5':
             logging.error(f"Error displaying badges: {str(e)}")
     else:
         pass # No trades uploaded, no badges to show yet.
-    
+
     # ----- Daily Performance Calendar -----
     if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
         st.markdown("---") # Separator before calendar
         st.subheader("🗓️ Daily Performance Calendar")
 
-        df_for_calendar = st.session_state.mt5_df 
-        
+        df_for_calendar = st.session_state.mt5_df
+
         # --- Calendar month selection logic ---
         selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Default to current month start
 
         if not df_for_calendar.empty and not df_for_calendar["Close Time"].isnull().all():
             min_date_data = pd.to_datetime(df_for_calendar["Close Time"]).min().date()
             max_date_data = pd.to_datetime(df_for_calendar["Close Time"]).max().date()
-            
+
             # Ensure proper handling of 'MS' frequency when creating periods for month selection
-            all_months_in_data = pd.date_range(start=min_date_data.replace(day=1), 
+            all_months_in_data = pd.date_range(start=min_date_data.replace(day=1),
                                                 end=max_date_data.replace(day=1), freq='MS').to_period('M')
             available_months_periods = sorted(list(all_months_in_data), reverse=True)
 
             if available_months_periods:
                 display_options = [f"{p.strftime('%B %Y')}" for p in available_months_periods]
-                
+
                 # Default to the month of the latest trade
-                latest_data_month_str = available_months_periods[0].strftime('%B %Y') 
-                
+                latest_data_month_str = available_months_periods[0].strftime('%B %Y')
+
                 if 'selected_calendar_month' not in st.session_state:
-                     st.session_state.selected_calendar_month = latest_data_month_str 
-                
+                     st.session_state.selected_calendar_month = latest_data_month_str
+
                 selected_month_year_str = st.selectbox(
                     "Select Month",
                     options=display_options,
@@ -2087,16 +1991,16 @@ elif st.session_state.current_page == 'mt5':
                 selected_month_date = selected_period.start_time.date() if selected_period else date(datetime.now().year, datetime.now().month, 1)
             else:
                  st.warning("No trade data with valid 'Close Time' to display in the calendar.")
-                 selected_month_date = date(datetime.now().year, datetime.now().month, 1) 
-        else: 
+                 selected_month_date = date(datetime.now().year, datetime.now().month, 1)
+        else:
             st.warning("No trade data with valid 'Close Time' to display in the calendar.")
             selected_month_date = date(datetime.now().year, datetime.now().month, 1)
 
         # --- Daily P&L for calendar display ---
         daily_pnl_map_for_calendar = _ta_daily_pnl_mt5(df_for_calendar)
-        
+
         # --- Generate calendar grid HTML ---
-        cal = calendar.Calendar(firstweekday=calendar.SUNDAY) 
+        cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
         month_days = cal.monthdatescalendar(selected_month_date.year, selected_month_date.month)
 
         calendar_html = f"""
@@ -2122,7 +2026,7 @@ elif st.session_state.current_page == 'mt5':
                 day_class = ""
                 profit_amount_html = ""
                 dot_indicator_html = "" # Placeholder for future dots, currently unused
-                
+
                 if day_date.month == selected_month_date.month:
                     profit = daily_pnl_map_for_calendar.get(day_date)
                     if profit is not None: # This means there was *at least one trade* on this specific day in the CSV
@@ -2133,16 +2037,17 @@ elif st.session_state.current_page == 'mt5':
                             day_class += " losing"
                             profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num_mt5(abs(profit))}</span>"
                         else: # profit == 0.0 for the day, meaning trades occurred but summed to zero.
-                            profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>" 
+                            profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>"
                     else: # No trades recorded at all for this day in the map (no data for this day in CSV for the current month)
                          profit_amount_html = "<span style='color:#cccccc;'>$0.00</span>"
+
                 else: # Days from the previous/next month displayed in the grid
                     day_class += " empty-month-day" # Hides these days via CSS visibility: hidden
                     profit_amount_html = "" # Ensure no profit is shown for hidden days
-                
+
                 if day_date == today:
                     day_class += " current-day"
-                        
+
                 calendar_html += f"""
                     <div class="calendar-day-box {day_class}">
                         <span class="day-number">{day_date.day if day_date.month == selected_month_date.month else ''}</span>
@@ -2150,28 +2055,36 @@ elif st.session_state.current_page == 'mt5':
                         {dot_indicator_html}
                     </div>
                 """
-        
+
         calendar_html += """
             </div>
         </div>
         """
+
+        # --- Display Calendar HTML ---
         st.markdown(calendar_html, unsafe_allow_html=True)
 
 
     # Report Export & Sharing
-    # Ensure `df` is available here, it should be from the uploader
-    if "mt5_df" in st.session_state and not st.session_state.mt5_df.empty:
-        df = st.session_state.mt5_df
-        st.markdown("---") 
+    if 'df' in locals() and not df.empty:
+        st.markdown("---")
         if st.button("📄 Generate Performance Report"):
             total_trades = len(df)
             wins_df = df[df["Profit"] > 0]
-            losses_df = df[df["Profit"] < 0] 
+            losses_df = df[df["Profit"] < 0]
             win_rate = len(wins_df) / total_trades if total_trades else 0.0
             net_profit = df["Profit"].sum()
             profit_factor = _ta_profit_factor_mt5(df)
-            longest_win_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] > 0) if k), default=0)
-            longest_loss_streak = max((len(list(g)) for k, g in df.groupby(df["Profit"] < 0) if k), default=0)
+            
+            # Using daily PnL dataframe to get proper streaks
+            if not daily_pnl_df_for_stats.empty:
+                streaks = _ta_compute_streaks(daily_pnl_df_for_stats)
+                longest_win_streak = streaks['best_win']
+                longest_loss_streak = streaks['best_loss']
+            else:
+                longest_win_streak = 0
+                longest_loss_streak = 0
+
 
             report_html = f"""
             <html>
@@ -2212,8 +2125,9 @@ elif st.session_state.current_page == 'mt5':
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
 
+
 # =========================================================
-# MANAGE MY STRATEGY PAGE
+# MANAGE MY STRATEGY PAGE (Code B, adapted journal reference)
 # =========================================================
 elif st.session_state.current_page == 'strategy':
     st.title("📈 Manage My Strategy")
@@ -2242,18 +2156,17 @@ elif st.session_state.current_page == 'strategy':
             if "logged_in_user" in st.session_state:
                 username = st.session_state.logged_in_user
                 try:
-                    c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    user_data = json.loads(result[0]) if result else {}
+                    user_data = get_user_data(username) # Use global helper
                     user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
-                    c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
-                    conn.commit()
+                    save_user_data(username, user_data) # Use global helper
                     st.success("Strategy saved to your account!")
                     logging.info(f"Strategy saved for {username}: {strategy_name}")
                 except Exception as e:
                     st.error(f"Failed to save strategy: {str(e)}")
                     logging.error(f"Error saving strategy for {username}: {str(e)}")
             st.success(f"Strategy '{strategy_name}' added successfully!")
+
+    # Display Strategies
     if "strategies" in st.session_state and not st.session_state.strategies.empty:
         st.subheader("Your Strategies")
         for idx, row in st.session_state.strategies.iterrows():
@@ -2267,12 +2180,9 @@ elif st.session_state.current_page == 'strategy':
                     if "logged_in_user" in st.session_state:
                         username = st.session_state.logged_in_user
                         try:
-                            c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                            result = c.fetchone()
-                            user_data = json.loads(result[0]) if result else {}
+                            user_data = get_user_data(username) # Use global helper
                             user_data["strategies"] = st.session_state.strategies.to_dict(orient="records")
-                            c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
-                            conn.commit()
+                            save_user_data(username, user_data) # Use global helper
                             st.success("Strategy deleted and account updated!")
                             logging.info(f"Strategy deleted for {username}")
                         except Exception as e:
@@ -2283,35 +2193,71 @@ elif st.session_state.current_page == 'strategy':
         st.info("No strategies defined yet. Add one above.")
     # Evolving Playbook
     st.subheader("📖 Evolving Playbook")
-    journal_df = st.session_state.tools_trade_journal # Use the new journal
-    mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
+    journal_df = st.session_state.trade_journal # Now using 'trade_journal'
+    mt5_df = st.session_state.get('mt5_df', pd.DataFrame()) # Code B's MT5 df
 
-    # Create a unified PnL column for expectancy calculation
-    # Assume MT5 'Profit' maps to 'PnL' in the journal
-    journal_for_exp = journal_df.copy()
-    journal_for_exp['pnl'] = journal_for_exp['PnL'] # Use PnL from the new journal
-    journal_for_exp['r'] = journal_for_exp['RR'] # Use RR from the new journal
-    journal_for_exp['Symbol'] = journal_for_exp['Symbol'] # Keep Symbol for grouping
+    # We need to unify the columns before combining. Code A's journal is primary.
+    # Align MT5 df columns if possible, otherwise use Code A's journal only.
+    combined_df = journal_df.copy() # Start with Code A's journal
+    
+    # Example mapping: PnL and RR are common
+    if not mt5_df.empty and 'Profit' in mt5_df.columns:
+        mt5_temp = pd.DataFrame()
+        mt5_temp['Date'] = pd.to_datetime(mt5_df['Close Time'])
+        mt5_temp['PnL'] = mt5_df['Profit']
+        mt5_temp['Symbol'] = mt5_df['Symbol']
+        mt5_temp['Outcome'] = mt5_df['Profit'].apply(lambda x: 'Win' if x > 0 else ('Loss' if x < 0 else 'Breakeven'))
+        # For 'RR', MT5 raw data usually doesn't have it. Will need to calculate or default.
+        mt5_temp['RR'] = mt5_df.apply(lambda row: row['Profit'] / abs(row['StopLoss']) if 'StopLoss' in mt5_df.columns and row['StopLoss'] != 0 else 0, axis=1) # Simplified RR calculation
 
-    mt5_for_exp = mt5_df.copy()
-    if not mt5_for_exp.empty:
-        mt5_for_exp['pnl'] = mt5_for_exp['Profit']
-        mt5_for_exp['r'] = mt5_for_exp.apply(lambda row: row['Profit'] / (abs(row['StopLoss']) if 'StopLoss' in row and row['StopLoss'] != 0 else 1) if row['Profit'] >=0 else row['Profit'] / (abs(row['StopLoss']) if 'StopLoss' in row and row['StopLoss'] != 0 else 1) , axis=1) # Simplified R for MT5 if no direct R:R
-        mt5_for_exp['Symbol'] = mt5_for_exp['Symbol']
+        # Pad with empty columns to match journal_cols
+        for col in journal_cols:
+            if col not in mt5_temp.columns:
+                mt5_temp[col] = pd.Series(dtype=journal_dtypes.get(col))
 
-    combined_df = pd.concat([journal_for_exp[['Symbol', 'pnl', 'r']], mt5_for_exp[['Symbol', 'pnl', 'r']]], ignore_index=True) if not mt5_for_exp.empty else journal_for_exp[['Symbol', 'pnl', 'r']]
+        combined_df = pd.concat([combined_df, mt5_temp[journal_cols]], ignore_index=True)
+
+
+    if "RR" in combined_df.columns:
+        combined_df['r'] = pd.to_numeric(combined_df['RR'], errors='coerce') # Ensure RR is numeric for expectancy calculation
     
     group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
-    
-    if group_cols and 'r' in combined_df.columns and not combined_df['r'].isnull().all():
-        agg = _ta_expectancy_by_group(combined_df, group_cols).sort_values("expectancy", ascending=False)
+
+    if group_cols and 'r' in combined_df.columns and not combined_df['r'].isnull().all(): # Only proceed if 'r' column has data
+        # Calculate expectancy, ensuring not to pass NaN to agg
+        g = combined_df.dropna(subset=["r"]).groupby(group_cols)
+
+        # Simplified _ta_expectancy_by_group to work with Code A's definitions where possible
+        # This part requires robust functions from original Code B, which were not in provided snippet, re-creating minimal necessary
+        res_data = []
+        for name, group in g:
+            wins_r = group[group['r'] > 0]['r']
+            losses_r = group[group['r'] < 0]['r']
+
+            winrate_calc = len(wins_r) / len(group) if len(group) > 0 else 0.0
+            avg_win_r = wins_r.mean() if not wins_r.empty else 0.0
+            avg_loss_r = abs(losses_r.mean()) if not losses_r.empty else 0.0 # Absolute value for loss
+
+            expectancy_calc = (winrate_calc * avg_win_r) - ((1 - winrate_calc) * avg_loss_r)
+            
+            res_data.append({
+                "Symbol": name if isinstance(name, str) else name[0], # Handle tuple for groupby
+                "trades": len(group),
+                "winrate": winrate_calc,
+                "avg_win_R": avg_win_r,
+                "avg_loss_R": avg_loss_r,
+                "expectancy_R": expectancy_calc
+            })
+        
+        agg = pd.DataFrame(res_data).sort_values("expectancy_R", ascending=False)
         st.write("Your refined edge profile based on logged trades:")
         st.dataframe(agg)
     else:
-        st.info("Log more trades with symbols and outcomes to evolve your playbook.")
+        st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
+
 
 # =========================================================
-# ACCOUNT PAGE
+# ACCOUNT PAGE (Code B, adapted session state names)
 # =========================================================
 elif st.session_state.current_page == 'account':
     st.title("👤 My Account")
@@ -2325,7 +2271,7 @@ elif st.session_state.current_page == 'account':
         """
     )
     st.write('---')
-    if "logged_in_user" not in st.session_state or st.session_state.logged_in_user == "pro_trader": # Also check for the mock user
+    if "logged_in_user" not in st.session_state or st.session_state.logged_in_user == 'pro_trader': # Add 'pro_trader' for the initial mock state
         # Tabs for Sign In and Sign Up
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
         # --------------------------
@@ -2334,8 +2280,8 @@ elif st.session_state.current_page == 'account':
         with tab_signin:
             st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
-                username = st.text_input("Username", key="login_username")
-                password = st.text_input("Password", type="password", key="login_password")
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
                 login_button = st.form_submit_button("Login")
                 if login_button:
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
@@ -2345,33 +2291,36 @@ elif st.session_state.current_page == 'account':
                         st.session_state.logged_in_user = username
                         user_data = json.loads(result[1]) if result[1] else {}
                         st.session_state.drawings = user_data.get("drawings", {})
-                        if "tools_trade_journal" in user_data:
-                            loaded_df = pd.DataFrame(user_data["tools_trade_journal"])
-                            # Ensure all journal_cols are present and dtypes are correct for loaded data
+                        if "trade_journal" in user_data: # Load 'trade_journal' key
+                            loaded_df = pd.DataFrame(user_data["trade_journal"])
+                            # Ensure columns match current schema before assigning
                             for col in journal_cols:
                                 if col not in loaded_df.columns:
                                     loaded_df[col] = pd.Series(dtype=journal_dtypes[col])
-                            st.session_state.tools_trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
-                            st.session_state.tools_trade_journal['Date'] = pd.to_datetime(st.session_state.tools_trade_journal['Date'], errors='coerce')
-                        else:
-                             st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+                                else: # Attempt conversion if exists
+                                     try: loaded_df[col] = loaded_df[col].astype(journal_dtypes[col], errors='coerce')
+                                     except: pass
 
+                            st.session_state.trade_journal = loaded_df[journal_cols].astype(journal_dtypes, errors='ignore')
+                            st.session_state.trade_journal['Date'] = pd.to_datetime(st.session_state.trade_journal['Date'], errors='coerce').fillna(pd.Timestamp.now().floor('D'))
+                        else: # Initialize if not found
+                             st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
 
                         if "strategies" in user_data:
                             st.session_state.strategies = pd.DataFrame(user_data["strategies"])
-                        else:
-                            st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+                        else: # Initialize if not found
+                             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
 
+                        # Initialize other session states expected by Code B logic
                         if "emotion_log" in user_data:
                             st.session_state.emotion_log = pd.DataFrame(user_data["emotion_log"])
-                        else:
-                            st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
+                        else: st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
 
                         if "reflection_log" in user_data:
                             st.session_state.reflection_log = pd.DataFrame(user_data["reflection_log"])
-                        else:
-                            st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
-                            
+                        else: st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+
+
                         st.session_state.xp = user_data.get('xp', 0)
                         st.session_state.level = user_data.get('level', 0)
                         st.session_state.badges = user_data.get('badges', [])
@@ -2389,9 +2338,9 @@ elif st.session_state.current_page == 'account':
         with tab_signup:
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
-                new_username = st.text_input("New Username", key="reg_username")
-                new_password = st.text_input("New Password", type="password", key="reg_password")
-                confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
+                new_username = st.text_input("New Username")
+                new_password = st.text_input("New Password", type="password")
+                confirm_password = st.text_input("Confirm Password", type="password")
                 register_button = st.form_submit_button("Register")
                 if register_button:
                     if new_password != confirm_password:
@@ -2407,16 +2356,17 @@ elif st.session_state.current_page == 'account':
                             logging.warning(f"Registration failed: Username {new_username} already exists")
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "tools_trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
+                            # Use 'trade_journal' key, matching Code A's approach
+                            initial_data = json.dumps({"xp": 0, "level": 0, "badges": [], "streak": 0, "drawings": {}, "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": []})
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
                                 st.session_state.drawings = {}
-                                st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-                                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-                                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
-                                st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
+                                st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # Initialize empty Code A journal
+                                st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]) # Init empty
+                                st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"]) # Init empty
+                                st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"]) # Init empty
                                 st.session_state.xp = 0
                                 st.session_state.level = 0
                                 st.session_state.badges = []
@@ -2457,17 +2407,16 @@ elif st.session_state.current_page == 'account':
             This modular function makes the main code cleaner and the logic reusable.
             """
             user_session_keys = [
-                'logged_in_user', 'drawings', 'tools_trade_journal', 'strategies',
-                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak',
-                'last_journal_date', 'forex_fundamentals_progress', 'challenge_30_days_completed' # Clear relevant flags too
+                'logged_in_user', 'drawings', 'trade_journal', 'strategies', # changed tools_trade_journal to trade_journal
+                'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak', 'last_journal_date'
             ]
             for key in user_session_keys:
                 if key in st.session_state:
                     del st.session_state[key]
 
-            # Re-initialize core data structures to their empty state using the NEW schemas
+            # Re-initialize core data structures to their empty state
             st.session_state.drawings = {}
-            st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+            st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes) # changed tools_trade_journal to trade_journal
             st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
             st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
             st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
@@ -2475,7 +2424,6 @@ elif st.session_state.current_page == 'account':
             st.session_state.level = 0
             st.session_state.badges = []
             st.session_state.streak = 0
-            st.session_state.last_journal_date = None
 
             logging.info("User logged out")
             st.session_state.current_page = "account" # Ensure redirection to the same page
@@ -2484,145 +2432,170 @@ elif st.session_state.current_page == 'account':
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
-        
 
-        # --- Custom CSS for the KPI cards ---
-        st.markdown("""
-        <style>
-        .kpi-card {
-            background-color: rgba(45, 70, 70, 0.5);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            border: 1px solid #58b3b1;
-            margin-bottom: 10px;
-        }
-        .kpi-icon {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        .kpi-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #FFFFFF;
-        }
-        .kpi-label {
-            font-size: 0.9em;
-            color: #A0A0A0;
-        }
-        .insights-card {
-            background-color: rgba(45, 70, 70, 0.3);
-            border-left: 5px solid #58b3b1;
-            padding: 15px;
-            border-radius: 5px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
 
-        st.subheader("📈 Progress Snapshot")
+        # --- Main Dashboard Layout using Columns ---
+        col1, col2 = st.columns([2, 1])
 
-        # --- KPI Cards (Now all 4 in a single row) ---
-        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+        with col1:
+            st.subheader("📈 Progress Snapshot")
 
-        with kpi_col1:
-            level = st.session_state.get('level', 0)
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">🧙‍♂️</div>
-                <div class="kpi-value">Level {level}</div>
-                <div class="kpi-label">Trader's Rank</div>
-            </div>
+            # --- Custom CSS for the KPI cards ---
+            st.markdown("""
+            <style>
+            .kpi-card {
+                background-color: rgba(45, 70, 70, 0.5);
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                border: 1px solid #58b3b1;
+                margin-bottom: 10px;
+            }
+            .kpi-icon {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+            }
+            .kpi-value {
+                font-size: 1.8em;
+                font-weight: bold;
+                color: #FFFFFF;
+            }
+            .kpi-label {
+                font-size: 0.9em;
+                color: #A0A0A0;
+            }
+            .insights-card {
+                background-color: rgba(45, 70, 70, 0.3);
+                border-left: 5px solid #58b3b1;
+                padding: 15px;
+                border-radius: 5px;
+            }
+            </style>
             """, unsafe_allow_html=True)
-        
-        with kpi_col2:
-            streak = st.session_state.get('streak', 0)
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">🔥</div>
-                <div class="kpi-value">{streak} Days</div>
-                <div class="kpi-label">Journaling Streak</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with kpi_col3:
-            total_xp = st.session_state.get('xp', 0)
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">⭐</div>
-                <div class="kpi-value">{total_xp:,}</div>
-                <div class="kpi-label">Total Experience</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with kpi_col4:
-            total_xp = st.session_state.get('xp', 0)
-            # UPDATED RXP CALCULATION: Every 10 XP is 5 RXP
-            redeemable_xp = (total_xp // 10) * 5 
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-icon">💎</div>
-                <div class="kpi-value">{redeemable_xp:,}</div>
-                <div class="kpi-label">Redeemable XP (RXP)</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        st.markdown("---")
 
-        # --- Row 2: Progress Chart, Insights, and Badges (rearranged) ---
-        chart_col, insights_col, badges_col = st.columns([0.8, 1, 0.7]) # Adjusted ratios for better visual balance
+            # --- Row 1: KPI Cards ---
+            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            with kpi_col1:
+                level = st.session_state.get('level', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🧙‍♂️</div>
+                    <div class="kpi-value">Level {level}</div>
+                    <div class="kpi-label">Trader's Rank</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi_col2:
+                streak = st.session_state.get('streak', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">🔥</div>
+                    <div class="kpi-value">{streak} Days</div>
+                    <div class="kpi-label">Journaling Streak</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi_col3:
+                total_xp = st.session_state.get('xp', 0)
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-icon">⭐</div>
+                    <div class="kpi-value">{total_xp:,}</div>
+                    <div class="kpi-label">Total Experience</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        with chart_col:
-            st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-            total_xp = st.session_state.get('xp', 0)
-            xp_in_level = total_xp % 100
-            xp_needed = 100 - xp_in_level
+            st.markdown("---")
 
-            fig = go.Figure(go.Pie(
-                values=[xp_in_level, xp_needed],
-                labels=['XP Gained', 'XP Needed'],
-                hole=0.6,
-                marker_colors=['#58b3b1', '#2d4646'],
-                textinfo='none',
-                hoverinfo='label+value',
-                direction='clockwise',
-                sort=False
-            ))
-            fig.update_layout(
-                showlegend=False,
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
-                margin=dict(t=0, b=0, l=0, r=0)
-            )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        
-        with insights_col:
-            st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
-            streak = st.session_state.get('streak', 0)
-            
-            insight_message = ""
-            if streak > 21:
-                insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
-            elif streak > 7:
-                insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
+            # --- Row 2: Progress Chart and Insights ---
+            # Use the 'gap' parameter to create significant horizontal space between the columns
+            chart_col, spacer_col, insights_col = st.columns([10, 1, 10])
+
+            with chart_col:
+                st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+                total_xp = st.session_state.get('xp', 0) # Ensure total_xp is defined here
+                xp_in_level = total_xp % 100
+                xp_needed = 100 - xp_in_level
+
+                fig = go.Figure(go.Pie(
+                    values=[xp_in_level, xp_needed],
+                    labels=['XP Gained', 'XP Needed'],
+                    hole=0.6,
+                    marker_colors=['#58b3b1', '#2d4646'],
+                    textinfo='none',
+                    hoverinfo='label+value',
+                    direction='clockwise',
+                    sort=False
+                ))
+                fig.update_layout(
+                    showlegend=False,
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=20, showarrow=False, font_color="white")],
+                    margin=dict(t=0, b=0, l=0, r=0)
+                )
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+            # The spacer column is left empty to create the space.
+            with spacer_col:
+                st.empty()
+
+            with insights_col:
+                st.markdown("<h5 style='text-align: center;'>Personalized Insights</h5>", unsafe_allow_html=True)
+                streak = st.session_state.get('streak', 0) # Ensure streak is defined here
+
+                insight_message = ""
+                if streak > 21:
+                    insight_message = "Your journaling consistency is elite! This level of discipline is a key trait of professional traders."
+                elif streak > 7:
+                    insight_message = "Over a week of consistent journaling! You're building a powerful habit. Keep the momentum going."
+                else:
+                    insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
+
+                st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
+
+                num_trades = len(st.session_state.trade_journal) # Referencing the unified journal
+                next_milestone = ""
+                if num_trades < 10:
+                    next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50:
+                    next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                else:
+                     next_milestone = "The next streak badge is at 30 days. You've got this!"
+
+                st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+
+        # --- Row 3: XP Journey Chart (This part goes right after the `with col1:` and `with col2:` blocks) ---
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
+        st.subheader("🚀 Your XP Journey")
+        journal_df = st.session_state.trade_journal # Accessing the unified journal
+        if not journal_df.empty and 'Date' in journal_df.columns:
+            journal_df_copy = journal_df.copy() # Operate on copy
+            journal_df_copy['Date'] = pd.to_datetime(journal_df_copy['Date'], errors='coerce')
+            journal_df_copy.dropna(subset=['Date'], inplace=True) # Remove invalid dates for sorting
+
+            if not journal_df_copy.empty:
+                xp_data = journal_df_copy.sort_values(by='Date').copy()
+                xp_data['xp_gained'] = 10 # Each journal entry gives 10 XP as per Code A
+                xp_data['cumulative_xp'] = xp_data['xp_gained'].cumsum()
+
+                fig_line = px.area(xp_data, x='Date', y='cumulative_xp',
+                                    title="XP Growth Over Time (Based on Journal Entries)",
+                                    labels={'Date': 'Journal Entry Date', 'cumulative_xp': 'Cumulative XP'})
+                fig_line.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(45, 70, 70, 0.3)',
+                    xaxis=dict(gridcolor='#4d7171'),
+                    yaxis=dict(gridcolor='#4d7171'),
+                    font_color="white"
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
             else:
-                insight_message = "Every trade journaled is a step forward. Stay consistent to build a strong foundation for your trading career."
-            
-            st.markdown(f"<div class='insights-card'><p>💡 {insight_message}</p></div>", unsafe_allow_html=True)
+                st.info("Log your first trade in the 'Trading Journal' tab to start your XP Journey!")
+        else:
+            st.info("Log your first trade in the 'Trading Journal' tab to start your XP Journey!")
 
-            num_trades = len(st.session_state.tools_trade_journal)
-            next_milestone = ""
-            if num_trades < 10:
-                next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
-            elif num_trades < 50:
-                next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
-            else:
-                 next_milestone = "The next streak badge is at 30 days. You've got this!"
 
-            st.markdown(f"<div class='insights-card' style='margin-top: 10px;'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
-
-        with badges_col: # Badges moved here
-            st.markdown("<h5 style='text-align: center;'>🏆 Badges</h5>", unsafe_allow_html=True)
+        with col2:
+            st.subheader("🏆 Badges")
             badges = st.session_state.get('badges', [])
             if badges:
                 for badge in badges:
@@ -2630,74 +2603,17 @@ elif st.session_state.current_page == 'account':
             else:
                 st.info("No badges earned yet. Keep up the great work to unlock them!")
 
-        # --- XP Journey Chart (This part goes right after the `chart_col`, `insights_col`, `badges_col` blocks) ---
-        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
-        st.subheader("🚀 Your XP Journey")
-        journal_df = st.session_state.tools_trade_journal
-        if not journal_df.empty and 'Date' in journal_df.columns:
-            journal_df['Date'] = pd.to_datetime(journal_df['Date'])
-            # Ensure PnL is numeric before creating xp_gained
-            journal_df['PnL'] = pd.to_numeric(journal_df['PnL'], errors='coerce').fillna(0)
-            
-            xp_data = journal_df.sort_values(by='Date').copy()
-            xp_data['xp_gained'] = 10 # Each trade logged earns 10 XP as per ta_update_xp logic in logging a trade
-            xp_data['cumulative_xp'] = xp_data['xp_gained'].cumsum()
-            
-            fig_line = px.area(xp_data, x='Date', y='cumulative_xp', 
-                                title="XP Growth Over Time (Based on Journal Entries)",
-                                labels={'Date': 'Journal Entry Date', 'cumulative_xp': 'Cumulative XP'})
-            fig_line.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(45, 70, 70, 0.3)',
-                xaxis=dict(gridcolor='#4d7171', showgrid=True),
-                yaxis=dict(gridcolor='#4d7171', showgrid=True),
-                font_color="white"
-            )
-            st.plotly_chart(fig_line, use_container_width=True)
-        else:
-            st.info("Log your first trade in the 'Backtesting' tab to start your XP Journey!")
-
-        st.markdown("---")
-        
-        # --- NEW SECTION: Redeemable Items ---
-        st.subheader("🎁 Redeem Your RXP")
-        st.markdown(f"You have **{redeemable_xp:,} RXP** available to redeem!")
-        st.markdown("Here are some rewards you can unlock:")
-
-        rewards = [
-            {"item": "1 Month Premium Subscription", "cost": 100},
-            {"item": "Exclusive Trading E-Book", "cost": 50},
-            {"item": "Personalized Strategy Review Session (30 min)", "cost": 250},
-            {"item": "Zenvo Academy Advanced Course Access", "cost": 150},
-        ]
-
-        for reward in rewards:
-            col_reward_item, col_reward_btn = st.columns([3, 1])
-            with col_reward_item:
-                can_redeem = redeemable_xp >= reward["cost"]
-                status_text = "✨ Available" if can_redeem else f"🚫 Needs {reward['cost'] - redeemable_xp} more RXP"
-                st.markdown(f"**{reward['item']}** ({reward['cost']} RXP) - *{status_text}*")
-            with col_reward_btn:
-                if st.button("Redeem", key=f"redeem_{reward['item'].replace(' ', '_').lower()}", disabled=not can_redeem):
-                    st.success(f"Successfully redeemed '{reward['item']}'! (RXP deduction not implemented yet)")
-                    # In a real app, you would deduct RXP from user_data and save it to the DB
-                    # To deduct XP (since RXP is derived from XP), you'd convert RXP cost back to XP:
-                    # xp_cost = (reward['cost'] * 10) / 5
-                    # user_data['xp'] = user_data.get('xp', 0) - xp_cost
-                    # _ta_save_user_data(st.session_state.logged_in_user, user_data) # You'd need a save_user_data function
-                    st.rerun() # Rerun to update RXP balance visually
-
-
         st.markdown("---")
 
         # --- Account Details and Actions using an Expander ---
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            st.write("**Email**: `trader.pro@email.com` (example)")
+            st.write("**Email**: `trader.pro@email.com` (example)") # This is hardcoded
             if st.button("Log Out", key="logout_account_page", type="primary"):
                 handle_logout()
+
 # =========================================================
-# COMMUNITY TRADE IDEAS PAGE
+# COMMUNITY TRADE IDEAS PAGE (Code B, adapted journal reference)
 # =========================================================
 elif st.session_state.current_page == 'community':
     st.title("🌐 Community Trade Ideas")
@@ -2713,7 +2629,9 @@ elif st.session_state.current_page == 'community':
         if submit_idea:
             if "logged_in_user" in st.session_state:
                 username = st.session_state.logged_in_user
-                user_dir = _ta_user_dir(username)
+                user_data_dir = os.path.join("user_data", username) # Generic user dir. Adjust if _ta_user_dir exists and is robust
+                os.makedirs(os.path.join(user_data_dir, "community_images"), exist_ok=True) # Ensure images folder exists
+
                 idea_id = _ta_hash()
                 idea_data = {
                     "Username": username,
@@ -2722,66 +2640,48 @@ elif st.session_state.current_page == 'community':
                     "Description": trade_description,
                     "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "IdeaID": idea_id,
-                    "ImagePath": None # Initialize ImagePath to None
+                    "ImagePath": None # Initialize, will update if image uploaded
                 }
                 if uploaded_image:
-                    image_dir = os.path.join(user_dir, "community_images")
-                    os.makedirs(image_dir, exist_ok=True) # Ensure directory exists
-                    image_path = os.path.join(image_dir, f"{idea_id}.png")
+                    image_path = os.path.join(user_data_dir, "community_images", f"{idea_id}.png")
                     try:
                         with open(image_path, "wb") as f:
                             f.write(uploaded_image.getbuffer())
                         idea_data["ImagePath"] = image_path
+                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                        st.success("Trade idea shared successfully!")
+                        logging.info(f"Trade idea shared by {username}: {idea_id}")
                     except Exception as e:
-                        st.warning(f"Failed to save image: {e}")
-                        logging.error(f"Failed to save uploaded image for idea {idea_id}: {e}")
-
-                st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
-                _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                st.success("Trade idea shared successfully!")
-                logging.info(f"Trade idea shared by {username}: {idea_id}")
-                st.rerun()
+                        st.error(f"Failed to save image: {e}. Trade idea not saved.")
+                        logging.error(f"Error saving image for trade idea: {e}")
+                else:
+                    st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                    _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                    st.success("Trade idea shared successfully!")
+                    logging.info(f"Trade idea shared by {username}: {idea_id} (no image)")
+                st.rerun() # Refresh to show new idea
             else:
                 st.error("Please log in to share trade ideas.")
                 logging.warning("Attempt to share trade idea without login")
+
     st.subheader("📈 Community Trade Ideas")
     if not st.session_state.trade_ideas.empty:
-        # Sort ideas by timestamp for most recent first
-        st.session_state.trade_ideas['Timestamp'] = pd.to_datetime(st.session_state.trade_ideas['Timestamp'])
-        sorted_ideas = st.session_state.trade_ideas.sort_values(by="Timestamp", ascending=False).reset_index(drop=True)
-
-        for idx, idea in sorted_ideas.iterrows():
-            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp'].strftime('%Y-%m-%d %H:%M:%S')})"):
+        for idx, idea in st.session_state.trade_ideas.iterrows():
+            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
                 st.markdown(f"Description: {idea['Description']}")
                 if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
-                    try:
-                        st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
-                    except Exception as e:
-                        st.warning(f"Could not load image at {idea['ImagePath']}: {e}")
-                        logging.error(f"Error loading image: {e}")
-                
-                # Check if the logged-in user is the author of the idea
-                is_author = "logged_in_user" in st.session_state and st.session_state.logged_in_user == idea["Username"]
-                
-                if is_author and st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
-                    # Remove the image file if it exists
-                    if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
-                        try:
-                            os.remove(idea['ImagePath'])
-                            logging.info(f"Deleted image file: {idea['ImagePath']}")
-                        except Exception as e:
-                            logging.error(f"Error deleting image file {idea['ImagePath']}: {e}")
-
-                    st.session_state.trade_ideas = st.session_state.trade_ideas.drop(st.session_state.trade_ideas[st.session_state.trade_ideas['IdeaID'] == idea['IdeaID']].index).reset_index(drop=True)
-                    _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                    st.success("Trade idea deleted successfully!")
-                    logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
-                    st.rerun()
-                elif not is_author and "logged_in_user" in st.session_state: # If user is logged in but not author
-                    st.caption("You can only delete your own trade ideas.")
-                elif "logged_in_user" not in st.session_state:
-                    st.caption("Log in to manage your trade ideas.")
-
+                    st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
+                if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
+                    if "logged_in_user" in st.session_state and st.session_state.logged_in_user == idea["Username"]:
+                        st.session_state.trade_ideas = st.session_state.trade_ideas.drop(idx).reset_index(drop=True)
+                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                        st.success("Trade idea deleted successfully!")
+                        logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own trade ideas.")
+                        logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
     else:
         st.info("No trade ideas shared yet. Be the first to contribute!")
     # Community Templates
@@ -2811,27 +2711,18 @@ elif st.session_state.current_page == 'community':
             else:
                 st.error("Please log in to share templates.")
     if not st.session_state.community_templates.empty:
-        # Sort templates by timestamp for most recent first
-        st.session_state.community_templates['Timestamp'] = pd.to_datetime(st.session_state.community_templates['Timestamp'])
-        sorted_templates = st.session_state.community_templates.sort_values(by="Timestamp", ascending=False).reset_index(drop=True)
-
-        for idx, template in sorted_templates.iterrows():
-            with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp'].strftime('%Y-%m-%d %H:%M:%S')})"):
+        for idx, template in st.session_state.community_templates.iterrows():
+            with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp']})"):
                 st.markdown(template['Content'])
-                
-                # Check if the logged-in user is the author of the template
-                is_author = "logged_in_user" in st.session_state and st.session_state.logged_in_user == template["Username"]
-
-                if is_author and st.button("Delete Template", key=f"delete_template_{template['ID']}"):
-                    st.session_state.community_templates = st.session_state.community_templates.drop(st.session_state.community_templates[st.session_state.community_templates['ID'] == template['ID']].index).reset_index(drop=True)
-                    _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
-                    st.success("Template deleted successfully!")
-                    logging.info(f"Template {template['ID']} deleted by {st.session_state.logged_in_user}")
-                    st.rerun()
-                elif not is_author and "logged_in_user" in st.session_state: # If user is logged in but not author
-                    st.caption("You can only delete your own templates.")
-                elif "logged_in_user" not in st.session_state:
-                    st.caption("Log in to manage your templates.")
+                if st.button("Delete Template", key=f"delete_template_{template['ID']}"):
+                    if "logged_in_user" in st.session_state and st.session_state.logged_in_user == template["Username"]:
+                        st.session_state.community_templates = st.session_state.community_templates.drop(idx).reset_index(drop=True)
+                        _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
+                        st.success("Template deleted successfully!")
+                        logging.info(f"Template {template['ID']} deleted by {st.session_state.logged_in_user}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own templates.")
     else:
         st.info("No templates shared yet. Share one above!")
     # Leaderboard / Self-Competition
@@ -2840,8 +2731,7 @@ elif st.session_state.current_page == 'community':
     leader_data = []
     for u, d in users:
         user_d = json.loads(d) if d else {}
-        # Ensure to use 'tools_trade_journal'
-        trades = len(user_d.get("tools_trade_journal", []))
+        trades = len(user_d.get("trade_journal", [])) # Changed from "tools_trade_journal"
         leader_data.append({"Username": u, "Journaled Trades": trades})
     if leader_data:
         leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
@@ -2850,7 +2740,7 @@ elif st.session_state.current_page == 'community':
     else:
         st.info("No leaderboard data yet.")
 # =========================================================
-# TOOLS PAGE
+# TOOLS PAGE (Code B, adapted journal references)
 # =========================================================
 elif st.session_state.current_page == 'tools':
     st.title("🛠 Tools")
@@ -2868,34 +2758,23 @@ elif st.session_state.current_page == 'tools':
     st.markdown('---')
     st.markdown("""
     <style>
-    /* Specific tab styling for the Tools page to override generic .stTabs styling for visual differentiation */
-    .stTabs [data-baseweb="tablist"] {
-        background-color: transparent !important; /* Make tablist background transparent */
-        border-bottom: 1px solid #4d7171; /* Add a subtle line under the tabs */
+    div[data-testid="stTabs"] div[role="tablist"] > div {
+        background-color: #5bb4b0 !important;
     }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #2d4646 !important; /* Specific background for inactive tabs */
-        border: 1px solid #4d7171 !important;
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
         color: #ffffff !important;
-        border-radius: 8px 8px 0 0 !important; /* Rounded top corners */
-        margin-right: 5px !important;
-        padding: 10px 15px !important;
+        transition: all 0.3s ease !important;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #4d7171 !important; /* Darker on hover */
-        color: #f0f0f0 !important;
-        border-color: #58b3b1 !important;
+    div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
+        color: #5bb4b0 !important;
+        background-color: rgba(91, 180, 176, 0.2) !important;
     }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #58b3b1 !important; /* Highlight color for active tab */
-        color: #ffffff !important;
-        border-color: #58b3b1 !important;
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        color: #5bb4b0 !important;
         font-weight: bold !important;
-        border-bottom: none !important; /* No bottom border for active tab */
     }
     </style>
     """, unsafe_allow_html=True)
-    
     tools_options = [
         'Profit/Loss Calculator',
         'Price Alerts',
@@ -2922,40 +2801,38 @@ elif st.session_state.current_page == 'tools':
         with col_calc2:
             account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"], index=0, key="pl_account_currency")
             open_price = st.number_input("Open Price", value=1.1000, step=0.0001, format="%.5f", key="pl_open_price")
-            trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction", horizontal=True) # Made horizontal
-
-        # Standard Forex pip values for a standard lot (100,000 units)
-        # These values are illustrative and might vary slightly by broker or exact pair.
-        pip_value_mapping = {
-            "EUR/USD": 10.0, "GBP/USD": 10.0, "AUD/USD": 10.0, "NZD/USD": 10.0,
-            "USD/JPY": 9.09, # Approx for 110.00 USDJPY (10/110)
-            "USD/CHF": 10.0, "USD/CAD": 10.0,
-            "EUR/GBP": 10.0, "EUR/JPY": 9.09, # Approx
-            "GBP/JPY": 9.09 # Approx
-        }
-        base_pip_value = pip_value_mapping.get(currency_pair, 10.0) # Default to 10 if not found
-
-        # Calculate pips moved
+            trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction")
+        pip_multiplier = 100 if "JPY" in currency_pair else 10000
+        pip_movement = abs(close_price - open_price) * pip_multiplier
+        # The exchange rate and pip value calculation are placeholders and would need actual real-time data
+        # For simplicity and given the example, assuming a flat $10 per pip for non-JPY for a standard lot and approx $1 for JPY.
+        # This part requires a proper FX rate API for real accuracy for account_currency conversion
         if "JPY" in currency_pair:
-            pip_divisor = 0.01
-        else:
-            pip_divisor = 0.0001
+            # Very crude approximation, assuming a USD account
+            pip_value_basis = 0.01 * (100000 / ( (open_price + close_price)/2) ) # Pip value for JPY in terms of base currency * 100k units
+            # Converting to USD: If USDJPY is 150, 1 pip (0.01 JPY) is 0.01/150 USD approx 0.000067 USD.
+            # 1 lot (100,000 units) * 0.000067 = 6.7 USD/pip for USDJPY (varies by current rate)
+            # Placeholder simplified conversion: assume for a lot, value is '10' for non-JPY. For JPY, assume average of $7 per pip per standard lot.
+            pip_dollar_value_per_lot = 7.0
+            # For general P/L cal, using price difference as 'points' and converting based on lot size and fixed multiplier
+            profit_loss = ( (close_price - open_price) if trade_direction == "Long" else (open_price - close_price) ) * (1 / pip_size_for_pair) * position_size * pip_dollar_value_per_lot
 
-        pips_moved = abs(close_price - open_price) / pip_divisor
-
-        # Calculate profit/loss
-        if trade_direction == "Long":
-            price_change = close_price - open_price
-        else: # Short
-            price_change = open_price - close_price
+        else: # Non-JPY pair
+            # e.g., EUR/USD, if current EURUSD is 1.1, 1 pip (0.0001) means for 1 lot ($100,000 of base currency)
+            # You get 10 USD per pip * lot size
+            pip_dollar_value_per_lot = 10.0 # Standard approx. $10 per pip per lot
+            profit_loss = ( (close_price - open_price) if trade_direction == "Long" else (open_price - close_price) ) * pip_multiplier * position_size * (pip_dollar_value_per_lot / 10) # Div 10 because pip_multiplier for non-JPY is 10000
         
-        # Profit/Loss = (Price Change in Pips) * (Pip Value per Lot) * (Position Size in Lots)
-        calculated_pnl = (price_change / pip_divisor) * (base_pip_value * position_size)
+        # Apply conversion if account currency is not USD, very rough, uses flat exchange rate as placeholder
+        # Actual impl. would need `api.exchangerate.host` to get current rates.
+        if account_currency == "EUR": profit_loss /= 1.08 # Example rate
+        elif account_currency == "GBP": profit_loss /= 1.25 # Example rate
+        elif account_currency == "JPY": profit_loss /= 0.0067 # Example rate (for converting USD PnL to JPY PnL)
 
-        st.write(f"Pip Movement: {pips_moved:.2f} pips")
-        st.write(f"Estimated Pip Value per Lot ({currency_pair} in {account_currency}): ${base_pip_value:.2f}") # Display estimated pip value
-        st.write(f"Potential Profit/Loss: {calculated_pnl:.2f} {account_currency}")
 
+        st.write(f"Pip Movement: {pip_movement:.2f} pips")
+        st.write(f"Estimated Value Per Pip: {pip_dollar_value_per_lot * position_size:.2f} {account_currency}") # Display lot adjusted pip value
+        st.write(f"Potential Profit/Loss: {profit_loss:.2f} {account_currency}")
     # --------------------------
     # PRICE ALERTS
     # --------------------------
@@ -2969,100 +2846,93 @@ elif st.session_state.current_page == 'tools':
         with st.form("add_alert_form"):
             col1, col2 = st.columns([2, 2])
             with col1:
-                pair = st.selectbox("Currency Pair", forex_pairs)
+                pair = st.selectbox("Currency Pair", forex_pairs, key="alert_pair")
             with col2:
-                price = st.number_input("Target Price", min_value=0.0, format="%.5f")
+                price = st.number_input("Target Price", min_value=0.0, format="%.5f", key="alert_price")
             submitted = st.form_submit_button("➕ Add Alert")
             if submitted:
                 new_alert = {"Pair": pair, "Target Price": price, "Triggered": False}
                 st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
                 st.success(f"Alert added: {pair} at {price}")
                 logging.info(f"Alert added: {pair} at {price}")
-        
         st.subheader("Your Alerts")
-        # Displaying the alerts in a nicer format
-        if not st.session_state.price_alerts.empty:
-            st.dataframe(st.session_state.price_alerts.assign(
-                Action=[st.button("❌ Cancel", key=f"cancel_{idx}") for idx in st.session_state.price_alerts.index]
-            ), use_container_width=True, hide_index=True)
-
-            cancel_indices = [idx for idx, row in st.session_state.price_alerts.iterrows() if st.session_state[f"cancel_{idx}"]]
-            if cancel_indices:
-                st.session_state.price_alerts = st.session_state.price_alerts.drop(index=cancel_indices).reset_index(drop=True)
-                st.success("Selected alerts cancelled.")
-                st.rerun()
-        else:
-            st.info("No price alerts set. Add one above to start monitoring prices.")
-        
-        # Auto-refresh and live price checking
-        st.markdown("---")
-        st.markdown("### 📊 Active Price Monitoring")
-        # Auto-refresh logic (can be made optional by user)
-        # st_autorefresh(interval=15000, key="price_alert_autorefresh") # Refresh every 15 seconds
+        st.dataframe(st.session_state.price_alerts, use_container_width=True, height=220)
+        # Conditional autorefresh only if alerts are being tracked (moved logic below)
 
         active_pairs = st.session_state.price_alerts["Pair"].unique().tolist()
         live_prices = {}
-        if active_pairs:
-            st.write("Fetching live prices...")
-            with st.spinner("Updating prices..."):
-                for p in active_pairs:
-                    if not p: continue
-                    try:
-                        # Using an alternative API that is more robust or free
-                        # forex_api_url = f"https://api.exchangerate.host/latest?base={p[:3]}&symbols={p[3:]}"
-                        # Using a mock for this example as free real-time APIs are limited
-                        mock_price = round(np.random.uniform(1.05000, 1.15000), 5) if "USD" in p else round(np.random.uniform(140.00, 150.00), 2)
-                        live_prices[p] = mock_price
-                        # For actual API, uncomment below (and find a good API key)
-                        # r = requests.get(forex_api_url, timeout=6)
-                        # data = r.json()
-                        # price_val = data.get("rates", {}).get(p[3:])
-                        # live_prices[p] = float(price_val) if price_val is not None else None
-                        logging.info(f"Fetched price for {p}: {live_prices[p]}")
-                    except Exception as e:
-                        live_prices[p] = None
-                        logging.error(f"Error fetching price for {p}: {str(e)}")
-            
-            triggered_alerts = []
+        for p in active_pairs:
+            if not p:
+                continue
+            base, quote = p[:3], p[3:]
+            try:
+                # Using a generic endpoint. This might be rate-limited or require an API key in a real app.
+                # 'api.exchangerate.host' provides real-time and historical currency exchange rates via a simple JSON API.
+                # However, for a Streamlit app embedded within a client (not always accessible directly from Python back-end or may incur cost)
+                # it's just for demo purpose. For a real trading app, it should use a reliable FX data provider.
+                r = requests.get(f"https://api.exchangerate.host/latest?base={base}&symbols={quote}", timeout=6)
+                data = r.json()
+                price_val = data.get("rates", {}).get(quote)
+                live_prices[p] = float(price_val) if price_val is not None else None
+                logging.info(f"Fetched price for {p}: {live_prices[p]}")
+            except Exception as e:
+                live_prices[p] = None
+                logging.error(f"Error fetching price for {p}: {str(e)}")
+
+        triggered_alerts = []
+        if not st.session_state.price_alerts.empty:
             for idx, row in st.session_state.price_alerts.iterrows():
                 pair = row["Pair"]
                 target = row["Target Price"]
                 current_price = live_prices.get(pair)
-                
-                # Check for JPY pairs (2 decimal places) vs others (4/5 decimal places)
-                tolerance = 0.0005 if "JPY" not in pair else 0.01
-
                 if isinstance(current_price, (int, float)):
-                    if not row["Triggered"] and abs(current_price - target) <= tolerance: # Adjusted to be <= tolerance
+                    # Adjusting trigger tolerance for JPY pairs (fewer decimals)
+                    tolerance = 0.0005 # for non-JPY
+                    if "JPY" in pair:
+                        tolerance = 0.01 # for JPY
+
+                    if not row["Triggered"] and abs(current_price - target) <= tolerance: # Use <= for including exact matches
                         st.session_state.price_alerts.at[idx, "Triggered"] = True
-                        triggered_alerts.append((idx, f"{pair} reached {target} (Current: {current_price:.5f})"))
+                        triggered_alerts.append((idx, f"{pair} reached {target:.5f} (Current: {current_price:.5f})"))
                         logging.info(f"Alert triggered: {pair} at {target}")
-            
+
             if triggered_alerts:
                 for idx, alert_msg in triggered_alerts:
                     st.balloons()
                     st.success(f"⚡ {alert_msg}")
 
-            st.write("#### Live Prices & Alert Status")
-            current_alerts_data = []
+        # Auto-refresh only if there are active, non-triggered alerts
+        if not st.session_state.price_alerts.empty and any(not row["Triggered"] for _, row in st.session_state.price_alerts.iterrows()):
+             st_autorefresh(interval=5000, key="price_alert_autorefresh") # Refresh every 5 seconds
+
+        st.markdown("### 📊 Active Alerts")
+        if not st.session_state.price_alerts.empty:
             for idx, row in st.session_state.price_alerts.iterrows():
                 pair = row["Pair"]
                 target = row["Target Price"]
                 triggered = row["Triggered"]
                 current_price = live_prices.get(pair)
                 current_price_display = f"{current_price:.5f}" if isinstance(current_price, (int, float)) else "N/A"
-                status_text = "TRIGGERED!" if triggered else "Pending"
-                current_alerts_data.append([pair, f"{target:.5f}", current_price_display, status_text])
-            
-            if current_alerts_data:
-                current_alerts_df = pd.DataFrame(current_alerts_data, columns=["Pair", "Target Price", "Current Price", "Status"])
-                st.dataframe(current_alerts_df, use_container_width=True, hide_index=True)
-            else:
-                st.info("No active alerts to display live prices for.")
-
+                color = "#2ecc71" if triggered else "#f4a261"
+                status = "Triggered" if triggered else "Pending"
+                cols = st.columns([3, 1])
+                with cols[0]:
+                    st.markdown(
+                        f"""
+                        <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
+                        {pair} {status}<br>
+                        Current: {current_price_display} &nbsp;&nbsp;&nbsp; Target: {target:.5f}
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                with cols[1]:
+                    if st.button("❌ Cancel", key=f"cancel_{idx}"):
+                        st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
+                        st.rerun()
+                        logging.info(f"Cancelled alert at index {idx}")
         else:
-            st.info("No alerts set. Live price monitoring will start once you add an alert.")
-
+            st.info("No price alerts set. Add one above to start monitoring prices.")
     # --------------------------
     # CURRENCY CORRELATION HEATMAP
     # --------------------------
@@ -3081,7 +2951,6 @@ elif st.session_state.current_page == 'tools':
         ])
         corr_df = pd.DataFrame(data, columns=pairs, index=pairs)
         fig = px.imshow(corr_df, text_auto=True, aspect="auto", color_continuous_scale="RdBu", title="Forex Pair Correlation Heatmap")
-        fig.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9") # Added dark theme support
         st.plotly_chart(fig, use_container_width=True)
     # --------------------------
     # RISK MANAGEMENT CALCULATOR
@@ -3100,15 +2969,20 @@ elif st.session_state.current_page == 'tools':
         with col3:
             stop_loss_pips = st.number_input("Stop Loss (pips)", min_value=1.0, value=20.0, key="rm_stop_loss_pips")
         with col4:
-            pip_value = st.number_input("Pip Value per Standard Lot ($)", min_value=0.01, value=10.0, key="rm_pip_value")
-        if st.button("Calculate Lot Size", key="calc_lot_size"):
-            if stop_loss_pips > 0 and pip_value > 0:
+            pip_value_currency = st.selectbox("Pip Value (per Lot)", ["$10 (Major USD Pairs)", "$7 (Major JPY Pairs)"], key="rm_pip_value_select")
+        
+        calculated_pip_value_per_lot = 10.0 # Default to $10
+        if "JPY" in pip_value_currency:
+            calculated_pip_value_per_lot = 7.0 # Approximated $7 per pip per lot for JPY pairs
+            
+        if st.button("Calculate Lot Size"):
+            if stop_loss_pips <= 0 or calculated_pip_value_per_lot <= 0:
+                st.error("Stop Loss (pips) and Pip Value must be positive numbers.")
+            else:
                 risk_amount = balance * (risk_percent / 100)
-                lot_size = risk_amount / (stop_loss_pips * pip_value)
+                lot_size = risk_amount / (stop_loss_pips * calculated_pip_value_per_lot)
                 st.success(f"✅ Recommended Lot Size: {lot_size:.2f} lots")
                 logging.info(f"Calculated lot size: {lot_size}")
-            else:
-                st.error("Stop Loss (pips) and Pip Value per Standard Lot must be greater than zero.")
         # 🔄 What-If Analyzer
         st.subheader('🔄 What-If Analyzer')
         base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
@@ -3116,34 +2990,50 @@ elif st.session_state.current_page == 'tools':
         winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
         avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
         trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
-
-        if (winrate * avg_r - (1 - winrate)) <= -1: # Prevent division by zero or infinite growth
-            st.error("The calculated expectancy (Win Rate * Avg R - (1 - Win Rate)) is too low for a positive growth projection. Please adjust your parameters.")
+        
+        # Calculate Expectancy per R-unit, assuming Loss is -1R (standard)
+        E_R = (winrate * avg_r) - ((1 - winrate) * 1.0)
+        
+        # Avoid zero or negative base in exponentiation which could lead to NaN or inf
+        if (1 + risk_pct * E_R) <= 0:
+            exp_growth = 0.0 # or handle as specific warning if mathematically possible
+            st.warning("Calculated growth factor is non-positive. This indicates very high risk/low expectancy, resulting in probable account wipeout.")
         else:
-            E_R = winrate * avg_r - (1 - winrate) * 1.0
-            if E_R <= -1: # Ensure the growth factor (1 + risk_pct * E_R) is not zero or negative when exponentiating
-                st.error("Negative expectancy combined with current risk settings will lead to rapid account depletion. Please increase Win Rate or Avg R, or decrease Risk per trade.")
-            else:
-                exp_growth = (1 + risk_pct * E_R) ** trades
-                st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
-                alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
-                if (1 + alt_risk * E_R) <= 0:
-                    st.error("Alternate risk settings lead to an unrealistic growth scenario. Adjust alternative risk %.")
-                else:
-                    alt_growth = (1 + alt_risk * E_R) ** trades
-                    st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
-                    # 📈 Equity Projection
-                    sim = pd.DataFrame({
-                        'trade': list(range(trades + 1)),
-                        'equity_base': base_equity * (1 + risk_pct * E_R) ** np.arange(trades + 1),
-                        'equity_alt': base_equity * (1 + alt_risk * E_R) ** np.arange(trades + 1),
-                    })
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines', name=f'Risk {risk_pct*100:.1f}%'))
-                    fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines', name=f'What-If {alt_risk*100:.1f}%'))
-                    fig.update_layout(title='Equity Projection – Base vs What-If', xaxis_title='Trade #', yaxis_title='Equity ($)', template='plotly_dark')
-                    fig.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                    st.plotly_chart(fig, use_container_width=True)
+            exp_growth = (1 + risk_pct * E_R) ** trades
+        
+        st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
+        
+        alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
+        
+        if (1 + alt_risk * E_R) <= 0:
+            alt_growth = 0.0
+        else:
+            alt_growth = (1 + alt_risk * E_R) ** trades
+            
+        st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
+        
+        # 📈 Equity Projection
+        # Ensure only positive or safe values are used for log scaling or direct charting to prevent errors
+        if (1 + risk_pct * E_R) <= 0:
+            sim_equity_base = [base_equity * (1 + risk_pct * E_R)] * (trades + 1) if (1 + risk_pct * E_R) < 0 else [base_equity] * (trades + 1)
+        else:
+            sim_equity_base = base_equity * (1 + risk_pct * E_R) ** np.arange(trades + 1)
+        
+        if (1 + alt_risk * E_R) <= 0:
+            sim_equity_alt = [base_equity * (1 + alt_risk * E_R)] * (trades + 1) if (1 + alt_risk * E_R) < 0 else [base_equity] * (trades + 1)
+        else:
+            sim_equity_alt = base_equity * (1 + alt_risk * E_R) ** np.arange(trades + 1)
+
+        sim = pd.DataFrame({
+            'trade': list(range(trades + 1)),
+            'equity_base': sim_equity_base,
+            'equity_alt': sim_equity_alt,
+        })
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines', name=f'Risk {risk_pct*100:.1f}%'))
+        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines', name=f'What-If {alt_risk*100:.1f}%'))
+        fig.update_layout(title='Equity Projection – Base vs What-If', xaxis_title='Trade #', yaxis_title='Equity')
+        st.plotly_chart(fig, use_container_width=True)
     # --------------------------
     # TRADING SESSION TRACKER
     # --------------------------
@@ -3152,67 +3042,74 @@ elif st.session_state.current_page == 'tools':
         st.markdown(""" Stay aware of active trading sessions to trade when volatility is highest. Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. Track your performance per session to identify your edge. """)
         st.markdown('---')
         st.subheader('📊 Session Statistics')
-        # This section expects a 'session' column, which the new journal does not natively have.
-        # This part will mostly display dummy data or require manual tagging of sessions in the journal
-        # or MT5 data to be useful. For now, it will show a warning if 'session' column is missing.
         mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
-        journal_df_for_sessions = st.session_state.tools_trade_journal.copy()
         
-        # We need a 'session' column for this to work meaningfully. Let's create a dummy one if it doesn't exist
-        # Or, we can guide the user to add it if they want to use this feature.
-        if 'session' not in journal_df_for_sessions.columns:
-            journal_df_for_sessions['session'] = 'Unknown' # Default value
-        
-        # Merge MT5 and Journal data for combined session analysis if both exist
-        combined_session_df = pd.DataFrame()
+        # Attempt to unify journal and mt5 data for session tracking, preferring Code A's fields
+        current_journal_df = st.session_state.trade_journal.copy()
+
+        # Rename relevant columns from Code A's journal to match potential 'session' concept from Code B or derive.
+        # This part requires some inference of "session" for Code A's journal. We don't have direct session in Code A
+        # For this demo, let's create a dummy session or assume for a simplified integration from 'Date'.
+        # For simplicity, assign based on time of day in a simplified way, this isn't true "session" but can simulate
+        def assign_session(timestamp):
+            if pd.isna(timestamp):
+                return 'Unknown'
+            hour = timestamp.hour
+            if 0 <= hour < 9: return 'Tokyo'
+            if 8 <= hour < 17: return 'London' # Overlaps slightly with Tokyo in the start
+            if 13 <= hour < 22: return 'New York' # Overlaps with London
+            return 'Sydney' # Roughly from 22-7 UTC for previous day's end/new day's start
+
+        if not current_journal_df.empty:
+            current_journal_df['datetime'] = pd.to_datetime(current_journal_df['Date'])
+            current_journal_df['r'] = pd.to_numeric(current_journal_df['RR'], errors='coerce')
+            current_journal_df['session'] = current_journal_df['datetime'].apply(assign_session) # Assign a session based on 'Date' field from Code A
+
+        # If MT5 data exists, convert its columns and combine
         if not mt5_df.empty:
-            mt5_df_temp = mt5_df.copy()
-            mt5_df_temp['date_time'] = pd.to_datetime(mt5_df_temp['Close Time'])
-            # Infer session from datetime for MT5 data. This is a simplification.
-            def get_session(timestamp):
-                # Basic heuristic for session (UTC times)
-                if 0 <= timestamp.hour < 9: return 'Tokyo'
-                if 8 <= timestamp.hour < 17: return 'London'
-                if 13 <= timestamp.hour < 22: return 'New York'
-                return 'Sydney' # Or Asian session overlap
-            mt5_df_temp['session'] = mt5_df_temp['date_time'].apply(get_session)
-            mt5_df_temp['r'] = mt5_df_temp['Profit'] # Use Profit as 'r' for simple aggregation
+            mt5_for_sessions = mt5_df.copy()
+            mt5_for_sessions['datetime'] = pd.to_datetime(mt5_for_sessions['Close Time'])
+            mt5_for_sessions['r'] = mt5_for_sessions['Profit'] # For expectancy calculation
+            mt5_for_sessions['session'] = mt5_for_sessions['datetime'].apply(assign_session) # Apply session logic
             
-            combined_session_df = pd.concat([combined_session_df, mt5_df_temp[['session', 'r']]], ignore_index=True)
-
-        if not journal_df_for_sessions.empty:
-            journal_df_for_sessions['date_time'] = pd.to_datetime(journal_df_for_sessions['Date'])
-            def get_session_journal(timestamp):
-                if 0 <= timestamp.hour < 9: return 'Tokyo'
-                if 8 <= timestamp.hour < 17: return 'London'
-                if 13 <= timestamp.hour < 22: return 'New York'
-                return 'Sydney'
-            journal_df_for_sessions['session'] = journal_df_for_sessions['date_time'].apply(get_session_journal)
-            journal_df_for_sessions['r'] = journal_df_for_sessions['RR'] # Use RR from new journal
+            # Select common columns and concatenate
+            cols_to_combine = ['datetime', 'r', 'session']
+            if 'Symbol' in current_journal_df.columns:
+                mt5_for_sessions['Symbol'] = mt5_for_sessions['Symbol'] # Use MT5 Symbol
+                cols_to_combine.append('Symbol')
             
-            combined_session_df = pd.concat([combined_session_df, journal_df_for_sessions[['session', 'r']]], ignore_index=True)
+            # Only use columns that exist in both for concatenation without issues, then add others if needed
+            filtered_journal = current_journal_df[[col for col in cols_to_combine if col in current_journal_df.columns]].dropna(subset=['r', 'datetime'])
+            filtered_mt5 = mt5_for_sessions[[col for col in cols_to_combine if col in mt5_for_sessions.columns]].dropna(subset=['r', 'datetime'])
 
-
-        if not combined_session_df.empty and 'r' in combined_session_df.columns:
-            # Drop NaN values in 'r' before grouping for correct stats
-            combined_session_df_cleaned = combined_session_df.dropna(subset=['r'])
-            
-            if not combined_session_df_cleaned.empty:
-                by_sess = combined_session_df_cleaned.groupby(['session']).agg(
-                    trades=('r', 'count'),
-                    winrate=('r', lambda s: (s > 0).mean()),
-                    avg_r=('r', 'mean')
-                ).reset_index()
-                st.dataframe(by_sess, use_container_width=True)
-                
-                fig = px.bar(by_sess, x='session', y='winrate', title='Win Rate by Session', template='plotly_dark')
-                fig.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No valid trades with R:R values to analyze performance by trading session.")
+            df_sessions_combined = pd.concat([filtered_journal, filtered_mt5], ignore_index=True)
         else:
-            st.info("Upload trades (MT5 or Logged Journal) to analyze performance by trading session.")
+            df_sessions_combined = current_journal_df[['datetime', 'r', 'session']].dropna(subset=['r', 'datetime'])
 
+
+        if not df_sessions_combined.empty and 'session' in df_sessions_combined.columns and not df_sessions_combined['r'].isnull().all():
+            
+            def _ta_expectancy_by_group_session(df_input, group_cols):
+                g = df_input.dropna(subset=["r"]).groupby(group_cols)
+                res = g["r"].agg(
+                    trades="count",
+                    winrate=lambda s: (s>0).mean(),
+                    avg_win=lambda s: s[s>0].mean() if (s>0).any() else 0.0,
+                    avg_loss=lambda s: -s[s<0].mean() if (s<0).any() else 0.0, # Make loss positive for formula
+                    expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
+                ).reset_index()
+                return res
+            
+            by_sess = _ta_expectancy_by_group_session(df_sessions_combined, ['session'])
+            
+            by_sess.rename(columns={'winrate': 'Win Rate', 'expectancy': 'Expectancy (R)'}, inplace=True)
+            st.dataframe(by_sess, use_container_width=True)
+            
+            fig = px.bar(by_sess, x='session', y='Win Rate', title='Win Rate by Session', template='plotly_white')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Log trades in the 'Trading Journal' or upload MT5 trades to analyze performance by trading session. Ensure there are enough valid trade data points with a calculated 'R' value.")
+        
         st.subheader('🕒 Current Market Sessions')
         now = dt.datetime.now(pytz.UTC)
         sessions = [
@@ -3230,32 +3127,37 @@ elif st.session_state.current_page == 'tools':
             end = session["end"]
             is_open = (start <= local_hour < end) if start <= end else (start <= local_hour or local_hour < end)
             
-            # Calculate time until next state change
-            if is_open:
-                time_diff_hours = (end - local_hour) % 24
-                status_msg = f"Closes in {time_diff_hours:.1f} hours"
-            else:
+            time_until_label = ""
+            time_diff_hours = 0.0
+            if not is_open:
+                # Calculate time until open
                 if local_hour < start:
                     time_diff_hours = start - local_hour
-                else: # local_hour >= end (and wrapped around past midnight)
+                else: # local_hour > end
                     time_diff_hours = (24 - local_hour) + start
-                status_msg = f"Opens in {time_diff_hours:.1f} hours"
-
+                time_until_label = "Opens in"
+            else:
+                # Calculate time until close
+                if local_hour < end:
+                    time_diff_hours = end - local_hour
+                else: # Should not happen if is_open is true
+                    pass
+                time_until_label = "Closes in"
 
             session_status.append({
                 "Session": session["name"],
                 "Status": "Open" if is_open else "Closed",
                 "Local Time": local_time.strftime("%H:%M"),
-                "Time Until": status_msg
+                "Time Until": f"{time_diff_hours:.1f}" if is_open or time_diff_hours > 0 else "0.0"
             })
         session_df = pd.DataFrame(session_status)
-        st.dataframe(session_df, use_container_width=True, hide_index=True)
+        st.dataframe(session_df, use_container_width=True)
         for session in session_status:
             color = "#2ecc71" if session["Status"] == "Open" else "#e74c3c"
             st.markdown(
                 f"""
                 <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
-                {session['Session']} Session: {session['Status']} (Local: {session['Local Time']}, {session['Time Until']})
+                {session['Session']} Session: {session['Status']} (Local: {session['Local Time']}, {'Closes in' if session['Status'] == 'Open' else 'Opens in'} {session['Time Until']} hours)
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -3267,9 +3169,9 @@ elif st.session_state.current_page == 'tools':
         st.header("📉 Drawdown Recovery Planner")
         st.markdown(""" Plan your recovery from a drawdown. Understand the percentage gain required to recover losses and simulate recovery based on your trading parameters. """)
         st.markdown('---')
-        drawdown_pct = st.slider("Current Drawdown (%)", 1.0, 50.0, 10.0, key="dd_drawdown_pct") / 100
-        recovery_pct = _ta_percent_gain_to_recover(drawdown_pct)
-        st.metric("Required Gain to Recover", f"{recovery_pct*100:.2f}%")
+        drawdown_pct = st.slider("Current Drawdown (%)", 1.0, 50.0, 10.0, key="dd_pct") / 100
+        recovery_pct_val = _ta_percent_gain_to_recover(drawdown_pct) # Using helper
+        st.metric("Required Gain to Recover", f"{recovery_pct_val*100:.2f}%")
         st.subheader("📈 Recovery Simulation")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -3279,58 +3181,49 @@ elif st.session_state.current_page == 'tools':
         with col3:
             avg_rr = st.slider("Average R:R", 0.5, 5.0, 1.5, 0.1, key="dd_avg_rr")
         risk_per_trade = st.slider("Risk per Trade (%)", 0.1, 5.0, 1.0, key="dd_risk_per_trade") / 100
-        
-        expected_r_per_trade = (win_rate * avg_rr) - ((1 - win_rate) * 1.0) # Assuming 1R loss per losing trade
 
-        if expected_r_per_trade <= 0:
-            st.error("Expected R per trade is non-positive. Recovery is not possible with these parameters. Adjust Win Rate, Average R:R, or Risk per Trade.")
+        # Ensure calculation logic handles potential division by zero or log of non-positive numbers.
+        expectancy_sim = (win_rate * avg_rr) - ((1 - win_rate) * 1.0)
+        
+        trades_needed = 0
+        if (1 + risk_per_trade * expectancy_sim) <= 0:
+            st.error("Expected growth factor is non-positive, recovery not possible under these conditions. Adjust risk or expectancy.")
+            trades_needed = float('inf') # Impossible recovery
+        elif drawdown_pct >= 1.0: # 100% drawdown or more, technically impossible to recover to original state purely on percentage basis
+             trades_needed = float('inf')
+        elif 1 / (1 - drawdown_pct) <= 0 : # Defensive check
+            trades_needed = float('inf')
+        elif (1 + risk_per_trade * expectancy_sim) == 1.0: # No growth if expectancy is 0, or 0 risk, etc.
+             trades_needed = float('inf')
+        elif expectancy_sim <= 0: # If expectation is negative, infinite trades
             trades_needed = float('inf')
         else:
             try:
-                # Formula: Final_Equity = Initial_Equity * (1 + Risk_per_trade * Expected_R)^Trades
-                # We want Final_Equity >= Initial_Equity (meaning current_equity * (1 + recovery_pct) )
-                # current_equity * (1 + recovery_pct) = current_equity * (1 + risk_per_trade * Expected_R)^Trades
-                # (1 + recovery_pct) = (1 + risk_per_trade * Expected_R)^Trades
-                # log(1 + recovery_pct) = Trades * log(1 + risk_per_trade * Expected_R)
-                # Trades = log(1 + recovery_pct) / log(1 + risk_per_trade * Expected_R)
-                
-                # The recovery is from the *current* equity in drawdown, not the initial.
-                # Let current_equity = initial_equity * (1 - drawdown_pct)
-                # We need to reach initial_equity from current_equity.
-                # Factor to recover = initial_equity / current_equity = 1 / (1 - drawdown_pct)
-                # So we need (1 + risk_per_trade * expected_r)^trades = 1 / (1 - drawdown_pct)
-                # trades_needed = log(1 / (1 - drawdown_pct)) / log(1 + risk_per_trade * expected_r)
+                # More accurate log calculation for trades needed
+                numerator = math.log(initial_equity / (initial_equity * (1 - drawdown_pct))) # Log of the recovery multiplier
+                denominator = math.log(1 + risk_per_trade * expectancy_sim)
+                trades_needed = math.ceil(numerator / denominator) if denominator != 0 else float('inf')
 
-                if (1 + risk_per_trade * expected_r_per_trade) <= 0:
-                     st.error("The growth factor (1 + risk per trade * expected R) is zero or negative. Cannot simulate recovery with these parameters.")
-                     trades_needed = float('inf')
-                else:
-                    trades_needed = math.ceil(math.log(1 / (1 - drawdown_pct)) / math.log(1 + risk_per_trade * expected_r_per_trade))
             except (ValueError, ZeroDivisionError):
-                st.error("Cannot calculate trades needed. Ensure expected R per trade and drawdown percentage are valid.")
                 trades_needed = float('inf')
 
-        if trades_needed == float('inf'):
-            st.write("Estimated Trades to Recover: Cannot be achieved with current parameters.")
-        else:
-            st.write(f"Estimated Trades to Recover: {trades_needed}")
+        st.write(f"Estimated Trades to Recover: {trades_needed if trades_needed != float('inf') else 'Infinite (Impossible)'}")
 
         sim_equity = [initial_equity * (1 - drawdown_pct)]
-        # Simulate a reasonable number of trades, capping to avoid excessive calculations
-        max_sim_trades = min(trades_needed + 50, 500) if trades_needed != float('inf') else 100
-        
-        for _ in range(max_sim_trades):
-            if (1 + risk_per_trade * expected_r_per_trade) > 0: # Prevent negative equity growth
-                next_equity = sim_equity[-1] * (1 + risk_per_trade * expected_r_per_trade)
-                sim_equity.append(next_equity)
-            else:
-                sim_equity.append(sim_equity[-1]) # Stop growth if factor is bad
+        if trades_needed != float('inf') :
+            for _ in range(min(trades_needed + 10, 100)): # Limit max trades to prevent excessively long simulations
+                if (1 + risk_per_trade * expectancy_sim) > 0:
+                    sim_equity.append(sim_equity[-1] * (1 + risk_per_trade * expectancy_sim))
+                else:
+                    # If factor drops to zero or negative, equity becomes zero
+                    sim_equity.append(0.0) # Or previous low if only positive factor allowed
+                    break # Stop further growth
+
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=list(range(len(sim_equity))), y=sim_equity, mode='lines', name='Equity'))
         fig.add_hline(y=initial_equity, line_dash="dash", line_color="green", annotation_text="Initial Equity")
-        fig.update_layout(title='Drawdown Recovery Simulation', xaxis_title='Trade #', yaxis_title='Equity ($)', template='plotly_dark')
-        fig.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", font_color="#c9d1d9")
+        fig.update_layout(title='Drawdown Recovery Simulation', xaxis_title='Trade #', yaxis_title='Equity ($)')
         st.plotly_chart(fig, use_container_width=True)
     # --------------------------
     # PRE-TRADE CHECKLIST
@@ -3395,12 +3288,9 @@ elif st.session_state.current_page == 'tools':
                 if "logged_in_user" in st.session_state:
                     username = st.session_state.logged_in_user
                     try:
-                        c.execute("SELECT data FROM users WHERE username = ?", (username,))
-                        result = c.fetchone()
-                        user_data = json.loads(result[0]) if result else {}
+                        user_data = get_user_data(username) # Use global helper
                         user_data["reflection_log"] = st.session_state.reflection_log.to_dict(orient="records")
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data, cls=CustomJSONEncoder), username))
-                        conn.commit()
+                        save_user_data(username, user_data) # Use global helper
                     except Exception as e:
                         logging.error(f"Error saving reflection: {str(e)}")
                 st.success("Reflection logged!")
@@ -3408,7 +3298,7 @@ elif st.session_state.current_page == 'tools':
             st.dataframe(st.session_state.reflection_log)
 
 # =========================================================
-# ZENVO ACADEMY PAGE
+# ZENVO ACADEMY PAGE (Code B, adapted journal and state names)
 # =========================================================
 elif st.session_state.current_page == "Zenvo Academy":
     st.title("📚 Zenvo Academy")
@@ -3435,8 +3325,28 @@ elif st.session_state.current_page == "Zenvo Academy":
                     - **Lesson 4:** Introduction to Charting
                 """)
             with col2:
-                st.button("Start Learning", key="start_forex_fundamentals")
-                st.progress(st.session_state.get('forex_fundamentals_progress', 0))
+                # Placeholder for start learning action
+                if st.button("Start Learning", key="start_forex_fundamentals"):
+                    # Trigger some action or navigate to lesson page (not implemented in this code)
+                    st.info("Starting 'Forex Fundamentals' module!")
+                    # Award initial XP upon first start, track completion in user_data
+                    if 'logged_in_user' in st.session_state:
+                        username = st.session_state.logged_in_user
+                        user_data = get_user_data(username)
+                        completed_courses = user_data.get('completed_courses', [])
+                        if "Forex Fundamentals" not in completed_courses:
+                            completed_courses.append("Forex Fundamentals")
+                            user_data['completed_courses'] = completed_courses
+                            save_user_data(username, user_data)
+                            ta_update_xp(username, 100) # Award XP
+                
+                # Assume a 'forex_fundamentals_progress' in session state is maintained externally for visual
+                if 'forex_fundamentals_progress' not in st.session_state:
+                    # Initialize progress, possibly loading from user data later
+                    st.session_state.forex_fundamentals_progress = 0
+
+                # Example of linking progress to XP, very simplified.
+                st.progress(st.session_state.forex_fundamentals_progress)
 
 
         # --- Course: Technical Analysis 101 ---
@@ -3451,7 +3361,22 @@ elif st.session_state.current_page == "Zenvo Academy":
                     - **Lesson 4:** Moving Averages
                 """)
             with col2:
-                st.button("Start Course", key="start_technical_analysis", disabled=st.session_state.level < 1)
+                # Only enable if user is at least Level 1 (XP based from user_data/session_state.level)
+                can_start_ta = st.session_state.get('level', 0) >= 1
+                if st.button("Start Course", key="start_technical_analysis", disabled=not can_start_ta):
+                    if not can_start_ta:
+                        st.warning("You need to reach Level 1 to start this course!")
+                    else:
+                        st.info("Starting 'Technical Analysis 101' module!")
+                        if 'logged_in_user' in st.session_state:
+                            username = st.session_state.logged_in_user
+                            user_data = get_user_data(username)
+                            completed_courses = user_data.get('completed_courses', [])
+                            if "Technical Analysis 101" not in completed_courses:
+                                completed_courses.append("Technical Analysis 101")
+                                user_data['completed_courses'] = completed_courses
+                                save_user_data(username, user_data)
+                                ta_update_xp(username, 150) # Award XP
 
 
     with tab2:
@@ -3466,8 +3391,14 @@ elif st.session_state.current_page == "Zenvo Academy":
 
         st.markdown("---")
         st.markdown("#### 📜 Completed Courses")
-        if 'completed_courses' in st.session_state and st.session_state.completed_courses:
-            for course in st.session_state.completed_courses:
+        # Load from user_data, then update session_state for consistency
+        completed_courses = []
+        if 'logged_in_user' in st.session_state:
+             user_data_acad = get_user_data(st.session_state.logged_in_user)
+             completed_courses = user_data_acad.get('completed_courses', [])
+
+        if completed_courses:
+            for course in completed_courses:
                 st.success(f"**{course}** - Completed!")
         else:
             st.info("You haven't completed any courses yet. Get started on the Learning Path!")
@@ -3488,18 +3419,36 @@ elif st.session_state.current_page == "Zenvo Academy":
     if st.button("Log Out", key="logout_academy_page"):
         if 'logged_in_user' in st.session_state:
             del st.session_state.logged_in_user
+        
+        # Clear/reset all session states relevant to a logged-in user
+        user_session_keys_to_reset = [
+            'drawings', 'trade_journal', 'strategies',
+            'emotion_log', 'reflection_log', 'xp', 'level', 'badges', 'streak',
+            'last_journal_date', 'selected_calendar_month', 'forex_fundamentals_progress',
+            'current_subpage', 'show_tools_submenu'
+        ]
+        for key in user_session_keys_to_reset:
+            if key in st.session_state:
+                del st.session_state[key]
+        
+        # Re-initialize to default empty structures
         st.session_state.drawings = {}
-        # Ensure correct journal_cols and journal_dtypes are used here, referencing the main app's definitions
-        st.session_state.tools_trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
-        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]) # Match structure defined in main app
+        st.session_state.trade_journal = pd.DataFrame(columns=journal_cols).astype(journal_dtypes)
+        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
         st.session_state.emotion_log = pd.DataFrame(columns=["Date", "Emotion", "Notes"])
         st.session_state.reflection_log = pd.DataFrame(columns=["Date", "Reflection"])
         st.session_state.xp = 0
         st.session_state.level = 0
         st.session_state.badges = []
         st.session_state.streak = 0
-        st.session_state.completed_courses = []
+        
+        # The academy page doesn't have a concept of 'completed_courses' in session_state, but in DB
+        # If it was in session_state for faster access, clear it too.
+        if 'completed_courses' in st.session_state:
+            del st.session_state['completed_courses']
+        
+
         st.success("Logged out successfully!")
-        logging.info("User logged out")
+        logging.info("User logged out from Academy page")
         st.session_state.current_page = "account" # Changed to 'account' as 'login' page state doesn't directly exist
         st.rerun()
