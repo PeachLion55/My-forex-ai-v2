@@ -883,7 +883,7 @@ nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
     ('mt5', 'Performance Dashboard'),
-    ('tools', 'Tools'),
+    ('trading_tools', 'Trading Tools'),
     ('strategy', 'Manage My Strategy'),
     ('community', 'Community Trade Ideas'),
     ('Community Chatroom', 'Community Chatroom'), # ADDED CHATROOM NAV ITEM
@@ -3312,13 +3312,13 @@ elif st.session_state.current_page == "Community Chatroom":
 # =========================================================
 # TOOLS PAGE
 # =========================================================
-elif st.session_state.current_page == 'tools':
+elif st.session_state.current_page == 'trading_tools':
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Tools section.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("🛠 Tools")
+    st.title("🛠 Trading Tools")
     st.markdown("""
     ### Available Tools
     - **Profit/Loss Calculator**: Calculate potential profits or losses based on trade size, entry, and exit prices.
