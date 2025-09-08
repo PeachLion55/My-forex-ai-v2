@@ -1187,7 +1187,22 @@ elif st.session_state.current_page == 'trading_journal':
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("📖 Trading Journal")
+    # --- REPLACEMENT FOR THE TITLE ---
+    # Instead of a simple title, we use markdown with HTML for the icon and text.
+    icon_path = os.path.join("icons", "trading_journal.png")
+    if os.path.exists(icon_path):
+        icon_base64 = image_to_base64(icon_path)
+        # This HTML uses flexbox to align the icon and title with a specific gap.
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="data:image/png;base64,{icon_base64}" width="40">
+                <h1 style="margin: 0; font-size: 2.75rem;">Trading Journal</h1>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback in case the icon file is not found
+        st.title("Trading Journal")
+
     st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
 
