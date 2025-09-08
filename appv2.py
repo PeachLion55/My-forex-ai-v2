@@ -848,9 +848,18 @@ econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
 
+import streamlit as st
+from PIL import Image
+import io
+import base64
+import os # Import the 'os' module to handle file paths
+
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
+
+# --- Define the local path for your icons folder ---
+ICON_ROOT = "icons"
 
 st.markdown(
     """
@@ -858,46 +867,94 @@ st.markdown(
     .sidebar-content {
         padding-top: 0rem;
     }
+    /* Vertically center the icon and the button text */
+    [data-testid="stSidebar"] [data-testid="stHorizontalBlock"] {
+        align-items: center;
+    }
+    /* Ensure the button fills its container for a better click area */
+    [data-testid="stSidebar"] .stButton button {
+        width: 100%;
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-logo = Image.open("logo22.png")
-logo = logo.resize((60, 50))
 
-buffered = io.BytesIO()
-logo.save(buffered, format="PNG")
-logo_str = base64.b64encode(buffered.getvalue()).decode()
+# --- Logo Display (same as your original code) ---
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except FileNotFoundError:
+    st.sidebar.error("Logo file 'logo22.png' not found.")
 
-st.sidebar.markdown(
-    f"""
-    <div style='text-align: center; margin-bottom: 20px;'>
-        <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
 
+# --- Navigation Items Definition ---
+# The emojis are removed from the text labels.
 nav_items = [
-    ('fundamentals', '📅 Forex Fundamentals'),
-    ('trading_journal', '📖 Trading Journal'),
-    ('mt5', '📊 Performance Dashboard'),
-    ('trading_tools', '🛠 Trading Tools'),
-    ('strategy', '📈 Manage My Strategy'),
-    ('community', '🌐 Community Trade Ideas'),
-    ('Community Chatroom', '💬 Community Chatroom'), # ADDED CHATROOM NAV ITEM
-    ('Zenvo Academy', '📚 Zenvo Academy'),
-    ('account', '👤 My Account')
+    ('fundamentals', 'Forex Fundamentals'),
+    ('trading_journal', 'Trading Journal'),
+    ('mt5', 'Performance Dashboard'),
+    ('trading_tools', 'Trading Tools'),
+    ('strategy', 'Manage My Strategy'),
+    ('community', 'Community Trade Ideas'),
+    ('Community Chatroom', 'Community Chatroom'),
+    ('Zenvo Academy', 'Zenvo Academy'), # Note: No icon provided for this
+    ('account', 'My Account')
 ]
 
+# --- Icon Mapping ---
+# Maps each page_key to its corresponding icon file name in the 'icons' folder.
+icon_mapping = {
+    'trading_journal': 'trading_journal.png',
+    'fundamentals': 'forex_fundamentals.png',
+    'mt5': 'performance_dashboard.png',
+    'account': 'my_account.png',
+    'strategy': 'manage_my_strategy.png',
+    'trading_tools': 'trading_tools.png',
+    'community': 'community_trade_ideas.png',
+    'Community Chatroom': 'community_chatroom.png'
+}
+
+# --- Loop to Create the Navigation Menu ---
 for page_key, page_name in nav_items:
-    is_active = (st.session_state.current_page == page_key)
-    if st.sidebar.button(page_name, key=f"nav_{page_key}"):
-        st.session_state.current_page = page_key
-        st.session_state.current_subpage = None
-        st.session_state.show_tools_submenu = False
-        st.rerun()
+    # Get the name of the icon file from the mapping.
+    icon_filename = icon_mapping.get(page_key)
+    
+    # Create two columns: one for the icon (smaller), one for the button (larger).
+    col1, col2 = st.sidebar.columns([1, 4], gap="small")
+    
+    # --- Column 1: Display the Icon ---
+    with col1:
+        if icon_filename:
+            # Construct the full path to the icon. os.path.join is best practice.
+            icon_path = os.path.join(ICON_ROOT, icon_filename)
+            
+            # Check if the icon file exists before trying to display it.
+            if os.path.exists(icon_path):
+                st.image(icon_path, width=24)
+            else:
+                st.write(" ") # Leave a blank space if icon is missing
+
+    # --- Column 2: Display the Button ---
+    with col2:
+        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True):
+            # Your existing navigation logic.
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
+            st.rerun()
 
 # =========================================================
 # MAIN APPLICATION LOGIC
