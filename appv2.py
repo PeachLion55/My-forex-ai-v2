@@ -3320,8 +3320,7 @@ elif st.session_state.current_page == 'trading_tools':
 
     st.title("🛠 Trading Tools")
     st.markdown("""
-    ### Trading Tools
-Access a complete suite of utilities to optimize your trading. Features include a Profit/Loss Calculator, Price Alerts, Currency Correlation Heatmap, Risk Management Calculator, Trading Session Tracker, Drawdown Recovery Planner, Pre-Trade Checklist, and Pre-Market Checklist. Each tool is designed to help you manage risk, plan trades efficiently, and make data-driven decisions to maximize performance.
+    Access a complete suite of utilities to optimize your trading. Features include a Profit/Loss Calculator, Price Alerts, Currency Correlation Heatmap, Risk Management Calculator, Trading Session Tracker, Drawdown Recovery Planner, Pre-Trade Checklist, and Pre-Market Checklist. Each tool is designed to help you manage risk, plan trades efficiently, and make data-driven decisions to maximize performance.
     """, unsafe_allow_html=True)
     st.markdown('---')
     st.markdown("""
