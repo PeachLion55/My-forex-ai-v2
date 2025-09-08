@@ -855,25 +855,11 @@ import base64
 import os
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES
+# HELPER FUNCTION TO ENCODE LOCAL IMAGES
 # =========================================================
-
-# This function reads an image file and converts it into a base64 string
-# so it can be embedded directly in the HTML.
-def image_to_base64(path):
-    with open(path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
-
-import streamlit as st
-from PIL import Image
-import io
-import base64
-import os
-
-# =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES
-# =========================================================
-# This is crucial for embedding your local images into the HTML.
+# This function converts an image file into a base64 string, allowing it
+# to be embedded directly into our custom HTML button.
+@st.cache_data
 def image_to_base64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
@@ -882,7 +868,7 @@ def image_to_base64(path):
 # SIDEBAR NAVIGATION
 # =========================================================
 
-# --- Define the local path for your icons folder ---
+# --- Local path for your icons folder ---
 ICON_ROOT = "icons"
 
 # --- Logo Display (same as your original code) ---
@@ -905,20 +891,17 @@ try:
 except FileNotFoundError:
     st.sidebar.error("Logo file 'logo22.png' not found.")
 
-
-# --- LINKING URL PARAMS TO SESSION STATE (THE KEY PART) ---
-# This block ensures that when a user clicks our custom HTML button,
-# the app's internal state is updated correctly.
+# --- Link URL parameters back to st.session_state (CRUCIAL PART) ---
+# This block ensures that when a custom HTML button is clicked (changing the URL),
+# it updates your app's internal session state, just like st.button would.
 params = st.query_params
 if "page" in params:
-    # If a page is specified in the URL, update the session state
-    st.session_state.current_page = params["page"]
+    st.session_state.current_page = params["page"][0]
 elif "current_page" not in st.session_state:
-    # For the very first run, set a default page
+    # Set a default page on the first run
     st.session_state.current_page = "fundamentals"
 
-
-# --- Navigation Items Definition ---
+# --- Navigation & Icon Definitions (from your original code) ---
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
@@ -927,11 +910,10 @@ nav_items = [
     ('strategy', 'Manage My Strategy'),
     ('community', 'Community Trade Ideas'),
     ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'), # Note: No icon provided
+    ('Zenvo Academy', 'Zenvo Academy'),
     ('account', 'My Account')
 ]
 
-# --- Icon Mapping ---
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
     'fundamentals': 'forex_fundamentals.png',
@@ -943,49 +925,48 @@ icon_mapping = {
     'Community Chatroom': 'community_chatroom.png'
 }
 
-
 # --- CSS for Custom Navigation Buttons ---
-# This styles our HTML links to look and feel like native Streamlit buttons.
 st.sidebar.markdown("""
 <style>
-    /* Main container for the navigation buttons */
+    /* Container for the nav links for layout */
     .nav-container {
         display: flex;
         flex-direction: column;
-        gap: 8px; /* Adds space between the buttons */
+        gap: 8px; /* Space between buttons */
     }
 
-    /* Style for each navigation link (our custom button) */
+    /* Style for each navigation link (our button) */
     .nav-link {
         display: flex;
-        align-items: center; /* Crucial for vertical alignment of icon and text */
+        align-items: center; /* Vertically center icon and text */
         width: 100%;
-        padding: 8px 10px; /* Vertical and horizontal padding */
+        padding: 10px 12px;
         border-radius: 8px;
         text-decoration: none;
-        color: white; /* Default text color */
-        background-color: transparent; /* Default background */
-        transition: background-color 0.2s, color 0.2s; /* Smooth hover effect */
-        border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
+        color: white;
+        background-color: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: background-color 0.2s, color 0.2s;
     }
 
     /* Hover effect */
     .nav-link:hover {
         background-color: rgba(255, 255, 255, 0.1);
-        color: white; /* Ensure text color stays white on hover */
+        color: white;
     }
     
     /* Active button style */
     .nav-link.active {
-        background-color: #0068C9; /* A distinct background color for the selected item */
+        background-color: #0068C9; /* Or any color you prefer for the active state */
         border-color: #0068C9;
+        font-weight: 600;
     }
 
-    /* Style for the icon image */
+    /* Style for the icon image inside the button */
     .nav-link img {
-        width: 28px;       /* <<< ICON SIZE CAN BE CHANGED HERE */
-        height: 28px;      /* <<< ICON SIZE CAN BE CHANGED HERE */
-        margin-right: 15px;/* Space between icon and text */
+        width: 28px;        /* --- ADJUST ICON SIZE HERE --- */
+        height: 28px;       /* --- ADJUST ICON SIZE HERE --- */
+        margin-right: 15px; /* Space between icon and text */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -994,7 +975,7 @@ st.sidebar.markdown("""
 # --- Loop to generate the HTML for each button ---
 nav_html = "<div class='nav-container'>"
 
-# We use the current page from session_state to determine which button is "active"
+# Get the current page from session_state to determine the 'active' button
 current_page_key = st.session_state.current_page
 
 for page_key, page_name in nav_items:
@@ -1004,14 +985,16 @@ for page_key, page_name in nav_items:
     if icon_filename:
         icon_path = os.path.join(ICON_ROOT, icon_filename)
         if os.path.exists(icon_path):
-            # Embed the image directly into the HTML for performance and simplicity
+            # Embed the image directly into the HTML
             icon_base64 = image_to_base64(icon_path)
             icon_html = f"<img src='data:image/png;base64,{icon_base64}'>"
     
-    # Check if the current item is the active page
+    # Check if this item is the active page to apply the style
     active_class = "active" if current_page_key == page_key else ""
     
-    # Construct the full HTML link. Clicking it sets the 'page' URL parameter.
+    # Construct the full HTML link (<a> tag) which acts as our button
+    # Clicking it sets the "page" URL parameter, triggering the script rerun.
+    # The target="_self" ensures it opens in the same tab.
     nav_html += f"""
         <a href="?page={page_key}" class="nav-link {active_class}" target="_self">
             {icon_html}
@@ -1023,12 +1006,11 @@ nav_html += "</div>"
 # Render the entire HTML block in the sidebar
 st.sidebar.markdown(nav_html, unsafe_allow_html=True)
 
-
-# --- IN THE REST OF YOUR APP ---
-# Your existing logic like this will now work perfectly:
-# if st.session_state.current_page == 'trading_journal':
-#      show_trading_journal_page()
-# ... etc.
+# ===================================================================
+# IMPORTANT: No changes are needed in the rest of your app. Your
+# original code that checks st.session_state.current_page will now
+# work perfectly with these custom buttons.
+# ===================================================================
 
 # =========================================================
 # MAIN APPLICATION LOGIC
