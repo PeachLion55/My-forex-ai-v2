@@ -180,6 +180,25 @@ st.markdown(
         box-shadow: none;
         outline: none;
     }
+
+    /* For Market Focus toggle, to prevent extra margin above it when placed with columns */
+    .stRadio > label > div[data-testid="stFormSubmitButton"] {
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    /* Custom CSS to target and position the "Market Type" radio button for cleaner placement */
+    div.stRadio.streamlit-sd-0-91-2[data-testid="stRadio"] { /* Target specific Radio container for custom margin */
+        margin-top: -10px; /* Adjust top margin to pull it up slightly, might need tuning */
+        margin-bottom: 0;
+    }
+    div.stRadio div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] {
+        gap: 0.2rem !important; /* Reduce vertical gap between radio options */
+    }
+
+
     </style>
     """, unsafe_allow_html=True)
 
@@ -276,7 +295,6 @@ def save_user_data(username):
         "last_login_xp_date": st.session_state.get("last_login_xp_date", None), # For daily login XP
         "gamification_flags": st.session_state.get("gamification_flags", {}), # To track various awarded flags
         'xp_log': st.session_state.get('xp_log', []), # XP transactions
-        # 'chatroom_rules_accepted': st.session_state.get('chatroom_rules_accepted', False), # Do not persist chatroom rules acceptance
         'chatroom_nickname': st.session_state.get('user_nickname', None), # Persist nickname
         'selected_market_type': st.session_state.get('selected_market_type', 'Forex'), # NEW: Persist selected market type
         'completed_courses': st.session_state.get('completed_courses', []), # NEW: Persist completed courses for academy
@@ -388,8 +406,7 @@ def ta_update_xp(username, amount, description="XP activity"):
     if amount != 0: # Only show notification for non-zero XP changes
         show_xp_notification(amount) # Show notification
     
-    # NEW: The XP update should ideally trigger a re-render of components using XP
-    # However, for simplicity and explicit UI updates, Streamlit usually needs a rerun.
+    # NEW: Rerun the app to ensure XP changes and related UI (like next level graph) update immediately
     st.rerun()
 
 def ta_award_badge(username, badge_name):
@@ -617,7 +634,7 @@ DEFAULT_APP_STATE = {
     'trade_ideas': pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]),
     'community_templates': pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]),
     # Chatroom specific states
-    'chatroom_rules_accepted': False, # This will be managed as session-scoped and reset on login/init
+    'chatroom_rules_accepted_for_session': False, # NEW FIX: This is explicitly for the current session only
     'user_nickname': None, # This will store the nickname for the current session/user if set
     # Global chat messages for community. Loaded from _ta_load_community for each channel.
     'chat_messages': {
@@ -645,9 +662,9 @@ def initialize_and_load_session_state():
             else:
                 st.session_state[key] = default_value
     
-    # NEW: Ensure chatroom_rules_accepted is reset to False at the start of a new session.
-    # It's specifically handled to be session-scoped, not persistent across logins.
-    st.session_state.chatroom_rules_accepted = False # Forces re-acceptance on login/session start
+    # NEW FIX: Reset 'chatroom_rules_accepted_for_session' to False when *re-initializing* for a potential new login/session
+    # This forces rules re-acceptance. If it was already in state, it gets overwritten here.
+    st.session_state.chatroom_rules_accepted_for_session = False
 
 
     # 2. If a user IS logged in, attempt to load their specific data and apply gamification checks
@@ -667,8 +684,7 @@ def initialize_and_load_session_state():
         st.session_state.last_login_xp_date = user_data_from_db.get('last_login_xp_date', DEFAULT_APP_STATE['last_login_xp_date'])
         st.session_state.xp_log = user_data_from_db.get('xp_log', DEFAULT_APP_STATE['xp_log'].copy())
 
-        # Load chatroom specific user data
-        # st.session_state.chatroom_rules_accepted is intentionally *not* loaded from user_data_from_db here.
+        # Load chatroom specific user data (nickname is persisted)
         st.session_state.user_nickname = user_data_from_db.get('chatroom_nickname', DEFAULT_APP_STATE['user_nickname'])
         st.session_state.selected_market_type = user_data_from_db.get('selected_market_type', DEFAULT_APP_STATE['selected_market_type']) # NEW: Load selected market type
         st.session_state.completed_courses = user_data_from_db.get('completed_courses', DEFAULT_APP_STATE['completed_courses'].copy()) # NEW: Load completed courses
@@ -2295,15 +2311,18 @@ elif st.session_state.current_page == 'mt5':
                         df_for_chart = daily_pnl_df_for_stats.copy()
                         df_for_chart["Cumulative Profit"] = df_for_chart["Profit"].cumsum()
                         fig_equity = px.line(df_for_chart, x="date", y="Cumulative Profit", title="Equity Curve")
+                        fig_equity.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22") # Ensure dark theme is applied
                         st.plotly_chart(fig_equity, use_container_width=True)
 
                         profit_by_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
                         fig_symbol = px.bar(profit_by_symbol, x="Symbol", y="Profit", title="Profit by Symbol")
+                        fig_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22") # Ensure dark theme is applied
                         st.plotly_chart(fig_symbol, use_container_width=True)
 
                         trade_types = df["Type"].value_counts().reset_index(name="Count")
                         trade_types.columns = ['Type', 'Count']
                         fig_type = px.pie(trade_types, names="Type", values="Count", title="Trades by Type")
+                        fig_type.update_layout(paper_bgcolor="#0d1117") # Ensure dark theme is applied
                         st.plotly_chart(fig_type, use_container_width=True)
                     else:
                         st.info("Upload your MT5 data to see visualizations.")
@@ -2322,10 +2341,12 @@ elif st.session_state.current_page == 'mt5':
                             grouped_data = df_for_edge.groupby('Duration Bin')['Profit'].agg(['sum', 'count', 'mean']).reset_index()
                             grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}")
                             fig_edge = px.bar(grouped_data, x='Duration Bin', y='sum', title=f"Profit by {analysis_by}")
+                            fig_edge.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22") # Ensure dark theme is applied
                             st.plotly_chart(fig_edge, use_container_width=True)
                         else:
                             grouped_data = df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
                             fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
+                            fig_edge.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22") # Ensure dark theme is applied
                             st.plotly_chart(fig_edge, use_container_width=True)
 
                     else:
@@ -2580,17 +2601,21 @@ elif st.session_state.current_page == 'strategy':
                 st.markdown(f"Exit Rules: {row['Exit Rules']}")
                 st.markdown(f"Risk Management: {row['Risk Management']}")
                 if st.button("Delete Strategy", key=f"delete_strategy_{idx}"):
-                    st.session_state.strategies = st.session_state.strategies.drop(idx).reset_index(drop=True)
-                    if st.session_state.logged_in_user is not None:
-                        username = st.session_state.logged_in_user
-                        try:
-                            save_user_data(username)
-                            st.success("Strategy deleted and account updated!")
-                            logging.info(f"Strategy deleted for {username}")
-                        except Exception as e:
-                            st.error(f"Failed to delete strategy: {str(e)}")
-                            logging.error(f"Error deleting strategy for {username}: {str(e)}")
-                    st.rerun()
+                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == row["Username"]: # Changed 'st.session_state.logged_in_user' directly for condition
+                        st.session_state.strategies = st.session_state.strategies.drop(idx).reset_index(drop=True)
+                        if st.session_state.logged_in_user is not None:
+                            username = st.session_state.logged_in_user
+                            try:
+                                save_user_data(username)
+                                st.success("Strategy deleted and account updated!")
+                                logging.info(f"Strategy deleted for {username}")
+                            except Exception as e:
+                                st.error(f"Failed to delete strategy: {str(e)}")
+                                logging.error(f"Error deleting strategy for {username}: {str(e)}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own strategies.")
+                        logging.warning(f"Unauthorized attempt to delete strategy {row['Name']} by {st.session_state.logged_in_user}")
     else:
         st.info("No strategies defined yet. Add one above.")
     
@@ -3124,7 +3149,8 @@ elif st.session_state.current_page == "Community Chatroom":
 
 
     # 1. Mandatory Rules Acceptance (Session-scoped)
-    if not st.session_state.chatroom_rules_accepted:
+    # NEW FIX: Use `chatroom_rules_accepted_for_session` to gate access in the current session.
+    if not st.session_state.chatroom_rules_accepted_for_session:
         st.subheader("Community Chatroom Rules")
         st.markdown("""
         Please read and accept the following rules to join the Zenvo Academy Community Chatroom. These rules are in place
@@ -3143,11 +3169,9 @@ elif st.session_state.current_page == "Community Chatroom":
         """)
         st.markdown("---")
         if st.button("I Agree to the Rules and Wish to Enter"):
-            st.session_state.chatroom_rules_accepted = True
-            # No need to save_user_data specifically for this flag, as it's session-scoped.
-            # However, if other user_data might have been updated during this login sequence,
-            # `initialize_and_load_session_state` (which calls `save_user_data`) has already handled it.
-            st.rerun()
+            st.session_state.chatroom_rules_accepted_for_session = True # Set session-specific flag to True
+            # No need to call save_user_data for this particular flag, it's not persisted to DB
+            st.rerun() # Rerun to re-evaluate this condition and show chatroom content
         st.stop() # Prevent further rendering until rules are accepted
 
 
@@ -3649,6 +3673,7 @@ elif st.session_state.current_page == 'tools':
             st.dataframe(by_sess, use_container_width=True)
             
             fig = px.bar(by_sess, x='session', y='Win Rate', title='Win Rate by Session', template='plotly_white')
+            fig.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22") # Ensure dark theme
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Log trades in the 'Trading Journal' or upload MT5 trades to analyze performance by trading session. Ensure there are enough valid trade data points with a calculated 'R' value.")
@@ -3673,52 +3698,40 @@ elif st.session_state.current_page == 'tools':
             
             is_open = False
             time_until_label = ""
-            time_diff_hours_float = 0.0
+            time_diff_seconds_total = 0.0
 
-            if session["start_utc_hour"] <= session["end_utc_hour"]: # Session within same UTC day
-                if session["start_utc_hour"] <= current_utc_hour_float < session["end_utc_hour"]:
-                    is_open = True
-                    time_until_label = "Closes in"
-                    time_diff_hours_float = session["end_utc_hour"] - current_utc_hour_float
-                else:
-                    time_until_label = "Opens in"
-                    if current_utc_hour_float < session["start_utc_hour"]:
-                        time_diff_hours_float = session["start_utc_hour"] - current_utc_hour_float
-                    else: # current_utc_hour_float >= session["end_utc_hour"]
-                        time_diff_hours_float = (24 - current_utc_hour_float) + session["start_utc_hour"]
-            else: # Session crosses UTC midnight (e.g., Sydney)
-                if current_utc_hour_float >= session["start_utc_hour"] or current_utc_hour_float < session["end_utc_hour"]:
-                    is_open = True
-                    time_until_label = "Closes in"
-                    # Calculate time until end of session (can be next UTC day)
-                    if current_utc_hour_float < session["end_utc_hour"]: # End is same UTC day
-                        time_diff_hours_float = session["end_utc_hour"] - current_utc_hour_float
-                    else: # End is next UTC day
-                        time_diff_hours_float = (24 - current_utc_hour_float) + session["end_utc_hour"]
-                else:
-                    time_until_label = "Opens in"
-                    # Calculate time until start of session (can be next UTC day)
-                    if current_utc_hour_float < session["end_utc_hour"]: # Start is previous UTC day, or far ahead same day
-                         time_diff_hours_float = session["start_utc_hour"] - current_utc_hour_float # This won't be right for prev day start
-                    else: # current_utc_hour_float >= session["end_utc_hour"]
-                         time_diff_hours_float = (24 - current_utc_hour_float) + session["start_utc_hour"] # Time to next day's start
+            # Determine if session is open and calculate time remaining/until open
+            session_start_dt = dt.datetime(now.year, now.month, now.day, session['start_utc_hour'], 0, tzinfo=pytz.UTC)
+            session_end_dt = dt.datetime(now.year, now.month, now.day, session['end_utc_hour'], 0, tzinfo=pytz.UTC)
 
+            if session['start_utc_hour'] >= session['end_utc_hour']: # Session crosses midnight UTC
+                session_end_dt += dt.timedelta(days=1)
+            
+            if now >= session_start_dt and now < session_end_dt: # Session is open
+                is_open = True
+                time_until_label = "Closes in"
+                time_diff = session_end_dt - now
+                time_diff_seconds_total = time_diff.total_seconds()
+            else: # Session is closed
+                time_until_label = "Opens in"
+                # If current time is after session end, need to calculate until next session start
+                next_session_start_dt = dt.datetime(now.year, now.month, now.day, session['start_utc_hour'], 0, tzinfo=pytz.UTC)
+                if now >= next_session_start_dt:
+                    next_session_start_dt += dt.timedelta(days=1)
+                
+                time_diff = next_session_start_dt - now
+                time_diff_seconds_total = time_diff.total_seconds()
 
-            # Round to nearest whole or half hour for display.
-            display_minutes = round(time_diff_hours_float * 60)
-            display_hours = display_minutes // 60
-            display_minutes = display_minutes % 60
+            
+            # Convert total seconds to Hh Mm format
+            display_minutes_total = int(time_diff_seconds_total / 60)
+            display_hours = display_minutes_total // 60
+            display_minutes = display_minutes_total % 60
 
             time_until_str = ""
             if display_hours > 0:
                 time_until_str += f"{display_hours}h "
-            if display_minutes > 0 or display_hours == 0: # Show minutes even if 0 if no hours, e.g., "0m"
-                time_until_str += f"{display_minutes}m"
-            if not time_until_str and is_open: # If already at end time but still considered open, display "soon"
-                time_until_str = "soon"
-            elif not time_until_str and not is_open:
-                time_until_str = "Unknown" # Fallback if calculation failed.
-
+            time_until_str += f"{display_minutes}m" # Always show minutes, even if 0m
 
             session_status.append({
                 "Session": session["name"],
@@ -3844,9 +3857,9 @@ elif st.session_state.current_page == 'tools':
             "Reviewed previous trades"
         ]
         pre_checklist = {item: st.checkbox(item, key=f"pre_market_checklist_{i}") for i, item in enumerate(pre_market_items)} # Unique keys
-        pre_checked = sum(1 for v in pre_checklist.values() if v)
-        st.metric("Pre-Market Completion", f"{pre_checked}/{len(pre_market_items)}")
-        if pre_checked == len(pre_market_items):
+        checked_count_pre_market = sum(1 for v in pre_checklist.values() if v) # Local variable for completion
+        st.metric("Pre-Market Completion", f"{checked_count_pre_market}/{len(pre_market_items)}")
+        if checked_count_pre_market == len(pre_market_items):
             st.success("✅ Pre-market routine complete!")
         st.subheader("End-of-Day Reflection")
         with st.form("reflection_form_eod"): # Unique form key
@@ -4063,6 +4076,9 @@ elif st.session_state.current_page == 'account':
                         st.error("Username and password cannot be empty.")
                         logging.warning(f"Registration failed: Empty username or password")
                     else:
+                        # FIX: Moved hashed_password definition outside conditional check to ensure it's always defined
+                        hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+
                         c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
                         if c.fetchone():
                             st.error("Username already exists.")
@@ -4091,7 +4107,6 @@ elif st.session_state.current_page == 'account':
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
-                                # This ensures the session state is properly set for the *new* user's defaults
                                 initialize_and_load_session_state() 
                                 st.success(f"Account created for {new_username}!")
                                 logging.info(f"User {new_username} registered successfully")
@@ -4129,51 +4144,61 @@ elif st.session_state.current_page == 'account':
                 save_user_data(st.session_state.logged_in_user)
                 logging.info(f"User {st.session_state.logged_in_user} data saved before logout.")
             
-            # Explicitly reset ONLY the user-specific and transient states related to being logged in
-            for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal',
-                        'xp', 'level', 'badges', 'streak', 'last_journal_date',
-                        'last_login_xp_date', 'gamification_flags', 'xp_log', 
-                        'chatroom_rules_accepted', 'user_nickname', # These are now session-only for chat, or loaded from DB for user specific (nickname)
-                        'edit_trade_metrics', # Add new UI-specific states if they appear elsewhere in code
-                        'selected_market_type', # Reset market type as per request - will revert to default 'Forex' for the next login
-                        'completed_courses' # Reset completed courses if not desired to persist for new session, but generally should be persisted.
-                        ]:
+            # Reset relevant session state variables.
+            # User-specific persistent data (like XP, journal, etc.) will be reloaded from DB upon next login.
+            # We explicitly reset session-specific UI/temp states.
+            for key_to_clear in ['logged_in_user', 'current_page', 'current_subpage', 
+                                'show_tools_submenu', 'temp_journal', 'user_nickname',
+                                'chatroom_rules_accepted_for_session', # This one IS session-specific
+                                'selected_currency_1', 'selected_currency_2', # Temp states for UI filters
+                                'selected_calendar_month', # Temp UI state for calendar
+                                'edit_state', # UI state for playbook editing
+                                # Add any other temporary/UI-only state keys here if they arise
+                                ]:
                 # Preserve 'completed_courses' as it's user-specific and persisted. Remove only transient/ui states.
-                if key not in ['completed_courses'] and key in st.session_state: 
-                    del st.session_state[key]
+                # 'selected_market_type' is persisted but its UI selection can affect rendering.
+                # However, upon logout, `initialize_and_load_session_state()` is called, which defaults it if no user.
+                if key_to_clear not in ['completed_courses'] and key_to_clear in st.session_state: 
+                    del st.session_state[key_to_clear]
             
             # Reset `st.session_state.current_page` to `account` and clear relevant keys
             st.session_state.current_page = "account" 
 
-            # After deleting user-specific parts of session state, re-initialize overall application state for logged out view
-            initialize_and_load_session_state()
+            initialize_and_load_session_state() # Re-initialize the global/default states (incl. for logged out users)
 
             logging.info("User logged out successfully.")
             st.rerun()
 
+        # Main content starts here for logged-in users.
         st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-        st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         
-        # NEW: Market Type Selection
-        st.subheader("🌐 Market Focus")
-        # Ensure 'selected_market_type' is initialized correctly if it somehow went missing
-        if 'selected_market_type' not in st.session_state:
-            st.session_state.selected_market_type = 'Forex'
+        # NEW FIX: Market Focus on the top right
+        # Using two columns to align the text and the radio button
+        col_dummy, col_market_label, col_market_toggle = st.columns([0.4, 0.2, 0.4])
 
-        selected_market_radio = st.radio(
-            "Select your primary market focus:",
-            ('Forex', 'Crypto', 'Stocks'),
-            index=['Forex', 'Crypto', 'Stocks'].index(st.session_state.selected_market_type),
-            key='market_type_selector',
-            horizontal=True,
-        )
-        # Update session state *and* persist to database immediately
-        if selected_market_radio != st.session_state.selected_market_type:
-            st.session_state.selected_market_type = selected_market_radio
-            save_user_data(st.session_state.logged_in_user) # Persist choice on change
-            st.rerun() # Rerun to update sidebar immediately
+        with col_market_label:
+            st.markdown("🌐 **Market Focus:**", unsafe_allow_html=True)
+        
+        with col_market_toggle:
+            # Ensure 'selected_market_type' is initialized correctly if it somehow went missing
+            if 'selected_market_type' not in st.session_state:
+                st.session_state.selected_market_type = 'Forex'
 
-        st.markdown("---") # Separator after market selection
+            selected_market_radio = st.radio(
+                "Market Type", # Streamlit requires a label, even if visually hidden
+                ('Forex', 'Crypto', 'Stocks'),
+                index=['Forex', 'Crypto', 'Stocks'].index(st.session_state.selected_market_type),
+                key='market_type_selector',
+                horizontal=True,
+                label_visibility="collapsed" # Visually hide default label if you use a markdown one
+            )
+            # Update session state *and* persist to database immediately
+            if selected_market_radio != st.session_state.selected_market_type:
+                st.session_state.selected_market_type = selected_market_radio
+                save_user_data(st.session_state.logged_in_user) # Persist choice on change
+                st.rerun() # Rerun to update sidebar immediately
+
+        st.markdown("---") # Separator after market selection (can remain)
         
         st.subheader("📈 Progress Snapshot")
         
