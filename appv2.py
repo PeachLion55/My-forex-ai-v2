@@ -654,6 +654,7 @@ def initialize_and_load_session_state():
     Also handles daily login XP award.
     """
     # 1. Initialize all session state variables to their defaults if they don't exist
+    # This loop correctly sets 'chatroom_rules_accepted_for_session' to False only once when the session starts.
     for key, default_value in DEFAULT_APP_STATE.items():
         if key not in st.session_state:
             # Handle mutable defaults by making a copy
@@ -662,10 +663,8 @@ def initialize_and_load_session_state():
             else:
                 st.session_state[key] = default_value
     
-    # NEW FIX: Reset 'chatroom_rules_accepted_for_session' to False when *re-initializing* for a potential new login/session
-    # This forces rules re-acceptance. If it was already in state, it gets overwritten here.
-    st.session_state.chatroom_rules_accepted_for_session = False
-
+    # The problematic line that caused the loop has been REMOVED from here.
+    # The initialization is now correctly handled by the loop above.
 
     # 2. If a user IS logged in, attempt to load their specific data and apply gamification checks
     if st.session_state.logged_in_user is not None:
@@ -748,8 +747,6 @@ def initialize_and_load_session_state():
     for channel_key in DEFAULT_APP_STATE['chat_messages'].keys():
         db_key = f'chat_channel_{channel_key.lower().replace(" ", "_")}'
         st.session_state.chat_messages[channel_key] = _ta_load_community(db_key, default=[]) # Load into a list
-
-initialize_and_load_session_state()
 
 # =========================================================
 # PAGE CONFIGURATION (Streamlit requires this at top level)
