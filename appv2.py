@@ -3133,7 +3133,7 @@ elif st.session_state.current_page == "Community Chatroom":
                         st.session_state.gamification_flags = gamification_flags
                         save_user_data(username) # Persist the flag
 
-        # --------------------------
+    # --------------------------
     # CHATROOM MAIN LOGIC
     # --------------------------
 
@@ -3149,9 +3149,7 @@ elif st.session_state.current_page == "Community Chatroom":
 
 
     # 1. Mandatory Rules Acceptance (Session-scoped)
-    # The flag 'chatroom_rules_accepted_for_session' will only be False
-    # at the start of a *new browser session* or after a *logout event*.
-    # It will persist as True for the remainder of the active Streamlit browser session once accepted.
+    # This now works correctly because the flag is only set to False once per session
     if not st.session_state.chatroom_rules_accepted_for_session:
         st.subheader("Community Chatroom Rules")
         st.markdown("""
@@ -3171,11 +3169,9 @@ elif st.session_state.current_page == "Community Chatroom":
         """)
         st.markdown("---")
         if st.button("I Agree to the Rules and Wish to Enter"):
-            # Set the session-specific flag to True. It will now persist across reruns
-            # within this browser session until explicitly reset (e.g., by logging out).
-            st.session_state.chatroom_rules_accepted_for_session = True 
-            st.rerun() # Rerun to bypass this rules acceptance block and show chatroom content
-        st.stop() # Prevent further rendering until rules are accepted
+            st.session_state.chatroom_rules_accepted_for_session = True
+            st.rerun()
+        st.stop()
 
 
     # 2. One-time Nickname Setup (persistent)
@@ -3183,26 +3179,21 @@ elif st.session_state.current_page == "Community Chatroom":
         st.subheader("Set Your Chatroom Nickname")
         st.markdown("This nickname will be permanently visible to others in the chatroom. Choose wisely!")
         
-        # Pre-fill with logged-in username suggestion
         suggested_nickname = st.session_state.logged_in_user 
         new_nickname = st.text_input("Enter your desired nickname (max 20 characters):", 
                                      value=suggested_nickname, max_chars=20, key="set_nickname_input")
         
         if st.button("Set Nickname", type="primary"):
             if new_nickname:
-                # In a real app, you'd add backend logic to check for nickname uniqueness globally
-                # For this example, we'll assume it's unique enough for session.
                 st.session_state.user_nickname = new_nickname
-                # Update and save the nickname in user's permanent data via save_user_data
                 save_user_data(st.session_state.logged_in_user)
-
                 st.success(f"Welcome, **{new_nickname}**! Your nickname has been set. You can now join the chat.")
                 st.rerun()
             else:
                 st.warning("Nickname cannot be empty.")
-        st.stop() # Prevent further rendering until nickname is set
+        st.stop() 
 
-    # Fetch current user's XP for display (badges is covered by overall Account page)
+    # Fetch current user's XP for display
     current_user_data = get_user_data(st.session_state.logged_in_user)
     current_user_xp = current_user_data.get('xp', 0)
 
@@ -3216,12 +3207,10 @@ elif st.session_state.current_page == "Community Chatroom":
 
     # Define tabs for different chat channels
     channel_tabs_names = list(DEFAULT_APP_STATE['chat_messages'].keys())
-
-    tabs = st.tabs(channel_tabs_names) # Create tabs using Streamlit
+    tabs = st.tabs(channel_tabs_names)
 
     for i, channel_name in enumerate(channel_tabs_names):
         with tabs[i]:
-            # Channel-specific title and description
             channel_caption_map = {
                 "General Discussion": "Casual conversation and community building.",
                 "Trading Psychology": "Focus, mindset, and overcoming trading losses.",
@@ -3231,11 +3220,9 @@ elif st.session_state.current_page == "Community Chatroom":
             st.markdown(f"### {channel_name} <small style='color: #aaa;'>— {channel_caption_map.get(channel_name, 'Join the discussion!')}</small>", unsafe_allow_html=True)
             st.markdown("---")
 
-            # Container for displaying chat messages (fixed height, scrollable)
             chat_history_container = st.container(height=450, border=True)
 
             with chat_history_container:
-                # Display each message in the channel
                 if not st.session_state.chat_messages[channel_name]:
                     st.info(f"No messages in the **{channel_name}** channel yet. Be the first to start a conversation!")
                 else:
@@ -3243,11 +3230,10 @@ elif st.session_state.current_page == "Community Chatroom":
                         nickname = message['nickname']
                         timestamp = message['timestamp']
                         content = message['content']
-                        msg_type = message.get('type', 'regular') # Default to regular
+                        msg_type = message.get('type', 'regular')
                         
                         user_color = get_user_nickname_color(nickname)
 
-                        # Custom HTML for message rendering with professional trading aesthetics
                         if msg_type == 'regular':
                             st.markdown(
                                 f"<div style='margin-bottom: 8px;'>"
@@ -3281,19 +3267,15 @@ elif st.session_state.current_page == "Community Chatroom":
                                 f"</div>",
                                 unsafe_allow_html=True
                             )
-                        # Auto-scroll to bottom of chat_history_container could be added here via JS if needed
 
-            # Message input area for the current channel
             current_message_content = st.chat_input(
                 f"Message {channel_name} as {st.session_state.user_nickname}...",
-                key=f"chat_input_{channel_name}", # Unique key for each chat_input
-                max_chars=500 # Limit message length
+                key=f"chat_input_{channel_name}",
+                max_chars=500
             )
 
-            # Logic to handle message submission
             if current_message_content:
                 message_type_to_add = "regular"
-                # Apply specific message types for 'Trade Reviews' for distinct styling and gamification
                 if channel_name == "Trade Reviews":
                     content_lower = current_message_content.lower()
                     if "win:" in content_lower or "winning trade:" in content_lower or "✅ win" in content_lower:
@@ -3301,22 +3283,17 @@ elif st.session_state.current_page == "Community Chatroom":
                     elif "loss:" in content_lower or "losing trade:" in content_lower or "❌ loss" in content_lower:
                         message_type_to_add = "loss_trade"
                 
-                # Add message to history (which also persists to DB)
                 add_chat_message(channel_name, st.session_state.user_nickname, current_message_content, message_type_to_add)
                 
-                # Trigger gamification check
                 check_chat_gamification_triggers(st.session_state.logged_in_user, channel_name, current_message_content)
                 
-                # Rerun the app to clear the chat input and display the new message
                 st.rerun()
 
-    # Encouraging footer message
     st.markdown("---")
     st.info("""
         💡 **Community Focus**: This chatroom is dedicated to improving trading performance through collaboration and positive support.
         Let's keep discussions constructive and relevant to our trading goals!
     """)
-
 # =========================================================
 # TOOLS PAGE
 # =========================================================
