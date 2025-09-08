@@ -705,7 +705,7 @@ st.markdown(
     }
     section[data-testid="stSidebar"] div.stButton > button {
         width: 200px !important;
-        background: linear-gradient(to right, rgba(88, 179, 177, 0.7), rgba(0, 0, 0, 0.7)) !important;
+        background: linear-gradient(to right, rgba(0, 0, 0, 0.7), rgba(88, 179, 177, 0.7)) !important;
         color: #ffffff !important;
         border: none !important;
         border-radius: 5px !important;
