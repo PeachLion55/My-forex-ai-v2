@@ -1261,7 +1261,6 @@ elif st.session_state.current_page == 'trading_journal':
         else:
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
             
-            # **FIX for AttributeError**: Initialize edit_state here, before it's ever used.
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
@@ -1292,10 +1291,19 @@ elif st.session_state.current_page == 'trading_journal':
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
 
                 with st.container(border=True):
-                    # Trade Header
+                    # Trade Header - MODIFIED BLOCK
                     st.markdown(f"""
-                    <h4 style='margin-bottom:0px;'>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
-                    <span style="color: #8b949e; font-size: 0.9em;">{row['Date'].strftime('%A, %d %B %Y')} | {trade_id_key}</span>
+                    <div style="display: flex; flex-direction: row; align-items: stretch; gap: 15px; margin-left: -10px;">
+                      <div style="width: 4px; background-color: {outcome_color}; border-radius: 3px;"></div>
+                      <div style="padding-top: 2px; padding-bottom: 2px;">
+                        <div style="font-size: 1.1em; font-weight: 600;">
+                          {row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span> <span style="font-weight: normal; vertical-align: middle;">🔗</span>
+                        </div>
+                        <div style="color: #8b949e; font-size: 0.9em; margin-top: 2px;">
+                          {row['Date'].strftime('%A, %d %B %Y')} | {trade_id_key}
+                        </div>
+                      </div>
+                    </div>
                     """, unsafe_allow_html=True)
                     st.markdown("---")
 
@@ -1306,7 +1314,6 @@ elif st.session_state.current_page == 'trading_journal':
                     rr_val = float(pd.to_numeric(row.get('RR', 0.0), errors='coerce') or 0.0)
                     lots_val = float(pd.to_numeric(row.get('Lots', 0.01), errors='coerce') or 0.01)
 
-                    # Helper function to render a metric display or its editing form
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
                         is_editing = st.session_state.edit_state.get(f"{key_suffix}_{trade_id_key}", False)
                         
@@ -1344,9 +1351,7 @@ elif st.session_state.current_page == 'trading_journal':
                                         {display_val_str}
                                     </div>""", unsafe_allow_html=True)
                         
-                        # Use the small, dedicated column for the button
                         with button_col:
-                            # We assign a class to the column (this specific one is found via inspection)
                             st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
                             if not is_editing:
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
@@ -1365,7 +1370,6 @@ elif st.session_state.current_page == 'trading_journal':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         if tags_list: st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    # Journal Notes & Screenshots (EXPANDER - DEFAULT CLOSED)
                     with st.expander("Journal Notes & Screenshots", expanded=False):
                         notes = st.text_area(
                             "Trade Journal Notes",
@@ -1501,7 +1505,7 @@ elif st.session_state.current_page == 'trading_journal':
                         else:
                             visual_cols[1].info("No Exit Screenshot available.")
                             
-                    st.markdown("---") # End of a single trade container
+                    st.markdown("---") 
 
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
