@@ -3133,7 +3133,7 @@ elif st.session_state.current_page == "Community Chatroom":
                         st.session_state.gamification_flags = gamification_flags
                         save_user_data(username) # Persist the flag
 
-    # --------------------------
+        # --------------------------
     # CHATROOM MAIN LOGIC
     # --------------------------
 
@@ -3149,7 +3149,9 @@ elif st.session_state.current_page == "Community Chatroom":
 
 
     # 1. Mandatory Rules Acceptance (Session-scoped)
-    # NEW FIX: Use `chatroom_rules_accepted_for_session` to gate access in the current session.
+    # The flag 'chatroom_rules_accepted_for_session' will only be False
+    # at the start of a *new browser session* or after a *logout event*.
+    # It will persist as True for the remainder of the active Streamlit browser session once accepted.
     if not st.session_state.chatroom_rules_accepted_for_session:
         st.subheader("Community Chatroom Rules")
         st.markdown("""
@@ -3169,9 +3171,10 @@ elif st.session_state.current_page == "Community Chatroom":
         """)
         st.markdown("---")
         if st.button("I Agree to the Rules and Wish to Enter"):
-            st.session_state.chatroom_rules_accepted_for_session = True # Set session-specific flag to True
-            # No need to call save_user_data for this particular flag, it's not persisted to DB
-            st.rerun() # Rerun to re-evaluate this condition and show chatroom content
+            # Set the session-specific flag to True. It will now persist across reruns
+            # within this browser session until explicitly reset (e.g., by logging out).
+            st.session_state.chatroom_rules_accepted_for_session = True 
+            st.rerun() # Rerun to bypass this rules acceptance block and show chatroom content
         st.stop() # Prevent further rendering until rules are accepted
 
 
@@ -3313,7 +3316,6 @@ elif st.session_state.current_page == "Community Chatroom":
         💡 **Community Focus**: This chatroom is dedicated to improving trading performance through collaboration and positive support.
         Let's keep discussions constructive and relevant to our trading goals!
     """)
-
 
 # =========================================================
 # TOOLS PAGE
