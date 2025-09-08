@@ -869,7 +869,14 @@ from PIL import Image
 import io
 import base64
 import os
-from streamlit_extras.switch_page_button import switch_page # Import the new function
+
+# =========================================================
+# HELPER FUNCTION TO ENCODE IMAGES
+# =========================================================
+# This is crucial for embedding your local images into the HTML.
+def image_to_base64(path):
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
 # SIDEBAR NAVIGATION
@@ -878,49 +885,40 @@ from streamlit_extras.switch_page_button import switch_page # Import the new fun
 # --- Define the local path for your icons folder ---
 ICON_ROOT = "icons"
 
-st.markdown(
-    """
-    <style>
-    .sidebar-content {
-        padding-top: 0rem;
-    }
-    /* Optional: Style the buttons for a better look */
-    div[data-testid="stSidebarNav"] ul {
-        padding-top: 1rem;
-    }
-    div[data-testid="stSidebarNav"] li {
-        padding-bottom: 10px; /* Add some space between buttons */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 # --- Logo Display (same as your original code) ---
 try:
-    logo = Image.open("logo22.png")
-    logo = logo.resize((60, 50))
-    buffered = io.BytesIO()
-    logo.save(buffered, format="PNG")
-    logo_str = base64.b64encode(buffered.getvalue()).decode()
-    st.sidebar.markdown(
-        f"""
-        <div style='text-align: center; margin-bottom: 20px;'>
-            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    logo_path = "logo22.png"
+    if os.path.exists(logo_path):
+        logo = Image.open(logo_path)
+        logo = logo.resize((60, 50))
+        buffered = io.BytesIO()
+        logo.save(buffered, format="PNG")
+        logo_str = base64.b64encode(buffered.getvalue()).decode()
+        st.sidebar.markdown(
+            f"""
+            <div style='text-align: center; margin-bottom: 20px;'>
+                <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 except FileNotFoundError:
     st.sidebar.error("Logo file 'logo22.png' not found.")
 
 
-# --- Initialize session state if not already done ---
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals' # Set a default page
+# --- LINKING URL PARAMS TO SESSION STATE (THE KEY PART) ---
+# This block ensures that when a user clicks our custom HTML button,
+# the app's internal state is updated correctly.
+params = st.query_params
+if "page" in params:
+    # If a page is specified in the URL, update the session state
+    st.session_state.current_page = params["page"]
+elif "current_page" not in st.session_state:
+    # For the very first run, set a default page
+    st.session_state.current_page = "fundamentals"
+
 
 # --- Navigation Items Definition ---
-# The emojis are removed from the text labels.
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
@@ -934,7 +932,6 @@ nav_items = [
 ]
 
 # --- Icon Mapping ---
-# Maps each page_key to its corresponding icon file name in the 'icons' folder.
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
     'fundamentals': 'forex_fundamentals.png',
@@ -947,49 +944,91 @@ icon_mapping = {
 }
 
 
-# --- Loop to Create the Navigation Menu ---
-# This approach maintains your original st.session_state logic.
-st.sidebar.header("Navigation")
+# --- CSS for Custom Navigation Buttons ---
+# This styles our HTML links to look and feel like native Streamlit buttons.
+st.sidebar.markdown("""
+<style>
+    /* Main container for the navigation buttons */
+    .nav-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px; /* Adds space between the buttons */
+    }
+
+    /* Style for each navigation link (our custom button) */
+    .nav-link {
+        display: flex;
+        align-items: center; /* Crucial for vertical alignment of icon and text */
+        width: 100%;
+        padding: 8px 10px; /* Vertical and horizontal padding */
+        border-radius: 8px;
+        text-decoration: none;
+        color: white; /* Default text color */
+        background-color: transparent; /* Default background */
+        transition: background-color 0.2s, color 0.2s; /* Smooth hover effect */
+        border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
+    }
+
+    /* Hover effect */
+    .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white; /* Ensure text color stays white on hover */
+    }
+    
+    /* Active button style */
+    .nav-link.active {
+        background-color: #0068C9; /* A distinct background color for the selected item */
+        border-color: #0068C9;
+    }
+
+    /* Style for the icon image */
+    .nav-link img {
+        width: 28px;       /* <<< ICON SIZE CAN BE CHANGED HERE */
+        height: 28px;      /* <<< ICON SIZE CAN BE CHANGED HERE */
+        margin-right: 15px;/* Space between icon and text */
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- Loop to generate the HTML for each button ---
+nav_html = "<div class='nav-container'>"
+
+# We use the current page from session_state to determine which button is "active"
+current_page_key = st.session_state.current_page
 
 for page_key, page_name in nav_items:
     icon_filename = icon_mapping.get(page_key)
-    icon_path = ""
-    if icon_filename and os.path.exists(os.path.join(ICON_ROOT, icon_filename)):
-         icon_path = os.path.join(ICON_ROOT, icon_filename)
+    icon_html = ""
     
-    # Check if this is the active button
-    # The button will be styled as 'primary' (filled) if it's the current page
-    is_active = (st.session_state.current_page == page_key)
-    button_type = "primary" if is_active else "secondary"
+    if icon_filename:
+        icon_path = os.path.join(ICON_ROOT, icon_filename)
+        if os.path.exists(icon_path):
+            # Embed the image directly into the HTML for performance and simplicity
+            icon_base64 = image_to_base64(icon_path)
+            icon_html = f"<img src='data:image/png;base64,{icon_base64}'>"
+    
+    # Check if the current item is the active page
+    active_class = "active" if current_page_key == page_key else ""
+    
+    # Construct the full HTML link. Clicking it sets the 'page' URL parameter.
+    nav_html += f"""
+        <a href="?page={page_key}" class="nav-link {active_class}" target="_self">
+            {icon_html}
+            {page_name}
+        </a>
+    """
+nav_html += "</div>"
 
-    # We use a custom function to create the button content with an image
-    # Note: `st.button` does NOT support images directly. This is a common pain point.
-    # The BEST way is to create the button with st.columns for layout.
+# Render the entire HTML block in the sidebar
+st.sidebar.markdown(nav_html, unsafe_allow_html=True)
 
-    col1, col2 = st.sidebar.columns([1, 4])
 
-    with col1:
-        if icon_path:
-             # Using a smaller width and adding some margin
-             st.image(icon_path, width=25)
-
-    with col2:
-         # use_container_width makes the button fill the column
-        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
-            st.session_state.current_page = page_key
-            
-            # --- Optional state resets from your original code ---
-            # st.session_state.current_subpage = None
-            # st.session_state.show_tools_submenu = False
-            
-            st.rerun()
-            
-# --- Add some vertical space at the bottom of the sidebar
-st.sidebar.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
-
-# You can now use st.session_state.current_page in the main part of your app to display content
-# For example:
-# st.header(f"You are on page: {st.session_state.current_page}")
+# --- IN THE REST OF YOUR APP ---
+# Your existing logic like this will now work perfectly:
+# if st.session_state.current_page == 'trading_journal':
+#      show_trading_journal_page()
+# ... etc.
 
 # =========================================================
 # MAIN APPLICATION LOGIC
