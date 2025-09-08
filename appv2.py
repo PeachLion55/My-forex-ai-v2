@@ -1128,11 +1128,7 @@ elif st.session_state.current_page == 'trading_journal':
             st.markdown("##### Rationale & Tags")
             entry_rationale = st.text_area("Why did you enter this trade?", height=100)
 
-            all_tags_list = []
-            if 'Tags' in st.session_state.trade_journal.columns:
-                 all_tags_list = st.session_state.trade_journal['Tags'].str.split(',').explode().dropna().str.strip().tolist()
-
-            all_tags = sorted(list(set(all_tags_list)))
+            all_tags = sorted(list(set(st.session_state.trade_journal['Tags'].str.split(',').explode().dropna().str.strip().tolist()))) if not st.session_state.trade_journal.empty and 'Tags' in st.session_state.trade_journal.columns else []
 
             suggested_tags = ["Breakout", "Reversal", "Trend Follow", "Counter-Trend", "News Play", "FOMO", "Over-leveraged"]
             tags_selection = st.multiselect("Select Existing Tags", options=sorted(list(set(all_tags + suggested_tags))))
@@ -1184,6 +1180,9 @@ elif st.session_state.current_page == 'trading_journal':
 
                 trade_id_new = f"TRD-{uuid.uuid4().hex[:6].upper()}"
 
+                entry_screenshot_path_saved = None
+                exit_screenshot_path_saved = None
+
                 new_trade_data = {
                     "TradeID": trade_id_new, "Date": pd.to_datetime(date_val),
                     "Symbol": symbol, "Direction": direction, "Outcome": outcome,
@@ -1191,8 +1190,8 @@ elif st.session_state.current_page == 'trading_journal':
                     "PnL": final_pnl, "RR": final_rr,
                     "Tags": ','.join(final_tags_list), "EntryRationale": entry_rationale,
                     "Strategy": '', "TradeJournalNotes": '', 
-                    "EntryScreenshot": None,
-                    "ExitScreenshot": None
+                    "EntryScreenshot": entry_screenshot_path_saved,
+                    "ExitScreenshot": exit_screenshot_path_saved
                 }
                 new_df = pd.DataFrame([new_trade_data])
                 st.session_state.trade_journal = pd.concat([st.session_state.trade_journal, new_df], ignore_index=True)
@@ -1240,80 +1239,107 @@ elif st.session_state.current_page == 'trading_journal':
             if tag_filter:
                 filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
 
-            # Initialize session state for editing flags if not present
             if 'edit_state' not in st.session_state: st.session_state.edit_state = {}
 
+
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
+                trade_id_key = row['TradeID']
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
+
                 with st.container(border=True):
+                    # Trade Header
                     st.markdown(f"""
-                    <h4 style='margin-bottom:0px; display:inline-block;'>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
-                    <span style="color: #8b949e; font-size: 0.9em; display:block;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
+                    <h4 style='margin-bottom:0px;'>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
+                    <span style="color: #8b949e; font-size: 0.9em;">{row['Date'].strftime('%A, %d %B %Y')} | {trade_id_key}</span>
                     """, unsafe_allow_html=True)
                     st.markdown("---")
-                    
-                    trade_id_key = row['TradeID']
 
+                    # Metrics Section
                     metric_cols = st.columns(3)
                     
-                    # Ensure numeric types with fallback to 0.0 to prevent errors
-                    pnl_value = pd.to_numeric(row['PnL'], errors='coerce')
-                    rr_value = pd.to_numeric(row['RR'], errors='coerce')
-                    lots_value = pd.to_numeric(row['Lots'], errors='coerce')
+                    pnl_val = float(pd.to_numeric(row.get('PnL', 0.0), errors='coerce') or 0.0)
+                    rr_val = float(pd.to_numeric(row.get('RR', 0.0), errors='coerce') or 0.0)
+                    lots_val = float(pd.to_numeric(row.get('Lots', 0.01), errors='coerce') or 0.01)
 
-                    pnl_value = pnl_value if pd.notna(pnl_value) else 0.0
-                    rr_value = rr_value if pd.notna(rr_value) else 0.0
-                    lots_value = lots_value if pd.notna(lots_value) else 0.01
-
-                    # Helper function to render metrics and their edit forms
-                    def render_metric_or_form(col, metric_label, db_column, current_value, key_suffix, format_str):
+                    # Helper function to render a metric display or its editing form
+                    def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
                         is_editing = st.session_state.edit_state.get(f"{key_suffix}_{trade_id_key}", False)
-                        with col:
+                        with col_obj:
                             if is_editing:
                                 with st.form(f"form_{key_suffix}_{trade_id_key}", clear_on_submit=False):
                                     st.markdown(f"**Edit {metric_label}**")
                                     new_value = st.number_input("", value=current_value, format=format_str, key=f"input_{key_suffix}_{trade_id_key}")
                                     s_col, c_col = st.columns(2)
                                     if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
-                                        st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, db_column] = new_value
+                                        st.session_state.trade_journal.loc[index, db_column] = new_value
                                         _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
                                         st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
-                                        st.toast(f"{metric_label} updated!", icon="✅")
                                         st.rerun()
                                     if c_col.form_submit_button("✗ Cancel", use_container_width=True):
                                         st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
                                         st.rerun()
                             else:
                                 display_val_str = ""
-                                style_str = ""
-                                if key_suffix == "pnl":
+                                border_style = ""
+                                if is_pnl_metric:
                                     border_color = "#2da44e" if current_value > 0 else ("#cf222e" if current_value < 0 else "#30363d")
                                     val_color = "#50fa7b" if current_value > 0 else ("#ff5555" if current_value < 0 else "#c9d1d9")
-                                    style_str = f"border-color: {border_color};"
+                                    border_style = f"border: 1px solid {border_color};"
                                     display_val_str = f"<div class='value' style='color:{val_color};'>${current_value:.2f}</div>"
-                                elif key_suffix == "rr":
+                                elif metric_label == "R-Multiple":
                                     display_val_str = f"<div class='value'>{current_value:.2f}R</div>"
-                                else:
+                                else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                label_col, icon_col = st.columns([4,1])
-                                with label_col:
-                                    st.markdown(f"""
-                                        <div class='playbook-metric-display' style='{style_str}'>
-                                            <div class='label'>{metric_label}</div>
-                                            {display_val_str}
-                                        </div>
-                                    """, unsafe_allow_html=True)
-                                with icon_col:
-                                    if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
-                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
-                                        st.rerun()
+                                # Use Streamlit's native components for reliability,
+                                # wrapping content for styling
+                                st.markdown(
+                                    f"""
+                                    <div class='playbook-metric-display' style='{border_style} position:relative;'>
+                                        <div class='label' style='margin-right:25px;'>{metric_label}</div>
+                                        {display_val_str}
+                                    </div>
+                                    """, unsafe_allow_html=True
+                                )
+                                # Button absolutely positioned within the parent Streamlit column/context for simple access
+                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
+                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
+                                    st.rerun()
+                                st.markdown(
+                                    """
+                                    <style>
+                                        /* Basic override to visually pull button into top-right of metric display */
+                                        button[key*="edit_btn_"] {
+                                            position: absolute;
+                                            top: 5px;
+                                            right: 5px;
+                                            z-index: 10;
+                                            background-color: transparent;
+                                            border: none;
+                                            color: #c9d1d9; /* Visible pencil */
+                                            font-size: 1em;
+                                            padding: 0;
+                                            height: 20px; /* Small clickable area */
+                                            width: 20px; /* Small clickable area */
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                        }
+                                        /* This ensures the containing elements do not stretch excessively when the button is positioned absolutely */
+                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div:nth-child(2) > div > button[key*="edit_btn_"] {
+                                            margin-top: 0px !important;
+                                        }
+                                        .playbook-metric-display {
+                                            padding-right: 30px; /* Ensure space for the button */
+                                        }
+                                    </style>
+                                    """, unsafe_allow_html=True
+                                )
 
-                    # Render all three metrics
-                    render_metric_or_form(metric_cols[0], "Net PnL", "PnL", pnl_value, "pnl", "%.2f")
-                    render_metric_or_form(metric_cols[1], "R-Multiple", "RR", rr_value, "rr", "%.2f")
-                    render_metric_or_form(metric_cols[2], "Position Size", "Lots", lots_value, "lots", "%.2f")
-
+                    render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
+                    render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
+                    render_metric_cell_or_form(metric_cols[2], "Position Size", "Lots", lots_val, "lots", "%.2f")
+                    
                     st.markdown("---")
 
                     if row['EntryRationale']: st.markdown(f"**Entry Rationale:** *{row['EntryRationale']}*")
@@ -1321,10 +1347,148 @@ elif st.session_state.current_page == 'trading_journal':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         if tags_list: st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    with st.expander("Journal Notes & Screenshots"): # NOT expanded by default
-                        # ... [The notes, screenshot upload, and delete logic is identical and correct] ...
-                        pass # Keeping the rest of the expander logic the same as last confirmed version.
-                    st.markdown("---")
+                    # Journal Notes & Screenshots (EXPANDER - DEFAULT CLOSED)
+                    with st.expander("Journal Notes & Screenshots", expanded=False):
+                        notes = st.text_area(
+                            "Trade Journal Notes",
+                            value=row['TradeJournalNotes'],
+                            key=f"notes_{trade_id_key}",
+                            height=150
+                        )
+
+                        action_cols_notes_delete = st.columns([1, 1, 4]) 
+
+                        if action_cols_notes_delete[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
+                            original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
+                            st.session_state.trade_journal.loc[index, 'TradeJournalNotes'] = notes # Use index for robustness
+                            
+                            if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
+                                current_notes_hash = hashlib.md5(notes.strip().encode()).hexdigest() if notes.strip() else ""
+                                gamification_flags = st.session_state.get('gamification_flags', {})
+                                notes_award_key = f"xp_notes_for_trade_{trade_id_key}_content_hash"
+                                last_awarded_notes_hash = gamification_flags.get(notes_award_key)
+
+                                if notes.strip() and current_notes_hash != last_awarded_notes_hash:
+                                    award_xp_for_notes_added_if_changed(st.session_state.logged_in_user, trade_id_key, notes)
+                                else:
+                                    st.toast(f"Notes for {row['TradeID']} updated (no new XP for same content).", icon="✅")
+                                save_user_data(st.session_state.logged_in_user)
+                                st.rerun()
+                            else:
+                                st.error("Failed to save notes.")
+
+                        if action_cols_notes_delete[1].button("Delete Trade", key=f"delete_trade_{trade_id_key}"):
+                            username = st.session_state.logged_in_user
+                            xp_deduction_amount = 0
+                            
+                            xp_deduction_amount += 10 # Base XP per logged trade
+
+                            gamification_flags = st.session_state.get('gamification_flags', {})
+                            notes_award_key_for_deleted = f"xp_notes_for_trade_{trade_id_key}_content_hash"
+                            if notes_award_key_for_deleted in gamification_flags:
+                                xp_deduction_amount += 5
+                                del gamification_flags[notes_award_key_for_deleted]
+                            
+                            if trade_id_key in st.session_state.edit_state:
+                                # Clean up edit states related to this deleted trade
+                                for key in list(st.session_state.edit_state.keys()):
+                                    if trade_id_key in key:
+                                        del st.session_state.edit_state[key]
+                            
+                            st.session_state.gamification_flags = gamification_flags
+                            
+                            if xp_deduction_amount > 0:
+                                ta_update_xp(username, -xp_deduction_amount, f"Deleted trade {row['TradeID']}")
+                                st.toast(f"Trade {row['TradeID']} deleted. {xp_deduction_amount} XP deducted.", icon="🗑️")
+                            else:
+                                st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
+
+                            # Delete trade from DataFrame using its actual index
+                            st.session_state.trade_journal.drop(index, inplace=True)
+                            st.session_state.trade_journal.reset_index(drop=True, inplace=True) # Reset index after drop
+                            
+                            if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                                try: os.remove(row['EntryScreenshot'])
+                                except OSError as e: logging.error(f"Error deleting entry screenshot {row['EntryScreenshot']}: {e}")
+                            if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                                try: os.remove(row['ExitScreenshot'])
+                                except OSError as e: logging.error(f"Error deleting exit screenshot {row['ExitScreenshot']}: {e}")
+
+                            if _ta_save_journal(username, st.session_state.trade_journal):
+                                check_and_award_trade_milestones(username)
+                                check_and_award_performance_milestones(username)
+                                st.rerun()
+                            else:
+                                st.error("Failed to delete trade.")
+                        
+                        # --- Upload Before/After Screenshots AFTER TRADE LOGGING ---
+                        st.markdown("---")
+                        st.subheader("Update Screenshots")
+                        
+                        image_base_path = os.path.join("user_data", st.session_state.logged_in_user, "journal_images")
+                        os.makedirs(image_base_path, exist_ok=True)
+
+                        upload_cols = st.columns(2)
+                        
+                        with upload_cols[0]:
+                            new_entry_screenshot_file = st.file_uploader(
+                                f"Upload/Update Entry Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_entry_ss_uploader_{trade_id_key}"
+                            )
+                            if new_entry_screenshot_file:
+                                if st.button("Save Entry Image", key=f"save_new_entry_ss_btn_{trade_id_key}", type="secondary", use_container_width=True):
+                                    if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                                        try: os.remove(row['EntryScreenshot'])
+                                        except OSError as e: logging.error(f"Error deleting old entry screenshot {row['EntryScreenshot']}: {e}")
+
+                                    entry_screenshot_filename = f"{trade_id_key}_entry_{uuid.uuid4().hex[:4]}_{new_entry_screenshot_file.name}"
+                                    entry_screenshot_full_path = os.path.join(image_base_path, entry_screenshot_filename)
+                                    with open(entry_screenshot_full_path, "wb") as f:
+                                        f.write(new_entry_screenshot_file.getbuffer())
+                                    
+                                    st.session_state.trade_journal.loc[index, 'EntryScreenshot'] = entry_screenshot_full_path
+                                    _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                    st.toast("Entry screenshot updated!", icon="📸")
+                                    st.rerun()
+
+                        with upload_cols[1]:
+                            new_exit_screenshot_file = st.file_uploader(
+                                f"Upload/Update Exit Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_exit_ss_uploader_{trade_id_key}"
+                            )
+                            if new_exit_screenshot_file:
+                                if st.button("Save Exit Image", key=f"save_new_exit_ss_btn_{trade_id_key}", type="secondary", use_container_width=True):
+                                    if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                                        try: os.remove(row['ExitScreenshot'])
+                                        except OSError as e: logging.error(f"Error deleting old exit screenshot {row['ExitScreenshot']}: {e}")
+
+                                    exit_screenshot_filename = f"{trade_id_key}_exit_{uuid.uuid4().hex[:4]}_{new_exit_screenshot_file.name}"
+                                    exit_screenshot_full_path = os.path.join(image_base_path, exit_screenshot_filename)
+                                    with open(exit_screenshot_full_path, "wb") as f:
+                                        f.write(new_exit_screenshot_file.getbuffer())
+
+                                    st.session_state.trade_journal.loc[index, 'ExitScreenshot'] = exit_screenshot_full_path
+                                    _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                    st.toast("Exit screenshot updated!", icon="📸")
+                                    st.rerun()
+                                    
+                        st.markdown("---")
+                        # Current Visuals Display
+                        st.subheader("Current Visuals")
+                        visual_cols = st.columns(2)
+                        if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                            visual_cols[0].image(row['EntryScreenshot'], caption="Entry", width=250)
+                        else:
+                            visual_cols[0].info("No Entry Screenshot available.")
+                        
+                        if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                            visual_cols[1].image(row['ExitScreenshot'], caption="Exit", width=250)
+                        else:
+                            visual_cols[1].info("No Exit Screenshot available.")
+                            
+                    st.markdown("---") # End of a single trade container
 
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
@@ -1343,21 +1507,23 @@ elif st.session_state.current_page == 'trading_journal':
             win_rate = (len(wins) / total_trades) * 100 if total_trades > 0 else 0
             avg_win = pd.to_numeric(wins['PnL'], errors='coerce').mean() if not wins.empty else 0.0
             avg_loss = pd.to_numeric(losses['PnL'], errors='coerce').mean() if not losses.empty else 0.0
-            profit_factor = pd.to_numeric(wins['PnL'], errors='coerce').sum() / abs(pd.to_numeric(losses['PnL'], errors='coerce').sum()) if not losses.empty and losses['PnL'].sum() != 0 else (float('inf') if wins['PnL'].sum() > 0 else 0)
+            profit_factor = pd.to_numeric(wins['PnL'], errors='coerce').sum() / abs(pd.to_numeric(losses['PnL'], errors='coerce').sum()) if not losses.empty and pd.to_numeric(losses['PnL'], errors='coerce').sum() != 0 else (float('inf') if pd.to_numeric(wins['PnL'], errors='coerce').sum() > 0 else 0)
+
 
             kpi_cols = st.columns(4)
 
-            # Net PnL with green/red box via custom HTML
-            pnl_metric_class = "profit-positive" if total_pnl >= 0 else "profit-negative"
-            pnl_value_color = "#50fa7b" if total_pnl >= 0 else "#ff5555"
-            pnl_delta_sign = "+" if total_pnl >= 0 else ""
+            pnl_metric_color = "#2da44e" if total_pnl >= 0 else "#cf222e" # Custom border color
+            pnl_value_color_inner = "#50fa7b" if total_pnl >= 0 else "#ff5555" # Inner text color
+            pnl_delta_icon = "⬆️" if total_pnl >= 0 else "⬇️"
+            pnl_delta_display = f'<span style="font-size: 0.875rem; color: {pnl_value_color_inner};">{pnl_delta_icon} {abs(total_pnl):,.2f}</span>'
+
 
             kpi_cols[0].markdown(
                 f"""
-                <div class="stMetric" style="background-color: #161b22; border: 1px solid {"#2da44e" if total_pnl >= 0 else "#cf222e"}; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out;">
+                <div class="stMetric" style="background-color: #161b22; border: 1px solid {pnl_metric_color}; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out;">
                     <div data-testid="stMetricLabel" style="font-weight: 500; color: #8b949e;">Net PnL ($)</div>
-                    <div data-testid="stMetricValue" style="font-size: 2rem; line-height: 1.2; font-weight: 600; color: #c9d1d9;">${total_pnl:,.2f}</div>
-                    <div data-testid="stMetricDelta" style="font-size: 0.875rem; color: {pnl_value_color};">{pnl_delta_sign}{total_pnl:,.2f}</div>
+                    <div data-testid="stMetricValue" style="font-size: 2.25rem; line-height: 1.2; font-weight: 600; color: {pnl_value_color_inner};">${total_pnl:,.2f}</div>
+                    {pnl_delta_display}
                 </div>
                 """, unsafe_allow_html=True
             )
@@ -1367,14 +1533,26 @@ elif st.session_state.current_page == 'trading_journal':
             kpi_cols[3].metric("Avg. Win / Loss ($)", f"${avg_win:,.2f} / ${abs(avg_loss):,.2f}")
 
             st.markdown("---")
-            # ... [Rest of Analytics Tab chart code remains unchanged] ...
-            pass # Keep existing charts
 
+            chart_cols = st.columns(2)
+            with chart_cols[0]:
+                st.subheader("Cumulative PnL")
+                df_analytics_sorted = df_analytics.sort_values(by='Date').copy()
+                df_analytics_sorted['CumulativePnL'] = df_analytics_sorted['PnL'].cumsum()
+                fig_equity = px.area(df_analytics_sorted, x='Date', y='CumulativePnL', title="Your Equity Curve", template="plotly_dark")
+                fig_equity.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22")
+                st.plotly_chart(fig_equity, use_container_width=True)
+
+            with chart_cols[1]:
+                st.subheader("Performance by Symbol")
+                pnl_by_symbol = df_analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
+                fig_pnl_symbol = px.bar(pnl_by_symbol, title="Net PnL by Symbol", template="plotly_dark")
+                fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False)
+                st.plotly_chart(fig_pnl_symbol, use_container_width=True)
 
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
-# This MUST be at the very left margin of your file.
 elif st.session_state.current_page == 'mt5':
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Performance Dashboard.")
@@ -1387,7 +1565,251 @@ elif st.session_state.current_page == 'mt5':
     st.markdown(
         """
         <style>
-        /* ... [Your MT5 page CSS remains unchanged] ... */
+        /* General Metric Box Styling */
+        .metric-box {
+            background-color: #2d4646;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #58b3b1;
+            color: #ffffff;
+            transition: all 0.3s ease-in-out;
+            margin: 5px 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100px;
+            min-width: 150px;
+            box-sizing: border-box;
+            font-size: 0.9em;
+        }
+        .metric-box:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(88, 179, 177, 0.3);
+        }
+        .metric-box strong {
+            font-size: 1em;
+            margin-bottom: 3px;
+            display: block;
+        }
+        .metric-box .metric-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            display: block;
+            line-height: 1.3;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .metric-box .sub-value {
+            font-size: 0.8em;
+            color: #ccc;
+            line-height: 1;
+            padding-bottom: 5px;
+        }
+        .metric-box .day-info {
+            font-size: 0.85em;
+            line-height: 1.2;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        /* Tab Styling */
+        .stTabs [data-baseweb="tab"] {
+            color: #ffffff !important;
+            background-color: #2d4646 !important;
+            border-radius: 8px 8px 0 0;
+            padding: 10px 20px;
+            margin-right: 5px;
+        }
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            background-color: #58b3b1 !important;
+            color: #ffffff !important;
+            font-weight: 600;
+            border-bottom: 2px solid #4d7171 !important;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            background-color: #4d7171 !important;
+            color: #ffffff !important;
+        }
+        /* Progress Bar Styling */
+        .progress-container {
+            width: 100%;
+            background-color: #333;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 8px;
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 5px;
+            text-align: right;
+            line-height: 8px;
+            color: white;
+            font-size: 7px;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+        .progress-bar.green { background-color: #5cb85c; }
+        .progress-bar.red { background-color: #d9534f; }
+        .progress-bar.neutral { background-color: #5bc0de; }
+        /* Specific styles for the combined win/loss bar */
+        .win-loss-bar-container {
+            display: flex;
+            width: 100%;
+            background-color: #d9534f;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 8px;
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+        .win-bar {
+            height: 100%;
+            background-color: #5cb85c;
+            border-radius: 5px 0 0 5px;
+            flex-shrink: 0;
+        }
+        .loss-bar {
+            height: 100%;
+            background-color: #d9534f;
+            border-radius: 0 5px 5px 0;
+            flex-shrink: 0;
+        }
+        /* Trading Score Bar */
+        .trading-score-bar-container {
+            width: 100%;
+            background-color: #d9534f;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 8px;
+            margin-top: auto;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .trading-score-bar {
+            height: 100%;
+            background-color: #5cb85c;
+            border-radius: 5px;
+        }
+        /* CALENDAR STYLES */
+        .calendar-container {
+            background-color: #262730;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            border: 1px solid #3d3d4b;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+        div[data-baseweb="select"] {
+            margin: 0;
+        }
+        .calendar-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .calendar-nav .nav-arrow {
+            background: none;
+            border: none;
+            color: #58b3b1;
+            font-size: 1.8em;
+            cursor: pointer;
+            padding: 0 5px;
+            margin: 0 5px;
+            text-decoration: none;
+        }
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .calendar-weekday-item {
+            text-align: center;
+            padding: 5px;
+            color: #ccc;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+        .calendar-day-box {
+            background-color: #2d2e37;
+            padding: 8px;
+            border-radius: 6px;
+            height: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            position: relative;
+            border: 1px solid #3d3d4b;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .calendar-day-box.empty-month-day {
+            background-color: #2d2e37;
+            border: 1px solid #3d3d4b;
+            visibility: hidden;
+        }
+        .calendar-day-box .day-number {
+            font-size: 0.8em;
+            color: #bbbbbb;
+            text-align: left;
+            margin-bottom: 5px;
+            line-height: 1;
+        }
+        .calendar-day-box .profit-amount {
+            font-size: 0.9em;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.1;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+        .calendar-day-box.profitable {
+            background-color: #0f2b0f;
+            border-color: #5cb85c;
+        }
+        .calendar-day-box.losing {
+            background-color: #2b0f0f;
+            border-color: #d9534f;
+        }
+        .calendar-day-box.current-day {
+            border: 2px solid #ff7f50;
+        }
+        .calendar-day-box .dot-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #ffcc00;
+        }
         </style>
         """,
         unsafe_allow_html=True
