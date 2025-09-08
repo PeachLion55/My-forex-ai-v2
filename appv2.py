@@ -985,48 +985,49 @@ for page_key, page_name in nav_items:
 # =========================================================
 
 import streamlit as st
-import os # Make sure to import the 'os' module
+import os
+import io
+import base64
+from PIL import Image
+
+# =========================================================
+# HELPER FUNCTION TO ENCODE IMAGES (Required for this method)
+# =========================================================
+@st.cache_data
+def image_to_base64(path):
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-
-    # Add a small CSS snippet to ensure icons and text are vertically aligned
-    st.markdown("""
-        <style>
-        [data-testid="stHorizontalBlock"] {
-            align-items: center;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-    # --- Main Page Layout Columns (un-changed) ---
     col1, col2 = st.columns([3, 1])
     with col1:
-        # --- Nested Columns for Icon + Title ---
-        title_col1, title_col2 = st.columns([1, 6], gap="small")
-        with title_col1:
-            icon_path = os.path.join("icons", "forex_fundamentals.png")
-            if os.path.exists(icon_path):
-                st.image(icon_path, width=40) # <-- Adjust title icon size here
-        with title_col2:
+        # --- REPLACEMENT FOR THE TITLE ---
+        # Instead of columns, we use a single markdown block with HTML for precise control.
+        icon_path = os.path.join("icons", "forex_fundamentals.png")
+        if os.path.exists(icon_path):
+            icon_base64 = image_to_base64(icon_path)
+            # This HTML uses flexbox to align items with a specific gap.
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="data:image/png;base64,{icon_base64}" width="40">
+                    <h1 style="margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback in case the icon file is not found
             st.title("Forex Fundamentals")
 
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
         st.markdown('---')
-    
     with col2:
         st.info("See the Trading Journal tab for live charts + detailed news.")
 
-    # --- Nested Columns for Subheading with Icon ---
-    subhead_col1, subhead_col2 = st.columns([1, 10], gap="small")
-    with subhead_col1:
-        icon_path = os.path.join("icons", "forex_fundamentals.png")
-        if os.path.exists(icon_path):
-            st.image(icon_path, width=32) # <-- Adjust subheading icon size here
-    with subhead_col2:
-        st.markdown("### Upcoming Economic Events")
+    # NOTE: The rest of your code for this page follows here without any changes.
+    # The emoji has been removed from the markdown header below.
+    st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
@@ -1049,7 +1050,7 @@ if st.session_state.current_page == 'fundamentals':
         return styles
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
 
-    st.markdown("### 💹 Major Central Bank Interest Rates") # NOTE: No icon from your list maps directly to "Interest Rates"
+    st.markdown("### 💹 Major Central Bank Interest Rates")
     st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
     interest_rates = [
         {"Currency": "USD", "Current": "3.78%", "Previous": "4.00%", "Changed": "2025-07-17", "Next Meeting": "2025-09-18"},
@@ -1081,17 +1082,7 @@ if st.session_state.current_page == 'fundamentals':
                     unsafe_allow_html=True,
                 )
                 st.markdown("<br>", unsafe_allow_html=True)
-                
-    # --- Nested Columns for Final Subheading ---
-    subhead2_col1, subhead2_col2 = st.columns([1, 10], gap="small")
-    with subhead2_col1:
-        # Re-using the performance_dashboard icon as it fits the "Events/Data" theme
-        icon_path_2 = os.path.join("icons", "performance_dashboard.png")
-        if os.path.exists(icon_path_2):
-            st.image(icon_path_2, width=32)
-    with subhead2_col2:
-        st.markdown("### Major High-Impact Forex Events")
-
+    st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
         {
             "event": "Non-Farm Payrolls (NFP)",
