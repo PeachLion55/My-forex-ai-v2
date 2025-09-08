@@ -747,7 +747,6 @@ def initialize_and_load_session_state():
     for channel_key in DEFAULT_APP_STATE['chat_messages'].keys():
         db_key = f'chat_channel_{channel_key.lower().replace(" ", "_")}'
         st.session_state.chat_messages[channel_key] = _ta_load_community(db_key, default=[]) # Load into a list
-        initialize_and_load_session_state()
 
 
 # =========================================================
@@ -4117,32 +4116,27 @@ elif st.session_state.current_page == 'account':
         # LOGGED-IN USER VIEW
         # --------------------------
         
-        def handle_logout():
+                def handle_logout():
             if st.session_state.logged_in_user is not None:
                 save_user_data(st.session_state.logged_in_user)
                 logging.info(f"User {st.session_state.logged_in_user} data saved before logout.")
             
-            # Reset relevant session state variables.
-            # User-specific persistent data (like XP, journal, etc.) will be reloaded from DB upon next login.
-            # We explicitly reset session-specific UI/temp states.
-            for key_to_clear in ['logged_in_user', 'current_page', 'current_subpage', 
-                                'show_tools_submenu', 'temp_journal', 'user_nickname',
-                                'chatroom_rules_accepted_for_session', # This one IS session-specific
-                                'selected_currency_1', 'selected_currency_2', # Temp states for UI filters
-                                'selected_calendar_month', # Temp UI state for calendar
-                                'edit_state', # UI state for playbook editing
-                                # Add any other temporary/UI-only state keys here if they arise
-                                ]:
-                # Preserve 'completed_courses' as it's user-specific and persisted. Remove only transient/ui states.
-                # 'selected_market_type' is persisted but its UI selection can affect rendering.
-                # However, upon logout, `initialize_and_load_session_state()` is called, which defaults it if no user.
-                if key_to_clear not in ['completed_courses'] and key_to_clear in st.session_state: 
-                    del st.session_state[key_to_clear]
-            
-            # Reset `st.session_state.current_page` to `account` and clear relevant keys
-            st.session_state.current_page = "account" 
+            # --- CORRECTED LOGIC ---
+            # Reset all session state keys to their default values from the DEFAULT_APP_STATE map.
+            # This avoids deleting keys, which causes the AttributeError on rerun.
+            for key, default_value in DEFAULT_APP_STATE.items():
+                if key in st.session_state:
+                    # Handle mutable defaults by creating a fresh copy
+                    if isinstance(default_value, (pd.DataFrame, dict, list)):
+                        st.session_state[key] = default_value.copy()
+                    else:
+                        st.session_state[key] = default_value
 
-            initialize_and_load_session_state() # Re-initialize the global/default states (incl. for logged out users)
+            # Explicitly ensure the logged_in_user is set to None after the reset loop
+            st.session_state.logged_in_user = None
+            st.session_state.current_page = "account"
+            
+            # Re-initializing the state is not needed here as we have manually reset it.
 
             logging.info("User logged out successfully.")
             st.rerun()
