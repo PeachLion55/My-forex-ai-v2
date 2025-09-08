@@ -1125,8 +1125,6 @@ elif st.session_state.current_page == 'trading_journal':
                                            help="Check this to automatically calculate PnL and R:R based on prices entered above, overriding manual inputs.")
             st.markdown("---")
             
-            # --- SCREENSHOT UPLOAD FIELDS REMOVED FROM HERE, NOW IN PLAYBOOK'S EXPANDER ---
-            # These are intentionally removed as per new requirements.
             st.markdown("##### Rationale & Tags")
             entry_rationale = st.text_area("Why did you enter this trade?", height=100)
 
@@ -1186,10 +1184,8 @@ elif st.session_state.current_page == 'trading_journal':
 
                 trade_id_new = f"TRD-{uuid.uuid4().hex[:6].upper()}"
 
-                # --- NO SCREENSHOT SAVING HERE - will be done in Playbook (initially None) ---
-                entry_screenshot_path_saved = None
-                exit_screenshot_path_saved = None
-                # --- End No Screenshot Saving ---
+                entry_screenshot_path_saved = None # No direct upload here now
+                exit_screenshot_path_saved = None    # No direct upload here now
 
                 new_trade_data = {
                     "TradeID": trade_id_new, "Date": pd.to_datetime(date_val),
@@ -1198,8 +1194,8 @@ elif st.session_state.current_page == 'trading_journal':
                     "PnL": final_pnl, "RR": final_rr,
                     "Tags": ','.join(final_tags_list), "EntryRationale": entry_rationale,
                     "Strategy": '', "TradeJournalNotes": '', 
-                    "EntryScreenshot": entry_screenshot_path_saved, # Storing path (initially None)
-                    "ExitScreenshot": exit_screenshot_path_saved    # Storing path (initially None)
+                    "EntryScreenshot": entry_screenshot_path_saved,
+                    "ExitScreenshot": exit_screenshot_path_saved
                 }
                 new_df = pd.DataFrame([new_trade_data])
                 st.session_state.trade_journal = pd.concat([st.session_state.trade_journal, new_df], ignore_index=True)
@@ -1209,10 +1205,8 @@ elif st.session_state.current_page == 'trading_journal':
                     ta_update_streak(st.session_state.logged_in_user) # Update journaling streak + streak badge XP
                     st.success(f"Trade {new_trade_data['TradeID']} logged successfully!")
                     
-                    # --- GAMIFICATION CALLS ---
                     check_and_award_trade_milestones(st.session_state.logged_in_user)
                     check_and_award_performance_milestones(st.session_state.logged_in_user)
-                    # --- END GAMIFICATION CALLS ---
                     
                     st.rerun()
                 else:
@@ -1249,8 +1243,6 @@ elif st.session_state.current_page == 'trading_journal':
             if tag_filter:
                 filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
 
-            # Use dictionaries in session state to manage edit mode for each specific metric (PnL, RR, Lots) per trade
-            # Initialize these to False (not editing) if not already set
             if 'edit_pnl_state' not in st.session_state: st.session_state.edit_pnl_state = {}
             if 'edit_rr_state' not in st.session_state: st.session_state.edit_rr_state = {}
             if 'edit_lots_state' not in st.session_state: st.session_state.edit_lots_state = {}
@@ -1263,72 +1255,95 @@ elif st.session_state.current_page == 'trading_journal':
                     <h4 style='margin-bottom:0px; display:inline-block;'>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
                     <span style="color: #8b949e; font-size: 0.9em; display:block;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
                     """, unsafe_allow_html=True)
-                    st.markdown("---") # Visual separator
+                    st.markdown("---")
 
 
                     # --- Editable Metrics Section with inline pencil icons ---
                     trade_id_key = row['TradeID']
                     
-                    # Use smaller columns for the actual metrics display, reserving space
-                    metric_display_cols = st.columns([1,1,1]) # Use 3 equal columns
+                    metric_cols_main = st.columns([1,1,1]) # Columns for each metric
 
-                    # Helper to generate metric display + edit button for each metric
-                    def render_editable_metric(parent_column, label, current_value, key_prefix, format_string, is_pnl=False, trade_id=trade_id_key):
-                        is_editing = st.session_state[f'edit_{key_prefix}_state'].get(trade_id, False)
+                    # Helper to render each editable metric for clean repetition
+                    def render_editable_metric(col_idx, label_text, current_value, key_suffix, format_string, is_pnl_metric=False):
+                        with metric_cols_main[col_idx]:
+                            state_key_prefix = f'edit_{key_suffix}_state'
+                            is_editing = st.session_state[state_key_prefix].get(trade_id_key, False)
 
-                        with parent_column:
+                            pnl_val_display_color = ""
+                            if is_pnl_metric:
+                                if current_value > 0: pnl_val_display_color = "#50fa7b"
+                                elif current_value < 0: pnl_val_display_color = "#ff5555"
+                                else: pnl_val_display_color = "#c9d1d9" # Neutral white-ish
+                            
+                            display_value_string = f"${current_value:{format_string}}" if is_pnl_metric else f"{current_value:{format_string}}R" if label_text == "R-Multiple" else f"{current_value:{format_string}} lots"
+
                             if is_editing:
-                                with st.form(key=f"edit_form_{key_prefix}_{trade_id}", clear_on_submit=False):
-                                    st.markdown(f"**Edit {label}**")
+                                with st.form(key=f"edit_form_{key_suffix}_{trade_id_key}", clear_on_submit=False):
+                                    st.markdown(f"**Edit {label_text}**")
                                     edited_val = st.number_input(
-                                        f"New {label} for {trade_id}",
+                                        f"New {label_text} for {trade_id_key}",
                                         value=float(current_value),
                                         format=format_string,
-                                        key=f"input_{key_prefix}_{trade_id}"
+                                        key=f"input_{key_suffix}_{trade_id_key}"
                                     )
-                                    save_btn, cancel_btn = st.columns(2)
-                                    with save_btn:
+                                    save_btn_col, cancel_btn_col = st.columns(2)
+                                    with save_btn_col:
                                         if st.form_submit_button("✓ Save", type="primary", use_container_width=True):
-                                            st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id, label.replace(" ", "")] = edited_val
+                                            # Update DataFrame with the new value
+                                            st.session_state.trade_journal.loc[
+                                                st.session_state.trade_journal['TradeID'] == trade_id_key, label_text.replace(" ", "")
+                                            ] = edited_val
                                             _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
-                                            st.session_state[f'edit_{key_prefix}_state'][trade_id] = False
-                                            st.toast(f"{label} updated!", icon="✅")
+                                            st.session_state[state_key_prefix][trade_id_key] = False # Exit edit mode
+                                            st.toast(f"{label_text} updated!", icon="✅")
                                             st.rerun()
-                                    with cancel_btn:
+                                    with cancel_btn_col:
                                         if st.form_submit_button("✗ Cancel", use_container_width=True):
-                                            st.session_state[f'edit_{key_prefix}_state'][trade_id] = False
+                                            st.session_state[state_key_prefix][trade_id_key] = False
                                             st.rerun()
                             else:
-                                display_value = f"${current_value:.2f}" if is_pnl else f"{current_value:.2f}R" if label == "R-Multiple" else f"{current_value:.2f} lots"
-                                color_style = f"color: {'#50fa7b' if current_value > 0 else ('#ff5555' if current_value < 0 else '#c9d1d9')};" if is_pnl else ""
-                                
-                                # Use flex to put label and button side-by-side inside markdown, button aligns to end
                                 st.markdown(
                                     f"""
-                                    <div class='playbook-metric-display'>
-                                        <div style='display: flex; justify-content: space-between; align-items: flex-start; gap: 5px;'>
-                                            <div class='label'>{label}</div>
+                                    <div class='playbook-metric-display' style='padding-top: 10px;'>
+                                        <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;'>
+                                            <div class='label'>{label_text}</div>
                                             <button style='background: none; border: none; cursor: pointer; color: #8b949e; font-size: 1.1em; padding: 0;'
-                                                    title='Edit {label}' 
-                                                    id='button_{key_prefix}_{trade_id}'
-                                                    key='edit_btn_{key_prefix}_{trade_id}' 
-                                                    onclick='parent.window.streamlitSetFrameHeight(1); document.getElementById("button_{key_prefix}_{trade_id}")._value=true; Streamlit.setComponentValue("button_{key_prefix}_{trade_id}",true)'>
-                                                ✏️
+                                                    title='Edit {label_text}' 
+                                                    id='edit_icon_{key_suffix}_{trade_id_key}'
+                                                    key='icon_button_for_{key_suffix}_{trade_id_key}'
+                                                    type='button'>✏️
                                             </button>
                                         </div>
-                                        <div class='value' style='{color_style}'>{display_value}</div>
+                                        <div class='value' style='{f"color:{pnl_val_display_color};" if is_pnl_metric else ""}'>{display_value_string}</div>
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-                                # Need an actual Streamlit button for state to register
-                                if st.button(" ", key=f"trigger_edit_btn_{key_prefix}_{trade_id}", help=f"Edit {label}", 
-                                             on_click=lambda tid=trade_id: st.session_state[f'edit_{key_prefix}_state'].update({tid: True})):
-                                     pass # The actual rerunning and state update happens in on_click, button acts as trigger
-                                st.markdown("<style>button[key*='trigger_edit_btn_'] { visibility: hidden; height: 0; margin:0; padding:0; }</style>", unsafe_allow_html=True) # Hide actual streamlit button
+                                # Streamlit button that acts as a trigger for the JS/rerun. Visually hidden/positioned by CSS in real app.
+                                if st.button(f"edit {label_text}", key=f"btn_edit_trigger_{key_suffix}_{trade_id_key}",
+                                             on_click=lambda id=trade_id_key: st.session_state[state_key_prefix].update({id: True}),
+                                             help=f"Click to edit {label_text}"):
+                                    st.experimental_set_query_params(dummy=time.time()) # Forces rerun without user seeing params
+                                st.markdown(f"""
+                                <style>
+                                    /* Hiding the Streamlit-generated button itself, rely on the markdown icon for visual cue */
+                                    button[key="btn_edit_trigger_{key_suffix}_{trade_id_key}"] {{
+                                        display: none;
+                                    }}
+                                    /* Overriding specific markdown to simulate clickable pencil in proper position */
+                                    #edit_icon_{key_suffix}_{trade_id_key} {{
+                                        position: absolute; /* Allows placing it absolutely relative to parent 'playbook-metric-display' if defined 'relative' */
+                                        top: 10px; /* Adjust top padding */
+                                        right: 10px; /* Adjust right padding */
+                                        z-index: 100; /* Ensure it's on top */
+                                        font-size: 0.9em; /* Smaller pencil */
+                                    }}
+                                </style>
+                                """, unsafe_allow_html=True)
 
-                    render_editable_metric(metric_display_cols[0], "Net PnL", row['PnL'], "pnl", "%.2f", is_pnl=True)
-                    render_editable_metric(metric_display_cols[1], "R-Multiple", row['RR'], "rr", "%.2f")
-                    render_editable_metric(metric_display_cols[2], "Position Size", row['Lots'], "lots", "%.2f")
+
+                    render_editable_metric(0, "PnL", row['PnL'], "pnl", ".2f", is_pnl_metric=True)
+                    render_editable_metric(1, "RR", row['RR'], "rr", ".2f")
+                    render_editable_metric(2, "Lots", row['Lots'], "lots", ".2f")
 
                     st.markdown("---")
                     # --- End Editable Metrics Section ---
@@ -1342,7 +1357,7 @@ elif st.session_state.current_page == 'trading_journal':
                             st.markdown(f"**Tags:** {', '.join(tags_list)}")
 
 
-                    with st.expander("Journal Notes & Screenshots"): # No 'expanded=True' here
+                    with st.expander("Journal Notes & Screenshots"): # No 'expanded=True' here by default
                         notes = st.text_area(
                             "Trade Journal Notes",
                             value=row['TradeJournalNotes'],
@@ -1350,7 +1365,7 @@ elif st.session_state.current_page == 'trading_journal':
                             height=150
                         )
 
-                        action_cols_notes_delete = st.columns([1, 1, 4]) # Use a more appropriate name for the columns
+                        action_cols_notes_delete = st.columns([1, 1, 4]) # Kept as is
 
                         if action_cols_notes_delete[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
                             original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
@@ -1483,7 +1498,8 @@ elif st.session_state.current_page == 'trading_journal':
                             visual_cols[1].info("No Exit Screenshot available.")
                         # --- End Visual Documentation Screenshots ---
                             
-                    st.markdown("---") # End of a single trade container (if border=True is around container)
+                    st.markdown("---") # End of a single trade container
+
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
@@ -1505,22 +1521,13 @@ elif st.session_state.current_page == 'trading_journal':
 
 
             kpi_cols = st.columns(4)
-            # Corrected: Net PnL ($) with green/red circular box/icon
-            pnl_icon = ""
-            if total_pnl > 0:
-                pnl_icon = "<span style='color:green; font-size:1.5em; vertical-align:middle; line-height:1;'>&#9679;</span> " # Green circle
-            elif total_pnl < 0:
-                pnl_icon = "<span style='color:red; font-size:1.5em; vertical-align:middle; line-height:1;'>&#9679;</span> " # Red circle
-
-            kpi_cols[0].markdown(
-                f'<div data-testid="stMetric" style="background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out;">'
-                f'<div data-testid="stMetricLabel" style="font-weight: 500; color: #8b949e;">Net PnL ($) {pnl_icon}</div>'
-                f'<div data-testid="stMetricValue" style="font-size: 2.25rem; line-height: 1.2; font-weight: 600; color: {"#2da44e" if total_pnl >= 0 else "#cf222e"};">${total_pnl:,.2f}</div>'
-                f'</div>', unsafe_allow_html=True
+            # Corrected: Use st.metric directly with a dynamic delta value color.
+            # Streamlit's default delta styling provides the green/red text you need for +/- values.
+            kpi_cols[0].metric(
+                "Net PnL ($)", 
+                f"${total_pnl:,.2f}", 
+                delta=f"{total_pnl:+.2f}" # Delta for visual +/- (green/red automatically applied)
             )
-            # The delta value will now implicitly be within the total PnL text color
-            # kpi_cols[0].metric("Net PnL ($)", f"${total_pnl:,.2f}", delta=f"{total_pnl:+.2f}") # Replaced with custom HTML for icon placement
-
             kpi_cols[1].metric("Win Rate", f"{win_rate:.1f}%")
             kpi_cols[2].metric("Profit Factor", f"{profit_factor:.2f}")
             kpi_cols[3].metric("Avg. Win / Loss ($)", f"${avg_win:,.2f} / ${abs(avg_loss):,.2f}")
@@ -1546,7 +1553,7 @@ elif st.session_state.current_page == 'trading_journal':
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
-# THIS 'elif' MUST BE AT THE VERY LEFT MARGIN (NO SPACES OR TABS)
+# Ensure THIS 'elif' IS AT THE EXTREME LEFT MARGIN (NO SPACES/TABS).
 elif st.session_state.current_page == 'mt5':
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Performance Dashboard.")
