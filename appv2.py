@@ -1459,7 +1459,9 @@ with tab_playbook:
                 st.markdown("---")
 
 
-    # --- TAB 3: ANALYTICS DASHBOARD ---
+    # ... (your existing code before the trading_journal tab 3 content) ...
+
+# --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
         st.header("Your Performance Dashboard")
         df_analytics = st.session_state.trade_journal[st.session_state.trade_journal['Outcome'].isin(['Win', 'Loss'])].copy()
@@ -1506,6 +1508,11 @@ with tab_playbook:
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
+# **IMPORTANT:** Make sure this 'elif' statement is at the SAME OUTDENTED LEVEL
+# as your 'if st.session_state.current_page == 'fundamentals':' statement
+# and 'elif st.session_state.current_page == 'trading_journal':' statement.
+# This usually means no leading spaces/tabs on this line if other top-level statements
+# are at the very left.
 elif st.session_state.current_page == 'mt5':
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Performance Dashboard.")
