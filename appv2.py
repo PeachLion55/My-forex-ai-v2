@@ -1214,23 +1214,23 @@ elif st.session_state.current_page == 'trading_journal':
         df_playbook = st.session_state.trade_journal
 
         # ========== START: FIX 1 - INITIALIZE STATE & HANDLE CLICKS ==========
-        # **FIX FOR AttributeError**: Initialize edit_state before it's ever used.
+        # **FIX FOR AttributeError**: Initialize edit_state here, before it's ever used.
         if 'edit_state' not in st.session_state:
             st.session_state.edit_state = {}
 
-        # **FIX FOR DeprecationWarning**: Use st.query_params
-        if st.query_params.get("edit"):
+        # **FIX FOR DeprecationWarning**: Use modern st.query_params
+        if "edit" in st.query_params:
             try:
                 # The format is "metric-tradeid", e.g., "pnl-TRD-123ABC"
-                metric, trade_id = st.query_params.get("edit").split("-", 1)
+                metric, trade_id = st.query_params["edit"].split("-", 1)
                 st.session_state.edit_state[f"{metric}_{trade_id}"] = True
                 
-                # Clear query param and rerun
-                st.query_params.clear()
+                # Clear query param by deleting it and rerun
+                del st.query_params["edit"]
                 st.rerun()
             except (ValueError, IndexError):
                 # Handle cases where the param is malformed
-                st.query_params.clear()
+                del st.query_params["edit"]
                 
         # This is our custom CSS that will style the new clickable link
         st.markdown(
