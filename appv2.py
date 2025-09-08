@@ -3224,9 +3224,10 @@ elif st.session_state.current_page == "Community Chatroom":
     icon_path = os.path.join("icons", "community_chatroom.png")
     if os.path.exists(icon_path):
         icon_base64 = image_to_base64(icon_path)
-        # This HTML uses flexbox to align the icon and title with a specific gap.
+        # This HTML uses flexbox to align the icon and title.
+        # The width and gap have been adjusted for the selected icon style.
         st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 20px;">
                 <img src="data:image/png;base64,{icon_base64}" width="100">
                 <h1 style="margin: 0; font-size: 2.75rem;">Community Chatroom</h1>
             </div>
