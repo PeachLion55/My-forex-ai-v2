@@ -1703,7 +1703,22 @@ elif st.session_state.current_page == 'mt5':
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("📊 Performance Dashboard")
+    # --- REPLACEMENT FOR THE TITLE ---
+    # We use markdown with HTML for a custom icon and title layout.
+    icon_path = os.path.join("icons", "performance_dashboard.png")
+    if os.path.exists(icon_path):
+        icon_base64 = image_to_base64(icon_path)
+        # HTML flexbox is used to align the icon and title horizontally.
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="data:image/png;base64,{icon_base64}" width="100">
+                <h1 style="margin: 0; font-size: 2.75rem;">Performance Dashboard</h1>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback if the icon file isn't found
+        st.title("Performance Dashboard")
+
     st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
     st.markdown('---')
     st.markdown(
