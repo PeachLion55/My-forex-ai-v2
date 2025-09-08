@@ -1213,21 +1213,24 @@ elif st.session_state.current_page == 'trading_journal':
         st.header("Your Trade Playbook")
         df_playbook = st.session_state.trade_journal
 
-        # ========== START: NEW CODE BLOCK 1 - CLICK HANDLER & STYLES ==========
-        # This code captures clicks from our custom HTML links
-        query_params = st.experimental_get_query_params()
-        if "edit" in query_params:
+        # ========== START: FIX 1 - INITIALIZE STATE & HANDLE CLICKS ==========
+        # **FIX FOR AttributeError**: Initialize edit_state before it's ever used.
+        if 'edit_state' not in st.session_state:
+            st.session_state.edit_state = {}
+
+        # **FIX FOR DeprecationWarning**: Use st.query_params
+        if st.query_params.get("edit"):
             try:
                 # The format is "metric-tradeid", e.g., "pnl-TRD-123ABC"
-                metric, trade_id = query_params["edit"][0].split("-", 1)
+                metric, trade_id = st.query_params.get("edit").split("-", 1)
                 st.session_state.edit_state[f"{metric}_{trade_id}"] = True
                 
-                # Clear query params and rerun to prevent re-triggering on next refresh
-                st.experimental_set_query_params()
+                # Clear query param and rerun
+                st.query_params.clear()
                 st.rerun()
             except (ValueError, IndexError):
                 # Handle cases where the param is malformed
-                st.experimental_set_query_params()
+                st.query_params.clear()
                 
         # This is our custom CSS that will style the new clickable link
         st.markdown(
@@ -1256,7 +1259,7 @@ elif st.session_state.current_page == 'trading_journal':
             </style>
             """, unsafe_allow_html=True
         )
-        # ========== END: NEW CODE BLOCK 1 ==========
+        # ========== END: FIX 1 ==========
         
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
@@ -1284,9 +1287,6 @@ elif st.session_state.current_page == 'trading_journal':
 
             if tag_filter:
                 filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
-
-            if 'edit_state' not in st.session_state: st.session_state.edit_state = {}
-
 
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
                 trade_id_key = row['TradeID']
@@ -1337,7 +1337,7 @@ elif st.session_state.current_page == 'trading_journal':
                                 else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                # ========== START: NEW CODE BLOCK 2 - REPLACING st.button WITH HTML LINK ==========
+                                # ========== START: FIX 2 - USE HTML LINK INSTEAD OF st.button ==========
                                 edit_link_href = f"?edit={key_suffix}-{trade_id_key}"
                                 
                                 st.markdown(
@@ -1349,7 +1349,7 @@ elif st.session_state.current_page == 'trading_journal':
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-                                # ========== END: NEW CODE BLOCK 2 ==========
+                                # ========== END: FIX 2 ==========
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
