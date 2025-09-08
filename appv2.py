@@ -1212,63 +1212,56 @@ elif st.session_state.current_page == 'trading_journal':
     with tab_playbook:
         st.header("Your Trade Playbook")
         df_playbook = st.session_state.trade_journal
+
+        # ========== START: NEW CODE BLOCK 1 - CLICK HANDLER & STYLES ==========
+        # This code captures clicks from our custom HTML links
+        query_params = st.experimental_get_query_params()
+        if "edit" in query_params:
+            try:
+                # The format is "metric-tradeid", e.g., "pnl-TRD-123ABC"
+                metric, trade_id = query_params["edit"][0].split("-", 1)
+                st.session_state.edit_state[f"{metric}_{trade_id}"] = True
+                
+                # Clear query params and rerun to prevent re-triggering on next refresh
+                st.experimental_set_query_params()
+                st.rerun()
+            except (ValueError, IndexError):
+                # Handle cases where the param is malformed
+                st.experimental_set_query_params()
+                
+        # This is our custom CSS that will style the new clickable link
+        st.markdown(
+            """
+            <style>
+                .playbook-metric-display {
+                    position: relative; /* This is crucial for positioning the icon */
+                    padding-right: 20px !important; /* Add space to prevent text overlap */
+                }
+
+                a.edit-pencil-link {
+                    position: absolute;
+                    top: 2px;
+                    right: 3px;
+                    font-size: 11px !important;      /* Extremely small font size */
+                    line-height: 1 !important;
+                    color: #999 !important;
+                    text-decoration: none !important;
+                    padding: 2px;
+                    border-radius: 3px;
+                }
+                a.edit-pencil-link:hover {
+                    color: #fff !important; 
+                    background: rgba(100, 100, 100, 0.3) !important;
+                }
+            </style>
+            """, unsafe_allow_html=True
+        )
+        # ========== END: NEW CODE BLOCK 1 ==========
+        
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
-            
-            # ========== START: NEW CSS BLOCK (PLACED ONCE OUTSIDE THE LOOP) ==========
-            st.markdown(
-                """
-                <style>
-                    /* This creates a wrapper to help us position the button */
-                    .edit-button-wrapper {
-                        position: absolute;
-                        top: 2px;
-                        right: 3px;
-                        z-index: 10;
-                    }
-                    
-                    /* 
-                       This is a very aggressive selector to force the override on the button inside our wrapper.
-                    */
-                    .edit-button-wrapper button {
-                        /* --- THE CRITICAL SIZE OVERRIDES --- */
-                        font-size: 10px !important;      /* Use a small, absolute pixel value */
-                        line-height: 1 !important;       /* Helps with centering */
-                        height: 15px !important;         /* Set a tiny height for the clickable area */
-                        width: 15px !important;          /* Set a tiny width for the clickable area */
-                        min-height: 0 !important;        /* IMPORTANT: Override Streamlit's default min-height */
-                        min-width: 0 !important;         /* IMPORTANT: Override Streamlit's default min-width */
-
-                        /* Positioning & Layout */
-                        padding: 0 !important;
-                        margin: 0 !important;
-                        display: flex !important;
-                        align-items: center !important;
-                        justify-content: center !important;
-
-                        /* Appearance */
-                        background: transparent !important;
-                        border: none !important;
-                        color: #999 !important; /* Make it a bit faded */
-                        border-radius: 3px !important;
-                    }
-
-                    /* Optional: Add a subtle hover effect to show it's clickable */
-                    .edit-button-wrapper button:hover {
-                        color: #fff !important; 
-                        background: rgba(100, 100, 100, 0.3) !important;
-                    }
-
-                    /* Keep padding on the container to prevent text from overlapping the button */
-                    .playbook-metric-display {
-                        padding-right: 25px !important;
-                    }
-                </style>
-                """, unsafe_allow_html=True
-            )
-            # ========== END: NEW CSS BLOCK ==========
 
             filter_cols = st.columns([1, 1, 1, 2])
             outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
@@ -1344,24 +1337,19 @@ elif st.session_state.current_page == 'trading_journal':
                                 else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                # Use Streamlit's native components for reliability
+                                # ========== START: NEW CODE BLOCK 2 - REPLACING st.button WITH HTML LINK ==========
+                                edit_link_href = f"?edit={key_suffix}-{trade_id_key}"
+                                
                                 st.markdown(
                                     f"""
-                                    <div class='playbook-metric-display' style='{border_style} position:relative;'>
-                                        <div class='label' style='margin-right:25px;'>{metric_label}</div>
+                                    <div class='playbook-metric-display' style='{border_style}'>
+                                        <a href='{edit_link_href}' target='_self' class='edit-pencil-link' title='Edit {metric_label}'>✏️</a>
+                                        <div class='label'>{metric_label}</div>
                                         {display_val_str}
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-
-                                # ========== START: WRAPPING THE BUTTON IN A DIV ==========
-                                # This wrapper is what allows our new CSS to work reliably
-                                st.markdown(f"<div class='edit-button-wrapper'>", unsafe_allow_html=True)
-                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
-                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
-                                    st.rerun()
-                                st.markdown("</div>", unsafe_allow_html=True)
-                                # ========== END: WRAPPING THE BUTTON ==========
+                                # ========== END: NEW CODE BLOCK 2 ==========
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1572,7 +1560,6 @@ elif st.session_state.current_page == 'trading_journal':
 
             with chart_cols[1]:
                 st.subheader("Performance by Symbol")
-                # ========== THIS IS THE LINE I FIXED ==========
                 pnl_by_symbol = df_analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
                 fig_pnl_symbol = px.bar(pnl_by_symbol, title="Net PnL by Symbol", template="plotly_dark")
                 fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False)
