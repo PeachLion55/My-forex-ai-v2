@@ -129,6 +129,7 @@ st.markdown(
         border-radius: 8px;
         padding: 1rem;
         margin-bottom: 10px; /* Space between rows of metrics/actions */
+        position: relative; /* Added for absolute positioning of the edit button */
     }
     .playbook-metric-display .label {
         font-size: 0.9em;
@@ -147,6 +148,37 @@ st.markdown(
     .playbook-metric-display.profit-negative {
         border-color: #cf222e; /* Red border for loss */
         background-color: #260d0d; /* Darker red background */
+    }
+
+    /* NEW: Styles for the very small pencil icon button in Trade Playbook*/
+    button[key*="edit_btn_"] {
+        position: absolute;
+        top: 5px; /* Adjust as needed */
+        right: 5px; /* Adjust as needed */
+        z-index: 10;
+        background-color: transparent; /* Or a subtle background */
+        border: none;
+        color: #8b949e; /* Light grey pencil icon */
+        font-size: 0.9em; /* Smaller font size for icon */
+        padding: 2px; /* Minimal padding */
+        height: 25px; /* Small height */
+        width: 25px; /* Small width */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1; /* Ensure no extra line height */
+        cursor: pointer;
+        transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    }
+    button[key*="edit_btn_"]:hover {
+        color: #58a6ff; /* Blue on hover */
+        background-color: rgba(88, 179, 177, 0.1); /* Subtle hover background */
+        border-radius: 4px;
+    }
+    /* Optional: Hide the default Streamlit button outline on focus for a cleaner look */
+    button[key*="edit_btn_"]:focus {
+        box-shadow: none;
+        outline: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -244,8 +276,10 @@ def save_user_data(username):
         "last_login_xp_date": st.session_state.get("last_login_xp_date", None), # For daily login XP
         "gamification_flags": st.session_state.get("gamification_flags", {}), # To track various awarded flags
         'xp_log': st.session_state.get('xp_log', []), # XP transactions
-        'chatroom_rules_accepted': st.session_state.get('chatroom_rules_accepted', False), # Added for chat
-        'chatroom_nickname': st.session_state.get('user_nickname', None), # Added for chat (renamed for DB)
+        # 'chatroom_rules_accepted': st.session_state.get('chatroom_rules_accepted', False), # Do not persist chatroom rules acceptance
+        'chatroom_nickname': st.session_state.get('user_nickname', None), # Persist nickname
+        'selected_market_type': st.session_state.get('selected_market_type', 'Forex'), # NEW: Persist selected market type
+        'completed_courses': st.session_state.get('completed_courses', []), # NEW: Persist completed courses for academy
     }
     user_data_json = json.dumps(user_data, default=str)
     try:
@@ -353,6 +387,10 @@ def ta_update_xp(username, amount, description="XP activity"):
     save_user_data(username) # Persist all session state XP/Level/Badges/xp_log changes
     if amount != 0: # Only show notification for non-zero XP changes
         show_xp_notification(amount) # Show notification
+    
+    # NEW: The XP update should ideally trigger a re-render of components using XP
+    # However, for simplicity and explicit UI updates, Streamlit usually needs a rerun.
+    st.rerun()
 
 def ta_award_badge(username, badge_name):
     """Awards a badge to the user and triggers a toast notification."""
@@ -568,7 +606,7 @@ DEFAULT_APP_STATE = {
     'last_journal_date': None,
     'last_login_xp_date': None,
     'gamification_flags': {},
-    'xp_log': [], # Stores XP transactions
+    'xp_log': [], # XP transactions
     'trade_journal': pd.DataFrame(columns=journal_cols).astype(journal_dtypes, errors='ignore'),
     'strategies': pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]),
     'emotion_log': pd.DataFrame(columns=["Date", "Emotion", "Notes"]),
@@ -579,7 +617,7 @@ DEFAULT_APP_STATE = {
     'trade_ideas': pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]),
     'community_templates': pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]),
     # Chatroom specific states
-    'chatroom_rules_accepted': False,
+    'chatroom_rules_accepted': False, # This will be managed as session-scoped and reset on login/init
     'user_nickname': None, # This will store the nickname for the current session/user if set
     # Global chat messages for community. Loaded from _ta_load_community for each channel.
     'chat_messages': {
@@ -587,7 +625,9 @@ DEFAULT_APP_STATE = {
         "Trading Psychology": [],
         "Trade Reviews": [],
         "Market News": []
-    }
+    },
+    'selected_market_type': 'Forex', # NEW: Default market type
+    'completed_courses': [], # NEW: To track completed academy courses per user
 }
 
 def initialize_and_load_session_state():
@@ -605,6 +645,11 @@ def initialize_and_load_session_state():
             else:
                 st.session_state[key] = default_value
     
+    # NEW: Ensure chatroom_rules_accepted is reset to False at the start of a new session.
+    # It's specifically handled to be session-scoped, not persistent across logins.
+    st.session_state.chatroom_rules_accepted = False # Forces re-acceptance on login/session start
+
+
     # 2. If a user IS logged in, attempt to load their specific data and apply gamification checks
     if st.session_state.logged_in_user is not None:
         username = st.session_state.logged_in_user
@@ -623,9 +668,11 @@ def initialize_and_load_session_state():
         st.session_state.xp_log = user_data_from_db.get('xp_log', DEFAULT_APP_STATE['xp_log'].copy())
 
         # Load chatroom specific user data
-        st.session_state.chatroom_rules_accepted = user_data_from_db.get('chatroom_rules_accepted', DEFAULT_APP_STATE['chatroom_rules_accepted'])
-        # Store nickname in a consistent user_data field, and then load into session state
+        # st.session_state.chatroom_rules_accepted is intentionally *not* loaded from user_data_from_db here.
         st.session_state.user_nickname = user_data_from_db.get('chatroom_nickname', DEFAULT_APP_STATE['user_nickname'])
+        st.session_state.selected_market_type = user_data_from_db.get('selected_market_type', DEFAULT_APP_STATE['selected_market_type']) # NEW: Load selected market type
+        st.session_state.completed_courses = user_data_from_db.get('completed_courses', DEFAULT_APP_STATE['completed_courses'].copy()) # NEW: Load completed courses
+
 
         # Load DataFrames, ensuring proper column structure and types
         def load_dataframe_robustly(data_list, columns, dtypes, default_df):
@@ -660,17 +707,19 @@ def initialize_and_load_session_state():
             st.session_state.reflection_log['Date'] = pd.to_datetime(st.session_state.reflection_log['Date'], errors='coerce')
         
 
-        # --- AWARD DAILY LOGIN XP ---
-        today = dt.date.today()
+        # --- AWARD DAILY LOGIN XP (UK Time Based) ---
+        london_timezone = pytz.timezone('Europe/London') # Get London timezone
+        today_london = datetime.now(london_timezone).date() # Current date in London time
+
         last_login_xp_date_obj = dt.date.fromisoformat(st.session_state.last_login_xp_date) if st.session_state.last_login_xp_date else None
 
-        if last_login_xp_date_obj is None or last_login_xp_date_obj < today:
+        if last_login_xp_date_obj is None or last_login_xp_date_obj < today_london:
             # We explicitly update the last_login_xp_date BEFORE calling ta_update_xp and save_user_data
             # to ensure the flag is set immediately. ta_update_xp will call save_user_data again,
             # so the updated last_login_xp_date will be saved correctly.
-            st.session_state.last_login_xp_date = today.isoformat()
+            st.session_state.last_login_xp_date = today_london.isoformat()
             ta_update_xp(username, 10, "Daily Login Bonus") # ta_update_xp contains st.rerun
-            logging.info(f"Daily login XP (10) awarded to {username}")
+            logging.info(f"Daily login XP (10) awarded to {username} (UK time based).")
         # --- END DAILY LOGIN XP ---
 
 
@@ -879,19 +928,61 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
-    ('trading_journal', 'Trading Journal'),
-    ('mt5', 'Performance Dashboard'),
-    ('tools', 'Tools'),
-    ('strategy', 'Manage My Strategy'),
-    ('community', 'Community Trade Ideas'),
-    ('Community Chatroom', 'Community Chatroom'), # ADDED CHATROOM NAV ITEM
-    ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account')
-]
+# Define navigation items based on selected market type and login status
+market_specific_nav_items = []
+global_nav_items = []
 
-for page_key, page_name in nav_items:
+# Only show global items (chatroom, academy, account) if user is logged in
+if st.session_state.logged_in_user is not None:
+    global_nav_items.extend([
+        ('Community Chatroom', 'Community Chatroom'), 
+        ('Zenvo Academy', 'Zenvo Academy'),
+    ])
+
+# Always show My Account, potentially as the only page if not logged in.
+global_nav_items.append(('account', 'My Account'))
+
+
+if st.session_state.logged_in_user is not None:
+    selected_market_type = st.session_state.get('selected_market_type', 'Forex')
+    if selected_market_type == 'Forex':
+        market_specific_nav_items = [
+            ('fundamentals', 'Forex Fundamentals'),
+            ('trading_journal', 'Trading Journal'),
+            ('mt5', 'Performance Dashboard'),
+            ('tools', 'Tools'),
+            ('strategy', 'Manage My Strategy'),
+            ('community', 'Community Trade Ideas'),
+        ]
+    elif selected_market_type == 'Crypto':
+        market_specific_nav_items = [
+            ('crypto_overview', 'Crypto Overview'),
+            ('crypto_journal', 'Crypto Journal'),
+            ('crypto_portfolio', 'Crypto Portfolio'),
+            ('crypto_analysis', 'Crypto Analysis'),
+            ('crypto_news', 'Crypto News'),
+            ('crypto_watchlist', 'Crypto Watchlist'),
+            ('crypto_tools', 'Crypto Tools'),
+            ('crypto_community', 'Crypto Community'),
+        ]
+    elif selected_market_type == 'Stocks':
+        market_specific_nav_items = [
+            ('stocks_dashboard', 'Stocks Dashboard'),
+            ('stocks_journal', 'Stocks Journal'),
+            ('stocks_portfolio', 'Stocks Portfolio'),
+            ('stocks_analysis', 'Stocks Analysis'),
+            ('stocks_news', 'Stocks News'),
+            ('stocks_watchlist', 'Stocks Watchlist'),
+            ('stocks_tools', 'Stocks Tools'),
+            ('stocks_community', 'Stocks Community'),
+        ]
+    final_nav_items = market_specific_nav_items + global_nav_items
+else:
+    # If not logged in, only show the Account page (login/signup)
+    final_nav_items = [('account', 'My Account')]
+
+
+for page_key, page_name in final_nav_items:
     is_active = (st.session_state.current_page == page_key)
     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
         st.session_state.current_page = page_key
@@ -904,7 +995,7 @@ for page_key, page_name in nav_items:
 # =========================================================
 
 # =========================================================
-# FUNDAMENTALS PAGE
+# FOREX PAGES (EXISTING)
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
     col1, col2 = st.columns([3, 1])
@@ -1291,50 +1382,18 @@ elif st.session_state.current_page == 'trading_journal':
                                 else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                # Use Streamlit's native components for reliability,
-                                # wrapping content for styling
                                 st.markdown(
                                     f"""
-                                    <div class='playbook-metric-display' style='{border_style} position:relative;'>
+                                    <div class='playbook-metric-display' style='{border_style}'>
                                         <div class='label' style='margin-right:25px;'>{metric_label}</div>
                                         {display_val_str}
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-                                # Button absolutely positioned within the parent Streamlit column/context for simple access
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
-                                st.markdown(
-                                    """
-                                    <style>
-                                        /* Basic override to visually pull button into top-right of metric display */
-                                        button[key*="edit_btn_"] {
-                                            position: absolute;
-                                            top: 5px;
-                                            right: 5px;
-                                            z-index: 10;
-                                            background-color: transparent;
-                                            border: none;
-                                            color: #c9d1d9; /* Visible pencil */
-                                            font-size: 1em;
-                                            padding: 0;
-                                            height: 20px; /* Small clickable area */
-                                            width: 20px; /* Small clickable area */
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: center;
-                                        }
-                                        /* This ensures the containing elements do not stretch excessively when the button is positioned absolutely */
-                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div:nth-child(2) > div > button[key*="edit_btn_"] {
-                                            margin-top: 0px !important;
-                                        }
-                                        .playbook-metric-display {
-                                            padding-right: 30px; /* Ensure space for the button */
-                                        }
-                                    </style>
-                                    """, unsafe_allow_html=True
-                                )
+
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1528,7 +1587,19 @@ elif st.session_state.current_page == 'trading_journal':
                 """, unsafe_allow_html=True
             )
 
-            kpi_cols[1].metric("Win Rate", f"{win_rate:.1f}%")
+            # NEW: Win Rate with conditional styling
+            win_rate_metric_color = "#2da44e" if win_rate >= 50 else "#cf222e" # Green for >= 50%, Red for < 50%
+            win_rate_value_color_inner = "#50fa7b" if win_rate >= 50 else "#ff5555" # Inner text color for text of win rate
+
+            kpi_cols[1].markdown(
+                f"""
+                <div class="stMetric" style="background-color: #161b22; border: 1px solid {win_rate_metric_color}; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out;">
+                    <div data-testid="stMetricLabel" style="font-weight: 500; color: #8b949e;">Win Rate</div>
+                    <div data-testid="stMetricValue" style="font-size: 2.25rem; line-height: 1.2; font-weight: 600; color: {win_rate_value_color_inner};">{win_rate:.1f}%</div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+
             kpi_cols[2].metric("Profit Factor", f"{profit_factor:.2f}")
             kpi_cols[3].metric("Avg. Win / Loss ($)", f"${avg_win:,.2f} / ${abs(avg_loss):,.2f}")
 
@@ -1601,6 +1672,9 @@ elif st.session_state.current_page == 'mt5':
             display: flex;
             align-items: center;
             justify-content: center;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
         }
         .metric-box .sub-value {
             font-size: 0.8em;
@@ -1814,9 +1888,6 @@ elif st.session_state.current_page == 'mt5':
         """,
         unsafe_allow_html=True
     )
-    # The Python code for this MT5 page's Streamlit components would start below this point,
-    # following the `st.markdown('---')` that it just rendered.
-    # For example: `uploaded_file = st.file_uploader(...)` would appear here.
     
     # --------------------------
     # Helper functions (MT5 page specific)
@@ -2581,319 +2652,6 @@ elif st.session_state.current_page == 'strategy':
         st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
 # =========================================================
-# ACCOUNT PAGE
-# =========================================================
-elif st.session_state.current_page == 'account':
-    # This introductory section should ONLY show when the user is NOT logged in.
-    if st.session_state.logged_in_user is None:
-        st.title("👤 My Account")
-        st.markdown(
-            """
-            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
-            - Keep your trading journal and strategies backed up.
-            - Track your progress and gamification stats.
-            - Sync across devices.
-            - Import/export your account data easily.
-            """
-        )
-        st.write('---')
-    
-        # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
-        tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
-        # --------------------------
-        # SIGN IN TAB
-        # --------------------------
-        with tab_signin:
-            st.subheader("Welcome back! Please sign in to access your account.")
-            with st.form("login_form"):
-                username = st.text_input("Username", key="login_username_input")
-                password = st.text_input("Password", type="password", key="login_password_input") 
-                login_button = st.form_submit_button("Login")
-                if login_button:
-                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result and result[0] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        initialize_and_load_session_state() # Reload session state with the new logged-in user's data
-                        
-                        st.success(f"Welcome back, {username}!")
-                        logging.info(f"User {username} logged in successfully")
-                        st.rerun() # Crucial for state refresh
-                    else:
-                        st.error("Invalid username or password.")
-                        logging.warning(f"Failed login attempt for {username}")
-        # --------------------------
-        # SIGN UP TAB
-        # --------------------------
-        with tab_signup:
-            st.subheader("Create a new account to start tracking your trades and progress.")
-            with st.form("register_form"):
-                new_username = st.text_input("New Username", key="register_username_input")
-                new_password = st.text_input("New Password", type="password", key="register_password_input")
-                confirm_password = st.text_input("Confirm Password", type="password", key="register_confirm_password_input") 
-                register_button = st.form_submit_button("Register")
-                if register_button:
-                    if new_password != confirm_password:
-                        st.error("Passwords do not match.")
-                        logging.warning(f"Registration failed for {new_username}: Passwords do not match")
-                    elif not new_username or not new_password:
-                        st.error("Username and password cannot be empty.")
-                        logging.warning(f"Registration failed: Empty username or password")
-                    else:
-                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                        if c.fetchone():
-                            st.error("Username already exists.")
-                            logging.warning(f"Registration failed: Username {new_username} already exists")
-                        else:
-                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({
-                                "xp": DEFAULT_APP_STATE['xp'],
-                                "level": DEFAULT_APP_STATE['level'],
-                                "badges": DEFAULT_APP_STATE['badges'],
-                                "streak": DEFAULT_APP_STATE['streak'],
-                                "last_journal_date": DEFAULT_APP_STATE['last_journal_date'],
-                                "last_login_xp_date": DEFAULT_APP_STATE['last_login_xp_date'],
-                                "gamification_flags": DEFAULT_APP_STATE['gamification_flags'],
-                                "drawings": DEFAULT_APP_STATE['drawings'],
-                                "trade_journal": DEFAULT_APP_STATE['trade_journal'].to_dict('records'),
-                                "strategies": DEFAULT_APP_STATE['strategies'].to_dict('records'),
-                                "emotion_log": DEFAULT_APP_STATE['emotion_log'].to_dict('records'),
-                                "reflection_log": DEFAULT_APP_STATE['reflection_log'].to_dict('records'),
-                                "xp_log": DEFAULT_APP_STATE['xp_log'],
-                                'chatroom_rules_accepted': DEFAULT_APP_STATE['chatroom_rules_accepted'], # New default
-                                'chatroom_nickname': None # New default
-                            })
-                            try:
-                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                                conn.commit()
-                                st.session_state.logged_in_user = new_username
-                                # This ensures the session state is properly set for the *new* user's defaults
-                                initialize_and_load_session_state() 
-                                st.success(f"Account created for {new_username}!")
-                                logging.info(f"User {new_username} registered successfully")
-                                st.rerun() # Crucial for state refresh
-                            except Exception as e:
-                                st.error(f"Failed to create account: {str(e)}")
-                                logging.error(f"Registration error for {new_username}: {str(e)}")
-        # --------------------------
-        # DEBUG TAB
-        # --------------------------
-        with tab_debug:
-            st.subheader("Debug: Inspect Users Database")
-            st.warning("This is for debugging only. Remove in production.")
-            try:
-                c.execute("SELECT username, password, data FROM users")
-                users = c.fetchall()
-                if users:
-                    debug_df = pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"])
-                    st.dataframe(debug_df, use_container_width=True)
-                else:
-                    st.info("No users found in the database.")
-                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tables = c.fetchall()
-                st.write("Database Tables:", tables)
-            except Exception as e:
-                st.error(f"Error accessing database: {str(e)}")
-                logging.error(f"Debug error: {str(e)}")
-    else: # This block displays when a user IS logged in.
-        # --------------------------
-        # LOGGED-IN USER VIEW
-        # --------------------------
-        
-        def handle_logout():
-            if st.session_state.logged_in_user is not None:
-                save_user_data(st.session_state.logged_in_user)
-                logging.info(f"User {st.session_state.logged_in_user} data saved before logout.")
-            
-            # Explicitly reset ONLY the user-specific and transient states related to being logged in
-            for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal',
-                        'xp', 'level', 'badges', 'streak', 'last_journal_date',
-                        'last_login_xp_date', 'gamification_flags', 'xp_log', 
-                        'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress',
-                        'edit_trade_metrics' # Add new UI-specific states
-                        ]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            
-            # Re-initialize non-user specific global states and then the rest for logged-out context
-            initialize_and_load_session_state()
-
-            logging.info("User logged out successfully.")
-            st.session_state.current_page = "account"
-            st.rerun()
-
-        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-        st.markdown("This is your personal dashboard. Track your progress and manage your account.")
-        st.markdown("---")
-        
-        st.subheader("📈 Progress Snapshot")
-        
-        st.markdown("""
-        <style>
-        .kpi-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #58b3b1; margin-bottom: 10px; }
-        .kpi-icon { font-size: 2.5em; margin-bottom: 10px; }
-        .kpi-value { font-size: 1.8em; font-weight: bold; color: #FFFFFF; }
-        .kpi-label { font-size: 0.9em; color: #A0A0A0; }
-        .insights-card { background-color: rgba(45, 70, 70, 0.3); border-left: 5px solid #58b3b1; padding: 15px; border-radius: 5px; margin-bottom: 10px; }
-        .redeem-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; border: 1px solid #58b3b1; text-align: center; height: 100%; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-        with kpi_col1:
-            level = st.session_state.get('level', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {level}</div><div class="kpi-label">Trader\'s Rank</div></div>', unsafe_allow_html=True)
-        with kpi_col2:
-            streak = st.session_state.get('streak', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{streak} Days</div><div class="kpi-label">Journaling Streak</div></div>', unsafe_allow_html=True)
-        with kpi_col3:
-            total_xp = st.session_state.get('xp', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{total_xp:,}</div><div class="kpi-label">Total Experience (XP)</div></div>', unsafe_allow_html=True)
-        with kpi_col4:
-            redeemable_xp = int(st.session_state.get('xp', 0) / 2)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{redeemable_xp:,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-
-        chart_col, insights_col = st.columns([1, 2])
-
-        with chart_col:
-            st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-            total_xp = st.session_state.get('xp', 0)
-            xp_in_level = total_xp % 100
-            xp_needed = 100 - xp_in_level
-
-            fig = go.Figure(go.Pie(
-                values=[xp_in_level, xp_needed],
-                hole=0.6,
-                marker_colors=['#58b3b1', '#2d4646'],
-                textinfo='none',
-                hoverinfo='label+value'
-            ))
-            fig.update_layout(
-                showlegend=False, paper_bgcolor='rgba(0,0,0,0)',
-                annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")],
-                margin=dict(t=20, b=20, l=20, r=20)
-            )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        
-        with insights_col:
-            st.markdown("<h5 style='text-align: center;'>Personalized Insights & Badges</h5>", unsafe_allow_html=True)
-            insight_sub_col, badge_sub_col = st.columns(2)
-            
-            with insight_sub_col:
-                st.markdown("<h6>💡 Insights</h6>", unsafe_allow_html=True)
-                streak = st.session_state.get('streak', 0)
-                insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
-                st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
-                
-                num_trades = len(st.session_state.trade_journal) 
-                if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
-                elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
-                else: next_milestone = "The next streak badge is at 30 days. You've got this!"
-                st.markdown(f"<div class='insights-card'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
-
-            with badge_sub_col:
-                st.markdown("<h6>🏆 Badges Earned</h6>", unsafe_allow_html=True)
-                badges = st.session_state.get('badges', [])
-                if badges:
-                    for badge in badges: st.markdown(f"- 🏅 {badge}")
-                else:
-                    st.info("No badges earned yet. Keep trading to unlock them!")
-        
-        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
-        # Removed "🚀 Your XP Journey" chart from here
-        # Removed "---" separator as the chart above it is now gone.
-        
-        st.subheader("💎 Redeem Your RXP")
-        current_rxp = int(st.session_state.get('xp', 0) / 2)
-        st.info(f"You have **{current_rxp:,} RXP** available to spend.")
-        
-        items = {
-            "1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"},
-            "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"},
-            "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}
-        }
-        redeem_cols = st.columns(len(items))
-        for i, (item_key, item_details) in enumerate(items.items()):
-            with redeem_cols[i]:
-                st.markdown(f'<div class="redeem-card"><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
-                if st.button(f"Redeem {item_details['name']}", key=f"redeem_{item_key}", use_container_width=True):
-                    if current_rxp >= item_details['cost']:
-                        xp_cost = item_details['cost'] * 2
-                        ta_update_xp(st.session_state.logged_in_user, -xp_cost, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)")
-                        
-                        st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.warning("You do not have enough RXP for this item.")
-
-        st.markdown("---")
-
-        # --- XP Transaction History (Now Above How to Earn XP) ---
-        st.subheader("📜 Your XP Transaction History")
-        
-        xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
-
-        if not xp_log_df.empty:
-            xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
-            xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
-
-            def style_amount_column_numeric(val):
-                if val > 0:
-                    return 'color: green; font-weight: bold;'
-                elif val < 0:
-                    return 'color: red; font-weight: bold;'
-                return ''
-
-            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
-            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
-
-            st.dataframe(styled_xp_log, use_container_width=True)
-        else:
-            st.info("Your XP transaction history is empty. Start interacting to earn XP!")
-        # --- END XP Transaction History ---
-        
-        st.markdown("---")
-
-        # --- How to Earn XP Section (Directly Visible) ---
-        st.subheader("❓ How to Earn XP") 
-        st.markdown("""
-        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
-
-        -   **Daily Login**: Log in each day to earn **10 XP** for your consistency.
-        -   **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
-        -   **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
-        -   **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
-            *   Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
-            *   Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
-            *   Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
-        -   **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
-            *   Maintain a Profit Factor of 2.0 or higher: **+30 XP**
-            *   Achieve an Average R:R of 1.5 or higher: **+25 XP**
-            *   Reach a Win Rate of 60% or higher: **+20 XP**
-        -   **Level Up!**: Every 100 XP earned levels up your Trader\'s Rank and rewards a new Level Badge.
-        -   **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
-        
-        Keep exploring the dashboard and trading to earn more XP and climb the ranks!
-        """, unsafe_allow_html=True)
-        # --- END How to Earn XP Section ---
-        
-        st.markdown("---")
-
-        # Removed "🏆 Global XP Leaderboard" from here
-        # No more render_xp_leaderboard() call.
-
-        st.markdown("---") # Retain a final separator before Manage Account if desired.
-
-        with st.expander("⚙️ Manage Account"):
-            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()
-# =========================================================
 # COMMUNITY TRADE IDEAS PAGE
 # =========================================================
 elif st.session_state.current_page == 'community':
@@ -3027,6 +2785,227 @@ elif st.session_state.current_page == 'community':
         st.info("No leaderboard data yet.")
 
 # =========================================================
+# CRYPTO PAGES (NEW) - Placeholder pages
+# =========================================================
+elif st.session_state.current_page == 'crypto_overview':
+    st.title("💰 Crypto Overview")
+    st.caption("A summary of your crypto holdings and market performance.")
+    st.info("This is a placeholder page for your Crypto Overview. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Your Crypto Portfolio Summary")
+        st.write("Current Holdings: Bitcoin (BTC), Ethereum (ETH), Ripple (XRP)")
+        st.metric("Total Portfolio Value", "$123,456.78", "📈 +2.5% today")
+        st.subheader("Market Trends")
+        st.markdown("Key market movers and shakers in the crypto space.")
+
+elif st.session_state.current_page == 'crypto_journal':
+    st.title("📝 Crypto Trading Journal")
+    st.caption("Log and analyze your cryptocurrency trades.")
+    st.info("This is a placeholder page for your Crypto Trading Journal. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Log a New Crypto Trade")
+        st.text_input("Coin Symbol", value="BTC", key="cj_symbol")
+        st.selectbox("Trade Type", ["Buy", "Sell"], key="cj_type")
+        st.number_input("Amount", value=0.01, key="cj_amount")
+        st.number_input("Entry Price", value=20000.00, key="cj_entry")
+        st.date_input("Date", datetime.now().date(), key="cj_date")
+        if st.button("Save Crypto Trade", key="cj_save"):
+            st.success("Crypto trade logged (placeholder action).")
+
+elif st.session_state.current_page == 'crypto_portfolio':
+    st.title("📊 Crypto Portfolio")
+    st.caption("Manage your cryptocurrency assets.")
+    st.info("This is a placeholder page for your Crypto Portfolio. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Your Asset Allocation")
+        st.markdown("Bitcoin: 50%, Ethereum: 30%, Altcoins: 20%")
+        st.table(pd.DataFrame({"Asset": ["BTC", "ETH", "XRP"], "Holdings": [1.5, 10, 500], "Value ($)": [45000, 30000, 250]}))
+
+elif st.session_state.current_page == 'crypto_analysis':
+    st.title("🔬 Crypto Market Analysis")
+    st.caption("Tools and insights for analyzing cryptocurrency markets.")
+    st.info("This is a placeholder page for Crypto Market Analysis. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Technical Indicators")
+        st.write("Coming soon: RSI, MACD, Bollinger Bands for crypto assets.")
+        st.subheader("On-Chain Data")
+        st.write("Analyze blockchain data like transaction volume, active addresses, etc.")
+
+elif st.session_state.current_page == 'crypto_news':
+    st.title("📰 Crypto News & Trends")
+    st.caption("Stay up-to-date with the latest news in the crypto world.")
+    st.info("This is a placeholder page for Crypto News & Trends. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.write("Headline 1: Bitcoin breaks $70,000!")
+        st.write("Headline 2: Ethereum merge successfully completed.")
+        st.write("Headline 3: New regulations impacting altcoins.")
+
+elif st.session_state.current_page == 'crypto_watchlist':
+    st.title("👁️ Crypto Watchlist")
+    st.caption("Monitor cryptocurrencies of interest.")
+    st.info("This is a placeholder page for your Crypto Watchlist. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Your Watched Coins")
+        st.write("- Solana (SOL)")
+        st.write("- Cardano (ADA)")
+        st.write("- Dogecoin (DOGE)")
+
+elif st.session_state.current_page == 'crypto_tools':
+    st.title("🛠️ Crypto Tools")
+    st.caption("Handy tools for crypto traders and investors.")
+    st.info("This is a placeholder page for Crypto Tools. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("DCA Calculator")
+        st.write("Dollar-Cost Averaging calculator for your crypto investments.")
+        st.subheader("Staking Calculator")
+        st.write("Estimate your staking rewards for various cryptocurrencies.")
+
+elif st.session_state.current_page == 'crypto_community':
+    st.title("💬 Crypto Community")
+    st.caption("Discuss crypto trading and share insights with others.")
+    st.info("This is a placeholder page for Crypto Community features. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Community Discussion Boards")
+        st.write("Discuss strategies, altcoin gems, and market outlooks.")
+        st.subheader("Live Market Chat")
+        st.write("Real-time chat with fellow crypto enthusiasts.")
+
+
+# =========================================================
+# STOCKS PAGES (NEW) - Placeholder pages
+# =========================================================
+elif st.session_state.current_page == 'stocks_dashboard':
+    st.title("📈 Stocks Dashboard")
+    st.caption("An overview of your stock portfolio and market performance.")
+    st.info("This is a placeholder page for your Stocks Dashboard. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Your Stock Portfolio Summary")
+        st.write("Current Holdings: Apple (AAPL), Microsoft (MSFT), Tesla (TSLA)")
+        st.metric("Total Portfolio Value", "$245,678.90", "📉 -0.8% today")
+        st.subheader("Sector Performance")
+        st.markdown("View which sectors are leading or lagging.")
+
+elif st.session_state.current_page == 'stocks_journal':
+    st.title("📝 Stocks Trading Journal")
+    st.caption("Log and analyze your stock trades.")
+    st.info("This is a placeholder page for your Stocks Trading Journal. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Log a New Stock Trade")
+        st.text_input("Stock Ticker", value="AAPL", key="sj_ticker")
+        st.selectbox("Trade Type", ["Buy", "Sell"], key="sj_type")
+        st.number_input("Shares", value=10, key="sj_shares")
+        st.number_input("Entry Price", value=150.00, key="sj_entry")
+        st.date_input("Date", datetime.now().date(), key="sj_date")
+        if st.button("Save Stock Trade", key="sj_save"):
+            st.success("Stock trade logged (placeholder action).")
+
+elif st.session_state.current_page == 'stocks_portfolio':
+    st.title("💼 Stocks Portfolio")
+    st.caption("Manage your equity investments.")
+    st.info("This is a placeholder page for your Stocks Portfolio. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Your Equity Holdings")
+        st.markdown("Tech Stocks: 60%, Healthcare: 20%, Consumer Goods: 20%")
+        st.table(pd.DataFrame({"Stock": ["AAPL", "MSFT", "GOOGL"], "Shares": [50, 20, 10], "Value ($)": [8000, 6000, 1500]}))
+
+elif st.session_state.current_page == 'stocks_analysis':
+    st.title("🔬 Stocks Market Analysis")
+    st.caption("Analyze individual stocks and market trends.")
+    st.info("This is a placeholder page for Stocks Market Analysis. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Company Fundamentals")
+        st.write("Access financial statements, revenue, and earnings data.")
+        st.subheader("Valuation Metrics")
+        st.write("Analyze P/E ratio, P/S ratio, and dividend yields.")
+
+elif st.session_state.current_page == 'stocks_news':
+    st.title("📰 Stocks News & Research")
+    st.caption("Latest news, analyst ratings, and research reports for stocks.")
+    st.info("This is a placeholder page for Stocks News & Research. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.write("Breaking: Tech giants announce Q3 earnings.")
+        st.write("Analyst Upgrade: [Company X] stock rated 'Buy'.")
+        st.write("Market Watch: Inflation concerns affect growth stocks.")
+
+elif st.session_state.current_page == 'stocks_watchlist':
+    st.title("👁️ Stocks Watchlist")
+    st.caption("Track stocks you are interested in.")
+    st.info("This is a placeholder page for your Stocks Watchlist. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Your Watched Stocks")
+        st.write("- NVIDIA (NVDA)")
+        st.write("- Amazon (AMZN)")
+        st.write("- Coca-Cola (KO)")
+
+elif st.session_state.current_page == 'stocks_tools':
+    st.title("🛠️ Stocks Tools")
+    st.caption("Tools to assist with stock trading and investing.")
+    st.info("This is a placeholder page for Stocks Tools. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Stock Screener")
+        st.write("Filter stocks based on various criteria (sector, market cap, dividends).")
+        st.subheader("Earnings Calendar")
+        st.write("Keep track of upcoming earnings announcements.")
+
+elif st.session_state.current_page == 'stocks_community':
+    st.title("💬 Stocks Community")
+    st.caption("Discuss stock picks and market analysis with other investors.")
+    st.info("This is a placeholder page for Stocks Community features. Content coming soon!")
+    st.markdown("---")
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access this page content.")
+    else:
+        st.subheader("Investment Forums")
+        st.write("Engage in discussions about different companies and investment strategies.")
+        st.subheader("Daily Market Roundup")
+        st.write("Summary of the day's stock market activities and notable movements.")
+
+# =========================================================
 # COMMUNITY CHATROOM PAGE
 # =========================================================
 elif st.session_state.current_page == "Community Chatroom":
@@ -3073,8 +3052,6 @@ elif st.session_state.current_page == "Community Chatroom":
         if username is None:
             return # Cannot award XP/badges to an unknown user
 
-        user_data = get_user_data(username) # Fetches user data directly to access total_messages if needed
-
         # Always award 1 XP for sending a message
         ta_update_xp(username, 1, "sending a chat message")
 
@@ -3086,30 +3063,50 @@ elif st.session_state.current_page == "Community Chatroom":
             if st.session_state.user_nickname: # Only count if nickname is set
                 total_messages_for_user += sum(1 for msg in messages_list if msg['nickname'] == st.session_state.user_nickname)
 
-        if total_messages_for_user >= 10: # Assuming 10 messages for initial Active Chatter
+        # Trigger badge for e.g. 10 messages. This would also need a gamification_flag for the badge.
+        gamification_flags = st.session_state.get('gamification_flags', {})
+        active_chatter_flag_key = 'badge_active_chatter_awarded'
+
+        if total_messages_for_user >= 10 and not gamification_flags.get(active_chatter_flag_key):
             ta_award_badge(username, "Active Chatter")
+            gamification_flags[active_chatter_flag_key] = True
+            st.session_state.gamification_flags = gamification_flags
+            save_user_data(username) # Persist the flag
+        
 
         # XP/Badges specifically for "Trade Reviews" channel
         if channel == "Trade Reviews":
             message_lower = message_content.lower()
-            if "winning trade:" in message_lower or "win:" in message_lower or "✅ win" in message_lower:
+            
+            # Count for "Community Winner" badge
+            winner_badge_flag_key = 'badge_community_winner_awarded'
+            if ("winning trade:" in message_lower or "win:" in message_lower or "✅ win" in message_lower):
                 ta_update_xp(username, 5, "posting a winning trade review in chat")
-                # Count for Winning Trader badge specific to chat, can be merged with Journal's wins for higher level
-                chat_winning_trades_count = sum(1 for msg in st.session_state.chat_messages["Trade Reviews"]
-                                                if st.session_state.user_nickname and msg['nickname'] == st.session_state.user_nickname and (
-                                                    "winning trade:" in msg['content'].lower() or "win:" in msg['content'].lower() or "✅ win" in msg['content'].lower()))
-                if chat_winning_trades_count >= 3: # Example: 3 winning chat reviews for badge
-                    ta_award_badge(username, "Community Winner") # New badge for chat activity
-
-            elif "losing trade:" in message_lower or "loss:" in message_lower or "❌ loss" in message_lower:
+                if not gamification_flags.get(winner_badge_flag_key):
+                    # Count chat-specific "winning trade" posts (simplistic for example)
+                    chat_winning_trades_count = sum(1 for msg in st.session_state.chat_messages["Trade Reviews"]
+                                                    if st.session_state.user_nickname and msg['nickname'] == st.session_state.user_nickname and (
+                                                        "winning trade:" in msg['content'].lower() or "win:" in msg['content'].lower() or "✅ win" in msg['content'].lower()))
+                    if chat_winning_trades_count >= 3: # Example: 3 winning chat reviews for badge
+                        ta_award_badge(username, "Community Winner") # New badge for chat activity
+                        gamification_flags[winner_badge_flag_key] = True
+                        st.session_state.gamification_flags = gamification_flags
+                        save_user_data(username) # Persist the flag
+            
+            # Count for "Community Resilient" badge
+            resilient_badge_flag_key = 'badge_community_resilient_awarded'
+            if ("losing trade:" in message_lower or "loss:" in message_lower or "❌ loss" in message_lower):
                 ta_update_xp(username, 2, "posting a detailed losing trade analysis in chat")
-                # Count for Resilient Analyst badge specific to chat
-                chat_losing_trades_count = sum(1 for msg in st.session_state.chat_messages["Trade Reviews"]
-                                               if st.session_state.user_nickname and msg['nickname'] == st.session_state.user_nickname and (
-                                                   "losing trade:" in msg['content'].lower() or "loss:" in msg['content'].lower() or "❌ loss" in msg['content'].lower()))
-                if chat_losing_trades_count >= 5: # Example: 5 losing chat reviews for badge
-                    ta_award_badge(username, "Community Resilient") # New badge for chat activity
-
+                if not gamification_flags.get(resilient_badge_flag_key):
+                    # Count chat-specific "losing trade" posts
+                    chat_losing_trades_count = sum(1 for msg in st.session_state.chat_messages["Trade Reviews"]
+                                                if st.session_state.user_nickname and msg['nickname'] == st.session_state.user_nickname and (
+                                                    "losing trade:" in msg['content'].lower() or "loss:" in msg['content'].lower() or "❌ loss" in msg['content'].lower()))
+                    if chat_losing_trades_count >= 5: # Example: 5 losing chat reviews for badge
+                        ta_award_badge(username, "Community Resilient") # New badge for chat activity
+                        gamification_flags[resilient_badge_flag_key] = True
+                        st.session_state.gamification_flags = gamification_flags
+                        save_user_data(username) # Persist the flag
 
     # --------------------------
     # CHATROOM MAIN LOGIC
@@ -3126,7 +3123,7 @@ elif st.session_state.current_page == "Community Chatroom":
     st.markdown('---')
 
 
-    # 1. Mandatory Rules Acceptance
+    # 1. Mandatory Rules Acceptance (Session-scoped)
     if not st.session_state.chatroom_rules_accepted:
         st.subheader("Community Chatroom Rules")
         st.markdown("""
@@ -3147,12 +3144,14 @@ elif st.session_state.current_page == "Community Chatroom":
         st.markdown("---")
         if st.button("I Agree to the Rules and Wish to Enter"):
             st.session_state.chatroom_rules_accepted = True
-            save_user_data(st.session_state.logged_in_user) # Persist acceptance
+            # No need to save_user_data specifically for this flag, as it's session-scoped.
+            # However, if other user_data might have been updated during this login sequence,
+            # `initialize_and_load_session_state` (which calls `save_user_data`) has already handled it.
             st.rerun()
         st.stop() # Prevent further rendering until rules are accepted
 
 
-    # 2. One-time Nickname Setup
+    # 2. One-time Nickname Setup (persistent)
     if st.session_state.user_nickname is None:
         st.subheader("Set Your Chatroom Nickname")
         st.markdown("This nickname will be permanently visible to others in the chatroom. Choose wisely!")
@@ -3160,7 +3159,7 @@ elif st.session_state.current_page == "Community Chatroom":
         # Pre-fill with logged-in username suggestion
         suggested_nickname = st.session_state.logged_in_user 
         new_nickname = st.text_input("Enter your desired nickname (max 20 characters):", 
-                                     value=suggested_nickname, max_chars=20)
+                                     value=suggested_nickname, max_chars=20, key="set_nickname_input")
         
         if st.button("Set Nickname", type="primary"):
             if new_nickname:
@@ -3340,14 +3339,15 @@ elif st.session_state.current_page == 'tools':
         'Risk Management Calculator',
         'Trading Session Tracker',
         'Drawdown Recovery Planner',
-        'Pre-Trade Checklist',
+        'Pre-Trade Checklist', 
         'Pre-Market Checklist'
     ]
     tabs = st.tabs(tools_options)
+
     # --------------------------
     # PROFIT / LOSS CALCULATOR
     # --------------------------
-    with tabs[0]:
+    with tabs[0]: 
         st.header("💰 Profit / Loss Calculator")
         st.markdown("Calculate your potential profit or loss for a trade.")
         st.markdown('---')
@@ -3365,7 +3365,7 @@ elif st.session_state.current_page == 'tools':
         if "JPY" in currency_pair:
             pip_size_for_pair_calc = 0.01
         
-        pip_movement = abs(close_price - open_price) / pip_size_for_pair_calc
+        pip_movement = abs(close_price - open_price) / pip_size_for_pair_calc # Correctly use the variable 'pip_movement' for display
 
         usd_per_pip_per_standard_lot = 10.0 # Universal assumed value for calculation simplicity
 
@@ -3375,6 +3375,7 @@ elif st.session_state.current_page == 'tools':
             
         profit_loss = (price_change / pip_size_for_pair_calc) * (position_size * usd_per_pip_per_standard_lot)
         
+        # Currency conversion (simplified for demonstration)
         if account_currency == "EUR":
             profit_loss *= 0.92
         elif account_currency == "GBP":
@@ -3592,11 +3593,18 @@ elif st.session_state.current_page == 'tools':
         def assign_session(timestamp):
             if pd.isna(timestamp):
                 return 'Unknown'
+            # Assuming timestamps are UTC or will be converted. For simplicity in demo, local time could be used
+            # but ideally for global app, normalize to a standard TZ then convert for display.
+            # Using UTC here and adjusting definitions to be based on UTC.
+            # Real-world usage may involve more complex TZ handling depending on source data.
             hour = timestamp.hour
-            if 0 <= hour < 9: return 'Tokyo'
-            if 8 <= hour < 17: return 'London'
-            if 13 <= hour < 22: return 'New York'
-            return 'Sydney'
+            # UTC session hours (approximate for demo)
+            if 0 <= hour < 8: return 'Tokyo'  # 9AM-5PM JST = 0AM-8AM UTC
+            if 7 <= hour < 16: return 'London' # 8AM-5PM BST/GMT (overlapping UTC)
+            if 12 <= hour < 21: return 'New York' # 8AM-5PM EDT/EST (overlapping UTC)
+            if 22 <= hour or hour < 9: return 'Sydney' # 10AM-7PM AEST (next day in UTC terms, could be 00:00-07:00 and 22:00-23:59 UTC)
+
+            return 'Sydney' # Default for early UTC morning
 
         if not current_journal_df.empty:
             current_journal_df['datetime'] = pd.to_datetime(current_journal_df['Date'], errors='coerce')
@@ -3646,41 +3654,79 @@ elif st.session_state.current_page == 'tools':
             st.info("Log trades in the 'Trading Journal' or upload MT5 trades to analyze performance by trading session. Ensure there are enough valid trade data points with a calculated 'R' value.")
         
         st.subheader('🕒 Current Market Sessions')
-        now = dt.datetime.now(pytz.UTC)
+        now = dt.datetime.now(pytz.UTC) # Use UTC as the reference for sessions globally
+        
+        # Redefined sessions with UTC reference times, simplifying for display
         sessions = [
-            {"name": "Sydney", "start": 22, "end": 7, "tz": "Australia/Sydney"},
-            {"name": "Tokyo", "start": 0, "end": 9, "tz": "Asia/Tokyo"},
-            {"name": "London", "start": 8, "end": 17, "tz": "Europe/London"},
-            {"name": "New York", "start": 13, "end": 22, "tz": "America/New_York"},
+            {"name": "Sydney", "start_utc_hour": 22, "end_utc_hour": 7, "tz": "Australia/Sydney"}, # Sydney 10:00-19:00 AEST/AEDT, roughly 22:00-07:00 UTC (crosses midnight)
+            {"name": "Tokyo", "start_utc_hour": 0, "end_utc_hour": 9, "tz": "Asia/Tokyo"},      # Tokyo 9:00-18:00 JST, roughly 00:00-09:00 UTC
+            {"name": "London", "start_utc_hour": 8, "end_utc_hour": 17, "tz": "Europe/London"},    # London 8:00-17:00 GMT/BST, roughly 08:00-17:00 UTC
+            {"name": "New York", "start_utc_hour": 13, "end_utc_hour": 22, "tz": "America/New_York"},# New York 8:00-17:00 EST/EDT, roughly 13:00-22:00 UTC
         ]
+        
         session_status = []
         for session in sessions:
-            tz = pytz.timezone(session["tz"])
-            local_time = now.astimezone(tz)
-            local_hour = local_time.hour + local_time.minute / 60
-            start = session["start"]
-            end = session["end"]
-            is_open = (start <= local_hour < end) if start <= end else (start <= local_hour or local_hour < end)
+            current_time_in_session_tz = now.astimezone(pytz.timezone(session["tz"]))
             
+            # For "Time Until" calculation, let's keep it simple in terms of UTC hours relative to now
+            current_utc_hour_float = now.hour + now.minute / 60
+            
+            is_open = False
             time_until_label = ""
-            time_diff_hours = 0.0
-            if not is_open:
-                if local_hour < start:
-                    time_diff_hours = start - local_hour
+            time_diff_hours_float = 0.0
+
+            if session["start_utc_hour"] <= session["end_utc_hour"]: # Session within same UTC day
+                if session["start_utc_hour"] <= current_utc_hour_float < session["end_utc_hour"]:
+                    is_open = True
+                    time_until_label = "Closes in"
+                    time_diff_hours_float = session["end_utc_hour"] - current_utc_hour_float
                 else:
-                    time_diff_hours = (24 - local_hour) + start
-                time_until_label = "Opens in"
-            else:
-                if local_hour < end:
-                    time_diff_hours = end - local_hour
-                time_until_label = "Closes in"
+                    time_until_label = "Opens in"
+                    if current_utc_hour_float < session["start_utc_hour"]:
+                        time_diff_hours_float = session["start_utc_hour"] - current_utc_hour_float
+                    else: # current_utc_hour_float >= session["end_utc_hour"]
+                        time_diff_hours_float = (24 - current_utc_hour_float) + session["start_utc_hour"]
+            else: # Session crosses UTC midnight (e.g., Sydney)
+                if current_utc_hour_float >= session["start_utc_hour"] or current_utc_hour_float < session["end_utc_hour"]:
+                    is_open = True
+                    time_until_label = "Closes in"
+                    # Calculate time until end of session (can be next UTC day)
+                    if current_utc_hour_float < session["end_utc_hour"]: # End is same UTC day
+                        time_diff_hours_float = session["end_utc_hour"] - current_utc_hour_float
+                    else: # End is next UTC day
+                        time_diff_hours_float = (24 - current_utc_hour_float) + session["end_utc_hour"]
+                else:
+                    time_until_label = "Opens in"
+                    # Calculate time until start of session (can be next UTC day)
+                    if current_utc_hour_float < session["end_utc_hour"]: # Start is previous UTC day, or far ahead same day
+                         time_diff_hours_float = session["start_utc_hour"] - current_utc_hour_float # This won't be right for prev day start
+                    else: # current_utc_hour_float >= session["end_utc_hour"]
+                         time_diff_hours_float = (24 - current_utc_hour_float) + session["start_utc_hour"] # Time to next day's start
+
+
+            # Round to nearest whole or half hour for display.
+            display_minutes = round(time_diff_hours_float * 60)
+            display_hours = display_minutes // 60
+            display_minutes = display_minutes % 60
+
+            time_until_str = ""
+            if display_hours > 0:
+                time_until_str += f"{display_hours}h "
+            if display_minutes > 0 or display_hours == 0: # Show minutes even if 0 if no hours, e.g., "0m"
+                time_until_str += f"{display_minutes}m"
+            if not time_until_str and is_open: # If already at end time but still considered open, display "soon"
+                time_until_str = "soon"
+            elif not time_until_str and not is_open:
+                time_until_str = "Unknown" # Fallback if calculation failed.
+
 
             session_status.append({
                 "Session": session["name"],
                 "Status": "Open" if is_open else "Closed",
-                "Local Time": local_time.strftime("%H:%M"),
-                "Time Until": f"{time_diff_hours:.1f}" if (is_open or time_diff_hours > 0) else "0.0"
+                "Local Time": current_time_in_session_tz.strftime("%H:%M %Z"), # Show timezone too
+                "Time Until": f"{time_until_label} {time_until_str}"
             })
+
         session_df = pd.DataFrame(session_status)
         st.dataframe(session_df, use_container_width=True)
         for session in session_status:
@@ -3688,7 +3734,7 @@ elif st.session_state.current_page == 'tools':
             st.markdown(
                 f"""
                 <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
-                {session['Session']} Session: {session['Status']} (Local: {session['Local Time']}, {'Closes in' if session['Status'] == 'Open' else 'Opens in'} {session['Time Until']} hours)
+                {session['Session']} Session: {session['Status']} (Local: {session['Local Time']}, {session['Time Until']})
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -3742,7 +3788,7 @@ elif st.session_state.current_page == 'tools':
 
         sim_equity = [initial_equity * (1 - drawdown_pct)]
         if trades_needed != float('inf') :
-            for _ in range(min(trades_needed + 10, 100)):
+            for _ in range(min(int(trades_needed) + 10, 100)): # Cap simulation to 100 trades to prevent extremely long lists/charts
                 if len(sim_equity) > 0 and (1 + risk_per_trade * expectancy_sim) > 0:
                     sim_equity.append(sim_equity[-1] * (1 + risk_per_trade * expectancy_sim))
                 else:
@@ -3773,7 +3819,7 @@ elif st.session_state.current_page == 'tools':
             "Trade aligns with my edge",
             "Emotionally calm and focused"
         ]
-        checklist_state = {item: st.checkbox(item, key=f"checklist_{i}") for i, item in enumerate(checklist_items)}
+        checklist_state = {item: st.checkbox(item, key=f"checklist_trade_{i}") for i, item in enumerate(checklist_items)} # Unique keys
         checked_count = sum(1 for v in checklist_state.values() if v)
         st.metric("Checklist Completion", f"{checked_count}/{len(checklist_items)}")
         if checked_count == len(checklist_items):
@@ -3797,13 +3843,13 @@ elif st.session_state.current_page == 'tools':
             "Checked correlations",
             "Reviewed previous trades"
         ]
-        pre_checklist = {item: st.checkbox(item, key=f"pre_{i}") for i, item in enumerate(pre_market_items)}
+        pre_checklist = {item: st.checkbox(item, key=f"pre_market_checklist_{i}") for i, item in enumerate(pre_market_items)} # Unique keys
         pre_checked = sum(1 for v in pre_checklist.values() if v)
         st.metric("Pre-Market Completion", f"{pre_checked}/{len(pre_market_items)}")
         if pre_checked == len(pre_market_items):
             st.success("✅ Pre-market routine complete!")
         st.subheader("End-of-Day Reflection")
-        with st.form("reflection_form"):
+        with st.form("reflection_form_eod"): # Unique form key
             reflection = st.text_area("What went well today? What can be improved?")
             submit_reflection = st.form_submit_button("Log Reflection")
             if submit_reflection:
@@ -3858,21 +3904,26 @@ elif st.session_state.current_page == "Zenvo Academy":
                     if not can_start:
                         st.warning("Please log in to start learning!")
                     else:
-                        st.info("Starting 'Forex Fundamentals' module!")
                         username = st.session_state.logged_in_user
-                        user_data = get_user_data(username)
-                        completed_courses = user_data.get('completed_courses', [])
+                        # We use 'completed_courses' stored in user data.
+                        completed_courses = st.session_state.get('completed_courses', []) 
                         
                         if "Forex Fundamentals" not in completed_courses:
                             completed_courses.append("Forex Fundamentals")
-                            user_data['completed_courses'] = completed_courses
-                            save_user_data(username)
+                            st.session_state.completed_courses = completed_courses # Update session state first
+                            save_user_data(username) # This saves updated completed_courses
                             ta_update_xp(username, 100, "Completed 'Forex Fundamentals' course")
+                            st.success("Congratulations! You've completed 'Forex Fundamentals'.")
                             st.rerun()
                         else:
                             st.info("You have already completed 'Forex Fundamentals'.")
                 
-                st.progress(st.session_state.get('forex_fundamentals_progress', 0))
+                # A simple progress for this module - could be tied to more complex lesson completion
+                # For this example, if the course is completed, it's 100%. Otherwise, 0.
+                if "Forex Fundamentals" in st.session_state.get('completed_courses', []):
+                    st.progress(100)
+                else:
+                    st.progress(0)
 
         with st.expander("Technical Analysis 101 - Level 2 (150 XP)"):
             st.markdown("**Description:** Learn how to analyze price charts to identify trading opportunities. This course covers the foundational tools of technical analysis.")
@@ -3893,19 +3944,24 @@ elif st.session_state.current_page == "Zenvo Academy":
                         else:
                             st.warning(f"You need to reach Level 1 (Current: Level {st.session_state.get('level', 0)}) to start this course!")
                     else:
-                        st.info("Starting 'Technical Analysis 101' module!")
                         username = st.session_state.logged_in_user
-                        user_data = get_user_data(username)
-                        completed_courses = user_data.get('completed_courses', [])
+                        completed_courses = st.session_state.get('completed_courses', [])
                         
                         if "Technical Analysis 101" not in completed_courses:
                             completed_courses.append("Technical Analysis 101")
-                            user_data['completed_courses'] = completed_courses
+                            st.session_state.completed_courses = completed_courses
                             save_user_data(username)
                             ta_update_xp(username, 150, "Completed 'Technical Analysis 101' course")
+                            st.success("Congratulations! You've completed 'Technical Analysis 101'.")
                             st.rerun()
                         else:
                             st.info("You have already completed 'Technical Analysis 101'.")
+
+                # Progress for this module
+                if "Technical Analysis 101" in st.session_state.get('completed_courses', []):
+                    st.progress(100)
+                else:
+                    st.progress(0)
 
 
     with tab2:
@@ -3914,7 +3970,9 @@ elif st.session_state.current_page == "Zenvo Academy":
         with col1:
             st.metric("Your Level", st.session_state.get('level', 0))
         with col2:
-            st.metric("Experience Points (XP)", f"{st.session_state.get('xp', 0)} / {(st.session_state.get('level', 0) + 1) * 100}")
+            current_xp_val = st.session_state.get('xp', 0)
+            level_needed_xp = (st.session_state.get('level', 0) + 1) * 100
+            st.metric("Experience Points (XP)", f"{current_xp_val} / {level_needed_xp}")
         with col3:
             badges_count = len(st.session_state.get('badges', []))
             st.metric("Badges Earned", badges_count)
@@ -3923,8 +3981,7 @@ elif st.session_state.current_page == "Zenvo Academy":
         st.markdown("#### 📜 Completed Courses")
         completed_courses = []
         if st.session_state.logged_in_user is not None:
-             user_data_acad = get_user_data(st.session_state.logged_in_user)
-             completed_courses = user_data_acad.get('completed_courses', [])
+             completed_courses = st.session_state.get('completed_courses', [])
 
         if completed_courses:
             for course in completed_courses:
@@ -3944,3 +4001,352 @@ elif st.session_state.current_page == "Zenvo Academy":
     with tab3:
         st.markdown("### 🧰 Trading Resources")
         st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
+
+# =========================================================
+# ACCOUNT PAGE
+# =========================================================
+elif st.session_state.current_page == 'account':
+    # This introductory section should ONLY show when the user is NOT logged in.
+    if st.session_state.logged_in_user is None:
+        st.title("👤 My Account")
+        st.markdown(
+            """
+            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
+            - Keep your trading journal and strategies backed up.
+            - Track your progress and gamification stats.
+            - Sync across devices.
+            - Import/export your account data easily.
+            """
+        )
+        st.write('---')
+    
+        # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
+        tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
+        # --------------------------
+        # SIGN IN TAB
+        # --------------------------
+        with tab_signin:
+            st.subheader("Welcome back! Please sign in to access your account.")
+            with st.form("login_form"):
+                username = st.text_input("Username", key="login_username_input")
+                password = st.text_input("Password", type="password", key="login_password_input") 
+                login_button = st.form_submit_button("Login")
+                if login_button:
+                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result and result[0] == hashed_password:
+                        st.session_state.logged_in_user = username
+                        initialize_and_load_session_state() # Reload session state with the new logged-in user's data
+                        
+                        st.success(f"Welcome back, {username}!")
+                        logging.info(f"User {username} logged in successfully")
+                        st.rerun() # Crucial for state refresh
+                    else:
+                        st.error("Invalid username or password.")
+                        logging.warning(f"Failed login attempt for {username}")
+        # --------------------------
+        # SIGN UP TAB
+        # --------------------------
+        with tab_signup:
+            st.subheader("Create a new account to start tracking your trades and progress.")
+            with st.form("register_form"):
+                new_username = st.text_input("New Username", key="register_username_input")
+                new_password = st.text_input("New Password", type="password", key="register_password_input")
+                confirm_password = st.text_input("Confirm Password", type="password", key="register_confirm_password_input") 
+                register_button = st.form_submit_button("Register")
+                if register_button:
+                    if new_password != confirm_password:
+                        st.error("Passwords do not match.")
+                        logging.warning(f"Registration failed for {new_username}: Passwords do not match")
+                    elif not new_username or not new_password:
+                        st.error("Username and password cannot be empty.")
+                        logging.warning(f"Registration failed: Empty username or password")
+                    else:
+                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
+                        if c.fetchone():
+                            st.error("Username already exists.")
+                            logging.warning(f"Registration failed: Username {new_username} already exists")
+                        else:
+                            # Use default app state for initial user data for new registrations
+                            initial_data = json.dumps({
+                                "xp": DEFAULT_APP_STATE['xp'],
+                                "level": DEFAULT_APP_STATE['level'],
+                                "badges": DEFAULT_APP_STATE['badges'],
+                                "streak": DEFAULT_APP_STATE['streak'],
+                                "last_journal_date": DEFAULT_APP_STATE['last_journal_date'],
+                                "last_login_xp_date": DEFAULT_APP_STATE['last_login_xp_date'],
+                                "gamification_flags": DEFAULT_APP_STATE['gamification_flags'],
+                                "drawings": DEFAULT_APP_STATE['drawings'],
+                                "trade_journal": DEFAULT_APP_STATE['trade_journal'].to_dict('records'),
+                                "strategies": DEFAULT_APP_STATE['strategies'].to_dict('records'),
+                                "emotion_log": DEFAULT_APP_STATE['emotion_log'].to_dict('records'),
+                                "reflection_log": DEFAULT_APP_STATE['reflection_log'].to_dict('records'),
+                                "xp_log": DEFAULT_APP_STATE['xp_log'],
+                                'chatroom_nickname': None, # Default nickname for new users
+                                'selected_market_type': DEFAULT_APP_STATE['selected_market_type'], # Default market type for new users
+                                'completed_courses': DEFAULT_APP_STATE['completed_courses']
+                            })
+                            try:
+                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                                conn.commit()
+                                st.session_state.logged_in_user = new_username
+                                # This ensures the session state is properly set for the *new* user's defaults
+                                initialize_and_load_session_state() 
+                                st.success(f"Account created for {new_username}!")
+                                logging.info(f"User {new_username} registered successfully")
+                                st.rerun() # Crucial for state refresh
+                            except Exception as e:
+                                st.error(f"Failed to create account: {str(e)}")
+                                logging.error(f"Registration error for {new_username}: {str(e)}")
+        # --------------------------
+        # DEBUG TAB
+        # --------------------------
+        with tab_debug:
+            st.subheader("Debug: Inspect Users Database")
+            st.warning("This is for debugging only. Remove in production.")
+            try:
+                c.execute("SELECT username, password, data FROM users")
+                users = c.fetchall()
+                if users:
+                    debug_df = pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"])
+                    st.dataframe(debug_df, use_container_width=True)
+                else:
+                    st.info("No users found in the database.")
+                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = c.fetchall()
+                st.write("Database Tables:", tables)
+            except Exception as e:
+                st.error(f"Error accessing database: {str(e)}")
+                logging.error(f"Debug error: {str(e)}")
+    else: # This block displays when a user IS logged in.
+        # --------------------------
+        # LOGGED-IN USER VIEW
+        # --------------------------
+        
+        def handle_logout():
+            if st.session_state.logged_in_user is not None:
+                save_user_data(st.session_state.logged_in_user)
+                logging.info(f"User {st.session_state.logged_in_user} data saved before logout.")
+            
+            # Explicitly reset ONLY the user-specific and transient states related to being logged in
+            for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal',
+                        'xp', 'level', 'badges', 'streak', 'last_journal_date',
+                        'last_login_xp_date', 'gamification_flags', 'xp_log', 
+                        'chatroom_rules_accepted', 'user_nickname', # These are now session-only for chat, or loaded from DB for user specific (nickname)
+                        'edit_trade_metrics', # Add new UI-specific states if they appear elsewhere in code
+                        'selected_market_type', # Reset market type as per request - will revert to default 'Forex' for the next login
+                        'completed_courses' # Reset completed courses if not desired to persist for new session, but generally should be persisted.
+                        ]:
+                # Preserve 'completed_courses' as it's user-specific and persisted. Remove only transient/ui states.
+                if key not in ['completed_courses'] and key in st.session_state: 
+                    del st.session_state[key]
+            
+            # Reset `st.session_state.current_page` to `account` and clear relevant keys
+            st.session_state.current_page = "account" 
+
+            # After deleting user-specific parts of session state, re-initialize overall application state for logged out view
+            initialize_and_load_session_state()
+
+            logging.info("User logged out successfully.")
+            st.rerun()
+
+        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+        st.markdown("This is your personal dashboard. Track your progress and manage your account.")
+        
+        # NEW: Market Type Selection
+        st.subheader("🌐 Market Focus")
+        # Ensure 'selected_market_type' is initialized correctly if it somehow went missing
+        if 'selected_market_type' not in st.session_state:
+            st.session_state.selected_market_type = 'Forex'
+
+        selected_market_radio = st.radio(
+            "Select your primary market focus:",
+            ('Forex', 'Crypto', 'Stocks'),
+            index=['Forex', 'Crypto', 'Stocks'].index(st.session_state.selected_market_type),
+            key='market_type_selector',
+            horizontal=True,
+        )
+        # Update session state *and* persist to database immediately
+        if selected_market_radio != st.session_state.selected_market_type:
+            st.session_state.selected_market_type = selected_market_radio
+            save_user_data(st.session_state.logged_in_user) # Persist choice on change
+            st.rerun() # Rerun to update sidebar immediately
+
+        st.markdown("---") # Separator after market selection
+        
+        st.subheader("📈 Progress Snapshot")
+        
+        st.markdown("""
+        <style>
+        .kpi-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #58b3b1; margin-bottom: 10px; }
+        .kpi-icon { font-size: 2.5em; margin-bottom: 10px; }
+        .kpi-value { font-size: 1.8em; font-weight: bold; color: #FFFFFF; }
+        .kpi-label { font-size: 0.9em; color: #A0A0A0; }
+        .insights-card { background-color: rgba(45, 70, 70, 0.3); border-left: 5px solid #58b3b1; padding: 15px; border-radius: 5px; margin-bottom: 10px; }
+        .redeem-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; border: 1px solid #58b3b1; text-align: center; height: 100%; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+        with kpi_col1:
+            level = st.session_state.get('level', 0)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {level}</div><div class="kpi-label">Trader\'s Rank</div></div>', unsafe_allow_html=True)
+        with kpi_col2:
+            streak = st.session_state.get('streak', 0)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{streak} Days</div><div class="kpi-label">Journaling Streak</div></div>', unsafe_allow_html=True)
+        with kpi_col3:
+            total_xp = st.session_state.get('xp', 0)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{total_xp:,}</div><div class="kpi-label">Total Experience (XP)</div></div>', unsafe_allow_html=True)
+        with kpi_col4:
+            redeemable_xp = int(st.session_state.get('xp', 0) / 2)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{redeemable_xp:,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
+        
+        st.markdown("---")
+
+        chart_col, insights_col = st.columns([1, 2])
+
+        with chart_col:
+            st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+            total_xp = st.session_state.get('xp', 0)
+            xp_in_level = total_xp % 100
+            xp_needed_for_display = 100 - xp_in_level if xp_in_level != 0 else 100 if total_xp > 0 else 100 # For visualization
+
+            # If current_xp_val is 0, progress bar shows 0, not filled by a remainder
+            current_xp_display_for_chart = xp_in_level
+            if total_xp == 0 and xp_in_level == 0:
+                current_xp_display_for_chart = 0
+
+
+            fig = go.Figure(go.Pie(
+                values=[current_xp_display_for_chart, xp_needed_for_display],
+                hole=0.6,
+                marker_colors=['#58b3b1', '#2d4646'],
+                textinfo='none',
+                hoverinfo='label+value'
+            ))
+            fig.update_layout(
+                showlegend=False, 
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', # Ensure plot area is transparent as well for consistency
+                annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")],
+                margin=dict(t=20, b=20, l=20, r=20)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        
+        with insights_col:
+            st.markdown("<h5 style='text-align: center;'>Personalized Insights & Badges</h5>", unsafe_allow_html=True)
+            insight_sub_col, badge_sub_col = st.columns(2)
+            
+            with insight_sub_col:
+                st.markdown("<h6>💡 Insights</h6>", unsafe_allow_html=True)
+                streak = st.session_state.get('streak', 0)
+                insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
+                st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
+                
+                num_trades = len(st.session_state.trade_journal) 
+                if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                elif num_trades < 100: next_milestone = f"Only **{100 - num_trades} trades** to go until the 'Centurion Trader' badge!"
+                else: next_milestone = "Great work! You're crushing your trade milestones."
+                st.markdown(f"<div class='insights-card'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+
+            with badge_sub_col:
+                st.markdown("<h6>🏆 Badges Earned</h6>", unsafe_allow_html=True)
+                badges = st.session_state.get('badges', [])
+                if badges:
+                    for badge in badges: st.markdown(f"- 🏅 {badge}")
+                else:
+                    st.info("No badges earned yet. Keep trading to unlock them!")
+        
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
+        
+        st.subheader("💎 Redeem Your RXP")
+        current_rxp = int(st.session_state.get('xp', 0) / 2)
+        st.info(f"You have **{current_rxp:,} RXP** available to spend.")
+        
+        items = {
+            "1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"},
+            "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"},
+            "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}
+        }
+        redeem_cols = st.columns(len(items))
+        for i, (item_key, item_details) in enumerate(items.items()):
+            with redeem_cols[i]:
+                st.markdown(f'<div class="redeem-card"><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
+                if st.button(f"Redeem {item_details['name']}", key=f"redeem_{item_key}", use_container_width=True):
+                    if current_rxp >= item_details['cost']:
+                        xp_cost = item_details['cost'] * 2
+                        ta_update_xp(st.session_state.logged_in_user, -xp_cost, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)")
+                        
+                        st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.warning("You do not have enough RXP for this item.")
+
+        st.markdown("---")
+
+        # --- XP Transaction History ---
+        st.subheader("📜 Your XP Transaction History")
+        
+        xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
+
+        if not xp_log_df.empty:
+            xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
+            xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
+
+            def style_amount_column_numeric(val):
+                if val > 0:
+                    return 'color: green; font-weight: bold;'
+                elif val < 0:
+                    return 'color: red; font-weight: bold;'
+                return ''
+
+            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
+            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
+
+            st.dataframe(styled_xp_log, use_container_width=True)
+        else:
+            st.info("Your XP transaction history is empty. Start interacting to earn XP!")
+        # --- END XP Transaction History ---
+        
+        st.markdown("---")
+
+        # --- How to Earn XP Section ---
+        st.subheader("❓ How to Earn XP") 
+        st.markdown("""
+        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
+
+        -   **Daily Login**: Log in each day to earn **10 XP** for your consistency.
+        -   **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
+        -   **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
+        -   **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
+            *   Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
+            *   Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
+            *   Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
+        -   **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
+            *   Maintain a Profit Factor of 2.0 or higher: **+30 XP**
+            *   Achieve an Average R:R of 1.5 or higher: **+25 XP**
+            *   Reach a Win Rate of 60% or higher: **+20 XP**
+        -   **Complete Academy Courses**: Earn significant XP bonuses for completing courses in the Zenvo Academy!
+        -   **Chatroom Participation**: Get **1 XP** for every chat message and special bonuses for trade reviews!
+        -   **Level Up!**: Every 100 XP earned levels up your Trader\'s Rank and rewards a new Level Badge.
+        -   **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
+        
+        Keep exploring the dashboard and trading to earn more XP and climb the ranks!
+        """, unsafe_allow_html=True)
+        # --- END How to Earn XP Section ---
+        
+        st.markdown("---")
+
+        with st.expander("⚙️ Manage Account"):
+            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+            st.write("**Email**: `trader.pro@email.com` (example)") # Placeholder
+            
+            # Additional User data management could go here
+            # e.g., option to reset password, export personal data.
+
+            st.markdown("---")
+            if st.button("Log Out", key="logout_account_page", type="primary"):
+                handle_logout()
