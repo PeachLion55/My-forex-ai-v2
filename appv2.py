@@ -1305,39 +1305,57 @@ elif st.session_state.current_page == 'trading_journal':
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
-                                # ========== START: UPDATED CSS BLOCK ==========
+                                    
+                                # ========== START: NEW, MORE AGGRESSIVE CSS BLOCK ==========
                                 st.markdown(
                                     """
                                     <style>
-                                        /* This rule makes the pencil icon button as small as possible */
+                                        /* 
+                                          This is a very aggressive and specific selector to force the override.
+                                          It targets the button directly using its unique key.
+                                        */
                                         button[key*="edit_btn_"] {
-                                            position: absolute;
-                                            top: 2px;
-                                            right: 2px;
-                                            z-index: 10;
-                                            background-color: transparent;
-                                            border: none;
-                                            color: #c9d1d9; /* Visible pencil */
-                                            font-size: 0.6em; /* Extremely small font size for the icon */
-                                            padding: 0;
-                                            height: 10px; /* Minimal clickable area */
-                                            width: 10px; /* Minimal clickable area */
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: center;
-                                            line-height: 1; /* Helps with centering */
+                                            /* Positioning */
+                                            position: absolute !important;
+                                            top: 2px !important;
+                                            right: 3px !important;
+                                            z-index: 10 !important;
+
+                                            /* Appearance */
+                                            background: transparent !important;
+                                            border: none !important;
+                                            color: #999 !important; /* Make it a bit faded */
+                                            
+                                            /* --- THE CRITICAL SIZE OVERRIDES --- */
+                                            font-size: 10px !important;      /* Use a small, absolute pixel value */
+                                            line-height: 10px !important;    /* Match the font size for centering */
+                                            height: 14px !important;         /* Set a tiny height for the clickable area */
+                                            width: 14px !important;          /* Set a tiny width for the clickable area */
+                                            min-height: 0 !important;        /* IMPORTANT: Override Streamlit's default min-height */
+                                            min-width: 0 !important;         /* IMPORTANT: Override Streamlit's default min-width */
+
+                                            /* Layout */
+                                            padding: 0 !important;
+                                            margin: 0 !important;
+                                            display: flex !important;
+                                            align-items: center !important;
+                                            justify-content: center !important;
                                         }
-                                        /* This ensures the containing elements do not stretch excessively when the button is positioned absolutely */
-                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div:nth-child(2) > div > button[key*="edit_btn_"] {
-                                            margin-top: 0px !important;
+
+                                        /* Optional: Add a subtle hover effect to show it's clickable */
+                                        button[key*="edit_btn_"]:hover {
+                                            color: #fff !important; 
+                                            background: rgba(100, 100, 100, 0.3) !important;
                                         }
+
+                                        /* Keep padding on the container to prevent text from overlapping the button */
                                         .playbook-metric-display {
-                                            padding-right: 20px; /* Ensure space for the button */
+                                            padding-right: 25px !important;
                                         }
                                     </style>
                                     """, unsafe_allow_html=True
                                 )
-                                # ========== END: UPDATED CSS BLOCK ==========
+                                # ========== END: NEW CSS BLOCK ==========
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
