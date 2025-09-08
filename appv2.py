@@ -967,7 +967,7 @@ for page_key, page_name in nav_items:
             icon_path = os.path.join("icons", icon_filename)
             if os.path.exists(icon_path):
                 # NOTE: Adjusted width from 120 to 28 for a better layout
-                st.image(icon_path, width=28) 
+                st.image(icon_path, width=120) 
 
     with col2:
         # Highlight the active page button using 'type="primary"'
