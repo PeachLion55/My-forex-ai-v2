@@ -1075,7 +1075,7 @@ elif st.session_state.current_page == 'trading_journal':
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("📊 Trading Journal")
+    st.title("📖 Trading Journal")
     st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
 
