@@ -864,42 +864,55 @@ def image_to_base64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
+from PIL import Image
+import base64
+import io
+import streamlit as st
+
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
 
-# --- Define the local path for your icons folder ---
-ICON_ROOT = "icons"
+st.markdown(
+    """
+    <style>
+    .sidebar-content {
+        padding-top: 0rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# --- Logo Display (same as your original code) ---
-try:
-    logo = Image.open("logo22.png")
-    logo = logo.resize((60, 50))
-    buffered = io.BytesIO()
-    logo.save(buffered, format="PNG")
-    logo_str = base64.b64encode(buffered.getvalue()).decode()
-    st.sidebar.markdown(
-        f"""
-        <div style='text-align: center; margin-bottom: 20px;'>
-            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-except FileNotFoundError:
-    st.sidebar.error("Logo file 'logo22.png' not found.")
+# Logo
+logo = Image.open("logo22.png").resize((60, 50))
+buffered = io.BytesIO()
+logo.save(buffered, format="PNG")
+logo_str = base64.b64encode(buffered.getvalue()).decode()
 
+st.sidebar.markdown(
+    f"""
+    <div style='text-align: center; margin-bottom: 20px;'>
+        <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# --- Get the current page from the URL query parameter ---
-# We use st.query_params instead of st.session_state for navigation.
-# This makes the page state bookmarkable and shareable.
-if 'page' not in st.query_params:
-    current_page = 'fundamentals' # Default page
-else:
-    current_page = st.query_params['page']
+# Map nav keys to icon filenames
+icon_map = {
+    'fundamentals': 'forex_fundamentals.png',
+    'trading_journal': 'trading_journal.png',
+    'mt5': 'performance_dashboard.png',
+    'trading_tools': 'trading_tools.png',
+    'strategy': 'manage_my_strategy.png',
+    'community': 'community_trade_ideas.png',
+    'Community Chatroom': 'community_chatroom.png',
+    'Zenvo Academy': 'community_trade_ideas.png',  # reuse icon or create new one
+    'account': 'my_account.png'
+}
 
-
-# --- Navigation Items Definition ---
+# Navigation labels
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
@@ -908,110 +921,34 @@ nav_items = [
     ('strategy', 'Manage My Strategy'),
     ('community', 'Community Trade Ideas'),
     ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'), # Note: No icon provided
+    ('Zenvo Academy', 'Zenvo Academy'),
     ('account', 'My Account')
 ]
 
-# --- Icon Mapping ---
-icon_mapping = {
-    'trading_journal': 'trading_journal.png',
-    'fundamentals': 'forex_fundamentals.png',
-    'mt5': 'performance_dashboard.png',
-    'account': 'my_account.png',
-    'strategy': 'manage_my_strategy.png',
-    'trading_tools': 'trading_tools.png',
-    'community': 'community_trade_ideas.png',
-    'Community Chatroom': 'community_chatroom.png'
-}
-
-
-# --- CSS for Custom Navigation Buttons ---
-# This CSS styles the <a> tags to look like full-width buttons.
-# The 'active' class will be applied to the currently selected button.
-st.sidebar.markdown("""
-<style>
-    /* Style for the container of the nav links */
-    .nav-container {
-        display: flex;
-        flex-direction: column;
-        gap: 5px; /* Space between buttons */
-    }
-
-    /* General style for each navigation link */
-    .nav-link {
-        display: flex;
-        align-items: center; /* Vertically center icon and text */
-        padding: 8px 10px;
-        border-radius: 8px;
-        text-decoration: none;
-        color: #FFFFFF; /* Text color */
-        font-weight: 500;
-        transition: background-color 0.2s, color 0.2s;
-    }
-
-    /* Hover effect for the buttons */
-    .nav-link:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: #FFFFFF;
-    }
-
-    /* Style for the icon within the link */
-    .nav-link img {
-        width: 22px;       /* Icon size */
-        height: 22px;
-        margin-right: 12px; /* Space between icon and text */
-    }
-    
-    /* Style for the active (currently selected) button */
-    .nav-link.active {
-        background-color: #4CAF50; /* A distinct background color */
-        color: white;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# --- Loop to Create the HTML Navigation Links ---
-nav_html = "<div class='nav-container'>"
 for page_key, page_name in nav_items:
-    icon_filename = icon_mapping.get(page_key)
+    is_active = (st.session_state.current_page == page_key)
     
-    # Start the HTML for the link
-    icon_html = ""
-    if icon_filename:
-        icon_path = os.path.join(ICON_ROOT, icon_filename)
-        if os.path.exists(icon_path):
-            # Embed the image directly into the HTML
-            icon_base64 = image_to_base64(icon_path)
-            icon_html = f"<img src='data:image/png;base64,{icon_base64}'>"
-
-    # Add the 'active' class if this is the current page
-    active_class = "active" if current_page == page_key else ""
+    # Load icon
+    icon = Image.open(f"icon/{icon_map[page_key]}").resize((20, 20))
+    buffered = io.BytesIO()
+    icon.save(buffered, format="PNG")
+    icon_str = base64.b64encode(buffered.getvalue()).decode()
     
-    # Construct the full HTML link, which changes the URL query param on click
-    nav_html += f"""
-        <a href="?page={page_key}" class="nav-link {active_class}" target="_self">
-            {icon_html}
-            {page_name}
-        </a>
+    button_html = f"""
+    <div style="display: flex; align-items: center; padding: 5px 0;">
+        <img src="data:image/png;base64,{icon_str}" width="20" height="20" style="margin-right: 10px"/>
+        <span>{page_name}</span>
+    </div>
     """
-nav_html += "</div>"
-
-# Render the entire HTML block in the sidebar
-st.sidebar.markdown(nav_html, unsafe_allow_html=True)
-
-
-# ===================================================================
-# In the rest of your app, you would now use the 'current_page'
-# variable to decide which content to show.
-# For example:
-#
-# if current_page == 'trading_journal':
-#     show_trading_journal()
-# elif current_page == 'account':
-#     show_account_page()
-#
-# ===================================================================
+    
+    if st.sidebar.button(page_name, key=f"nav_{page_key}"):
+        st.session_state.current_page = page_key
+        st.session_state.current_subpage = None
+        st.session_state.show_tools_submenu = False
+        st.rerun()
+    
+    # Display button with icon
+    st.sidebar.markdown(button_html, unsafe_allow_html=True)
 
 # =========================================================
 # MAIN APPLICATION LOGIC
