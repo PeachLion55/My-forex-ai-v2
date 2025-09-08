@@ -1319,8 +1319,8 @@ elif st.session_state.current_page == 'trading_journal':
                                             color: #c9d1d9; /* Visible pencil */
                                             font-size: 1em;
                                             padding: 0;
-                                            height: 20px; /* Small clickable area */
-                                            width: 20px; /* Small clickable area */
+                                            height: 10px; /* Small clickable area */
+                                            width: 10px; /* Small clickable area */
                                             display: flex;
                                             align-items: center;
                                             justify-content: center;
