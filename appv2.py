@@ -855,53 +855,51 @@ import base64
 import os
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE LOCAL IMAGES
-# =========================================================
-# This function converts an image file into a base64 string, allowing it
-# to be embedded directly into our custom HTML button.
-@st.cache_data
-def image_to_base64(path):
-    with open(path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
-
-# =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
 
-# --- Local path for your icons folder ---
-ICON_ROOT = "icons"
+# --- Add custom CSS for vertical alignment ---
+# This is the key to making the icon and the button look perfectly aligned as a single unit.
+st.markdown(
+    """
+    <style>
+    .sidebar-content {
+        padding-top: 0rem;
+    }
+    /* Vertically center elements in columns */
+    [data-testid="stHorizontalBlock"] {
+        align-items: center;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # --- Logo Display (same as your original code) ---
 try:
-    logo_path = "logo22.png"
-    if os.path.exists(logo_path):
-        logo = Image.open(logo_path)
-        logo = logo.resize((60, 50))
-        buffered = io.BytesIO()
-        logo.save(buffered, format="PNG")
-        logo_str = base64.b64encode(buffered.getvalue()).decode()
-        st.sidebar.markdown(
-            f"""
-            <div style='text-align: center; margin-bottom: 20px;'>
-                <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 except FileNotFoundError:
     st.sidebar.error("Logo file 'logo22.png' not found.")
 
-# --- Link URL parameters back to st.session_state (CRUCIAL PART) ---
-# This block ensures that when a custom HTML button is clicked (changing the URL),
-# it updates your app's internal session state, just like st.button would.
-params = st.query_params
-if "page" in params:
-    st.session_state.current_page = params["page"][0]
-elif "current_page" not in st.session_state:
-    # Set a default page on the first run
-    st.session_state.current_page = "fundamentals"
+# --- Initialize session_state if it's the first run ---
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
 
-# --- Navigation & Icon Definitions (from your original code) ---
+
+# --- Navigation Items Definition (emojis removed from text) ---
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
@@ -914,6 +912,7 @@ nav_items = [
     ('account', 'My Account')
 ]
 
+# --- Map your page keys to the icon file names in the 'icons' folder ---
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
     'fundamentals': 'forex_fundamentals.png',
@@ -925,92 +924,32 @@ icon_mapping = {
     'Community Chatroom': 'community_chatroom.png'
 }
 
-# --- CSS for Custom Navigation Buttons ---
-st.sidebar.markdown("""
-<style>
-    /* Container for the nav links for layout */
-    .nav-container {
-        display: flex;
-        flex-direction: column;
-        gap: 8px; /* Space between buttons */
-    }
 
-    /* Style for each navigation link (our button) */
-    .nav-link {
-        display: flex;
-        align-items: center; /* Vertically center icon and text */
-        width: 100%;
-        padding: 10px 12px;
-        border-radius: 8px;
-        text-decoration: none;
-        color: white;
-        background-color: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        transition: background-color 0.2s, color 0.2s;
-    }
-
-    /* Hover effect */
-    .nav-link:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
-    }
-    
-    /* Active button style */
-    .nav-link.active {
-        background-color: #0068C9; /* Or any color you prefer for the active state */
-        border-color: #0068C9;
-        font-weight: 600;
-    }
-
-    /* Style for the icon image inside the button */
-    .nav-link img {
-        width: 28px;        /* --- ADJUST ICON SIZE HERE --- */
-        height: 28px;       /* --- ADJUST ICON SIZE HERE --- */
-        margin-right: 15px; /* Space between icon and text */
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# --- Loop to generate the HTML for each button ---
-nav_html = "<div class='nav-container'>"
-
-# Get the current page from session_state to determine the 'active' button
-current_page_key = st.session_state.current_page
-
+# --- Loop to Create the Navigation Menu ---
+# This new loop uses your original logic within columns.
 for page_key, page_name in nav_items:
-    icon_filename = icon_mapping.get(page_key)
-    icon_html = ""
     
-    if icon_filename:
-        icon_path = os.path.join(ICON_ROOT, icon_filename)
-        if os.path.exists(icon_path):
-            # Embed the image directly into the HTML
-            icon_base64 = image_to_base64(icon_path)
-            icon_html = f"<img src='data:image/png;base64,{icon_base64}'>"
-    
-    # Check if this item is the active page to apply the style
-    active_class = "active" if current_page_key == page_key else ""
-    
-    # Construct the full HTML link (<a> tag) which acts as our button
-    # Clicking it sets the "page" URL parameter, triggering the script rerun.
-    # The target="_self" ensures it opens in the same tab.
-    nav_html += f"""
-        <a href="?page={page_key}" class="nav-link {active_class}" target="_self">
-            {icon_html}
-            {page_name}
-        </a>
-    """
-nav_html += "</div>"
+    # Create two columns: one for the icon, one for the button
+    col1, col2 = st.sidebar.columns([1, 4], gap="small")
 
-# Render the entire HTML block in the sidebar
-st.sidebar.markdown(nav_html, unsafe_allow_html=True)
+    with col1:
+        icon_filename = icon_mapping.get(page_key)
+        if icon_filename:
+            icon_path = os.path.join("icons", icon_filename)
+            if os.path.exists(icon_path):
+                st.image(icon_path, width=28) # <-- ADJUST ICON SIZE HERE
 
-# ===================================================================
-# IMPORTANT: No changes are needed in the rest of your app. Your
-# original code that checks st.session_state.current_page will now
-# work perfectly with these custom buttons.
-# ===================================================================
+    with col2:
+        # Highlight the active page button using 'type="primary"'
+        is_active = (st.session_state.current_page == page_key)
+        button_type = "primary" if is_active else "secondary"
+        
+        # This is your original button logic, now inside a column
+        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
+            st.rerun()
 
 # =========================================================
 # MAIN APPLICATION LOGIC
