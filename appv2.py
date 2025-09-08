@@ -864,14 +864,19 @@ def image_to_base64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
-from PIL import Image
-import base64
-import io
 import streamlit as st
+from PIL import Image
+import io
+import base64
+import os
+from streamlit_extras.switch_page_button import switch_page # Import the new function
 
 # =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
+
+# --- Define the local path for your icons folder ---
+ICON_ROOT = "icons"
 
 st.markdown(
     """
@@ -879,40 +884,43 @@ st.markdown(
     .sidebar-content {
         padding-top: 0rem;
     }
+    /* Optional: Style the buttons for a better look */
+    div[data-testid="stSidebarNav"] ul {
+        padding-top: 1rem;
+    }
+    div[data-testid="stSidebarNav"] li {
+        padding-bottom: 10px; /* Add some space between buttons */
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# Logo
-logo = Image.open("logo22.png").resize((60, 50))
-buffered = io.BytesIO()
-logo.save(buffered, format="PNG")
-logo_str = base64.b64encode(buffered.getvalue()).decode()
+# --- Logo Display (same as your original code) ---
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except FileNotFoundError:
+    st.sidebar.error("Logo file 'logo22.png' not found.")
 
-st.sidebar.markdown(
-    f"""
-    <div style='text-align: center; margin-bottom: 20px;'>
-        <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
 
-# Map nav keys to icon filenames
-icon_map = {
-    'fundamentals': 'forex_fundamentals.png',
-    'trading_journal': 'trading_journal.png',
-    'mt5': 'performance_dashboard.png',
-    'trading_tools': 'trading_tools.png',
-    'strategy': 'manage_my_strategy.png',
-    'community': 'community_trade_ideas.png',
-    'Community Chatroom': 'community_chatroom.png',
-    'Zenvo Academy': 'community_trade_ideas.png',  # reuse icon or create new one
-    'account': 'my_account.png'
-}
+# --- Initialize session state if not already done ---
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals' # Set a default page
 
-# Navigation labels
+# --- Navigation Items Definition ---
+# The emojis are removed from the text labels.
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
@@ -921,34 +929,67 @@ nav_items = [
     ('strategy', 'Manage My Strategy'),
     ('community', 'Community Trade Ideas'),
     ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'),
+    ('Zenvo Academy', 'Zenvo Academy'), # Note: No icon provided
     ('account', 'My Account')
 ]
 
+# --- Icon Mapping ---
+# Maps each page_key to its corresponding icon file name in the 'icons' folder.
+icon_mapping = {
+    'trading_journal': 'trading_journal.png',
+    'fundamentals': 'forex_fundamentals.png',
+    'mt5': 'performance_dashboard.png',
+    'account': 'my_account.png',
+    'strategy': 'manage_my_strategy.png',
+    'trading_tools': 'trading_tools.png',
+    'community': 'community_trade_ideas.png',
+    'Community Chatroom': 'community_chatroom.png'
+}
+
+
+# --- Loop to Create the Navigation Menu ---
+# This approach maintains your original st.session_state logic.
+st.sidebar.header("Navigation")
+
 for page_key, page_name in nav_items:
+    icon_filename = icon_mapping.get(page_key)
+    icon_path = ""
+    if icon_filename and os.path.exists(os.path.join(ICON_ROOT, icon_filename)):
+         icon_path = os.path.join(ICON_ROOT, icon_filename)
+    
+    # Check if this is the active button
+    # The button will be styled as 'primary' (filled) if it's the current page
     is_active = (st.session_state.current_page == page_key)
-    
-    # Load icon
-    icon = Image.open(f"icon/{icon_map[page_key]}").resize((20, 20))
-    buffered = io.BytesIO()
-    icon.save(buffered, format="PNG")
-    icon_str = base64.b64encode(buffered.getvalue()).decode()
-    
-    button_html = f"""
-    <div style="display: flex; align-items: center; padding: 5px 0;">
-        <img src="data:image/png;base64,{icon_str}" width="20" height="20" style="margin-right: 10px"/>
-        <span>{page_name}</span>
-    </div>
-    """
-    
-    if st.sidebar.button(page_name, key=f"nav_{page_key}"):
-        st.session_state.current_page = page_key
-        st.session_state.current_subpage = None
-        st.session_state.show_tools_submenu = False
-        st.rerun()
-    
-    # Display button with icon
-    st.sidebar.markdown(button_html, unsafe_allow_html=True)
+    button_type = "primary" if is_active else "secondary"
+
+    # We use a custom function to create the button content with an image
+    # Note: `st.button` does NOT support images directly. This is a common pain point.
+    # The BEST way is to create the button with st.columns for layout.
+
+    col1, col2 = st.sidebar.columns([1, 4])
+
+    with col1:
+        if icon_path:
+             # Using a smaller width and adding some margin
+             st.image(icon_path, width=25)
+
+    with col2:
+         # use_container_width makes the button fill the column
+        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
+            st.session_state.current_page = page_key
+            
+            # --- Optional state resets from your original code ---
+            # st.session_state.current_subpage = None
+            # st.session_state.show_tools_submenu = False
+            
+            st.rerun()
+            
+# --- Add some vertical space at the bottom of the sidebar
+st.sidebar.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
+
+# You can now use st.session_state.current_page in the main part of your app to display content
+# For example:
+# st.header(f"You are on page: {st.session_state.current_page}")
 
 # =========================================================
 # MAIN APPLICATION LOGIC
