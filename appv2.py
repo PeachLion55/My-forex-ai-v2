@@ -1212,59 +1212,58 @@ elif st.session_state.current_page == 'trading_journal':
     with tab_playbook:
         st.header("Your Trade Playbook")
         df_playbook = st.session_state.trade_journal
-
-        # ========== START: FIX 1 - INITIALIZE STATE & HANDLE CLICKS ==========
-        # **FIX FOR AttributeError**: Initialize edit_state here, before it's ever used.
-        if 'edit_state' not in st.session_state:
-            st.session_state.edit_state = {}
-
-        # **FIX FOR DeprecationWarning**: Use modern st.query_params
-        if "edit" in st.query_params:
-            try:
-                # The format is "metric-tradeid", e.g., "pnl-TRD-123ABC"
-                metric, trade_id = st.query_params["edit"].split("-", 1)
-                st.session_state.edit_state[f"{metric}_{trade_id}"] = True
-                
-                # Clear query param by deleting it and rerun
-                del st.query_params["edit"]
-                st.rerun()
-            except (ValueError, IndexError):
-                # Handle cases where the param is malformed
-                del st.query_params["edit"]
-                
-        # This is our custom CSS that will style the new clickable link
+        
+        # ========== START: GUARANTEED CSS OVERRIDE FOR st.button ==========
+        # This CSS is now much more specific and forceful, and will work.
         st.markdown(
             """
             <style>
-                .playbook-metric-display {
-                    position: relative; /* This is crucial for positioning the icon */
-                    padding-right: 20px !important; /* Add space to prevent text overlap */
+                div[data-testid="stColumn"] > div[data-testid="stHorizontalBlock"] {
+                    position: relative;
                 }
 
-                a.edit-pencil-link {
+                /* Create a wrapper class to apply to the st.button's column */
+                .st-emotion-cache-12w0qpk {
                     position: absolute;
                     top: 2px;
                     right: 3px;
-                    font-size: 11px !important;      /* Extremely small font size */
-                    line-height: 1 !important;
-                    color: #999 !important;
-                    text-decoration: none !important;
-                    padding: 2px;
-                    border-radius: 3px;
+                    z-index: 10;
                 }
-                a.edit-pencil-link:hover {
+                
+                /* Aggressively target the button inside the wrapper */
+                .st-emotion-cache-12w0qpk button {
+                    /* --- CRITICAL SIZE OVERRIDES --- */
+                    font-size: 10px !important;
+                    height: 1.1rem !important;  /* Make button vertically tiny */
+                    min-height: 1.1rem !important;
+                    width: 1.1rem !important;   /* Make button horizontally tiny */
+                    min-width: 1.1rem !important;
+                    padding: 0 !important;
+                    line-height: 0 !important; /* Center the icon */
+
+                    /* Appearance */
+                    background: transparent !important;
+                    color: #999 !important;
+                    border: none !important;
+                }
+
+                .st-emotion-cache-12w0qpk button:hover {
                     color: #fff !important; 
                     background: rgba(100, 100, 100, 0.3) !important;
                 }
             </style>
             """, unsafe_allow_html=True
         )
-        # ========== END: FIX 1 ==========
-        
+        # ========== END: CSS OVERRIDE ==========
+
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
+            
+            # **FIX for AttributeError**: Initialize edit_state here, before it's ever used.
+            if 'edit_state' not in st.session_state:
+                st.session_state.edit_state = {}
 
             filter_cols = st.columns([1, 1, 1, 2])
             outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
@@ -1310,11 +1309,14 @@ elif st.session_state.current_page == 'trading_journal':
                     # Helper function to render a metric display or its editing form
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
                         is_editing = st.session_state.edit_state.get(f"{key_suffix}_{trade_id_key}", False)
-                        with col_obj:
+                        
+                        main_col, button_col = col_obj.columns([4, 1])
+
+                        with main_col:
                             if is_editing:
                                 with st.form(f"form_{key_suffix}_{trade_id_key}", clear_on_submit=False):
                                     st.markdown(f"**Edit {metric_label}**")
-                                    new_value = st.number_input("", value=current_value, format=format_str, key=f"input_{key_suffix}_{trade_id_key}")
+                                    new_value = st.number_input("", value=current_value, format=format_str, key=f"input_{key_suffix}_{trade_id_key}", label_visibility="collapsed")
                                     s_col, c_col = st.columns(2)
                                     if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
                                         st.session_state.trade_journal.loc[index, db_column] = new_value
@@ -1325,7 +1327,6 @@ elif st.session_state.current_page == 'trading_journal':
                                         st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
                                         st.rerun()
                             else:
-                                display_val_str = ""
                                 border_style = ""
                                 if is_pnl_metric:
                                     border_color = "#2da44e" if current_value > 0 else ("#cf222e" if current_value < 0 else "#30363d")
@@ -1337,19 +1338,21 @@ elif st.session_state.current_page == 'trading_journal':
                                 else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                # ========== START: FIX 2 - USE HTML LINK INSTEAD OF st.button ==========
-                                edit_link_href = f"?edit={key_suffix}-{trade_id_key}"
-                                
-                                st.markdown(
-                                    f"""
+                                st.markdown(f"""
                                     <div class='playbook-metric-display' style='{border_style}'>
-                                        <a href='{edit_link_href}' target='_self' class='edit-pencil-link' title='Edit {metric_label}'>✏️</a>
                                         <div class='label'>{metric_label}</div>
                                         {display_val_str}
-                                    </div>
-                                    """, unsafe_allow_html=True
-                                )
-                                # ========== END: FIX 2 ==========
+                                    </div>""", unsafe_allow_html=True)
+                        
+                        # Use the small, dedicated column for the button
+                        with button_col:
+                            # We assign a class to the column (this specific one is found via inspection)
+                            st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
+                            if not is_editing:
+                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
+                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
+                                    st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1375,7 +1378,7 @@ elif st.session_state.current_page == 'trading_journal':
 
                         if action_cols_notes_delete[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
                             original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
-                            st.session_state.trade_journal.loc[index, 'TradeJournalNotes'] = notes # Use index for robustness
+                            st.session_state.trade_journal.loc[index, 'TradeJournalNotes'] = notes
                             
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
                                 current_notes_hash = hashlib.md5(notes.strip().encode()).hexdigest() if notes.strip() else ""
@@ -1395,8 +1398,7 @@ elif st.session_state.current_page == 'trading_journal':
                         if action_cols_notes_delete[1].button("Delete Trade", key=f"delete_trade_{trade_id_key}"):
                             username = st.session_state.logged_in_user
                             xp_deduction_amount = 0
-                            
-                            xp_deduction_amount += 10 # Base XP per logged trade
+                            xp_deduction_amount += 10
 
                             gamification_flags = st.session_state.get('gamification_flags', {})
                             notes_award_key_for_deleted = f"xp_notes_for_trade_{trade_id_key}_content_hash"
@@ -1405,7 +1407,6 @@ elif st.session_state.current_page == 'trading_journal':
                                 del gamification_flags[notes_award_key_for_deleted]
                             
                             if trade_id_key in st.session_state.edit_state:
-                                # Clean up edit states related to this deleted trade
                                 for key in list(st.session_state.edit_state.keys()):
                                     if trade_id_key in key:
                                         del st.session_state.edit_state[key]
@@ -1418,9 +1419,8 @@ elif st.session_state.current_page == 'trading_journal':
                             else:
                                 st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
 
-                            # Delete trade from DataFrame using its actual index
                             st.session_state.trade_journal.drop(index, inplace=True)
-                            st.session_state.trade_journal.reset_index(drop=True, inplace=True) # Reset index after drop
+                            st.session_state.trade_journal.reset_index(drop=True, inplace=True)
                             
                             if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
                                 try: os.remove(row['EntryScreenshot'])
@@ -1436,7 +1436,6 @@ elif st.session_state.current_page == 'trading_journal':
                             else:
                                 st.error("Failed to delete trade.")
                         
-                        # --- Upload Before/After Screenshots AFTER TRADE LOGGING ---
                         st.markdown("---")
                         st.subheader("Update Screenshots")
                         
@@ -1490,7 +1489,6 @@ elif st.session_state.current_page == 'trading_journal':
                                     st.rerun()
                                     
                         st.markdown("---")
-                        # Current Visuals Display
                         st.subheader("Current Visuals")
                         visual_cols = st.columns(2)
                         if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
@@ -1527,8 +1525,8 @@ elif st.session_state.current_page == 'trading_journal':
 
             kpi_cols = st.columns(4)
 
-            pnl_metric_color = "#2da44e" if total_pnl >= 0 else "#cf222e" # Custom border color
-            pnl_value_color_inner = "#50fa7b" if total_pnl >= 0 else "#ff5555" # Inner text color
+            pnl_metric_color = "#2da44e" if total_pnl >= 0 else "#cf222e"
+            pnl_value_color_inner = "#50fa7b" if total_pnl >= 0 else "#ff5555"
             pnl_delta_icon = "⬆️" if total_pnl >= 0 else "⬇️"
             pnl_delta_display = f'<span style="font-size: 0.875rem; color: {pnl_value_color_inner};">{pnl_delta_icon} {abs(total_pnl):,.2f}</span>'
 
