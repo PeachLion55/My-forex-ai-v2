@@ -1078,6 +1078,81 @@ elif st.session_state.current_page == 'trading_journal':
     st.title("📊 Trading Journal")
     st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
+    
+    st.markdown(
+        """
+        <style>
+        /* Custom Styling for Playbook Metric Display (pencil icon integrated) */
+        .playbook-metric-display {
+            background-color: #161b22;
+            border: 1px solid #30363d; /* Default border for all metrics */
+            border-radius: 8px;
+            padding: 10px 10px 5px 10px; /* Smaller padding, leave space for icon */
+            position: relative; /* Crucial for absolute positioning of the button */
+            height: 75px; /* Fixed height for consistent look */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+        .playbook-metric-display .label {
+            font-size: 0.9em;
+            color: #8b949e;
+            margin-bottom: 3px;
+        }
+        .playbook-metric-display .value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #c9d1d9;
+            flex-grow: 1; /* Allow value to take available space */
+            display: flex;
+            align-items: flex-end; /* Align value to bottom */
+        }
+        /* Specific border colors for PnL */
+        .playbook-metric-display.profit-positive {
+            border-color: #2da44e; /* Green border for profit */
+        }
+        .playbook-metric-display.profit-negative {
+            border-color: #cf222e; /* Red border for loss */
+        }
+
+        /* Styling for the pencil edit button */
+        .playbook-edit-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            color: #8b949e; /* Icon color */
+            cursor: pointer;
+            font-size: 0.9em;
+            padding: 0;
+            margin: 0;
+            z-index: 10;
+        }
+        .playbook-edit-button:hover {
+            color: #58a6ff; /* Highlight on hover */
+        }
+
+        /* Streamlit file uploader compact style */
+        /* Targets the entire file uploader section in playbook expander */
+        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] {
+            margin-top: -10px; /* Pull it up a bit */
+        }
+        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] section { /* Targets inner file uploader container */
+            padding: 0.5rem !important; /* Smaller padding */
+            min-height: 80px !important; /* Reduced height */
+        }
+        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] section p { /* Targets "Drag and drop" text */
+            font-size: 0.8em !important;
+        }
+        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] div[data-testid="stFileUploaderFile"] span:first-child { /* Targets filename */
+            font-size: 0.75em !important;
+        }
+
+        </style>
+        """, unsafe_allow_html=True)
+
 
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
 
@@ -1254,12 +1329,12 @@ elif st.session_state.current_page == 'trading_journal':
                     """, unsafe_allow_html=True)
                     st.markdown("---")
 
-                    # Metrics Section
+                    # Metrics Section (PnL, R-Multiple, Position Size)
                     metric_cols = st.columns(3)
                     
-                    pnl_val = float(pd.to_numeric(row.get('PnL', 0.0), errors='coerce') or 0.0)
-                    rr_val = float(pd.to_numeric(row.get('RR', 0.0), errors='coerce') or 0.0)
-                    lots_val = float(pd.to_numeric(row.get('Lots', 0.01), errors='coerce') or 0.01)
+                    pnl_val = float(pd.to_numeric(row.get('PnL'), errors='coerce') or 0.0)
+                    rr_val = float(pd.to_numeric(row.get('RR'), errors='coerce') or 0.0)
+                    lots_val = float(pd.to_numeric(row.get('Lots'), errors='coerce') or 0.01)
 
                     # Helper function to render a metric display or its editing form
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
@@ -1281,60 +1356,47 @@ elif st.session_state.current_page == 'trading_journal':
                             else:
                                 display_val_str = ""
                                 border_style = ""
+                                val_color = "#c9d1d9" # Default text color
                                 if is_pnl_metric:
                                     border_color = "#2da44e" if current_value > 0 else ("#cf222e" if current_value < 0 else "#30363d")
                                     val_color = "#50fa7b" if current_value > 0 else ("#ff5555" if current_value < 0 else "#c9d1d9")
-                                    border_style = f"border: 1px solid {border_color};"
+                                    border_style = f"border-color: {border_color};"
                                     display_val_str = f"<div class='value' style='color:{val_color};'>${current_value:.2f}</div>"
                                 elif metric_label == "R-Multiple":
                                     display_val_str = f"<div class='value'>{current_value:.2f}R</div>"
                                 else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                # Use Streamlit's native components for reliability,
-                                # wrapping content for styling
+                                # Render the metric display with integrated pencil icon
                                 st.markdown(
                                     f"""
-                                    <div class='playbook-metric-display' style='{border_style} position:relative;'>
-                                        <div class='label' style='margin-right:25px;'>{metric_label}</div>
+                                    <div class='playbook-metric-display {'profit-positive' if is_pnl_metric and current_value > 0 else ('profit-negative' if is_pnl_metric and current_value < 0 else '')}' style='{border_style}'>
+                                        <div class='label'>{metric_label}</div>
                                         {display_val_str}
+                                        <button id='pencil-btn-{key_suffix}-{trade_id_key}' class='playbook-edit-button' onclick='Streamlit.setComponentValue("edit_trigger_{key_suffix}_{trade_id_key}", Date.now()); return false;'>✏️</button>
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-                                # Button absolutely positioned within the parent Streamlit column/context for simple access
-                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
-                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
-                                    st.rerun()
-                                st.markdown(
-                                    """
-                                    <style>
-                                        /* Basic override to visually pull button into top-right of metric display */
-                                        button[key*="edit_btn_"] {
-                                            position: absolute;
-                                            top: 5px;
-                                            right: 5px;
-                                            z-index: 10;
-                                            background-color: transparent;
-                                            border: none;
-                                            color: #c9d1d9; /* Visible pencil */
-                                            font-size: 1em;
-                                            padding: 0;
-                                            height: 20px; /* Small clickable area */
-                                            width: 20px; /* Small clickable area */
-                                            display: flex;
-                                            align-items: center;
-                                            justify-content: center;
-                                        }
-                                        /* This ensures the containing elements do not stretch excessively when the button is positioned absolutely */
-                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div:nth-child(2) > div > button[key*="edit_btn_"] {
-                                            margin-top: 0px !important;
-                                        }
-                                        .playbook-metric-display {
-                                            padding-right: 30px; /* Ensure space for the button */
-                                        }
-                                    </style>
-                                    """, unsafe_allow_html=True
+                                # Hidden Streamlit button that the JS 'onclick' event targets
+                                st.button(
+                                    "",
+                                    key=f"edit_trigger_{key_suffix}_{trade_id_key}",
+                                    on_click=lambda id=trade_id_key, ks=key_suffix: st.session_state.edit_state.update({f"{ks}_{id}": True}),
+                                    help=f"Edit {metric_label}",
                                 )
+                                st.markdown(f"""
+                                    <style>
+                                        /* Hide the native Streamlit button that serves as the trigger */
+                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div > button[key="edit_trigger_{key_suffix}_{trade_id_key}"] {{
+                                            display: none !important;
+                                        }}
+                                        /* Ensure playbook-metric-display is relative to enable absolute positioning */
+                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div > div.playbook-metric-display {{
+                                            position: relative;
+                                        }}
+                                    </style>
+                                """, unsafe_allow_html=True)
+
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1347,7 +1409,6 @@ elif st.session_state.current_page == 'trading_journal':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         if tags_list: st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    # Journal Notes & Screenshots (EXPANDER - DEFAULT CLOSED)
                     with st.expander("Journal Notes & Screenshots", expanded=False):
                         notes = st.text_area(
                             "Trade Journal Notes",
@@ -1403,9 +1464,8 @@ elif st.session_state.current_page == 'trading_journal':
                             else:
                                 st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
 
-                            # Delete trade from DataFrame using its actual index
                             st.session_state.trade_journal.drop(index, inplace=True)
-                            st.session_state.trade_journal.reset_index(drop=True, inplace=True) # Reset index after drop
+                            st.session_state.trade_journal.reset_index(drop=True, inplace=True)
                             
                             if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
                                 try: os.remove(row['EntryScreenshot'])
