@@ -1078,64 +1078,6 @@ elif st.session_state.current_page == 'trading_journal':
     st.title("📊 Trading Journal")
     st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
-    
-    st.markdown(
-        """
-        <style>
-        /* No custom .playbook-metric-display border-color overrides here for PnL
-           as st.metric is being used directly for Net PnL, RR, Lots in Playbook */
-
-        /* Streamlit file uploader compact style for the playbook expander */
-        /* Targets the entire file uploader section in playbook expander */
-        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] {
-            margin-top: -10px; /* Pull it up a bit */
-        }
-        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] section { /* Targets inner file uploader container */
-            padding: 0.5rem !important; /* Smaller padding */
-            min-height: 80px !important; /* Reduced height */
-        }
-        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] section p { /* Targets "Drag and drop" text */
-            font-size: 0.8em !important;
-        }
-        div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div > div:nth-child(2) > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stExpander"]) div[data-testid="stFileUploader"] div[data-testid="stFileUploaderFile"] span:first-child { /* Targets filename */
-            font-size: 0.75em !important;
-        }
-        /* Custom button styling for smaller inline edit pencil */
-        button[key*="edit_btn_"] {
-            background-color: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            line-height: 1;
-            box-shadow: none !important; /* Remove shadow */
-            transition: none !important; /* No transition for hover, keep simple */
-            height: 20px; /* Make it clickable without expanding metric box too much */
-            width: 20px;
-        }
-        button[key*="edit_btn_"] > div > p {
-            font-size: 0.9em !important; /* Make pencil emoji smaller */
-            color: #8b949e !important; /* Default grey color */
-        }
-        button[key*="edit_btn_"]:hover > div > p {
-            color: #58a6ff !important; /* Highlight on hover */
-        }
-        
-        /* General layout for metric + button */
-        .metric-with-edit-btn {
-            display: flex;
-            align-items: center; /* Vertically align label/value and button */
-            justify-content: space-between;
-            background-color: #161b22;
-            border: 1px solid #30363d; /* Consistent metric border */
-            border-radius: 8px;
-            padding: 0.8rem;
-            margin-bottom: 5px; /* Small space between rows */
-        }
-        .metric-with-edit-btn .stMetricLabel, .metric-with-edit-btn .stMetricValue {
-            padding: 0; /* Remove internal metric padding to align */
-        }
-        </style>
-        """, unsafe_allow_html=True)
 
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
 
@@ -1312,19 +1254,91 @@ elif st.session_state.current_page == 'trading_journal':
                     """, unsafe_allow_html=True)
                     st.markdown("---")
 
-                    # Metrics Section (PnL, R-Multiple, Position Size) - using st.metric as requested before
-                    metric_cols_display = st.columns(3)
+                    # Metrics Section
+                    metric_cols = st.columns(3)
                     
-                    pnl_val = float(pd.to_numeric(row.get('PnL'), errors='coerce') or 0.0)
-                    rr_val = float(pd.to_numeric(row.get('RR'), errors='coerce') or 0.0)
-                    lots_val = float(pd.to_numeric(row.get('Lots'), errors='coerce') or 0.01)
+                    pnl_val = float(pd.to_numeric(row.get('PnL', 0.0), errors='coerce') or 0.0)
+                    rr_val = float(pd.to_numeric(row.get('RR', 0.0), errors='coerce') or 0.0)
+                    lots_val = float(pd.to_numeric(row.get('Lots', 0.01), errors='coerce') or 0.01)
 
-                    with metric_cols_display[0]:
-                        st.metric("Net PnL", f"${pnl_val:,.2f}", delta=f"{pnl_val:+.2f}") # Default green/red via delta
-                    with metric_cols_display[1]:
-                        st.metric("R-Multiple", f"{rr_val:.2f}R")
-                    with metric_cols_display[2]:
-                        st.metric("Position Size", f"{lots_val:.2f} lots")
+                    # Helper function to render a metric display or its editing form
+                    def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
+                        is_editing = st.session_state.edit_state.get(f"{key_suffix}_{trade_id_key}", False)
+                        with col_obj:
+                            if is_editing:
+                                with st.form(f"form_{key_suffix}_{trade_id_key}", clear_on_submit=False):
+                                    st.markdown(f"**Edit {metric_label}**")
+                                    new_value = st.number_input("", value=current_value, format=format_str, key=f"input_{key_suffix}_{trade_id_key}")
+                                    s_col, c_col = st.columns(2)
+                                    if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
+                                        st.session_state.trade_journal.loc[index, db_column] = new_value
+                                        _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
+                                        st.rerun()
+                                    if c_col.form_submit_button("✗ Cancel", use_container_width=True):
+                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
+                                        st.rerun()
+                            else:
+                                display_val_str = ""
+                                border_style = ""
+                                if is_pnl_metric:
+                                    border_color = "#2da44e" if current_value > 0 else ("#cf222e" if current_value < 0 else "#30363d")
+                                    val_color = "#50fa7b" if current_value > 0 else ("#ff5555" if current_value < 0 else "#c9d1d9")
+                                    border_style = f"border: 1px solid {border_color};"
+                                    display_val_str = f"<div class='value' style='color:{val_color};'>${current_value:.2f}</div>"
+                                elif metric_label == "R-Multiple":
+                                    display_val_str = f"<div class='value'>{current_value:.2f}R</div>"
+                                else: # Position Size
+                                    display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
+                                
+                                # Use Streamlit's native components for reliability,
+                                # wrapping content for styling
+                                st.markdown(
+                                    f"""
+                                    <div class='playbook-metric-display' style='{border_style} position:relative;'>
+                                        <div class='label' style='margin-right:25px;'>{metric_label}</div>
+                                        {display_val_str}
+                                    </div>
+                                    """, unsafe_allow_html=True
+                                )
+                                # Button absolutely positioned within the parent Streamlit column/context for simple access
+                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
+                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
+                                    st.rerun()
+                                st.markdown(
+                                    """
+                                    <style>
+                                        /* Basic override to visually pull button into top-right of metric display */
+                                        button[key*="edit_btn_"] {
+                                            position: absolute;
+                                            top: 5px;
+                                            right: 5px;
+                                            z-index: 10;
+                                            background-color: transparent;
+                                            border: none;
+                                            color: #c9d1d9; /* Visible pencil */
+                                            font-size: 1em;
+                                            padding: 0;
+                                            height: 20px; /* Small clickable area */
+                                            width: 20px; /* Small clickable area */
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                        }
+                                        /* This ensures the containing elements do not stretch excessively when the button is positioned absolutely */
+                                        div[data-testid="stColumn"] > div > div:nth-child(2) > div:nth-child(2) > div > button[key*="edit_btn_"] {
+                                            margin-top: 0px !important;
+                                        }
+                                        .playbook-metric-display {
+                                            padding-right: 30px; /* Ensure space for the button */
+                                        }
+                                    </style>
+                                    """, unsafe_allow_html=True
+                                )
+
+                    render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
+                    render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
+                    render_metric_cell_or_form(metric_cols[2], "Position Size", "Lots", lots_val, "lots", "%.2f")
                     
                     st.markdown("---")
 
@@ -1333,7 +1347,8 @@ elif st.session_state.current_page == 'trading_journal':
                         tags_list = [f"`{tag.strip()}`" for tag in str(row['Tags']).split(',') if tag.strip()]
                         if tags_list: st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
-                    with st.expander("Journal Notes & Screenshots", expanded=False): # Expander - now properly populated and defaults to closed
+                    # Journal Notes & Screenshots (EXPANDER - DEFAULT CLOSED)
+                    with st.expander("Journal Notes & Screenshots", expanded=False):
                         notes = st.text_area(
                             "Trade Journal Notes",
                             value=row['TradeJournalNotes'],
@@ -1375,6 +1390,7 @@ elif st.session_state.current_page == 'trading_journal':
                                 del gamification_flags[notes_award_key_for_deleted]
                             
                             if trade_id_key in st.session_state.edit_state:
+                                # Clean up edit states related to this deleted trade
                                 for key in list(st.session_state.edit_state.keys()):
                                     if trade_id_key in key:
                                         del st.session_state.edit_state[key]
@@ -1387,8 +1403,9 @@ elif st.session_state.current_page == 'trading_journal':
                             else:
                                 st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
 
+                            # Delete trade from DataFrame using its actual index
                             st.session_state.trade_journal.drop(index, inplace=True)
-                            st.session_state.trade_journal.reset_index(drop=True, inplace=True)
+                            st.session_state.trade_journal.reset_index(drop=True, inplace=True) # Reset index after drop
                             
                             if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
                                 try: os.remove(row['EntryScreenshot'])
@@ -1498,14 +1515,7 @@ elif st.session_state.current_page == 'trading_journal':
             pnl_metric_color = "#2da44e" if total_pnl >= 0 else "#cf222e" # Custom border color
             pnl_value_color_inner = "#50fa7b" if total_pnl >= 0 else "#ff5555" # Inner text color
             pnl_delta_icon = "⬆️" if total_pnl >= 0 else "⬇️"
-            # Now calculating the abs delta from the last update and adding to this for consistent display
-            last_pnl_change_val = 0.0
-            if 'xp_log' in st.session_state and st.session_state.xp_log:
-                last_pnl_log_entry = next((entry for entry in reversed(st.session_state.xp_log) if "trade" in entry['Description'].lower() and "pnl" in entry['Description'].lower()), None)
-                if last_pnl_log_entry:
-                    last_pnl_change_val = last_pnl_log_entry['Amount'] # Assuming PnL is tracked here
-            
-            pnl_delta_display = f'<span style="font-size: 0.875rem; color: {pnl_value_color_inner};">{pnl_delta_icon} {abs(pnl_val):,.2f}</span>'
+            pnl_delta_display = f'<span style="font-size: 0.875rem; color: {pnl_value_color_inner};">{pnl_delta_icon} {abs(total_pnl):,.2f}</span>'
 
 
             kpi_cols[0].markdown(
@@ -1513,8 +1523,7 @@ elif st.session_state.current_page == 'trading_journal':
                 <div class="stMetric" style="background-color: #161b22; border: 1px solid {pnl_metric_color}; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out;">
                     <div data-testid="stMetricLabel" style="font-weight: 500; color: #8b949e;">Net PnL ($)</div>
                     <div data-testid="stMetricValue" style="font-size: 2.25rem; line-height: 1.2; font-weight: 600; color: {pnl_value_color_inner};">${total_pnl:,.2f}</div>
-                    <!-- Displaying overall net profit, a separate delta to signify change -->
-                    <div data-testid="stMetricDelta" style="font-size: 0.875rem; color: {pnl_value_color_inner};">{"+" if total_pnl >= 0 else "-"}{abs(total_pnl):,.2f} (Total)</div>
+                    {pnl_delta_display}
                 </div>
                 """, unsafe_allow_html=True
             )
