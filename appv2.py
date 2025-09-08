@@ -3320,15 +3320,8 @@ elif st.session_state.current_page == 'trading_tools':
 
     st.title("🛠 Trading Tools")
     st.markdown("""
-    ### Available Tools
-    - **Profit/Loss Calculator**: Calculate potential profits or losses based on trade size, entry, and exit prices.
-    - **Price Alerts**: Set custom price alerts for key levels on your chosen currency pairs.
-    - **Currency Correlation Heatmap**: Visualize correlations between currency pairs to identify hedging opportunities.
-    - **Risk Management Calculator**: Determine optimal position sizes based on risk tolerance and stop-loss levels.
-    - **Trading Session Tracker**: Monitor active trading sessions (e.g., London, New York) to align with market hours.
-    - **Drawdown Recovery Planner**: Plan recovery strategies for account drawdowns with calculated targets.
-    - **Pre-Trade Checklist**: Follow a structured checklist to ensure disciplined trade entries.
-    - **Pre-Market Checklist**: Prepare for the trading day with a comprehensive market analysis checklist.
+    ### Trading Tools
+Access a complete suite of utilities to optimize your trading. Features include a Profit/Loss Calculator, Price Alerts, Currency Correlation Heatmap, Risk Management Calculator, Trading Session Tracker, Drawdown Recovery Planner, Pre-Trade Checklist, and Pre-Market Checklist. Each tool is designed to help you manage risk, plan trades efficiently, and make data-driven decisions to maximize performance.
     """, unsafe_allow_html=True)
     st.markdown('---')
     st.markdown("""
