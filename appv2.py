@@ -1195,7 +1195,7 @@ elif st.session_state.current_page == 'trading_journal':
         # This HTML uses flexbox to align the icon and title with a specific gap.
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 10px;">
-                <img src="data:image/png;base64,{icon_base64}" width="40">
+                <img src="data:image/png;base64,{icon_base64}" width="100">
                 <h1 style="margin: 0; font-size: 2.75rem;">Trading Journal</h1>
             </div>
         """, unsafe_allow_html=True)
