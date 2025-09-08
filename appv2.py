@@ -880,7 +880,7 @@ st.sidebar.markdown(
 )
 
 nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
+    ('fundamentals', '📅 Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
     ('mt5', 'Performance Dashboard'),
     ('trading_tools', 'Trading Tools'),
