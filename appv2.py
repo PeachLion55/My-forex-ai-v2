@@ -1317,10 +1317,10 @@ elif st.session_state.current_page == 'trading_journal':
                                             background-color: transparent;
                                             border: none;
                                             color: #c9d1d9; /* Visible pencil */
-                                            font-size: 1em;
+                                            font-size: 0.2em;
                                             padding: 0;
-                                            height: 10px; /* Small clickable area */
-                                            width: 10px; /* Small clickable area */
+                                            height: 5px; /* Small clickable area */
+                                            width: 5px; /* Small clickable area */
                                             display: flex;
                                             align-items: center;
                                             justify-content: center;
