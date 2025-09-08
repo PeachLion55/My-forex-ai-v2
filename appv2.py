@@ -1125,16 +1125,8 @@ elif st.session_state.current_page == 'trading_journal':
                                            help="Check this to automatically calculate PnL and R:R based on prices entered above, overriding manual inputs.")
             st.markdown("---")
             
-            # --- SCREENSHOT UPLOAD FIELDS ---
-            st.markdown("##### 📸 Trade Screenshots")
-            col_screenshots = st.columns(2)
-            with col_screenshots[0]:
-                uploaded_entry_screenshot = st.file_uploader("Upload Entry Screenshot", type=["png", "jpg", "jpeg"], key="entry_ss")
-            with col_screenshots[1]:
-                uploaded_exit_screenshot = st.file_uploader("Upload Exit Screenshot", type=["png", "jpg", "jpeg"], key="exit_ss")
-            st.markdown("---")
-            # --- END SCREENSHOT UPLOAD ---
-
+            # --- SCREENSHOT UPLOAD FIELDS REMOVED FROM HERE, WILL BE IN PLAYBOOK ---
+            # These are intentionally removed as per new requirements.
             st.markdown("##### Rationale & Tags")
             entry_rationale = st.text_area("Why did you enter this trade?", height=100)
 
@@ -1194,26 +1186,10 @@ elif st.session_state.current_page == 'trading_journal':
 
                 trade_id_new = f"TRD-{uuid.uuid4().hex[:6].upper()}"
 
-                # --- Save Screenshots ---
-                image_base_path = os.path.join("user_data", st.session_state.logged_in_user, "journal_images")
-                os.makedirs(image_base_path, exist_ok=True) # Ensure directory exists
+                # --- NO SCREENSHOT SAVING HERE - will be done in Playbook ---
                 entry_screenshot_path_saved = None
                 exit_screenshot_path_saved = None
-
-                if uploaded_entry_screenshot:
-                    entry_screenshot_filename = f"{trade_id_new}_entry_{uploaded_entry_screenshot.name}"
-                    entry_screenshot_full_path = os.path.join(image_base_path, entry_screenshot_filename)
-                    with open(entry_screenshot_full_path, "wb") as f:
-                        f.write(uploaded_entry_screenshot.getbuffer())
-                    entry_screenshot_path_saved = entry_screenshot_full_path
-
-                if uploaded_exit_screenshot:
-                    exit_screenshot_filename = f"{trade_id_new}_exit_{uploaded_exit_screenshot.name}"
-                    exit_screenshot_full_path = os.path.join(image_base_path, exit_screenshot_filename)
-                    with open(exit_screenshot_full_path, "wb") as f:
-                        f.write(uploaded_exit_screenshot.getbuffer())
-                    exit_screenshot_path_saved = exit_screenshot_full_path
-                # --- End Save Screenshots ---
+                # --- End No Screenshot Saving ---
 
                 new_trade_data = {
                     "TradeID": trade_id_new, "Date": pd.to_datetime(date_val),
@@ -1222,8 +1198,8 @@ elif st.session_state.current_page == 'trading_journal':
                     "PnL": final_pnl, "RR": final_rr,
                     "Tags": ','.join(final_tags_list), "EntryRationale": entry_rationale,
                     "Strategy": '', "TradeJournalNotes": '', 
-                    "EntryScreenshot": entry_screenshot_path_saved, # Storing path
-                    "ExitScreenshot": exit_screenshot_path_saved    # Storing path
+                    "EntryScreenshot": entry_screenshot_path_saved, # Storing path (initially None)
+                    "ExitScreenshot": exit_screenshot_path_saved    # Storing path (initially None)
                 }
                 new_df = pd.DataFrame([new_trade_data])
                 st.session_state.trade_journal = pd.concat([st.session_state.trade_journal, new_df], ignore_index=True)
@@ -1264,83 +1240,146 @@ elif st.session_state.current_page == 'trading_journal':
 
             tag_filter = filter_cols[3].multiselect("Filter Tag", options=tag_options)
             
-            # The previous NameError likely originated here or near. Ensure consistent variable use.
+            # This filtered_df definition is correct as of last revision for the NameError
             filtered_df = df_playbook[
                 (df_playbook['Outcome'].isin(outcome_filter)) &
                 (df_playbook['Symbol'].isin(symbol_filter)) &
-                (df_playbook['Direction'].isin(direction_filter)) # This line was the previous source of error
+                (df_playbook['Direction'].isin(direction_filter))
             ]
 
             if tag_filter:
                 filtered_df = filtered_df[filtered_df['Tags'].astype(str).apply(lambda x: any(tag in x.split(',') for tag in tag_filter))]
 
-            # Use a dictionary in session state to manage edit mode for each trade
-            if 'edit_trade_metrics' not in st.session_state:
-                st.session_state.edit_trade_metrics = {}
+            # Use dictionaries in session state to manage edit mode for each specific metric (PnL, RR, Lots) per trade
+            if 'edit_pnl_state' not in st.session_state: st.session_state.edit_pnl_state = {}
+            if 'edit_rr_state' not in st.session_state: st.session_state.edit_rr_state = {}
+            if 'edit_lots_state' not in st.session_state: st.session_state.edit_lots_state = {}
 
 
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
-                with st.container():
+                with st.container(border=True): # Use border for clearer separation
                     st.markdown(f"""
-                    <div style="border: 1px solid #30363d; border-left: 8px solid {outcome_color}; border-radius: 8px; padding: 1rem 1.5rem; margin-bottom: 1rem;">
-                        <h4>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
-                        <span style="color: #8b949e; font-size: 0.9em;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
-                    </div>
+                    <h4 style='margin-bottom:0px; display:inline-block;'>{row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span></h4>
+                    <span style="color: #8b949e; font-size: 0.9em; display:block;">{row['Date'].strftime('%A, %d %B %Y')} | {row['TradeID']}</span>
                     """, unsafe_allow_html=True)
+                    st.markdown("---") # Visual separator
 
-                    # --- Editable Metrics Section ---
+
+                    # --- Editable Metrics Section with inline pencil icons ---
                     trade_id_key = row['TradeID']
                     
-                    # Determine styling based on PnL
-                    pnl_display_color = "#c9d1d9" # default white
-                    pnl_container_class = ""
-                    if row['PnL'] > 0:
-                        pnl_display_color = "#50fa7b" # green
-                        pnl_container_class = "profit-positive"
-                    elif row['PnL'] < 0:
-                        pnl_display_color = "#ff5555" # red
-                        pnl_container_class = "profit-negative"
+                    pnl_col, rr_col, lots_col = st.columns(3) # No fourth column needed now
 
-                    col_metrics_and_edit = st.columns([0.8, 0.8, 0.8, 0.6]) # Give edit button a small column
-                    
-                    col_metrics_and_edit[0].markdown(f"<div class='playbook-metric-display {pnl_container_class}'><div class='label'>Net PnL</div><div class='value' style='color:{pnl_display_color};'>${row['PnL']:.2f}</div></div>", unsafe_allow_html=True)
-                    col_metrics_and_edit[1].markdown(f"<div class='playbook-metric-display'><div class='label'>R-Multiple</div><div class='value'>{row['RR']:.2f}R</div></div>", unsafe_allow_html=True)
-                    col_metrics_and_edit[2].markdown(f"<div class='playbook-metric-display'><div class='label'>Position Size</div><div class='value'>{row['Lots']:.2f} lots</div></div>", unsafe_allow_html=True)
-                    
-                    with col_metrics_and_edit[3]:
-                        st.markdown("<div style='height: 3.5rem;'></div>", unsafe_allow_html=True) # Spacer for alignment
-                        if st.button("✏️ Edit Metrics", key=f"edit_metrics_button_{trade_id_key}", help="Click to edit PnL, R-Multiple, Position Size"):
-                            st.session_state.edit_trade_metrics[trade_id_key] = True
-                            st.rerun()
+                    with pnl_col:
+                        pnl_val = float(row['PnL'])
+                        pnl_display_color = "#50fa7b" if pnl_val > 0 else ("#ff5555" if pnl_val < 0 else "#c9d1d9")
+                        pnl_container_class = "profit-positive" if pnl_val > 0 else ("profit-negative" if pnl_val < 0 else "")
 
-                    # Only show edit fields if edit mode is active for this trade
-                    if st.session_state.edit_trade_metrics.get(trade_id_key, False):
-                        with st.form(key=f"edit_metrics_form_{trade_id_key}", clear_on_submit=False):
-                            st.markdown("---")
-                            st.subheader(f"Edit Metrics for {row['TradeID']}")
-                            edited_pnl = st.number_input("Net PnL ($)", value=float(row['PnL']), format="%.2f", key=f"edited_pnl_{trade_id_key}")
-                            edited_rr = st.number_input("R-Multiple (R)", value=float(row['RR']), format="%.2f", key=f"edited_rr_{trade_id_key}")
-                            edited_lots = st.number_input("Position Size (Lots)", min_value=0.01, max_value=1000.0, value=float(row['Lots']), format="%.2f", key=f"edited_lots_{trade_id_key}")
-                            
-                            save_col, cancel_col = st.columns([1, 4])
-                            with save_col:
-                                save_metrics_changes = st.form_submit_button("Save Changes", type="primary")
-                            with cancel_col:
-                                cancel_edit = st.form_submit_button("Cancel")
+                        is_editing_pnl = st.session_state.edit_pnl_state.get(trade_id_key, False)
+                        
+                        if is_editing_pnl:
+                            with st.form(key=f"edit_pnl_form_{trade_id_key}", clear_on_submit=False):
+                                edited_pnl = st.number_input(f"PnL ($) for {trade_id_key}", value=pnl_val, format="%.2f", key=f"edited_pnl_input_{trade_id_key}")
+                                save_col_pnl, cancel_col_pnl = st.columns([1,2])
+                                with save_col_pnl:
+                                    if st.form_submit_button("✓ Save", type="primary"):
+                                        st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'PnL'] = edited_pnl
+                                        _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                        st.session_state.edit_pnl_state[trade_id_key] = False # Exit edit mode
+                                        st.toast("PnL updated!", icon="✅")
+                                        st.rerun()
+                                with cancel_col_pnl:
+                                    if st.form_submit_button("✗ Cancel"):
+                                        st.session_state.edit_pnl_state[trade_id_key] = False
+                                        st.rerun()
+                        else:
+                            st.markdown(
+                                f"<div class='playbook-metric-display {pnl_container_class}'>"
+                                f"<div style='display:flex; justify-content:space-between; align-items:center;'>"
+                                f"<div class='label'>Net PnL</div>"
+                                f"</div>"
+                                f"<div class='value' style='color:{pnl_display_color};'>${pnl_val:.2f}</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                            # Pencil icon right-aligned at the top of the container
+                            st.button("✏️", key=f"edit_pnl_button_{trade_id_key}", help="Edit PnL", 
+                                      on_click=lambda id=trade_id_key: st.session_state.edit_pnl_state.update({id: True}),
+                                      use_container_width=False # Ensure button doesn't stretch too much
+                                     )
 
-                            if save_metrics_changes:
-                                st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, ['PnL', 'RR', 'Lots']] = [edited_pnl, edited_rr, edited_lots]
-                                if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
-                                    st.session_state.edit_trade_metrics[trade_id_key] = False # Exit edit mode
-                                    st.toast(f"Metrics for {row['TradeID']} updated successfully!")
-                                    st.rerun()
-                                else:
-                                    st.error("Failed to save metric changes.")
-                            elif cancel_edit:
-                                st.session_state.edit_trade_metrics[trade_id_key] = False # Exit edit mode
-                                st.rerun()
+                    with rr_col:
+                        rr_val = float(row['RR'])
+                        is_editing_rr = st.session_state.edit_rr_state.get(trade_id_key, False)
+
+                        if is_editing_rr:
+                            with st.form(key=f"edit_rr_form_{trade_id_key}", clear_on_submit=False):
+                                edited_rr = st.number_input(f"R-Multiple (R) for {trade_id_key}", value=rr_val, format="%.2f", key=f"edited_rr_input_{trade_id_key}")
+                                save_col_rr, cancel_col_rr = st.columns([1,2])
+                                with save_col_rr:
+                                    if st.form_submit_button("✓ Save", type="primary"):
+                                        st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'RR'] = edited_rr
+                                        _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                        st.session_state.edit_rr_state[trade_id_key] = False
+                                        st.toast("R-Multiple updated!", icon="✅")
+                                        st.rerun()
+                                with cancel_col_rr:
+                                    if st.form_submit_button("✗ Cancel"):
+                                        st.session_state.edit_rr_state[trade_id_key] = False
+                                        st.rerun()
+                        else:
+                            st.markdown(
+                                f"<div class='playbook-metric-display'>"
+                                f"<div style='display:flex; justify-content:space-between; align-items:center;'>"
+                                f"<div class='label'>R-Multiple</div>"
+                                f"</div>"
+                                f"<div class='value'>{rr_val:.2f}R</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                            st.button("✏️", key=f"edit_rr_button_{trade_id_key}", help="Edit R-Multiple", 
+                                      on_click=lambda id=trade_id_key: st.session_state.edit_rr_state.update({id: True}),
+                                      use_container_width=False
+                                     )
+
+                    with lots_col:
+                        lots_val = float(row['Lots'])
+                        is_editing_lots = st.session_state.edit_lots_state.get(trade_id_key, False)
+
+                        if is_editing_lots:
+                            with st.form(key=f"edit_lots_form_{trade_id_key}", clear_on_submit=False):
+                                edited_lots = st.number_input(f"Lots for {trade_id_key}", min_value=0.01, max_value=1000.0, value=lots_val, format="%.2f", key=f"edited_lots_input_{trade_id_key}")
+                                save_col_lots, cancel_col_lots = st.columns([1,2])
+                                with save_col_lots:
+                                    if st.form_submit_button("✓ Save", type="primary"):
+                                        st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'Lots'] = edited_lots
+                                        _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                        st.session_state.edit_lots_state[trade_id_key] = False
+                                        st.toast("Lots updated!", icon="✅")
+                                        st.rerun()
+                                with cancel_col_lots:
+                                    if st.form_submit_button("✗ Cancel"):
+                                        st.session_state.edit_lots_state[trade_id_key] = False
+                                        st.rerun()
+                        else:
+                            st.markdown(
+                                f"<div class='playbook-metric-display'>"
+                                f"<div style='display:flex; justify-content:space-between; align-items:center;'>"
+                                f"<div class='label'>Position Size</div>"
+                                f"</div>"
+                                f"<div class='value'>{lots_val:.2f} lots</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                            st.button("✏️", key=f"edit_lots_button_{trade_id_key}", help="Edit Position Size", 
+                                      on_click=lambda id=trade_id_key: st.session_state.edit_lots_state.update({id: True}),
+                                      use_container_width=False
+                                     )
+
+                    st.markdown("---")
                     # --- End Editable Metrics Section ---
+
 
                     if row['EntryRationale']:
                         st.markdown(f"**Entry Rationale:** *{row['EntryRationale']}*")
@@ -1350,7 +1389,7 @@ elif st.session_state.current_page == 'trading_journal':
                             st.markdown(f"**Tags:** {', '.join(tags_list)}")
 
 
-                    with st.expander("Journal Notes & Screenshots"): # Renamed expander to include screenshots
+                    with st.expander("Journal Notes & Screenshots", expanded=True): # Expand by default for convenience
                         notes = st.text_area(
                             "Trade Journal Notes",
                             value=row['TradeJournalNotes'],
@@ -1358,7 +1397,7 @@ elif st.session_state.current_page == 'trading_journal':
                             height=150
                         )
 
-                        action_cols = st.columns([1, 1, 4])
+                        action_cols = st.columns([1, 1, 4]) # Keep same layout for save/delete for now
 
                         if action_cols[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
                             original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
@@ -1366,8 +1405,6 @@ elif st.session_state.current_page == 'trading_journal':
                             st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'] = notes
                             
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
-                                # --- GAMIFICATION: XP for adding/changing notes ---
-                                # Check if notes are not empty and content hash has changed or new trade_id
                                 current_notes_hash = hashlib.md5(notes.strip().encode()).hexdigest() if notes.strip() else ""
                                 gamification_flags = st.session_state.get('gamification_flags', {})
                                 notes_award_key = f"xp_notes_for_trade_{trade_id_key}_content_hash"
@@ -1377,80 +1414,123 @@ elif st.session_state.current_page == 'trading_journal':
                                     award_xp_for_notes_added_if_changed(st.session_state.logged_in_user, trade_id_key, notes)
                                 else:
                                     st.toast(f"Notes for {row['TradeID']} updated (no new XP for same content).", icon="✅")
-                                # --- END GAMIFICATION ---
-                                save_user_data(st.session_state.logged_in_user) # Persist latest flags state
+                                save_user_data(st.session_state.logged_in_user)
                                 st.rerun()
                             else:
                                 st.error("Failed to save notes.")
 
-                    if action_cols[1].button("Delete Trade", key=f"delete_trade_{trade_id_key}"):
-                        username = st.session_state.logged_in_user
-                        xp_deduction_amount = 0
-                        
-                        # --- GAMIFICATION: XP Deduction for Deleted Trade ---
-                        # Deduct base XP for logging the trade (assuming 10 XP per trade log)
-                        xp_deduction_amount += 10 # Base XP per logged trade
+                        if action_cols[1].button("Delete Trade", key=f"delete_trade_{trade_id_key}"):
+                            username = st.session_state.logged_in_user
+                            xp_deduction_amount = 0
+                            
+                            xp_deduction_amount += 10 # Base XP per logged trade
 
-                        # Deduct XP for notes, if it was awarded for this trade
-                        # Need to specifically check if `xp_notes_for_trade_{trade_id}_content_hash` existed in flags for this trade
-                        gamification_flags = st.session_state.get('gamification_flags', {})
-                        notes_award_key_for_deleted = f"xp_notes_for_trade_{trade_id_key}_content_hash"
-                        if notes_award_key_for_deleted in gamification_flags:
-                            xp_deduction_amount += 5 # Each unique notes update might have given 5XP, so assume 1 award
-                            del gamification_flags[notes_award_key_for_deleted] # Remove the flag for notes XP for this specific trade
-                        
-                        # Also remove entry from edit_trade_metrics if it exists
-                        if trade_id_key in st.session_state.edit_trade_metrics:
-                            del st.session_state.edit_trade_metrics[trade_id_key]
+                            gamification_flags = st.session_state.get('gamification_flags', {})
+                            notes_award_key_for_deleted = f"xp_notes_for_trade_{trade_id_key}_content_hash"
+                            if notes_award_key_for_deleted in gamification_flags:
+                                xp_deduction_amount += 5
+                                del gamification_flags[notes_award_key_for_deleted]
+                            
+                            # Clean up edit states for this trade too
+                            if trade_id_key in st.session_state.edit_pnl_state: del st.session_state.edit_pnl_state[trade_id_key]
+                            if trade_id_key in st.session_state.edit_rr_state: del st.session_state.edit_rr_state[trade_id_key]
+                            if trade_id_key in st.session_state.edit_lots_state: del st.session_state.edit_lots_state[trade_id_key]
 
+                            st.session_state.gamification_flags = gamification_flags
+                            
+                            if xp_deduction_amount > 0:
+                                ta_update_xp(username, -xp_deduction_amount, f"Deleted trade {row['TradeID']}")
+                                st.toast(f"Trade {row['TradeID']} deleted. {xp_deduction_amount} XP deducted.", icon="🗑️")
+                            else:
+                                st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
 
-                        # Update gamification_flags in session state before XP deduction
-                        st.session_state.gamification_flags = gamification_flags
-                        
-                        if xp_deduction_amount > 0:
-                            ta_update_xp(username, -xp_deduction_amount, f"Deleted trade {row['TradeID']}")
-                            st.toast(f"Trade {row['TradeID']} deleted. {xp_deduction_amount} XP deducted.", icon="🗑️")
-                        else:
-                            st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
-                        # --- END GAMIFICATION: XP Deduction ---
+                            index_to_drop = st.session_state.trade_journal[st.session_state.trade_journal['TradeID'] == trade_id_key].index
+                            st.session_state.trade_journal.drop(index_to_drop, inplace=True)
+                            
+                            if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                                try: os.remove(row['EntryScreenshot'])
+                                except OSError as e: logging.error(f"Error deleting entry screenshot {row['EntryScreenshot']}: {e}")
+                            if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                                try: os.remove(row['ExitScreenshot'])
+                                except OSError as e: logging.error(f"Error deleting exit screenshot {row['ExitScreenshot']}: {e}")
 
-                        index_to_drop = st.session_state.trade_journal[st.session_state.trade_journal['TradeID'] == trade_id_key].index
-                        st.session_state.trade_journal.drop(index_to_drop, inplace=True)
+                            if _ta_save_journal(username, st.session_state.trade_journal):
+                                check_and_award_trade_milestones(username)
+                                check_and_award_performance_milestones(username)
+                                st.rerun()
+                            else:
+                                st.error("Failed to delete trade.")
                         
-                        # Also delete associated screenshots
+                        # --- Upload Before/After Screenshots AFTER TRADE LOGGING ---
+                        st.markdown("---")
+                        st.subheader("Update Screenshots")
+                        
+                        image_base_path = os.path.join("user_data", st.session_state.logged_in_user, "journal_images")
+                        os.makedirs(image_base_path, exist_ok=True)
+
+                        upload_cols = st.columns(2)
+                        
+                        with upload_cols[0]:
+                            new_entry_screenshot = st.file_uploader(
+                                f"Upload/Update Entry Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_entry_ss_{trade_id_key}"
+                            )
+                            if new_entry_screenshot:
+                                if st.button("Save New Entry Screenshot", key=f"save_new_entry_ss_{trade_id_key}", type="secondary"):
+                                    if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                                        try: os.remove(row['EntryScreenshot']) # Delete old screenshot if exists
+                                        except OSError as e: logging.error(f"Error deleting old entry screenshot {row['EntryScreenshot']}: {e}")
+
+                                    entry_screenshot_filename = f"{trade_id_key}_entry_updated_{new_entry_screenshot.name}"
+                                    entry_screenshot_full_path = os.path.join(image_base_path, entry_screenshot_filename)
+                                    with open(entry_screenshot_full_path, "wb") as f:
+                                        f.write(new_entry_screenshot.getbuffer())
+                                    
+                                    st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'EntryScreenshot'] = entry_screenshot_full_path
+                                    _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                    st.toast("Entry screenshot updated!", icon="📸")
+                                    st.rerun()
+
+                        with upload_cols[1]:
+                            new_exit_screenshot = st.file_uploader(
+                                f"Upload/Update Exit Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_exit_ss_{trade_id_key}"
+                            )
+                            if new_exit_screenshot:
+                                if st.button("Save New Exit Screenshot", key=f"save_new_exit_ss_{trade_id_key}", type="secondary"):
+                                    if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                                        try: os.remove(row['ExitScreenshot']) # Delete old screenshot if exists
+                                        except OSError as e: logging.error(f"Error deleting old exit screenshot {row['ExitScreenshot']}: {e}")
+
+                                    exit_screenshot_filename = f"{trade_id_key}_exit_updated_{new_exit_screenshot.name}"
+                                    exit_screenshot_full_path = os.path.join(image_base_path, exit_screenshot_filename)
+                                    with open(exit_screenshot_full_path, "wb") as f:
+                                        f.write(new_exit_screenshot.getbuffer())
+
+                                    st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'ExitScreenshot'] = exit_screenshot_full_path
+                                    _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                    st.toast("Exit screenshot updated!", icon="📸")
+                                    st.rerun()
+                                    
+
+                        st.markdown("---")
+                        # --- Visual Documentation Screenshots (Moved and Resized) ---
+                        st.subheader("Current Visuals")
+                        visual_cols = st.columns(2)
                         if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
-                            try: os.remove(row['EntryScreenshot'])
-                            except OSError as e: logging.error(f"Error deleting entry screenshot {row['EntryScreenshot']}: {e}")
-                        if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
-                            try: os.remove(row['ExitScreenshot'])
-                            except OSError as e: logging.error(f"Error deleting exit screenshot {row['ExitScreenshot']}: {e}")
-
-
-                        if _ta_save_journal(username, st.session_state.trade_journal):
-                            # After deleting a trade, re-evaluate global milestones as totals change
-                            check_and_award_trade_milestones(username)
-                            check_and_award_performance_milestones(username)
-                            st.rerun()
+                            visual_cols[0].image(row['EntryScreenshot'], caption="Entry", width=250) # Resized
                         else:
-                            st.error("Failed to delete trade.")
-
-                    # --- Display Screenshots within expander ---
-                    st.markdown("---")
-                    st.subheader("Visual Documentation")
-                    ss_cols = st.columns(2)
-                    if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
-                        ss_cols[0].image(row['EntryScreenshot'], caption="Entry Screenshot", use_column_width=True)
-                    else:
-                        ss_cols[0].info("No Entry Screenshot available.")
-                    
-                    if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
-                        ss_cols[1].image(row['ExitScreenshot'], caption="Exit Screenshot", use_column_width=True)
-                    else:
-                        ss_cols[1].info("No Exit Screenshot available.")
-                    # --- End Display Screenshots ---
+                            visual_cols[0].info("No Entry Screenshot available.")
                         
-                st.markdown("---")
-
+                        if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                            visual_cols[1].image(row['ExitScreenshot'], caption="Exit", width=250) # Resized
+                        else:
+                            visual_cols[1].info("No Exit Screenshot available.")
+                        # --- End Visual Documentation Screenshots ---
+                            
+                    st.markdown("---") # End of a single trade container
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
@@ -1472,7 +1552,22 @@ elif st.session_state.current_page == 'trading_journal':
 
 
             kpi_cols = st.columns(4)
-            kpi_cols[0].metric("Net PnL ($)", f"${total_pnl:,.2f}", delta=f"{total_pnl:+.2f}")
+            # Corrected: Net PnL ($) with green/red circular box/icon
+            pnl_icon = ""
+            if total_pnl > 0:
+                pnl_icon = "<span style='color:green; font-size:1.5em; vertical-align:middle; line-height:1;'>&#9679;</span> " # Green circle
+            elif total_pnl < 0:
+                pnl_icon = "<span style='color:red; font-size:1.5em; vertical-align:middle; line-height:1;'>&#9679;</span> " # Red circle
+
+            kpi_cols[0].markdown(
+                f'<div data-testid="stMetric" style="background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out;">'
+                f'<div data-testid="stMetricLabel" style="font-weight: 500; color: #8b949e;">Net PnL ($) {pnl_icon}</div>'
+                f'<div data-testid="stMetricValue" style="font-size: 2.25rem; line-height: 1.2; font-weight: 600; color: {"#2da44e" if total_pnl >= 0 else "#cf222e"};">${total_pnl:,.2f}</div>'
+                f'</div>', unsafe_allow_html=True
+            )
+            # The delta value will now implicitly be within the total PnL text color
+            # kpi_cols[0].metric("Net PnL ($)", f"${total_pnl:,.2f}", delta=f"{total_pnl:+.2f}") # Replaced
+
             kpi_cols[1].metric("Win Rate", f"{win_rate:.1f}%")
             kpi_cols[2].metric("Profit Factor", f"{profit_factor:.2f}")
             kpi_cols[3].metric("Avg. Win / Loss ($)", f"${avg_win:,.2f} / ${abs(avg_loss):,.2f}")
@@ -1498,8 +1593,7 @@ elif st.session_state.current_page == 'trading_journal':
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
-# THIS IS THE CRUCIAL PART FOR INDENTATION. IT MUST BE AT THE SAME OUTMOST LEVEL
-# AS THE 'elif st.session_state.current_page == 'trading_journal':' line.
+# Make sure the 'elif' statement below is at the very left margin (no leading spaces/tabs).
 elif st.session_state.current_page == 'mt5':
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Performance Dashboard.")
