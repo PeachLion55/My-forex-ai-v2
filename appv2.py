@@ -1216,6 +1216,59 @@ elif st.session_state.current_page == 'trading_journal':
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
+            
+            # ========== START: NEW CSS BLOCK (PLACED ONCE OUTSIDE THE LOOP) ==========
+            st.markdown(
+                """
+                <style>
+                    /* This creates a wrapper to help us position the button */
+                    .edit-button-wrapper {
+                        position: absolute;
+                        top: 2px;
+                        right: 3px;
+                        z-index: 10;
+                    }
+                    
+                    /* 
+                       This is a very aggressive selector to force the override on the button inside our wrapper.
+                    */
+                    .edit-button-wrapper button {
+                        /* --- THE CRITICAL SIZE OVERRIDES --- */
+                        font-size: 10px !important;      /* Use a small, absolute pixel value */
+                        line-height: 1 !important;       /* Helps with centering */
+                        height: 15px !important;         /* Set a tiny height for the clickable area */
+                        width: 15px !important;          /* Set a tiny width for the clickable area */
+                        min-height: 0 !important;        /* IMPORTANT: Override Streamlit's default min-height */
+                        min-width: 0 !important;         /* IMPORTANT: Override Streamlit's default min-width */
+
+                        /* Positioning & Layout */
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+
+                        /* Appearance */
+                        background: transparent !important;
+                        border: none !important;
+                        color: #999 !important; /* Make it a bit faded */
+                        border-radius: 3px !important;
+                    }
+
+                    /* Optional: Add a subtle hover effect to show it's clickable */
+                    .edit-button-wrapper button:hover {
+                        color: #fff !important; 
+                        background: rgba(100, 100, 100, 0.3) !important;
+                    }
+
+                    /* Keep padding on the container to prevent text from overlapping the button */
+                    .playbook-metric-display {
+                        padding-right: 25px !important;
+                    }
+                </style>
+                """, unsafe_allow_html=True
+            )
+            # ========== END: NEW CSS BLOCK ==========
 
             filter_cols = st.columns([1, 1, 1, 2])
             outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
@@ -1291,8 +1344,7 @@ elif st.session_state.current_page == 'trading_journal':
                                 else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
-                                # Use Streamlit's native components for reliability,
-                                # wrapping content for styling
+                                # Use Streamlit's native components for reliability
                                 st.markdown(
                                     f"""
                                     <div class='playbook-metric-display' style='{border_style} position:relative;'>
@@ -1301,61 +1353,15 @@ elif st.session_state.current_page == 'trading_journal':
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-                                # Button absolutely positioned within the parent Streamlit column/context for simple access
+
+                                # ========== START: WRAPPING THE BUTTON IN A DIV ==========
+                                # This wrapper is what allows our new CSS to work reliably
+                                st.markdown(f"<div class='edit-button-wrapper'>", unsafe_allow_html=True)
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
-                                    
-                                # ========== START: NEW, MORE AGGRESSIVE CSS BLOCK ==========
-                                st.markdown(
-                                    """
-                                    <style>
-                                        /* 
-                                          This is a very aggressive and specific selector to force the override.
-                                          It targets the button directly using its unique key.
-                                        */
-                                        button[key*="edit_btn_"] {
-                                            /* Positioning */
-                                            position: absolute !important;
-                                            top: 2px !important;
-                                            right: 3px !important;
-                                            z-index: 10 !important;
-
-                                            /* Appearance */
-                                            background: transparent !important;
-                                            border: none !important;
-                                            color: #999 !important; /* Make it a bit faded */
-                                            
-                                            /* --- THE CRITICAL SIZE OVERRIDES --- */
-                                            font-size: 10px !important;      /* Use a small, absolute pixel value */
-                                            line-height: 10px !important;    /* Match the font size for centering */
-                                            height: 14px !important;         /* Set a tiny height for the clickable area */
-                                            width: 14px !important;          /* Set a tiny width for the clickable area */
-                                            min-height: 0 !important;        /* IMPORTANT: Override Streamlit's default min-height */
-                                            min-width: 0 !important;         /* IMPORTANT: Override Streamlit's default min-width */
-
-                                            /* Layout */
-                                            padding: 0 !important;
-                                            margin: 0 !important;
-                                            display: flex !important;
-                                            align-items: center !important;
-                                            justify-content: center !important;
-                                        }
-
-                                        /* Optional: Add a subtle hover effect to show it's clickable */
-                                        button[key*="edit_btn_"]:hover {
-                                            color: #fff !important; 
-                                            background: rgba(100, 100, 100, 0.3) !important;
-                                        }
-
-                                        /* Keep padding on the container to prevent text from overlapping the button */
-                                        .playbook-metric-display {
-                                            padding-right: 25px !important;
-                                        }
-                                    </style>
-                                    """, unsafe_allow_html=True
-                                )
-                                # ========== END: NEW CSS BLOCK ==========
+                                st.markdown("</div>", unsafe_allow_html=True)
+                                # ========== END: WRAPPING THE BUTTON ==========
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1566,7 +1572,7 @@ elif st.session_state.current_page == 'trading_journal':
 
             with chart_cols[1]:
                 st.subheader("Performance by Symbol")
-                pnl_by_symbol = df_analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
+                pnl_by_symbol = df_ analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
                 fig_pnl_symbol = px.bar(pnl_by_symbol, title="Net PnL by Symbol", template="plotly_dark")
                 fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False)
                 st.plotly_chart(fig_pnl_symbol, use_container_width=True)
