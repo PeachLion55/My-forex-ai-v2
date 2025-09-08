@@ -984,20 +984,50 @@ for page_key, page_name in nav_items:
 # MAIN APPLICATION LOGIC
 # =========================================================
 
+import streamlit as st
+import os # Make sure to import the 'os' module
+
 # =========================================================
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
+
+    # Add a small CSS snippet to ensure icons and text are vertically aligned
+    st.markdown("""
+        <style>
+        [data-testid="stHorizontalBlock"] {
+            align-items: center;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+    # --- Main Page Layout Columns (un-changed) ---
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.title("📅 Forex Fundamentals")
+        # --- Nested Columns for Icon + Title ---
+        title_col1, title_col2 = st.columns([1, 6], gap="small")
+        with title_col1:
+            icon_path = os.path.join("icons", "forex_fundamentals.png")
+            if os.path.exists(icon_path):
+                st.image(icon_path, width=40) # <-- Adjust title icon size here
+        with title_col2:
+            st.title("Forex Fundamentals")
+
         st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
         st.markdown('---')
+    
     with col2:
         st.info("See the Trading Journal tab for live charts + detailed news.")
-    
-    st.markdown("### 🗓️ Upcoming Economic Events")
-    
+
+    # --- Nested Columns for Subheading with Icon ---
+    subhead_col1, subhead_col2 = st.columns([1, 10], gap="small")
+    with subhead_col1:
+        icon_path = os.path.join("icons", "forex_fundamentals.png")
+        if os.path.exists(icon_path):
+            st.image(icon_path, width=32) # <-- Adjust subheading icon size here
+    with subhead_col2:
+        st.markdown("### Upcoming Economic Events")
+
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
     with col_filter1:
@@ -1006,7 +1036,7 @@ if st.session_state.current_page == 'fundamentals':
     with col_filter2:
         currency_filter_2 = st.selectbox("Secondary currency to highlight", options=["None"] + uniq_ccy, key="cal_curr_2")
         st.session_state.selected_currency_2 = None if currency_filter_2 == "None" else currency_filter_2
-    
+
     def highlight_currency(row):
         styles = [''] * len(row)
         selected_1 = st.session_state.get('selected_currency_1')
@@ -1018,8 +1048,8 @@ if st.session_state.current_page == 'fundamentals':
             styles = ['background-color: #2e4747; color: white' if col == 'Currency' else 'background-color: #2e4747' for col in row.index]
         return styles
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-    
-    st.markdown("### 💹 Major Central Bank Interest Rates")
+
+    st.markdown("### 💹 Major Central Bank Interest Rates") # NOTE: No icon from your list maps directly to "Interest Rates"
     st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
     interest_rates = [
         {"Currency": "USD", "Current": "3.78%", "Previous": "4.00%", "Changed": "2025-07-17", "Next Meeting": "2025-09-18"},
@@ -1051,7 +1081,17 @@ if st.session_state.current_page == 'fundamentals':
                     unsafe_allow_html=True,
                 )
                 st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 📊 Major High-Impact Forex Events")
+                
+    # --- Nested Columns for Final Subheading ---
+    subhead2_col1, subhead2_col2 = st.columns([1, 10], gap="small")
+    with subhead2_col1:
+        # Re-using the performance_dashboard icon as it fits the "Events/Data" theme
+        icon_path_2 = os.path.join("icons", "performance_dashboard.png")
+        if os.path.exists(icon_path_2):
+            st.image(icon_path_2, width=32)
+    with subhead2_col2:
+        st.markdown("### Major High-Impact Forex Events")
+
     forex_high_impact_events = [
         {
             "event": "Non-Farm Payrolls (NFP)",
