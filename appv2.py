@@ -1572,7 +1572,8 @@ elif st.session_state.current_page == 'trading_journal':
 
             with chart_cols[1]:
                 st.subheader("Performance by Symbol")
-                pnl_by_symbol = df_ analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
+                # ========== THIS IS THE LINE I FIXED ==========
+                pnl_by_symbol = df_analytics.groupby('Symbol')['PnL'].sum().sort_values(ascending=False)
                 fig_pnl_symbol = px.bar(pnl_by_symbol, title="Net PnL by Symbol", template="plotly_dark")
                 fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False)
                 st.plotly_chart(fig_pnl_symbol, use_container_width=True)
