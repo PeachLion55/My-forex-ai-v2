@@ -3219,6 +3219,22 @@ elif st.session_state.current_page == 'community':
 # COMMUNITY CHATROOM PAGE
 # =========================================================
 elif st.session_state.current_page == "Community Chatroom":
+    # --- REPLACEMENT FOR THE TITLE ---
+    # We use markdown with HTML for a custom icon and title layout.
+    icon_path = os.path.join("icons", "community_chatroom.png")
+    if os.path.exists(icon_path):
+        icon_base64 = image_to_base64(icon_path)
+        # This HTML uses flexbox to align the icon and title with a specific gap.
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="data:image/png;base64,{icon_base64}" width="100">
+                <h1 style="margin: 0; font-size: 2.75rem;">Community Chatroom</h1>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback in case the icon file is not found
+        st.title("Community Chatroom")
+
     # --------------------------
     # CHATROOM HELPER FUNCTIONS & CONFIG (local to this page)
     # --------------------------
