@@ -1045,7 +1045,7 @@ if st.session_state.current_page == 'fundamentals':
                 border-radius:12px;
                 padding:15px;
                 margin-bottom:18px;
-                background-color:#12121a;
+                background-color:#00000;
                 color:white;
                 box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
             ">
