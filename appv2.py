@@ -747,6 +747,8 @@ def initialize_and_load_session_state():
     for channel_key in DEFAULT_APP_STATE['chat_messages'].keys():
         db_key = f'chat_channel_{channel_key.lower().replace(" ", "_")}'
         st.session_state.chat_messages[channel_key] = _ta_load_community(db_key, default=[]) # Load into a list
+        initialize_and_load_session_state()
+
 
 # =========================================================
 # PAGE CONFIGURATION (Streamlit requires this at top level)
