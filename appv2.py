@@ -1261,11 +1261,11 @@ elif st.session_state.current_page == 'trading_journal':
                     # --- Editable Metrics Section with inline pencil icons ---
                     trade_id_key = row['TradeID']
                     
-                    metric_cols_main = st.columns([1,1,1]) # Columns for each metric
+                    metric_cols_main = st.columns([1,1,1]) # Columns for each metric box
 
-                    # Helper to render each editable metric for clean repetition
-                    def render_editable_metric(col_idx, label_text, current_value, key_suffix, format_string, is_pnl_metric=False):
-                        with metric_cols_main[col_idx]:
+                    # Helper function for rendering an editable metric cell
+                    def render_editable_metric_cell(col_obj, label_text, current_value, key_suffix, format_string, is_pnl_metric=False):
+                        with col_obj:
                             state_key_prefix = f'edit_{key_suffix}_state'
                             is_editing = st.session_state[state_key_prefix].get(trade_id_key, False)
 
@@ -1273,9 +1273,9 @@ elif st.session_state.current_page == 'trading_journal':
                             if is_pnl_metric:
                                 if current_value > 0: pnl_val_display_color = "#50fa7b"
                                 elif current_value < 0: pnl_val_display_color = "#ff5555"
-                                else: pnl_val_display_color = "#c9d1d9" # Neutral white-ish
+                                else: pnl_val_display_color = "#c9d1d9"
                             
-                            display_value_string = f"${current_value:{format_string}}" if is_pnl_metric else f"{current_value:{format_string}}R" if label_text == "R-Multiple" else f"{current_value:{format_string}} lots"
+                            display_value_string = f"${current_value:{format_string}}" if is_pnl_metric else f"{current_value:{format_string}}R" if label_text == "RR" else f"{current_value:{format_string}} lots"
 
                             if is_editing:
                                 with st.form(key=f"edit_form_{key_suffix}_{trade_id_key}", clear_on_submit=False):
@@ -1304,49 +1304,53 @@ elif st.session_state.current_page == 'trading_journal':
                             else:
                                 st.markdown(
                                     f"""
-                                    <div class='playbook-metric-display' style='padding-top: 10px;'>
+                                    <div class='playbook-metric-display' style='padding-top: 10px; position:relative;'>
                                         <div style='display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;'>
                                             <div class='label'>{label_text}</div>
-                                            <button style='background: none; border: none; cursor: pointer; color: #8b949e; font-size: 1.1em; padding: 0;'
-                                                    title='Edit {label_text}' 
-                                                    id='edit_icon_{key_suffix}_{trade_id_key}'
-                                                    key='icon_button_for_{key_suffix}_{trade_id_key}'
-                                                    type='button'>✏️
+                                            <!-- The actual button triggering the action. Hidden/styled to appear as a pencil icon -->
+                                            <button 
+                                                id='pencil_btn_{key_suffix}_{trade_id_key}' 
+                                                class='transparent-pencil-button'
+                                                style='background: none; border: none; cursor: pointer; color: #8b949e; font-size: 1.1em; padding: 0;'
+                                                title='Edit {label_text}' 
+                                                key='{key_suffix}_pencil_btn_{trade_id_key}'
+                                                type='button' 
+                                                onClick='window.parent.document.querySelector("button[key=btn_actual_edit_trigger_{key_suffix}_{trade_id_key}]").click()'>
+                                                ✏️
                                             </button>
                                         </div>
                                         <div class='value' style='{f"color:{pnl_val_display_color};" if is_pnl_metric else ""}'>{display_value_string}</div>
                                     </div>
                                     """, unsafe_allow_html=True
                                 )
-                                # Streamlit button that acts as a trigger for the JS/rerun. Visually hidden/positioned by CSS in real app.
-                                if st.button(f"edit {label_text}", key=f"btn_edit_trigger_{key_suffix}_{trade_id_key}",
-                                             on_click=lambda id=trade_id_key: st.session_state[state_key_prefix].update({id: True}),
-                                             help=f"Click to edit {label_text}"):
-                                    st.experimental_set_query_params(dummy=time.time()) # Forces rerun without user seeing params
+                                # Hidden Streamlit button that is programmatically clicked by the visible HTML button
+                                if st.button(" ", key=f"btn_actual_edit_trigger_{key_suffix}_{trade_id_key}",
+                                             on_click=lambda tid=trade_id_key: st.session_state[state_key_prefix].update({tid: True}),
+                                             help=f"Trigger edit for {label_text}"):
+                                    # Need a slight dummy rerun for this JS interaction to be caught reliably
+                                    # st.experimental_set_query_params() can work if we don't care about query string polluting
+                                    pass # Rerunning happens via the state change
                                 st.markdown(f"""
                                 <style>
-                                    /* Hiding the Streamlit-generated button itself, rely on the markdown icon for visual cue */
-                                    button[key="btn_edit_trigger_{key_suffix}_{trade_id_key}"] {{
-                                        display: none;
+                                    button[key="btn_actual_edit_trigger_{key_suffix}_{trade_id_key}"] {{
+                                        display: none; /* Hide the native Streamlit button */
                                     }}
-                                    /* Overriding specific markdown to simulate clickable pencil in proper position */
-                                    #edit_icon_{key_suffix}_{trade_id_key} {{
-                                        position: absolute; /* Allows placing it absolutely relative to parent 'playbook-metric-display' if defined 'relative' */
-                                        top: 10px; /* Adjust top padding */
-                                        right: 10px; /* Adjust right padding */
-                                        z-index: 100; /* Ensure it's on top */
-                                        font-size: 0.9em; /* Smaller pencil */
+                                    #pencil_btn_{key_suffix}_{trade_id_key} {{
+                                        position: absolute;
+                                        top: 10px;
+                                        right: 10px;
+                                        z-index: 10;
+                                        /* Adjust appearance of markdown button itself */
+                                        color: #c9d1d9; /* White color for icon */
                                     }}
                                 </style>
                                 """, unsafe_allow_html=True)
 
-
-                    render_editable_metric(0, "PnL", row['PnL'], "pnl", ".2f", is_pnl_metric=True)
-                    render_editable_metric(1, "RR", row['RR'], "rr", ".2f")
-                    render_editable_metric(2, "Lots", row['Lots'], "lots", ".2f")
+                    render_editable_metric_cell(metric_cols_main[0], "PnL", row['PnL'], "pnl", ".2f", is_pnl_metric=True)
+                    render_editable_metric_cell(metric_cols_main[1], "RR", row['RR'], "rr", ".2f")
+                    render_editable_metric_cell(metric_cols_main[2], "Lots", row['Lots'], "lots", ".2f")
 
                     st.markdown("---")
-                    # --- End Editable Metrics Section ---
 
 
                     if row['EntryRationale']:
@@ -1357,7 +1361,7 @@ elif st.session_state.current_page == 'trading_journal':
                             st.markdown(f"**Tags:** {', '.join(tags_list)}")
 
 
-                    with st.expander("Journal Notes & Screenshots"): # No 'expanded=True' here by default
+                    with st.expander("Journal Notes & Screenshots"): # Not expanded=True
                         notes = st.text_area(
                             "Trade Journal Notes",
                             value=row['TradeJournalNotes'],
@@ -1365,7 +1369,7 @@ elif st.session_state.current_page == 'trading_journal':
                             height=150
                         )
 
-                        action_cols_notes_delete = st.columns([1, 1, 4]) # Kept as is
+                        action_cols_notes_delete = st.columns([1, 1, 4]) 
 
                         if action_cols_notes_delete[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
                             original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
@@ -1521,13 +1525,17 @@ elif st.session_state.current_page == 'trading_journal':
 
 
             kpi_cols = st.columns(4)
-            # Corrected: Use st.metric directly with a dynamic delta value color.
-            # Streamlit's default delta styling provides the green/red text you need for +/- values.
-            kpi_cols[0].metric(
-                "Net PnL ($)", 
-                f"${total_pnl:,.2f}", 
-                delta=f"{total_pnl:+.2f}" # Delta for visual +/- (green/red automatically applied)
+            # Custom HTML for Net PnL to apply the preferred border colors based on PnL
+            pnl_metric_class = "profit-positive" if total_pnl >= 0 else "profit-negative"
+            pnl_value_color = "#50fa7b" if total_pnl >= 0 else "#ff5555" # Specific hex for consistent green/red
+
+            kpi_cols[0].markdown(
+                f'<div class="stMetric playbook-metric-display {pnl_metric_class}" style="background-color: #161b22; border-radius: 8px; padding: 1.2rem; transition: all 0.2s ease-in-out; border-width: 1px;">' # border-width added to make custom border work correctly
+                f'<div data-testid="stMetricLabel" style="font-weight: 500; color: #8b949e;">Net PnL ($)</div>'
+                f'<div data-testid="stMetricValue" style="font-size: 2.25rem; line-height: 1.2; font-weight: 600; color: {pnl_value_color};">${total_pnl:,.2f}</div>'
+                f'</div>', unsafe_allow_html=True
             )
+
             kpi_cols[1].metric("Win Rate", f"{win_rate:.1f}%")
             kpi_cols[2].metric("Profit Factor", f"{profit_factor:.2f}")
             kpi_cols[3].metric("Avg. Win / Loss ($)", f"${avg_win:,.2f} / ${abs(avg_loss):,.2f}")
