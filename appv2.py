@@ -2627,7 +2627,22 @@ elif st.session_state.current_page == 'strategy':
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("📈 Manage My Strategy")
+    # --- REPLACEMENT FOR THE TITLE ---
+    # We use markdown with HTML for a custom icon and title layout.
+    icon_path = os.path.join("icons", "manage_my_strategy.png")
+    if os.path.exists(icon_path):
+        icon_base64 = image_to_base64(icon_path)
+        # HTML flexbox is used to align the icon and title horizontally.
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="data:image/png;base64,{icon_base64}" width="100">
+                <h1 style="margin: 0; font-size: 2.75rem;">Manage My Strategy</h1>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback if the icon file isn't found
+        st.title("Manage My Strategy")
+
     st.markdown(""" Define, refine, and track your trading strategies. Save your setups and review performance to optimize your edge. """)
     st.write('---')
     st.subheader("➕ Add New Strategy")
