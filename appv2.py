@@ -855,51 +855,63 @@ import base64
 import os
 
 # =========================================================
+# HELPER FUNCTION TO ENCODE IMAGES
+# =========================================================
+# This function converts an image file to a base64 string so we can
+# embed it directly in our custom HTML button.
+@st.cache_data
+def image_to_base64(path):
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
+
+# =========================================================
 # SIDEBAR NAVIGATION
 # =========================================================
 
-# --- Add custom CSS for vertical alignment ---
-# This is the key to making the icon and the button look perfectly aligned as a single unit.
 st.markdown(
     """
     <style>
     .sidebar-content {
         padding-top: 0rem;
     }
-    /* Vertically center elements in columns */
-    [data-testid="stHorizontalBlock"] {
-        align-items: center;
-    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-
 # --- Logo Display (same as your original code) ---
 try:
-    logo = Image.open("logo22.png")
-    logo = logo.resize((60, 50))
-    buffered = io.BytesIO()
-    logo.save(buffered, format="PNG")
-    logo_str = base64.b64encode(buffered.getvalue()).decode()
-    st.sidebar.markdown(
-        f"""
-        <div style='text-align: center; margin-bottom: 20px;'>
-            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    logo_path = "logo22.png"
+    if os.path.exists(logo_path):
+        logo = Image.open(logo_path)
+        logo = logo.resize((60, 50))
+        buffered = io.BytesIO()
+        logo.save(buffered, format="PNG")
+        logo_str = base64.b64encode(buffered.getvalue()).decode()
+        st.sidebar.markdown(
+            f"""
+            <div style='text-align: center; margin-bottom: 20px;'>
+                <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 except FileNotFoundError:
     st.sidebar.error("Logo file 'logo22.png' not found.")
 
-# --- Initialize session_state if it's the first run ---
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
 
+# --- LINK URL PARAMS TO SESSION STATE (THE KEY INTEGRATION) ---
+# This part ensures that a click on our HTML button updates your app's session_state.
+# It makes the custom HTML work just like st.button.
+params = st.query_params
+if "page" in params:
+    # If a page is in the URL, set it as the current_page in session state
+    st.session_state.current_page = params["page"]
+elif "current_page" not in st.session_state:
+    # Set a default page on the first run of the session
+    st.session_state.current_page = "fundamentals"
 
-# --- Navigation Items Definition (emojis removed from text) ---
+# Your original nav_items list, just without emojis
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('trading_journal', 'Trading Journal'),
@@ -912,7 +924,7 @@ nav_items = [
     ('account', 'My Account')
 ]
 
-# --- Map your page keys to the icon file names in the 'icons' folder ---
+# Map page keys to their icon files
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
     'fundamentals': 'forex_fundamentals.png',
@@ -925,31 +937,88 @@ icon_mapping = {
 }
 
 
-# --- Loop to Create the Navigation Menu ---
-# This new loop uses your original logic within columns.
+# --- CSS FOR CUSTOM BUTTONS ---
+# This CSS makes our links look just like Streamlit's secondary buttons.
+st.sidebar.markdown("""
+<style>
+    .nav-container {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .nav-link {
+        display: flex;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: white; /* Text color */
+        background-color: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2); /* Matches st.button border */
+        transition: background-color 0.2s;
+    }
+    .nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    .nav-link.active {
+        background-color: #0068C9; /* Primary color for active button */
+        border-color: #0068C9;
+        font-weight: 600;
+    }
+    .nav-link img {
+        width: 28px;        /* --- ADJUST ICON SIZE HERE --- */
+        height: 28px;
+        margin-right: 12px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- GENERATE THE HTML NAVIGATION ---
+# This replaces your old "for" loop with st.button.
+nav_html = "<div class='nav-container'>"
+
+# We get the active page from session_state, just like your original code did.
+current_page_key = st.session_state.current_page
+
 for page_key, page_name in nav_items:
+    icon_filename = icon_mapping.get(page_key)
+    icon_html = ""
     
-    # Create two columns: one for the icon, one for the button
-    col1, col2 = st.sidebar.columns([1, 4], gap="small")
+    if icon_filename:
+        icon_path = os.path.join("icons", icon_filename)
+        if os.path.exists(icon_path):
+            icon_base64 = image_to_base64(icon_path)
+            icon_html = f"<img src='data:image/png;base64,{icon_base64}'>"
 
-    with col1:
-        icon_filename = icon_mapping.get(page_key)
-        if icon_filename:
-            icon_path = os.path.join("icons", icon_filename)
-            if os.path.exists(icon_path):
-                st.image(icon_path, width=100) # <-- ADJUST ICON SIZE HERE
+    # Add the 'active' class to highlight the current page's button
+    active_class = "active" if current_page_key == page_key else ""
+    
+    # Each button is an <a> link. Clicking it updates the "?page=" URL parameter.
+    # The 'target="_self"' is important to prevent opening a new tab.
+    nav_html += f"""
+        <a href="?page={page_key}" class="nav-link {active_class}" target="_self">
+            {icon_html}
+            {page_name}
+        </a>
+    """
+nav_html += "</div>"
 
-    with col2:
-        # Highlight the active page button using 'type="primary"'
-        is_active = (st.session_state.current_page == page_key)
-        button_type = "primary" if is_active else "secondary"
-        
-        # This is your original button logic, now inside a column
-        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
-            st.session_state.current_page = page_key
-            st.session_state.current_subpage = None
-            st.session_state.show_tools_submenu = False
-            st.rerun()
+# Render the complete HTML block in the sidebar
+st.sidebar.markdown(nav_html, unsafe_allow_html=True)
+
+
+# =========================================================
+# This new setup means your page-switching logic below is now
+# completely redundant and can be removed, as the new setup handles it.
+# The page content in your app's main body will still work because
+# it relies on st.session_state.current_page, which is now being correctly updated.
+#
+# for page_key, page_name in nav_items:
+#     is_active = (st.session_state.current_page == page_key)
+#     if st.sidebar.button(page_name, key=f"nav_{page_key}"):
+#         ...
+# =========================================================
 
 # =========================================================
 # MAIN APPLICATION LOGIC
