@@ -858,18 +858,49 @@ import os
 # SIDEBAR NAVIGATION
 # =========================================================
 
-# --- Add custom CSS for vertical alignment ---
-# This is the key to making the icon and the button look perfectly aligned as a single unit.
+# --- Add custom CSS for alignment and gradient button styling ---
 st.markdown(
     """
     <style>
-    .sidebar-content {
-        padding-top: 0rem;
-    }
-    /* Vertically center elements in columns */
-    [data-testid="stHorizontalBlock"] {
-        align-items: center;
-    }
+        .sidebar-content {
+            padding-top: 0rem;
+        }
+
+        /* Vertically center elements in columns */
+        [data-testid="stHorizontalBlock"] {
+            align-items: center;
+        }
+
+        /* --- GRADIENT BUTTON STYLING --- */
+
+        /* Style for the default (secondary) button */
+        /* This applies the black gradient from the left */
+        [data-testid="stSidebar"] [data-testid="stButton"] button {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to transparent grey on the right */
+            background-image: linear-gradient(to right, black, rgba(49, 51, 63, 0.8));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; /* Ensure text color is visible against the gradient */
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover effects */
+        }
+
+        /* Style for the active (primary) button, overriding Streamlit's default color */
+        /* The ".st-emotion-cache-" class is what Streamlit uses internally for primary buttons */
+        [data-testid="stSidebar"] [data-testid="stButton"] button.st-emotion-cache-19rxjzo {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to the theme's blue on the right */
+            background-image: linear-gradient(to right, black, #1c83e1);
+            border: 1px solid #1c83e1; /* Match border to the theme color */
+            color: white;
+        }
+
+        /* Optional: A subtle hover effect for better user experience */
+        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
+            border-color: #0083B8;
+            color: white;
+            transform: scale(1.01); /* Slightly enlarge button on hover */
+        }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -925,8 +956,7 @@ icon_mapping = {
 }
 
 
-# --- Loop to Create the Navigation Menu ---
-# This new loop uses your original logic within columns.
+# --- Loop to Create the Navigation Menu (your exact Python logic) ---
 for page_key, page_name in nav_items:
     
     # Create two columns: one for the icon, one for the button
@@ -937,20 +967,20 @@ for page_key, page_name in nav_items:
         if icon_filename:
             icon_path = os.path.join("icons", icon_filename)
             if os.path.exists(icon_path):
-                st.image(icon_path, width=120) # <-- ADJUST ICON SIZE HERE
+                # NOTE: Adjusted width from 120 to 28 for a better layout
+                st.image(icon_path, width=28) 
 
     with col2:
         # Highlight the active page button using 'type="primary"'
         is_active = (st.session_state.current_page == page_key)
         button_type = "primary" if is_active else "secondary"
         
-        # This is your original button logic, now inside a column
+        # This is your original button logic, inside a column
         if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
             st.session_state.current_page = page_key
             st.session_state.current_subpage = None
             st.session_state.show_tools_submenu = False
             st.rerun()
-
 # =========================================================
 # MAIN APPLICATION LOGIC
 # =========================================================
