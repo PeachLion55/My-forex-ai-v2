@@ -3460,7 +3460,22 @@ elif st.session_state.current_page == 'trading_tools':
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("🛠 Trading Tools")
+    # --- REPLACEMENT FOR THE TITLE ---
+    # We use markdown with HTML for a custom icon and title layout.
+    icon_path = os.path.join("icons", "trading_tools.png")
+    if os.path.exists(icon_path):
+        icon_base64 = image_to_base64(icon_path)
+        # This HTML uses flexbox to align the icon and title with a specific gap.
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="data:image/png;base64,{icon_base64}" width="40">
+                <h1 style="margin: 0; font-size: 2.75rem;">Trading Tools</h1>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback in case the icon file is not found
+        st.title("Trading Tools")
+
     st.markdown("""
     Access a complete suite of utilities to optimize your trading. Features include a Profit/Loss Calculator, Price Alerts, Currency Correlation Heatmap, Risk Management Calculator, Trading Session Tracker, Drawdown Recovery Planner, Pre-Trade Checklist, and Pre-Market Checklist. Each tool is designed to help you manage risk, plan trades efficiently, and make data-driven decisions to maximize performance.
     """, unsafe_allow_html=True)
