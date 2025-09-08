@@ -3076,7 +3076,22 @@ elif st.session_state.current_page == 'community':
         st.session_state.current_page = 'account'
         st.rerun()
 
-    st.title("🌐 Community Trade Ideas")
+    # --- REPLACEMENT FOR THE TITLE ---
+    # We use markdown with HTML for a custom icon and title layout.
+    icon_path = os.path.join("icons", "community_trade_ideas.png")
+    if os.path.exists(icon_path):
+        icon_base64 = image_to_base64(icon_path)
+        # This HTML uses flexbox to align the icon and title with a specific gap.
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <img src="data:image/png;base64,{icon_base64}" width="40">
+                <h1 style="margin: 0; font-size: 2.75rem;">Community Trade Ideas</h1>
+            </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback in case the icon file is not found
+        st.title("Community Trade Ideas")
+
     st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
     st.write('---')
     st.subheader("➕ Share a Trade Idea")
@@ -3089,7 +3104,7 @@ elif st.session_state.current_page == 'community':
         if submit_idea:
             if st.session_state.logged_in_user is not None:
                 username = st.session_state.logged_in_user
-                user_data_dir = os.path.join("user_data", username) 
+                user_data_dir = os.path.join("user_data", username)
                 os.makedirs(os.path.join(user_data_dir, "community_images"), exist_ok=True)
 
                 idea_id = _ta_hash()
