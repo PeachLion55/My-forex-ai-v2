@@ -881,14 +881,14 @@ st.sidebar.markdown(
 
 nav_items = [
     ('fundamentals', '📅 Forex Fundamentals'),
-    ('trading_journal', 'Trading Journal'),
-    ('mt5', 'Performance Dashboard'),
-    ('trading_tools', 'Trading Tools'),
-    ('strategy', 'Manage My Strategy'),
-    ('community', 'Community Trade Ideas'),
-    ('Community Chatroom', 'Community Chatroom'), # ADDED CHATROOM NAV ITEM
-    ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account')
+    ('trading_journal', '📖 Trading Journal'),
+    ('mt5', '📊 Performance Dashboard'),
+    ('trading_tools', '🛠 Trading Tools'),
+    ('strategy', '📈 Manage My Strategy'),
+    ('community', '🌐 Community Trade Ideas'),
+    ('Community Chatroom', '💬 Community Chatroom'), # ADDED CHATROOM NAV ITEM
+    ('Zenvo Academy', '📚 Zenvo Academy'),
+    ('account', '👤 My Account')
 ]
 
 for page_key, page_name in nav_items:
