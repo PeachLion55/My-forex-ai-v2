@@ -215,6 +215,8 @@ def save_user_data(username):
         "last_login_xp_date": st.session_state.get("last_login_xp_date", None), # For daily login XP
         "gamification_flags": st.session_state.get("gamification_flags", {}), # To track various awarded flags
         'xp_log': st.session_state.get('xp_log', []), # XP transactions
+        'chatroom_rules_accepted': st.session_state.get('chatroom_rules_accepted', False), # Added for chat
+        'chatroom_nickname': st.session_state.get('user_nickname', None), # Added for chat (renamed for DB)
     }
     user_data_json = json.dumps(user_data, default=str)
     try:
@@ -227,7 +229,9 @@ def save_user_data(username):
         st.error("Could not save your progress. Please contact support.")
         return False
 
-def _ta_load_community(key, default=[]):
+def _ta_load_community(key, default=None):
+    if default is None:
+        default = [] # Ensure default is a mutable type if intended to be appended to
     try:
         c.execute("SELECT data FROM community_data WHERE key = ?", (key,))
         result = c.fetchone()
@@ -293,6 +297,8 @@ def ta_update_xp(username, amount, description="XP activity"):
     """
     Updates user XP, checks for level up, logs the transaction, and persists data.
     """
+    if username is None: return
+
     # Ensure xp_log is a list in session state
     if 'xp_log' not in st.session_state:
         st.session_state.xp_log = []
@@ -316,12 +322,25 @@ def ta_update_xp(username, amount, description="XP activity"):
     })
 
     save_user_data(username) # Persist all session state XP/Level/Badges/xp_log changes
-    show_xp_notification(amount) # Show notification
+    if amount != 0: # Only show notification for non-zero XP changes
+        show_xp_notification(amount) # Show notification
+
+def ta_award_badge(username, badge_name):
+    """Awards a badge to the user and triggers a toast notification."""
+    if username is None: return
+
+    if badge_name not in st.session_state.get('badges', []): # Only award if not already present
+        st.session_state.badges.append(badge_name)
+        save_user_data(username)
+        st.success(f"🏅 New Badge Earned: **{badge_name}**!") # Changed from toast for visibility on app-level award
+        #st.balloons() # Can also trigger balloons for badges if desired
+        logging.info(f"User {username} awarded badge: {badge_name}")
 
 def ta_update_streak(username):
     """
     Updates journaling streak, awards streak badges and XP, and persists data.
     """
+    if username is None: return
     today = dt.date.today()
     last_journal_date_str = st.session_state.get('last_journal_date')
     current_streak = st.session_state.get('streak', 0)
@@ -344,7 +363,7 @@ def ta_update_streak(username):
     if current_streak > 0 and current_streak % 7 == 0:
         badge_name = f"{current_streak}-Day Streak"
         if badge_name not in st.session_state.badges:
-            st.session_state.badges.append(badge_name)
+            st.session_state.badges.append(badge_name) # Add directly, ta_award_badge does the persistence
             ta_update_xp(username, 15, f"Unlocked: {badge_name} Discipline Badge") # Bonus XP for streak badge
             st.balloons()
             st.success(f"Unlocked: {badge_name} Discipline Badge!")
@@ -361,6 +380,8 @@ def award_xp_for_notes_added_if_changed(username, trade_id, current_notes):
     Awards XP if notes are added or significantly changed for a trade.
     Uses a content hash in gamification_flags to prevent repeat awards for the same notes content.
     """
+    if username is None: return
+    
     gamification_flags = st.session_state.get('gamification_flags', {})
     notes_award_key = f"xp_notes_for_trade_{trade_id}_content_hash" # Specific key for this XP event based on trade ID
 
@@ -381,6 +402,8 @@ def check_and_award_trade_milestones(username):
     Checks if trade count milestones have been hit and awards XP/badges.
     Prevents re-awarding by checking gamification_flags.
     """
+    if username is None: return
+
     current_total_trades = len(st.session_state.trade_journal)
     
     trade_milestones = {
@@ -399,20 +422,18 @@ def check_and_award_trade_milestones(username):
             gamification_flags[milestone_flag_key] = True # Mark this milestone as awarded
             st.session_state.gamification_flags = gamification_flags # Persist flag change to session_state
             
-            if badge_name not in st.session_state.badges:
-                st.session_state.badges.append(badge_name) # Add badge to session state list
-
+            ta_award_badge(username, badge_name) # Add badge using global function
             ta_update_xp(username, details["xp"], f"Achieved '{badge_name}' trade milestone") # Award bonus XP
-            st.balloons()
-            st.success(f"Trade Milestone Achieved: '{badge_name}'! Bonus {details['xp']} XP!")
             logging.info(f"User {username} hit trade milestone {badge_name}. Awarded {details['xp']} XP.")
-    
+    save_user_data(username) # Always persist gamification flags changes
 
 def check_and_award_performance_milestones(username):
     """
     Checks and awards XP for performance milestones (Profit Factor, Avg R:R, Win Rate).
     Prevents re-awarding by checking gamification_flags.
     """
+    if username is None: return
+
     df_analytics = st.session_state.trade_journal[st.session_state.trade_journal['Outcome'].isin(['Win', 'Loss'])].copy()
 
     if df_analytics.empty or len(df_analytics) < 5: # Require minimum trades for meaningful stats
@@ -439,9 +460,8 @@ def check_and_award_performance_milestones(username):
     pf_milestone_key = 'milestone_high_profit_factor_2.0_awarded' # Unique flag key
     if profit_factor_val >= profit_factor_threshold and not gamification_flags.get(pf_milestone_key):
         gamification_flags[pf_milestone_key] = True
-        st.session_state.gamification_flags = gamification_flags
+        st.session_state.gamification_flags = gamification_flags # Persist
         ta_update_xp(username, 30, f"Achieved Profit Factor of {profit_factor_val:.2f} milestone")
-        st.balloons()
         st.success(f"Performance Milestone: Achieved Profit Factor of {profit_factor_val:.2f}! Bonus 30 XP!")
 
     # Milestone 2: High Average R:R
@@ -449,9 +469,8 @@ def check_and_award_performance_milestones(username):
     avg_rr_milestone_key = 'milestone_high_avg_rr_1.5_awarded' # Unique flag key
     if avg_rr >= avg_rr_threshold and not gamification_flags.get(avg_rr_milestone_key):
         gamification_flags[avg_rr_milestone_key] = True
-        st.session_state.gamification_flags = gamification_flags
+        st.session_state.gamification_flags = gamification_flags # Persist
         ta_update_xp(username, 25, f"Achieved average R:R of {avg_rr:.2f} milestone")
-        st.balloons()
         st.success(f"Performance Milestone: Achieved average R:R of {avg_rr:.2f}! Bonus 25 XP!")
 
     # Milestone 3: High Win Rate
@@ -459,11 +478,11 @@ def check_and_award_performance_milestones(username):
     wr_milestone_key = 'milestone_high_win_rate_60_percent_awarded' # Unique flag key
     if win_rate >= win_rate_threshold and not gamification_flags.get(wr_milestone_key):
         gamification_flags[wr_milestone_key] = True
-        st.session_state.gamification_flags = gamification_flags
+        st.session_state.gamification_flags = gamification_flags # Persist
         ta_update_xp(username, 20, f"Achieved {win_rate:.1f}% Win Rate milestone")
-        st.balloons()
         st.success(f"Performance Milestone: Achieved {win_rate:.1f}% Win Rate! Bonus 20 XP!")
     
+    save_user_data(username) # Always persist gamification flags changes
 
 def render_xp_leaderboard():
     """
@@ -519,7 +538,7 @@ DEFAULT_APP_STATE = {
     'last_journal_date': None,
     'last_login_xp_date': None,
     'gamification_flags': {},
-    'xp_log': [], # Stores XP transactions {date, amount, description}
+    'xp_log': [], # Stores XP transactions
     'trade_journal': pd.DataFrame(columns=journal_cols).astype(journal_dtypes, errors='ignore'),
     'strategies': pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"]),
     'emotion_log': pd.DataFrame(columns=["Date", "Emotion", "Notes"]),
@@ -528,7 +547,17 @@ DEFAULT_APP_STATE = {
     'price_alerts': pd.DataFrame(columns=["Pair", "Target Price", "Triggered"]),
     'selected_calendar_month': datetime.now().strftime('%B %Y'),
     'trade_ideas': pd.DataFrame(columns=["Username", "Pair", "Direction", "Description", "Timestamp", "IdeaID", "ImagePath"]),
-    'community_templates': pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"])
+    'community_templates': pd.DataFrame(columns=["Username", "Type", "Name", "Content", "Timestamp", "ID"]),
+    # Chatroom specific states
+    'chatroom_rules_accepted': False,
+    'user_nickname': None, # This will store the nickname for the current session/user if set
+    # Global chat messages for community. Loaded from _ta_load_community for each channel.
+    'chat_messages': {
+        "General Discussion": [],
+        "Trading Psychology": [],
+        "Trade Reviews": [],
+        "Market News": []
+    }
 }
 
 def initialize_and_load_session_state():
@@ -562,6 +591,11 @@ def initialize_and_load_session_state():
         st.session_state.gamification_flags = user_data_from_db.get('gamification_flags', DEFAULT_APP_STATE['gamification_flags'].copy())
         st.session_state.last_login_xp_date = user_data_from_db.get('last_login_xp_date', DEFAULT_APP_STATE['last_login_xp_date'])
         st.session_state.xp_log = user_data_from_db.get('xp_log', DEFAULT_APP_STATE['xp_log'].copy())
+
+        # Load chatroom specific user data
+        st.session_state.chatroom_rules_accepted = user_data_from_db.get('chatroom_rules_accepted', DEFAULT_APP_STATE['chatroom_rules_accepted'])
+        # Store nickname in a consistent user_data field, and then load into session state
+        st.session_state.user_nickname = user_data_from_db.get('chatroom_nickname', DEFAULT_APP_STATE['user_nickname'])
 
         # Load DataFrames, ensuring proper column structure and types
         def load_dataframe_robustly(data_list, columns, dtypes, default_df):
@@ -609,6 +643,13 @@ def initialize_and_load_session_state():
 
     st.session_state.trade_ideas = pd.DataFrame(_ta_load_community('trade_ideas', []), columns=DEFAULT_APP_STATE['trade_ideas'].columns).copy()
     st.session_state.community_templates = pd.DataFrame(_ta_load_community('templates', []), columns=DEFAULT_APP_STATE['community_templates'].columns).copy()
+
+    # Load GLOBAL community chat messages (always load all channels, even if no user logged in, to show for public access logic if applicable,
+    # but specifically needed for chatroom regardless if logged in is used by actual display)
+    # The actual chat_messages are part of the app state, loaded *from* community_data
+    for channel_key in DEFAULT_APP_STATE['chat_messages'].keys():
+        db_key = f'chat_channel_{channel_key.lower().replace(" ", "_")}'
+        st.session_state.chat_messages[channel_key] = _ta_load_community(db_key, default=[]) # Load into a list
 
 initialize_and_load_session_state()
 
@@ -812,6 +853,7 @@ nav_items = [
     ('tools', 'Tools'),
     ('strategy', 'Manage My Strategy'),
     ('community', 'Community Trade Ideas'),
+    ('Community Chatroom', 'Community Chatroom'), # ADDED CHATROOM NAV ITEM
     ('Zenvo Academy', 'Zenvo Academy'),
     ('account', 'My Account')
 ]
@@ -1202,7 +1244,13 @@ elif st.session_state.current_page == 'trading_journal':
                             
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
                                 # --- GAMIFICATION: XP for adding/changing notes ---
-                                if notes.strip() and notes.strip() != original_notes_from_df.strip():
+                                # Check if notes are not empty and content hash has changed or new trade_id
+                                current_notes_hash = hashlib.md5(notes.strip().encode()).hexdigest() if notes.strip() else ""
+                                gamification_flags = st.session_state.get('gamification_flags', {})
+                                notes_award_key = f"xp_notes_for_trade_{row['TradeID']}_content_hash"
+                                last_awarded_notes_hash = gamification_flags.get(notes_award_key)
+
+                                if notes.strip() and current_notes_hash != last_awarded_notes_hash:
                                     award_xp_for_notes_added_if_changed(st.session_state.logged_in_user, row['TradeID'], notes)
                                 else:
                                     st.toast(f"Notes for {row['TradeID']} updated (no new XP for same content).", icon="✅")
@@ -1221,14 +1269,15 @@ elif st.session_state.current_page == 'trading_journal':
                             xp_deduction_amount += 10 # Base XP per logged trade
 
                             # Deduct XP for notes, if it was awarded for this trade
-                            # We need to find all previous hashes for this trade_id that received XP
+                            # Need to specifically check if `xp_notes_for_trade_{trade_id}_content_hash` existed in flags for this trade
                             gamification_flags = st.session_state.get('gamification_flags', {})
-                            notes_xp_keys_for_trade = [k for k in gamification_flags.keys() if k.startswith(f"xp_notes_for_trade_{row['TradeID']}_content_hash")]
+                            notes_award_key_for_deleted = f"xp_notes_for_trade_{row['TradeID']}_content_hash"
+                            if notes_award_key_for_deleted in gamification_flags:
+                                xp_deduction_amount += 5 # Each unique notes update might have given 5XP, so assume 1 award
+                                del gamification_flags[notes_award_key_for_deleted] # Remove the flag for notes XP for this specific trade
                             
-                            for note_key_flag in notes_xp_keys_for_trade:
-                                xp_deduction_amount += 5 # Each unique notes update might have given 5XP
-                                del gamification_flags[note_key_flag] # Remove the flag for notes XP
-                            
+                            # Also check for trade milestone badges that might now be unearned. (More complex, but simple version: do not re-deduct if already had it for higher milestone, for simplicity only care about 'if a trade was responsible for an award directly')
+
                             # Update gamification_flags in session state before XP deduction
                             st.session_state.gamification_flags = gamification_flags
                             
@@ -2280,7 +2329,7 @@ elif st.session_state.current_page == 'strategy':
         mt5_temp['PnL'] = pd.to_numeric(mt5_df['Profit'], errors='coerce').fillna(0.0)
         mt5_temp['Symbol'] = mt5_df['Symbol']
         mt5_temp['Outcome'] = mt5_df['Profit'].apply(lambda x: 'Win' if x > 0 else ('Loss' if x < 0 else 'Breakeven'))
-        if 'Open Price' in mt5_df.columns and 'StopLoss' in mt5_df.columns and 'Close Time' in mt5_df.columns:
+        if 'Open Price' in mt5_df.columns and 'StopLoss' in mt5_df.columns and 'Close Time' in mt5.df.columns:
              mt5_temp['RR'] = mt5_df.apply(lambda row: (row['Profit'] / abs(row['Open Price'] - row['StopLoss'])) if abs(row['Open Price'] - row['StopLoss']) > 0 else 0, axis=1)
         else:
             mt5_temp['RR'] = 0.0
@@ -2326,573 +2375,405 @@ elif st.session_state.current_page == 'strategy':
         st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
 # =========================================================
-# ACCOUNT PAGE
+# COMMUNITY TRADE IDEAS PAGE
 # =========================================================
-elif st.session_state.current_page == 'account':
-    # This introductory section should ONLY show when the user is NOT logged in.
+elif st.session_state.current_page == 'community':
     if st.session_state.logged_in_user is None:
-        st.title("👤 My Account")
-        st.markdown(
-            """
-            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
-            - Keep your trading journal and strategies backed up.
-            - Track your progress and gamification stats.
-            - Sync across devices.
-            - Import/export your account data easily.
-            """
-        )
-        st.write('---')
-    
-        # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
-        tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
-        # --------------------------
-        # SIGN IN TAB
-        # --------------------------
-        with tab_signin:
-            st.subheader("Welcome back! Please sign in to access your account.")
-            with st.form("login_form"):
-                username = st.text_input("Username")
-                password = st.text_input("Password", type="password") # Corrected here
-                login_button = st.form_submit_button("Login")
-                if login_button:
-                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result and result[0] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        initialize_and_load_session_state() # Reload session state with the new logged-in user's data
-                        
-                        st.success(f"Welcome back, {username}!")
-                        logging.info(f"User {username} logged in successfully")
+        st.warning("Please log in to participate in Community Trade Ideas.")
+        st.session_state.current_page = 'account'
+        st.rerun()
+
+    st.title("🌐 Community Trade Ideas")
+    st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
+    st.write('---')
+    st.subheader("➕ Share a Trade Idea")
+    with st.form("trade_idea_form"):
+        trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
+        trade_direction = st.radio("Direction", ["Long", "Short"])
+        trade_description = st.text_area("Trade Description")
+        uploaded_image = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg", "jpeg"])
+        submit_idea = st.form_submit_button("Share Idea")
+        if submit_idea:
+            if st.session_state.logged_in_user is not None:
+                username = st.session_state.logged_in_user
+                user_data_dir = os.path.join("user_data", username) 
+                os.makedirs(os.path.join(user_data_dir, "community_images"), exist_ok=True)
+
+                idea_id = _ta_hash()
+                idea_data = {
+                    "Username": username,
+                    "Pair": trade_pair,
+                    "Direction": trade_direction,
+                    "Description": trade_description,
+                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "IdeaID": idea_id,
+                    "ImagePath": None
+                }
+                if uploaded_image:
+                    image_path = os.path.join(user_data_dir, "community_images", f"{idea_id}.png")
+                    try:
+                        with open(image_path, "wb") as f:
+                            f.write(uploaded_image.getbuffer())
+                        idea_data["ImagePath"] = image_path
+                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                        st.success("Trade idea shared successfully!")
+                        logging.info(f"Trade idea shared by {username}: {idea_id}")
+                    except Exception as e:
+                        st.error(f"Failed to save image: {e}. Trade idea not saved.")
+                        logging.error(f"Error saving image for trade idea: {e}")
+                else:
+                    st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
+                    _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                    st.success("Trade idea shared successfully!")
+                    logging.info(f"Trade idea shared by {username}: {idea_id} (no image)")
+                st.rerun()
+            else:
+                st.error("Please log in to share trade ideas.")
+                logging.warning("Attempt to share trade idea without login")
+
+    st.subheader("📈 Community Trade Ideas")
+    if not st.session_state.trade_ideas.empty:
+        for idx, idea in st.session_state.trade_ideas.iterrows():
+            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
+                st.markdown(f"Description: {idea['Description']}")
+                if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
+                    st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
+                if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
+                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == idea["Username"]:
+                        st.session_state.trade_ideas = st.session_state.trade_ideas.drop(idx).reset_index(drop=True)
+                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
+                        st.success("Trade idea deleted successfully!")
+                        logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
                         st.rerun()
                     else:
-                        st.error("Invalid username or password.")
-                        logging.warning(f"Failed login attempt for {username}")
-        # --------------------------
-        # SIGN UP TAB
-        # --------------------------
-        with tab_signup:
-            st.subheader("Create a new account to start tracking your trades and progress.")
-            with st.form("register_form"):
-                new_username = st.text_input("New Username")
-                new_password = st.text_input("New Password", type="password") # Corrected here
-                confirm_password = st.text_input("Confirm Password", type="password") # Corrected here
-                register_button = st.form_submit_button("Register")
-                if register_button:
-                    if new_password != confirm_password:
-                        st.error("Passwords do not match.")
-                        logging.warning(f"Registration failed for {new_username}: Passwords do not match")
-                    elif not new_username or not new_password:
-                        st.error("Username and password cannot be empty.")
-                        logging.warning(f"Registration failed: Empty username or password")
-                    else:
-                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                        if c.fetchone():
-                            st.error("Username already exists.")
-                            logging.warning(f"Registration failed: Username {new_username} already exists")
-                        else:
-                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({
-                                "xp": DEFAULT_APP_STATE['xp'],
-                                "level": DEFAULT_APP_STATE['level'],
-                                "badges": DEFAULT_APP_STATE['badges'],
-                                "streak": DEFAULT_APP_STATE['streak'],
-                                "last_journal_date": DEFAULT_APP_STATE['last_journal_date'],
-                                "last_login_xp_date": DEFAULT_APP_STATE['last_login_xp_date'],
-                                "gamification_flags": DEFAULT_APP_STATE['gamification_flags'],
-                                "drawings": DEFAULT_APP_STATE['drawings'],
-                                "trade_journal": DEFAULT_APP_STATE['trade_journal'].to_dict('records'),
-                                "strategies": DEFAULT_APP_STATE['strategies'].to_dict('records'),
-                                "emotion_log": DEFAULT_APP_STATE['emotion_log'].to_dict('records'),
-                                "reflection_log": DEFAULT_APP_STATE['reflection_log'].to_dict('records'),
-                                "xp_log": DEFAULT_APP_STATE['xp_log']
-                            })
-                            try:
-                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                                conn.commit()
-                                st.session_state.logged_in_user = new_username
-                                initialize_and_load_session_state()
-                                st.success(f"Account created for {new_username}!")
-                                logging.info(f"User {new_username} registered successfully")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Failed to create account: {str(e)}")
-                                logging.error(f"Registration error for {new_username}: {str(e)}")
-        # --------------------------
-        # DEBUG TAB
-        # --------------------------
-        with tab_debug:
-            st.subheader("Debug: Inspect Users Database")
-            st.warning("This is for debugging only. Remove in production.")
-            try:
-                c.execute("SELECT username, password, data FROM users")
-                users = c.fetchall()
-                if users:
-                    debug_df = pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"])
-                    st.dataframe(debug_df, use_container_width=True)
-                else:
-                    st.info("No users found in the database.")
-                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tables = c.fetchall()
-                st.write("Database Tables:", tables)
-            except Exception as e:
-                st.error(f"Error accessing database: {str(e)}")
-                logging.error(f"Debug error: {str(e)}")
-    else: # This block displays when a user IS logged in.
-        # --------------------------
-        # LOGGED-IN USER VIEW
-        # --------------------------
-        
-        def handle_logout():
+                        st.error("You can only delete your own trade ideas.")
+                        logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
+    else:
+        st.info("No trade ideas shared yet. Be the first to contribute!")
+    
+    st.subheader("📄 Community Templates")
+    with st.form("template_form"):
+        template_type = st.selectbox("Template Type", ["Journaling Template", "Checklist", "Strategy Playbook"])
+        template_name = st.text_input("Template Name")
+        template_content = st.text_area("Template Content")
+        submit_template = st.form_submit_button("Share Template")
+        if submit_template:
             if st.session_state.logged_in_user is not None:
-                save_user_data(st.session_state.logged_in_user)
-                logging.info(f"User {st.session_state.logged_in_user} data saved before logout.")
-            
-            for key in DEFAULT_APP_STATE.keys():
-                if key in st.session_state:
-                    del st.session_state[key]
-            
-            initialize_and_load_session_state()
+                username = st.session_state.logged_in_user
+                template_id = _ta_hash()
+                template_data = {
+                    "Username": username,
+                    "Type": template_type,
+                    "Name": template_name,
+                    "Content": template_content,
+                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "ID": template_id
+                }
+                st.session_state.community_templates = pd.concat([st.session_state.community_templates, pd.DataFrame([template_data])], ignore_index=True)
+                _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
+                st.success("Template shared successfully!")
+                logging.info(f"Template shared by {username}: {template_id}")
+                st.rerun()
+            else:
+                st.error("Please log in to share templates.")
+    if not st.session_state.community_templates.empty:
+        for idx, template in st.session_state.community_templates.iterrows():
+            with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp']})"):
+                st.markdown(template['Content'])
+                if st.button("Delete Template", key=f"delete_template_{template['ID']}"):
+                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == template["Username"]:
+                        st.session_state.community_templates = st.session_state.community_templates.drop(idx).reset_index(drop=True)
+                        _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
+                        st.success("Template deleted successfully!")
+                        logging.info(f"Template {template['ID']} deleted by {st.session_state.logged_in_user}")
+                        st.rerun()
+                    else:
+                        st.error("You can only delete your own templates.")
+    else:
+        st.info("No templates shared yet. Share one above!")
+    
+    st.subheader("🏆 Leaderboard - Consistency")
+    users = c.execute("SELECT username, data FROM users").fetchall()
+    leader_data = []
+    for u, d in users:
+        user_d = json.loads(d) if d else {}
+        trades = len(user_d.get("trade_journal", []))
+        leader_data.append({"Username": u, "Journaled Trades": trades})
+    if leader_data:
+        leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
+        leader_df["Rank"] = leader_df.index + 1
+        st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
+    else:
+        st.info("No leaderboard data yet.")
 
-            logging.info("User logged out successfully.")
-            st.session_state.current_page = "account"
-            st.rerun()
+# =========================================================
+# COMMUNITY CHATROOM PAGE
+# =========================================================
+elif st.session_state.current_page == "Community Chatroom":
+    # --------------------------
+    # CHATROOM HELPER FUNCTIONS & CONFIG (local to this page)
+    # --------------------------
+    NICKNAME_COLORS = [
+        "#8be9fd", # Cyan (Dracula theme inspired)
+        "#50fa7b", # Green (Dracula theme inspired)
+        "#ff79c6", # Pink (Dracula theme inspired)
+        "#bd93f9", # Purple (Dracula theme inspired)
+        "#ffb86c", # Orange (Dracula theme inspired)
+        "#f1fa8c", # Yellow (Dracula theme inspired)
+        "#A8C8F7", # Light Blue
+        "#FFE599", # Light Gold
+        "#A7D9B4", # Pastel Green
+        "#CBA6C2", # Lavender
+    ]
 
-        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
-        st.markdown("This is your personal dashboard. Track your progress and manage your account.")
-        st.markdown("---")
-        
-        st.subheader("📈 Progress Snapshot")
-        
-        st.markdown("""
-        <style>
-        .kpi-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #58b3b1; margin-bottom: 10px; }
-        .kpi-icon { font-size: 2.5em; margin-bottom: 10px; }
-        .kpi-value { font-size: 1.8em; font-weight: bold; color: #FFFFFF; }
-        .kpi-label { font-size: 0.9em; color: #A0A0A0; }
-        .insights-card { background-color: rgba(45, 70, 70, 0.3); border-left: 5px solid #58b3b1; padding: 15px; border-radius: 5px; margin-bottom: 10px; }
-        .redeem-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; border: 1px solid #58b3b1; text-align: center; height: 100%; }
-        </style>
-        """, unsafe_allow_html=True)
+    def get_user_nickname_color(nickname):
+        """
+        Generates a consistent color for a given nickname based on its hash.
+        Ensures the same user always has the same color.
+        """
+        hash_value = int(hashlib.sha256(nickname.encode('utf-8')).hexdigest(), 16)
+        return NICKNAME_COLORS[hash_value % len(NICKNAME_COLORS)]
 
-        kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
-        with kpi_col1:
-            level = st.session_state.get('level', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {level}</div><div class="kpi-label">Trader\'s Rank</div></div>', unsafe_allow_html=True)
-        with kpi_col2:
-            streak = st.session_state.get('streak', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{streak} Days</div><div class="kpi-label">Journaling Streak</div></div>', unsafe_allow_html=True)
-        with kpi_col3:
-            total_xp = st.session_state.get('xp', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{total_xp:,}</div><div class="kpi-label">Total Experience (XP)</div></div>', unsafe_allow_html=True)
-        with kpi_col4:
-            redeemable_xp = int(st.session_state.get('xp', 0) / 2)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{redeemable_xp:,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-
-        chart_col, insights_col = st.columns([1, 2])
-
-        with chart_col:
-            st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-            total_xp = st.session_state.get('xp', 0)
-            xp_in_level = total_xp % 100
-            xp_needed = 100 - xp_in_level
-
-            fig = go.Figure(go.Pie(
-                values=[xp_in_level, xp_needed],
-                hole=0.6,
-                marker_colors=['#58b3b1', '#2d4646'],
-                textinfo='none',
-                hoverinfo='label+value'
-            ))
-            fig.update_layout(
-                showlegend=False, paper_bgcolor='rgba(0,0,0,0)',
-                annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")],
-                margin=dict(t=20, b=20, l=20, r=20)
-            )
-            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        
-        with insights_col:
-            st.markdown("<h5 style='text-align: center;'>Personalized Insights & Badges</h5>", unsafe_allow_html=True)
-            insight_sub_col, badge_sub_col = st.columns(2)
-            
-            with insight_sub_col:
-                st.markdown("<h6>💡 Insights</h6>", unsafe_allow_html=True)
-                streak = st.session_state.get('streak', 0)
-                insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
-                st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
-                
-                num_trades = len(st.session_state.trade_journal) 
-                if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
-                elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
-                else: next_milestone = "The next streak badge is at 30 days. You've got this!"
-                st.markdown(f"<div class='insights-card'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
-
-            with badge_sub_col:
-                st.markdown("<h6>🏆 Badges Earned</h6>", unsafe_allow_html=True)
-                badges = st.session_state.get('badges', [])
-                if badges:
-                    for badge in badges: st.markdown(f"- 🏅 {badge}")
-                else:
-                    st.info("No badges earned yet. Keep trading to unlock them!")
-        
-        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
-        # Removed "🚀 Your XP Journey" chart from here
-        # Removed "---" separator as the chart above it is now gone.
-        
-        st.subheader("💎 Redeem Your RXP")
-        current_rxp = int(st.session_state.get('xp', 0) / 2)
-        st.info(f"You have **{current_rxp:,} RXP** available to spend.")
-        
-        items = {
-            "1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"},
-            "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"},
-            "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}
+    def add_chat_message(channel, nickname, message_content, message_type="regular"):
+        """Adds a new message to the specified chat channel's history and persists it."""
+        timestamp = dt.datetime.now().strftime("[%H:%M]")
+        message_data = {
+            "timestamp": timestamp,
+            "nickname": nickname,
+            "content": message_content,
+            "type": message_type
         }
-        redeem_cols = st.columns(len(items))
-        for i, (item_key, item_details) in enumerate(items.items()):
-            with redeem_cols[i]:
-                st.markdown(f'<div class="redeem-card"><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
-                if st.button(f"Redeem {item_details['name']}", key=f"redeem_{item_key}", use_container_width=True):
-                    if current_rxp >= item_details['cost']:
-                        xp_cost = item_details['cost'] * 2
-                        ta_update_xp(st.session_state.logged_in_user, -xp_cost, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)")
-                        
-                        st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.warning("You do not have enough RXP for this item.")
+        st.session_state.chat_messages[channel].append(message_data)
+        _ta_save_community(f'chat_channel_{channel.lower().replace(" ", "_")}', st.session_state.chat_messages[channel])
 
-        st.markdown("---")
+    def check_chat_gamification_triggers(username, channel, message_content):
+        """
+        Awards XP and badges based on user activity in the chatroom.
+        """
+        if username is None:
+            return # Cannot award XP/badges to an unknown user
 
-        # --- XP Transaction History (Now Above How to Earn XP) ---
-        st.subheader("📜 Your XP Transaction History")
-        
-        xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
+        user_data = get_user_data(username) # Fetches user data directly to access total_messages if needed
 
-        if not xp_log_df.empty:
-            xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
-            xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
+        # Always award 1 XP for sending a message
+        ta_update_xp(username, 1, "sending a chat message")
 
-            def style_amount_column_numeric(val):
-                if val > 0:
-                    return 'color: green; font-weight: bold;'
-                elif val < 0:
-                    return 'color: red; font-weight: bold;'
-                return ''
+        # Check for "Active Chatter" badge
+        # This count needs to be retrieved across ALL chat messages for this user
+        total_messages_for_user = 0
+        for ch_key, messages_list in st.session_state.chat_messages.items():
+            total_messages_for_user += sum(1 for msg in messages_list if msg['nickname'] == st.session_state.user_nickname)
 
-            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
-            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
+        if total_messages_for_user >= 10: # Assuming 10 messages for initial Active Chatter
+            ta_award_badge(username, "Active Chatter")
 
-            st.dataframe(styled_xp_log, use_container_width=True)
-        else:
-            st.info("Your XP transaction history is empty. Start interacting to earn XP!")
-        # --- END XP Transaction History ---
-        
-        st.markdown("---")
+        # XP/Badges specifically for "Trade Reviews" channel
+        if channel == "Trade Reviews":
+            message_lower = message_content.lower()
+            if "winning trade:" in message_lower or "win:" in message_lower or "✅ win" in message_lower:
+                ta_update_xp(username, 5, "posting a winning trade review in chat")
+                # Count for Winning Trader badge specific to chat, can be merged with Journal's wins for higher level
+                chat_winning_trades_count = sum(1 for msg in st.session_state.chat_messages["Trade Reviews"]
+                                                if msg['nickname'] == st.session_state.user_nickname and (
+                                                    "winning trade:" in msg['content'].lower() or "win:" in msg['content'].lower() or "✅ win" in msg['content'].lower()))
+                if chat_winning_trades_count >= 3: # Example: 3 winning chat reviews for badge
+                    ta_award_badge(username, "Community Winner") # New badge for chat activity
 
-        # --- How to Earn XP Section (Directly Visible) ---
-        st.subheader("❓ How to Earn XP") 
+            elif "losing trade:" in message_lower or "loss:" in message_lower or "❌ loss" in message_lower:
+                ta_update_xp(username, 2, "posting a detailed losing trade analysis in chat")
+                # Count for Resilient Analyst badge specific to chat
+                chat_losing_trades_count = sum(1 for msg in st.session_state.chat_messages["Trade Reviews"]
+                                               if msg['nickname'] == st.session_state.user_nickname and (
+                                                   "losing trade:" in msg['content'].lower() or "loss:" in msg['content'].lower() or "❌ loss" in msg['content'].lower()))
+                if chat_losing_trades_count >= 5: # Example: 5 losing chat reviews for badge
+                    ta_award_badge(username, "Community Resilient") # New badge for chat activity
+
+
+    # --------------------------
+    # CHATROOM MAIN LOGIC
+    # --------------------------
+
+    # Crucial check: Ensure user is logged in
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to access the Community Chatroom.")
+        st.session_state.current_page = 'account' # Redirect to your login page
+        st.stop() # Stop execution of this block if not logged in
+
+    st.title("💬 Community Chatroom")
+    st.caption("Connect, collaborate, and grow your trading performance with fellow traders.")
+    st.markdown('---')
+
+
+    # 1. Mandatory Rules Acceptance
+    if not st.session_state.chatroom_rules_accepted:
+        st.subheader("Community Chatroom Rules")
         st.markdown("""
-        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
+        Please read and accept the following rules to join the Zenvo Academy Community Chatroom. These rules are in place
+        to maintain a **positive, focused, and professional environment** for all traders.
 
-        -   **Daily Login**: Log in each day to earn **10 XP** for your consistency.
-        -   **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
-        -   **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
-        -   **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
-            *   Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
-            *   Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
-            *   Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
-        -   **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
-            *   Maintain a Profit Factor of 2.0 or higher: **+30 XP**
-            *   Achieve an Average R:R of 1.5 or higher: **+25 XP**
-            *   Reach a Win Rate of 60% or higher: **+20 XP**
-        -   **Level Up!**: Every 100 XP earned levels up your Trader\'s Rank and rewards a new Level Badge.
-        -   **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
-        
-        Keep exploring the dashboard and trading to earn more XP and climb the ranks!
-        """, unsafe_allow_html=True)
-        # --- END How to Earn XP Section ---
-        
+        1.  **Respect and Professionalism:** Treat all members with courtesy and respect. Personal attacks, harassment, or derogatory comments will not be tolerated.
+        2.  **Stay On Topic:** Keep discussions relevant to the selected channel's theme.
+        3.  **No Financial Advice:** Share *analysis* and *trade ideas*, but explicitly state these are not financial advice. Members are responsible for their own trading decisions.
+        4.  **No Spam or Promotion:** Do not post unsolicited advertisements, promotional content, or engage in self-promotion unrelated to trade reviews.
+        5.  **Constructive Criticism Only:** Provide helpful, objective feedback on trades and analysis. Avoid purely negative or dismissive comments.
+        6.  **Positive and Supportive Environment:** Contribute to a growth-oriented mindset. Encourage and support fellow traders, especially when reviewing losses.
+        7.  **Data Privacy:** Do not share personal information about yourself or others.
+
+        ---
+        **Violations of these rules may result in temporary suspension or permanent ban from the chatroom.**
+        """)
         st.markdown("---")
+        if st.button("I Agree to the Rules and Wish to Enter"):
+            st.session_state.chatroom_rules_accepted = True
+            save_user_data(st.session_state.logged_in_user) # Persist acceptance
+            st.rerun()
+        st.stop() # Prevent further rendering until rules are accepted
 
-        # Removed "🏆 Global XP Leaderboard" from here
-        # No more render_xp_leaderboard() call.
 
-        st.markdown("---") # Retain a final separator before Manage Account if desired.
+    # 2. One-time Nickname Setup
+    if st.session_state.user_nickname is None:
+        st.subheader("Set Your Chatroom Nickname")
+        st.markdown("This nickname will be permanently visible to others in the chatroom. Choose wisely!")
+        
+        # Pre-fill with logged-in username suggestion
+        suggested_nickname = st.session_state.logged_in_user 
+        new_nickname = st.text_input("Enter your desired nickname (max 20 characters):", 
+                                     value=suggested_nickname, max_chars=20)
+        
+        if st.button("Set Nickname", type="primary"):
+            if new_nickname:
+                # In a real app, you'd add backend logic to check for nickname uniqueness globally
+                # For this example, we'll assume it's unique enough for session.
+                st.session_state.user_nickname = new_nickname
+                # Update and save the nickname in user's permanent data via save_user_data
+                save_user_data(st.session_state.logged_in_user)
 
-        with st.expander("⚙️ Manage Account"):
-            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()
-# =========================================================
-# COMMUNITY TRADE IDEAS PAGE
-# =========================================================
-elif st.session_state.current_page == 'community':
-    if st.session_state.logged_in_user is None:
-        st.warning("Please log in to participate in Community Trade Ideas.")
-        st.session_state.current_page = 'account'
-        st.rerun()
+                st.success(f"Welcome, **{new_nickname}**! Your nickname has been set. You can now join the chat.")
+                st.rerun()
+            else:
+                st.warning("Nickname cannot be empty.")
+        st.stop() # Prevent further rendering until nickname is set
 
-    st.title("🌐 Community Trade Ideas")
-    st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
-    st.write('---')
-    st.subheader("➕ Share a Trade Idea")
-    with st.form("trade_idea_form"):
-        trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
-        trade_direction = st.radio("Direction", ["Long", "Short"])
-        trade_description = st.text_area("Trade Description")
-        uploaded_image = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg", "jpeg"])
-        submit_idea = st.form_submit_button("Share Idea")
-        if submit_idea:
-            if st.session_state.logged_in_user is not None:
-                username = st.session_state.logged_in_user
-                user_data_dir = os.path.join("user_data", username) 
-                os.makedirs(os.path.join(user_data_dir, "community_images"), exist_ok=True)
+    # Fetch current user's XP and Badges for display
+    current_user_data = get_user_data(st.session_state.logged_in_user)
+    current_user_xp = current_user_data.get('xp', 0)
+    #current_user_badges = current_user_data.get('badges', []) # Not displaying full badge list here, just count
 
-                idea_id = _ta_hash()
-                idea_data = {
-                    "Username": username,
-                    "Pair": trade_pair,
-                    "Direction": trade_direction,
-                    "Description": trade_description,
-                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "IdeaID": idea_id,
-                    "ImagePath": None
-                }
-                if uploaded_image:
-                    image_path = os.path.join(user_data_dir, "community_images", f"{idea_id}.png")
-                    try:
-                        with open(image_path, "wb") as f:
-                            f.write(uploaded_image.getbuffer())
-                        idea_data["ImagePath"] = image_path
-                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
-                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                        st.success("Trade idea shared successfully!")
-                        logging.info(f"Trade idea shared by {username}: {idea_id}")
-                    except Exception as e:
-                        st.error(f"Failed to save image: {e}. Trade idea not saved.")
-                        logging.error(f"Error saving image for trade idea: {e}")
+
+    # Display user's current status and an encouragement
+    st.markdown(f"""
+        **👋 Welcome, {st.session_state.user_nickname}!**
+        <small style='color: #888;'>Current XP: **{current_user_xp}**</small>
+    """, unsafe_allow_html=True)
+
+
+    # Define tabs for different chat channels
+    channel_tabs_names = list(DEFAULT_APP_STATE['chat_messages'].keys())
+
+    tabs = st.tabs(channel_tabs_names) # Create tabs using Streamlit
+
+    for i, channel_name in enumerate(channel_tabs_names):
+        with tabs[i]:
+            # Channel-specific title and description
+            # Changed the caption to be more specific to each channel's purpose as defined earlier
+            channel_caption_map = {
+                "General Discussion": "Casual conversation and community building.",
+                "Trading Psychology": "Focus, mindset, and overcoming trading losses.",
+                "Trade Reviews": "Post-trade analysis, sharing charts, and performance discussion.",
+                "Market News": "Real-time economic news, forex events, and sentiment."
+            }
+            st.markdown(f"### {channel_name} <small style='color: #aaa;'>— {channel_caption_map.get(channel_name, 'Join the discussion!')}</small>", unsafe_allow_html=True)
+            st.markdown("---")
+
+            # Container for displaying chat messages (fixed height, scrollable)
+            # Increased height slightly for better usability
+            chat_history_container = st.container(height=450, border=True)
+
+            with chat_history_container:
+                # Display each message in the channel
+                if not st.session_state.chat_messages[channel_name]:
+                    st.info(f"No messages in the **{channel_name}** channel yet. Be the first to start a conversation!")
                 else:
-                    st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
-                    _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                    st.success("Trade idea shared successfully!")
-                    logging.info(f"Trade idea shared by {username}: {idea_id} (no image)")
+                    for message in st.session_state.chat_messages[channel_name]:
+                        nickname = message['nickname']
+                        timestamp = message['timestamp']
+                        content = message['content']
+                        msg_type = message.get('type', 'regular') # Default to regular
+                        
+                        user_color = get_user_nickname_color(nickname)
+
+                        # Custom HTML for message rendering with professional trading aesthetics
+                        if msg_type == 'regular':
+                            st.markdown(
+                                f"<div style='margin-bottom: 8px;'>"
+                                f"  <p style='margin-bottom: 0px; font-size: 0.9em;'>"
+                                f"    <strong style='color:{user_color};'>{nickname}</strong>"
+                                f"    <small style='color:#777777; margin-left: 5px;'>{timestamp}</small>"
+                                f"  </p>"
+                                f"  <p style='margin-top: 2px; margin-left: 15px;'>{content}</p>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        elif msg_type == 'win_trade':
+                            st.markdown(
+                                f"<div style='margin-bottom: 8px; padding: 5px; border-left: 3px solid #00c767; background-color: #0b1f15; border-radius: 4px;'>"
+                                f"  <p style='margin-bottom: 0px; font-size: 0.9em;'>"
+                                f"    <strong style='color:{user_color};'>{nickname}</strong>"
+                                f"    <small style='color:#777777; margin-left: 5px;'>{timestamp}</small>"
+                                f"  </p>"
+                                f"  <p style='margin-top: 2px; margin-left: 15px; color:#50fa7b; font-weight:bold;'>✅ WINNING TRADE: {content}</p>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        elif msg_type == 'loss_trade':
+                            st.markdown(
+                                f"<div style='margin-bottom: 8px; padding: 5px; border-left: 3px solid #ff4d4f; background-color: #260d0d; border-radius: 4px;'>"
+                                f"  <p style='margin-bottom: 0px; font-size: 0.9em;'>"
+                                f"    <strong style='color:{user_color};'>{nickname}</strong>"
+                                f"    <small style='color:#777777; margin-left: 5px;'>{timestamp}</small>"
+                                f"  </p>"
+                                f"  <p style='margin-top: 2px; margin-left: 15px; color:#ff5555; font-weight:bold;'>❌ LEARNING FROM LOSS: {content}</p>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        # Auto-scroll to bottom of chat_history_container could be added here via JS if needed
+
+            # Message input area for the current channel
+            current_message_content = st.chat_input(
+                f"Message {channel_name} as {st.session_state.user_nickname}...",
+                key=f"chat_input_{channel_name}", # Unique key for each chat_input
+                max_chars=500 # Limit message length
+            )
+
+            # Logic to handle message submission
+            if current_message_content:
+                message_type_to_add = "regular"
+                # Apply specific message types for 'Trade Reviews' for distinct styling and gamification
+                if channel_name == "Trade Reviews":
+                    content_lower = current_message_content.lower()
+                    if "win:" in content_lower or "winning trade:" in content_lower or "✅ win" in content_lower:
+                        message_type_to_add = "win_trade"
+                    elif "loss:" in content_lower or "losing trade:" in content_lower or "❌ loss" in content_lower:
+                        message_type_to_add = "loss_trade"
+                
+                # Add message to history (which also persists to DB)
+                add_chat_message(channel_name, st.session_state.user_nickname, current_message_content, message_type_to_add)
+                
+                # Trigger gamification check
+                check_chat_gamification_triggers(st.session_state.logged_in_user, channel_name, current_message_content)
+                
+                # Rerun the app to clear the chat input and display the new message
                 st.rerun()
-            else:
-                st.error("Please log in to share trade ideas.")
-                logging.warning("Attempt to share trade idea without login")
 
-    st.subheader("📈 Community Trade Ideas")
-    if not st.session_state.trade_ideas.empty:
-        for idx, idea in st.session_state.trade_ideas.iterrows():
-            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
-                st.markdown(f"Description: {idea['Description']}")
-                if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
-                    st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
-                if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
-                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == idea["Username"]:
-                        st.session_state.trade_ideas = st.session_state.trade_ideas.drop(idx).reset_index(drop=True)
-                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                        st.success("Trade idea deleted successfully!")
-                        logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
-                        st.rerun()
-                    else:
-                        st.error("You can only delete your own trade ideas.")
-                        logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
-    else:
-        st.info("No trade ideas shared yet. Be the first to contribute!")
-    
-    st.subheader("📄 Community Templates")
-    with st.form("template_form"):
-        template_type = st.selectbox("Template Type", ["Journaling Template", "Checklist", "Strategy Playbook"])
-        template_name = st.text_input("Template Name")
-        template_content = st.text_area("Template Content")
-        submit_template = st.form_submit_button("Share Template")
-        if submit_template:
-            if st.session_state.logged_in_user is not None:
-                username = st.session_state.logged_in_user
-                template_id = _ta_hash()
-                template_data = {
-                    "Username": username,
-                    "Type": template_type,
-                    "Name": template_name,
-                    "Content": template_content,
-                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID": template_id
-                }
-                st.session_state.community_templates = pd.concat([st.session_state.community_templates, pd.DataFrame([template_data])], ignore_index=True)
-                _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
-                st.success("Template shared successfully!")
-                logging.info(f"Template shared by {username}: {template_id}")
-                st.rerun()
-            else:
-                st.error("Please log in to share templates.")
-    if not st.session_state.community_templates.empty:
-        for idx, template in st.session_state.community_templates.iterrows():
-            with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp']})"):
-                st.markdown(template['Content'])
-                if st.button("Delete Template", key=f"delete_template_{template['ID']}"):
-                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == template["Username"]:
-                        st.session_state.community_templates = st.session_state.community_templates.drop(idx).reset_index(drop=True)
-                        _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
-                        st.success("Template deleted successfully!")
-                        logging.info(f"Template {template['ID']} deleted by {st.session_state.logged_in_user}")
-                        st.rerun()
-                    else:
-                        st.error("You can only delete your own templates.")
-    else:
-        st.info("No templates shared yet. Share one above!")
-    
-    st.subheader("🏆 Leaderboard - Consistency")
-    users = c.execute("SELECT username, data FROM users").fetchall()
-    leader_data = []
-    for u, d in users:
-        user_d = json.loads(d) if d else {}
-        trades = len(user_d.get("trade_journal", []))
-        leader_data.append({"Username": u, "Journaled Trades": trades})
-    if leader_data:
-        leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
-        leader_df["Rank"] = leader_df.index + 1
-        st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
-    else:
-        st.info("No leaderboard data yet.")
+    # Encouraging footer message
+    st.markdown("---")
+    st.info("""
+        💡 **Community Focus**: This chatroom is dedicated to improving trading performance through collaboration and positive support.
+        Let's keep discussions constructive and relevant to our trading goals!
+    """)
 
-# =========================================================
-# COMMUNITY TRADE IDEAS PAGE
-# =========================================================
-elif st.session_state.current_page == 'community':
-    if st.session_state.logged_in_user is None:
-        st.warning("Please log in to participate in Community Trade Ideas.")
-        st.session_state.current_page = 'account'
-        st.rerun()
 
-    st.title("🌐 Community Trade Ideas")
-    st.markdown(""" Share and explore trade ideas with the community. Upload your chart screenshots and discuss strategies with other traders. """)
-    st.write('---')
-    st.subheader("➕ Share a Trade Idea")
-    with st.form("trade_idea_form"):
-        trade_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF", "NZD/USD", "EUR/GBP", "EUR/JPY"])
-        trade_direction = st.radio("Direction", ["Long", "Short"])
-        trade_description = st.text_area("Trade Description")
-        uploaded_image = st.file_uploader("Upload Chart Screenshot", type=["png", "jpg", "jpeg"])
-        submit_idea = st.form_submit_button("Share Idea")
-        if submit_idea:
-            if st.session_state.logged_in_user is not None:
-                username = st.session_state.logged_in_user
-                user_data_dir = os.path.join("user_data", username) 
-                os.makedirs(os.path.join(user_data_dir, "community_images"), exist_ok=True)
-
-                idea_id = _ta_hash()
-                idea_data = {
-                    "Username": username,
-                    "Pair": trade_pair,
-                    "Direction": trade_direction,
-                    "Description": trade_description,
-                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "IdeaID": idea_id,
-                    "ImagePath": None
-                }
-                if uploaded_image:
-                    image_path = os.path.join(user_data_dir, "community_images", f"{idea_id}.png")
-                    try:
-                        with open(image_path, "wb") as f:
-                            f.write(uploaded_image.getbuffer())
-                        idea_data["ImagePath"] = image_path
-                        st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
-                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                        st.success("Trade idea shared successfully!")
-                        logging.info(f"Trade idea shared by {username}: {idea_id}")
-                    except Exception as e:
-                        st.error(f"Failed to save image: {e}. Trade idea not saved.")
-                        logging.error(f"Error saving image for trade idea: {e}")
-                else:
-                    st.session_state.trade_ideas = pd.concat([st.session_state.trade_ideas, pd.DataFrame([idea_data])], ignore_index=True)
-                    _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                    st.success("Trade idea shared successfully!")
-                    logging.info(f"Trade idea shared by {username}: {idea_id} (no image)")
-                st.rerun()
-            else:
-                st.error("Please log in to share trade ideas.")
-                logging.warning("Attempt to share trade idea without login")
-
-    st.subheader("📈 Community Trade Ideas")
-    if not st.session_state.trade_ideas.empty:
-        for idx, idea in st.session_state.trade_ideas.iterrows():
-            with st.expander(f"{idea['Pair']} - {idea['Direction']} by {idea['Username']} ({idea['Timestamp']})"):
-                st.markdown(f"Description: {idea['Description']}")
-                if "ImagePath" in idea and pd.notna(idea['ImagePath']) and os.path.exists(idea['ImagePath']):
-                    st.image(idea['ImagePath'], caption="Chart Screenshot", use_column_width=True)
-                if st.button("Delete Idea", key=f"delete_idea_{idea['IdeaID']}"):
-                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == idea["Username"]:
-                        st.session_state.trade_ideas = st.session_state.trade_ideas.drop(idx).reset_index(drop=True)
-                        _ta_save_community('trade_ideas', st.session_state.trade_ideas.to_dict('records'))
-                        st.success("Trade idea deleted successfully!")
-                        logging.info(f"Trade idea {idea['IdeaID']} deleted by {st.session_state.logged_in_user}")
-                        st.rerun()
-                    else:
-                        st.error("You can only delete your own trade ideas.")
-                        logging.warning(f"Unauthorized attempt to delete trade idea {idea['IdeaID']}")
-    else:
-        st.info("No trade ideas shared yet. Be the first to contribute!")
-    
-    st.subheader("📄 Community Templates")
-    with st.form("template_form"):
-        template_type = st.selectbox("Template Type", ["Journaling Template", "Checklist", "Strategy Playbook"])
-        template_name = st.text_input("Template Name")
-        template_content = st.text_area("Template Content")
-        submit_template = st.form_submit_button("Share Template")
-        if submit_template:
-            if st.session_state.logged_in_user is not None:
-                username = st.session_state.logged_in_user
-                template_id = _ta_hash()
-                template_data = {
-                    "Username": username,
-                    "Type": template_type,
-                    "Name": template_name,
-                    "Content": template_content,
-                    "Timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ID": template_id
-                }
-                st.session_state.community_templates = pd.concat([st.session_state.community_templates, pd.DataFrame([template_data])], ignore_index=True)
-                _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
-                st.success("Template shared successfully!")
-                logging.info(f"Template shared by {username}: {template_id}")
-                st.rerun()
-            else:
-                st.error("Please log in to share templates.")
-    if not st.session_state.community_templates.empty:
-        for idx, template in st.session_state.community_templates.iterrows():
-            with st.expander(f"{template['Type']} - {template['Name']} by {template['Username']} ({template['Timestamp']})"):
-                st.markdown(template['Content'])
-                if st.button("Delete Template", key=f"delete_template_{template['ID']}"):
-                    if st.session_state.logged_in_user is not None and st.session_state.logged_in_user == template["Username"]:
-                        st.session_state.community_templates = st.session_state.community_templates.drop(idx).reset_index(drop=True)
-                        _ta_save_community('templates', st.session_state.community_templates.to_dict('records'))
-                        st.success("Template deleted successfully!")
-                        logging.info(f"Template {template['ID']} deleted by {st.session_state.logged_in_user}")
-                        st.rerun()
-                    else:
-                        st.error("You can only delete your own templates.")
-    else:
-        st.info("No templates shared yet. Share one above!")
-    
-    st.subheader("🏆 Leaderboard - Consistency")
-    users = c.execute("SELECT username, data FROM users").fetchall()
-    leader_data = []
-    for u, d in users:
-        user_d = json.loads(d) if d else {}
-        trades = len(user_d.get("trade_journal", []))
-        leader_data.append({"Username": u, "Journaled Trades": trades})
-    if leader_data:
-        leader_df = pd.DataFrame(leader_data).sort_values("Journaled Trades", ascending=False).reset_index(drop=True)
-        leader_df["Rank"] = leader_df.index + 1
-        st.dataframe(leader_df[["Rank", "Username", "Journaled Trades"]])
-    else:
-        st.info("No leaderboard data yet.")
 # =========================================================
 # TOOLS PAGE
 # =========================================================
