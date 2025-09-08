@@ -1305,36 +1305,39 @@ elif st.session_state.current_page == 'trading_journal':
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
+                                # ========== START: UPDATED CSS BLOCK ==========
                                 st.markdown(
                                     """
                                     <style>
-                                        /* Basic override to visually pull button into top-right of metric display */
+                                        /* This rule makes the pencil icon button as small as possible */
                                         button[key*="edit_btn_"] {
                                             position: absolute;
-                                            top: 5px;
-                                            right: 5px;
+                                            top: 2px;
+                                            right: 2px;
                                             z-index: 10;
                                             background-color: transparent;
                                             border: none;
                                             color: #c9d1d9; /* Visible pencil */
-                                            font-size: 0.2em;
+                                            font-size: 0.6em; /* Extremely small font size for the icon */
                                             padding: 0;
-                                            height: 5px; /* Small clickable area */
-                                            width: 5px; /* Small clickable area */
+                                            height: 10px; /* Minimal clickable area */
+                                            width: 10px; /* Minimal clickable area */
                                             display: flex;
                                             align-items: center;
                                             justify-content: center;
+                                            line-height: 1; /* Helps with centering */
                                         }
                                         /* This ensures the containing elements do not stretch excessively when the button is positioned absolutely */
                                         div[data-testid="stColumn"] > div > div:nth-child(2) > div:nth-child(2) > div > button[key*="edit_btn_"] {
                                             margin-top: 0px !important;
                                         }
                                         .playbook-metric-display {
-                                            padding-right: 30px; /* Ensure space for the button */
+                                            padding-right: 20px; /* Ensure space for the button */
                                         }
                                     </style>
                                     """, unsafe_allow_html=True
                                 )
+                                # ========== END: UPDATED CSS BLOCK ==========
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
