@@ -3327,7 +3327,7 @@ elif st.session_state.current_page == "Community Chatroom":
         st.session_state.current_page = 'account' # Redirect to your login page
         st.stop() # Stop execution of this block if not logged in
 
-    st.title("💬 Community Chatroom")
+    
     st.caption("Connect, collaborate, and grow your trading performance with fellow traders.")
     st.markdown('---')
 
