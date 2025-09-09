@@ -122,7 +122,7 @@ if page_info:
                making it take up zero vertical space.
             */
             #global-header-divider {
-                margin: 0 !important;
+                margin: -20 !important;
                 border: none !important;
                 height: 0 !important;
                 visibility: hidden !important;
