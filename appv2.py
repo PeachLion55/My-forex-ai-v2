@@ -109,7 +109,7 @@ if page_info:
     # --- 7. Combine Header and Divider into a Single Block ---
     full_header_block = f"""
         {header_html}
-        <hr style="margin-top: 2rem; border-color: #2d4646;">
+        <hr style="margin-top: 0.5rem; border-color: #2d4646;">
     """
     
     # --- 8. Render the Combined Header Block ---
