@@ -1114,7 +1114,7 @@ if st.session_state.current_page == 'fundamentals':
     st.markdown("""
         <style>
             .main .block-container {
-                padding-top: 1rem; /* Adjust this value to control the space */
+                padding-top: -20rem; /* Adjust this value to control the space */
             }
         </style>
     """, unsafe_allow_html=True)
