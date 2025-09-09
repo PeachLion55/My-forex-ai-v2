@@ -993,8 +993,8 @@ from PIL import Image
 import pandas as pd
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES
-# THIS SECTION WAS LIKELY MISSING, CAUSING THE NameError
+# GLOBAL HELPER FUNCTION (MOVED TO TOP LEVEL)
+# This is the fix for the NameError. The function is now defined globally.
 # =========================================================
 @st.cache_data
 def image_to_base_64(path):
@@ -1003,10 +1003,10 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        # If the file is not found, we return None to avoid crashing the app.
         print(f"Warning: Image file not found at path: {path}")
         return None
 # =========================================================
+
 
 # =========================================================
 # MOCK DATA and SESSION STATE (for standalone testing)
@@ -1022,33 +1022,43 @@ econ_df = pd.DataFrame({
 df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
 # --- End of Mock Data ---
 
+
 # =========================================================
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
 
     # --- HEADER SECTION ---
-    # We construct the HTML using simple concatenation to avoid formatting errors.
 
     # 1. Define all CSS styles as simple strings
-    main_container_style = "background-color: black; padding: 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px;"
+    # --- STYLE CHANGE: Added box-shadow for the glow effect ---
+    main_container_style = """
+        background-color: black; 
+        padding: 25px; 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px;
+        border: 1px solid #2d4646;
+        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+    """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.95rem;"
     title_style = "color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;"
     icon_style = "width: 200px; height: auto;"
     caption_style = "color: #808495; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # 2. Prepare the icon HTML (This is the line that caused the error)
+    # 2. Prepare the icon HTML
     icon_html = ""
     icon_path = os.path.join("icons", "forex_fundamentals.png")
-    # The function call below requires the definition from the top of the script.
+    # This function call now works on any page because it's globally defined.
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
 
     # 3. Build the final HTML string using safe concatenation
     header_html = (
-        f'<div style="{main_container_style}">'
+        f'<div style="{main_container_style.replace(" G", " G")}">' # Using replace to handle potential quote issues safely
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
