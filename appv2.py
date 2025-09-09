@@ -2767,7 +2767,7 @@ elif st.session_state.current_page == 'account':
             icon_base64 = image_to_base64(icon_path)
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="40">
+                    <img src="data:image/png;base64,{icon_base64}" width="100">
                     <h1 style="margin: 0; font-size: 2.75rem;">My Account</h1>
                 </div>
             """, unsafe_allow_html=True)
@@ -2805,34 +2805,14 @@ elif st.session_state.current_page == 'account':
                         st.session_state.logged_in_user = username
                         initialize_and_load_session_state() # Reload session state with the new logged-in user's data
                         
-                        # --- REPLACEMENT FOR st.success() ---
-                        # Use the icon_base64 variable that was already loaded for the title
-                        if 'icon_base64' in locals():
-                            st.markdown(f"""
-                                <div style="
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 10px;
-                                    background-color: #0E2919; /* Darker green background */
-                                    color: #CFF0D6; /* Light green text */
-                                    padding: 1rem;
-                                    border-radius: 0.5rem;
-                                    border: 1px solid #2ECC71; /* Brighter green border */
-                                ">
-                                    <img src="data:image/png;base64,{icon_base64}" width="30">
-                                    <span style="font-size: 1rem; font-weight: 500;">Welcome back, {username}!</span>
-                                </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            # Fallback if the icon somehow wasn't loaded
-                            st.success(f"Welcome back, {username}!")
+                        # This section remains as you provided it, with the success box
+                        st.success(f"Welcome back, {username}!")
 
                         logging.info(f"User {username} logged in successfully")
                         
-                        # A short delay to allow the user to see the welcome message
                         import time
                         time.sleep(1.5)
-                        st.rerun() # Crucial for state refresh
+                        st.rerun() 
                     else:
                         st.error("Invalid username or password.")
                         logging.warning(f"Failed login attempt for {username}")
@@ -2849,22 +2829,17 @@ elif st.session_state.current_page == 'account':
                 if register_button:
                     if new_password != confirm_password:
                         st.error("Passwords do not match.")
-                        logging.warning(f"Registration failed for {new_username}: Passwords do not match")
                     elif not new_username or not new_password:
                         st.error("Username and password cannot be empty.")
-                        logging.warning(f"Registration failed: Empty username or password")
                     else:
                         c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
                         if c.fetchone():
                             st.error("Username already exists.")
-                            logging.warning(f"Registration failed: Username {new_username} already exists")
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
                             initial_data = json.dumps({
-                                "xp": DEFAULT_APP_STATE['xp'],
-                                "level": DEFAULT_APP_STATE['level'],
-                                "badges": DEFAULT_APP_STATE['badges'],
-                                "streak": DEFAULT_APP_STATE['streak'],
+                                "xp": DEFAULT_APP_STATE['xp'], "level": DEFAULT_APP_STATE['level'],
+                                "badges": DEFAULT_APP_STATE['badges'], "streak": DEFAULT_APP_STATE['streak'],
                                 "last_journal_date": DEFAULT_APP_STATE['last_journal_date'],
                                 "last_login_xp_date": DEFAULT_APP_STATE['last_login_xp_date'],
                                 "gamification_flags": DEFAULT_APP_STATE['gamification_flags'],
@@ -2874,21 +2849,18 @@ elif st.session_state.current_page == 'account':
                                 "emotion_log": DEFAULT_APP_STATE['emotion_log'].to_dict('records'),
                                 "reflection_log": DEFAULT_APP_STATE['reflection_log'].to_dict('records'),
                                 "xp_log": DEFAULT_APP_STATE['xp_log'],
-                                'chatroom_rules_accepted': DEFAULT_APP_STATE['chatroom_rules_accepted'], # New default
-                                'chatroom_nickname': None # New default
+                                'chatroom_rules_accepted': DEFAULT_APP_STATE['chatroom_rules_accepted'],
+                                'chatroom_nickname': None
                             })
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
-                                # This ensures the session state is properly set for the *new* user's defaults
                                 initialize_and_load_session_state() 
                                 st.success(f"Account created for {new_username}!")
-                                logging.info(f"User {new_username} registered successfully")
-                                st.rerun() # Crucial for state refresh
+                                st.rerun()
                             except Exception as e:
                                 st.error(f"Failed to create account: {str(e)}")
-                                logging.error(f"Registration error for {new_username}: {str(e)}")
         # --------------------------
         # DEBUG TAB
         # --------------------------
@@ -2908,7 +2880,7 @@ elif st.session_state.current_page == 'account':
                 st.write("Database Tables:", tables)
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
-                logging.error(f"Debug error: {str(e)}")
+
     else: # This block displays when a user IS logged in.
         # --------------------------
         # LOGGED-IN USER VIEW
@@ -2917,26 +2889,35 @@ elif st.session_state.current_page == 'account':
         def handle_logout():
             if st.session_state.logged_in_user is not None:
                 save_user_data(st.session_state.logged_in_user)
-                logging.info(f"User {st.session_state.logged_in_user} data saved before logout.")
             
-            # Explicitly reset ONLY the user-specific and transient states related to being logged in
             for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal',
                         'xp', 'level', 'badges', 'streak', 'last_journal_date',
                         'last_login_xp_date', 'gamification_flags', 'xp_log', 
                         'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress',
-                        'edit_trade_metrics' # Add new UI-specific states
+                        'edit_trade_metrics'
                         ]:
                 if key in st.session_state:
                     del st.session_state[key]
             
-            # Re-initialize non-user specific global states and then the rest for logged-out context
             initialize_and_load_session_state()
-
-            logging.info("User logged out successfully.")
             st.session_state.current_page = "account"
             st.rerun()
 
-        st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+        # --- THIS IS THE CORRECTED SECTION ---
+        # Instead of st.header, we use st.markdown to include the image.
+        icon_path = os.path.join("icons", "my_account.png")
+        if os.path.exists(icon_path):
+            icon_base64_welcome = image_to_base64(icon_path)
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
+                    <h2 style="margin: 0;">Welcome back, {st.session_state.logged_in_user}! 👋</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback if the icon is not found
+            st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
         
