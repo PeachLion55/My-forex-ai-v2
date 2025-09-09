@@ -994,15 +994,19 @@ import pandas as pd
 
 # =========================================================
 # HELPER FUNCTION TO ENCODE IMAGES
+# THIS SECTION WAS LIKELY MISSING, CAUSING THE NameError
 # =========================================================
 @st.cache_data
-def image_to_base64(path):
+def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
     try:
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
+        # If the file is not found, we return None to avoid crashing the app.
+        print(f"Warning: Image file not found at path: {path}")
         return None
+# =========================================================
 
 # =========================================================
 # MOCK DATA and SESSION STATE (for standalone testing)
@@ -1031,15 +1035,13 @@ if st.session_state.current_page == 'fundamentals':
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.95rem;"
     title_style = "color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;"
-    
-    # --- STYLE CHANGES ARE HERE ---
-    icon_style = "width: 200px; height: auto;" # CHANGED: Icon width is now 200px
-    caption_style = "color: #808495; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1rem;" # CHANGED: Font style updated to match original caption
-    # --- END OF STYLE CHANGES ---
+    icon_style = "width: 200px; height: auto;"
+    caption_style = "color: #808495; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # 2. Prepare the icon HTML
+    # 2. Prepare the icon HTML (This is the line that caused the error)
     icon_html = ""
     icon_path = os.path.join("icons", "forex_fundamentals.png")
+    # The function call below requires the definition from the top of the script.
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
@@ -1047,7 +1049,6 @@ if st.session_state.current_page == 'fundamentals':
     # 3. Build the final HTML string using safe concatenation
     header_html = (
         f'<div style="{main_container_style}">'
-            # Left Column
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -1055,8 +1056,6 @@ if st.session_state.current_page == 'fundamentals':
                     f'<p style="{caption_style}">Macro snapshot: sentiment, calendar highlights, and policy rates.</p>'
                 '</div>'
             '</div>'
-            
-            # Right Column
             f'<div style="{right_column_style}">'
                 'See the <b>Trading Journal</b> tab for live charts + detailed news.'
             '</div>'
