@@ -47,44 +47,22 @@ def image_to_base_64(path):
 # --- 2. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
-    # ... other page configs ...
+    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
+    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
+    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
+    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
+    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
+    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
+    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
-# --- 3. Inject the Global Style Reset ---
-# This is the key to fixing the gap. It resets the spacing for ALL of Streamlit's
-# main content containers and then adds back a controlled margin.
-st.markdown("""
-    <style>
-        /*
-        Target all the stVerticalBlock containers in the main content area.
-        */
-        .main [data-testid="stVerticalBlock"] {
-            /* 
-            Remove the default padding that creates the unwanted gaps.
-            The !important flag ensures this rule overrides Streamlit's default styles.
-            */
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-        }
-
-        /*
-        Add a controlled amount of space *between* the blocks.
-        This targets every block except the very first one.
-        */
-        .main [data-testid="stVerticalBlock"] ~ [data-testid="stVerticalBlock"] {
-            margin-top: 1.5rem !important; /* Adjust this value to control the spacing */
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-# --- 4. Get Configuration for the Current Page ---
+# --- 3. Get Configuration for the Current Page ---
 current_page_key = st.session_state.get('current_page', 'fundamentals')
 page_info = PAGE_CONFIG.get(current_page_key)
 
 if page_info:
-    # --- 5. Define CSS Styles for the Header Box ---
+    # --- 4. Define CSS Styles for the New Header ---
     main_container_style = """
         background-color: black; 
         padding: 20px 25px; 
@@ -94,8 +72,7 @@ if page_info:
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        /* The margin-top here controls the space from the TOP of the browser window */
-        margin-top: 2.5rem; 
+        margin-top: 40px;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
@@ -103,16 +80,17 @@ if page_info:
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 6. Prepare Dynamic Parts of the Header ---
+    # --- 5. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
-        icon_html = f'<img src="data-image/png;base64,{icon_base64}" style="{icon_style}">'
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "None"))}</b>!'
 
-    # --- 7. Build the HTML for the Header Box and Divider ---
+    # --- 6. Build the HTML for the Header Box ---
+    # This block was missing in the previous version, causing the NameError. It is now restored.
     header_html = (
         f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
@@ -127,14 +105,34 @@ if page_info:
             '</div>'
         '</div>'
     )
-    
+
+    # --- 7. Combine Header and Divider into a Single Block ---
     full_header_block = f"""
         {header_html}
         <hr style="margin-top: 2rem; border-color: #2d4646;">
     """
     
-    # --- 8. Render the Header Block ---
+    # --- 8. Render the Combined Header Block ---
     st.markdown(full_header_block, unsafe_allow_html=True)
+
+    # --- 9. Inject CSS to Fix the Gap ---
+    # This targets the generic containers Streamlit creates and removes their padding.
+    st.markdown("""
+        <style>
+            /* Find the first container Streamlit creates on the page, which holds our header */
+            div[data-testid="stVerticalBlock"]:nth-of-type(1) {
+                /* Remove the bottom padding, which is the top half of the gap */
+                padding-bottom: 0 !important;
+            }
+
+            /* Find the second container, which holds our page content */
+            div[data-testid="stVerticalBlock"]:nth-of-type(2) {
+                /* Remove the top padding, which is the bottom half of the gap */
+                padding-top: 0 !important;
+                margin-top: 1.5rem; /* Use margin to create controlled space instead */
+            }
+        </style>
+    """, unsafe_allow_html=True)
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
