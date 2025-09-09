@@ -89,17 +89,33 @@ if page_info:
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "None"))}</b>!'
 
-    # --- 6. Build the HTML for the Header Box and Divider ---
-    # We combine the header and divider into a single HTML string.
-    full_header_html = f"""
+    # --- 6. Build the HTML for the Header Box ---
+    # This block was missing in the previous version, causing the NameError. It is now restored.
+    header_html = (
+        f'<div style="{main_container_style.replace(" G", " ")}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">'
+                f'{welcome_message}'
+            '</div>'
+        '</div>'
+    )
+
+    # --- 7. Combine Header and Divider into a Single Block ---
+    full_header_block = f"""
         {header_html}
         <hr style="margin-top: 2rem; border-color: #2d4646;">
     """
     
-    # --- 7. Render the Header Block ---
-    st.markdown(full_header_html, unsafe_allow_html=True)
+    # --- 8. Render the Combined Header Block ---
+    st.markdown(full_header_block, unsafe_allow_html=True)
 
-    # --- 8. Inject CSS to fix the gap ---
+    # --- 9. Inject CSS to Fix the Gap ---
     # This targets the generic containers Streamlit creates and removes their padding.
     st.markdown("""
         <style>
