@@ -1092,12 +1092,7 @@ def image_to_base64(path):
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    # All the code that created the old header, caption, and info box has been removed.
-    # Your global header script will now handle the header automatically.
-
-    # The rest of your code for this page starts here.
-    # The emoji has been removed from the markdown header below.
-    st.markdown("### Upcoming Economic Events")
+    st.markdown('<h3 style="margin-top: 0;">Upcoming Economic Events</h3>', unsafe_allow_html=True)
 
     # ... continue with the rest of your page-specific code here ...
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
