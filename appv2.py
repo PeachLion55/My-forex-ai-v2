@@ -1107,19 +1107,36 @@ def image_to_base64(path):
 # FOREX FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    # The 'st.info' box has been removed as requested.
 
-    # To move the page content further up, we inject CSS to reduce the top padding
-    # of Streamlit's main block container. This is the most reliable method.
+    # This CSS is the key to solving the spacing issue.
+    # It directly targets the invisible <hr> and removes its vertical margins.
     st.markdown("""
         <style>
+            /* 
+               The <hr> with this ID is the main cause of the vertical space.
+               We are removing its default margins and border to make it take up no space.
+            */
+            #global-header-divider {
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                border: none !important;
+                height: 0 !important;
+            }
+
+            /* 
+               We also remove the default top padding from the main Streamlit container
+               to bring the content all the way up.
+            */
             .main .block-container {
-                padding-top: 1rem; /* Adjust this value to control the space */
+                padding-top: 0rem !important;
             }
         </style>
     """, unsafe_allow_html=True)
 
-    # The rest of your page content starts here.
+    # To add a controlled amount of space back, we can use st.write with empty lines,
+    # or adjust the margin-bottom of the #global-header-divider above.
+    # For now, we'll place the header right above the dataframe.
+    
     st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
