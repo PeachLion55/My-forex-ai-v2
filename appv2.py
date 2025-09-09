@@ -25,108 +25,6 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
-import streamlit as st
-import os
-import base64
-
-# =========================================================
-# DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
-# =========================================================
-
-# --- 1. Global Helper Function (Defined Once) ---
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
-        return None
-
-# --- 2. Central Configuration for All Pages ---
-PAGE_CONFIG = {
-    'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
-    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
-    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
-    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
-    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
-    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
-    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
-    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
-    'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
-}
-
-# --- 3. Get Configuration for the Current Page ---
-current_page_key = st.session_state.get('current_page', 'account')
-page_info = PAGE_CONFIG.get(current_page_key)
-
-if page_info:
-    # --- 4. Define CSS Styles for the New Header ---
-    main_container_style = """
-        background-color: black; 
-        padding: 20px 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px;
-        border: 1px solid #2d4646;
-        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-    """
-    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
-    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
-    icon_style = "width: 130px; height: auto;"
-    caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
-
-    # --- 5. Prepare Dynamic Parts of the Header ---
-    icon_html = ""
-    icon_path = os.path.join("icons", page_info['icon'])
-    icon_base64 = image_to_base_64(icon_path)
-    if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-    
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-
-    # --- 6. Build the HTML for the New Header ---
-    header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
-            f'<div style="{left_column_style}">'
-                f'{icon_html}'
-                '<div>'
-                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
-                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
-                '</div>'
-            '</div>'
-            f'<div style="{right_column_style}">'
-                f'{welcome_message}'
-            '</div>'
-        '</div>'
-    )
-
-    # --- 7. Render the New Header ---
-    st.markdown(header_html, unsafe_allow_html=True)
-
-    # --- 8. Render a Divider with a UNIQUE ID ---
-    st.markdown('<hr id="global-header-divider">', unsafe_allow_html=True)
-
-    # --- 9. Inject CSS to hide the OLD header elements that appear AFTER the divider ---
-    st.markdown("""
-        <style>
-            /* 
-               This is the key: The ~ selector finds siblings.
-               This tells Streamlit to hide the FIRST markdown container and the FIRST caption
-               that appear anywhere AFTER our unique divider. This reliably targets the old headers.
-            */
-            #global-header-divider ~ [data-testid="stMarkdownContainer"]:nth-of-type(1) {
-                display: none !important;
-            }
-            #global-header-divider ~ [data-testid="stCaption"]:nth-of-type(1) {
-                display: none !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
@@ -1105,6 +1003,31 @@ def image_to_base64(path):
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        # --- REPLACEMENT FOR THE TITLE ---
+        # Instead of columns, we use a single markdown block with HTML for precise control.
+        icon_path = os.path.join("icons", "forex_fundamentals.png")
+        if os.path.exists(icon_path):
+            icon_base64 = image_to_base64(icon_path)
+            # This HTML uses flexbox to align items with a specific gap.
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="data:image/png;base64,{icon_base64}" width="100">
+                    <h1 style="margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback in case the icon file is not found
+            st.title("Forex Fundamentals")
+
+        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+        st.markdown('---')
+    with col2:
+        st.info("See the Trading Journal tab for live charts + detailed news.")
+
+    # NOTE: The rest of your code for this page follows here without any changes.
+    # The emoji has been removed from the markdown header below.
     st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
