@@ -33,7 +33,43 @@ import base64
 # DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
 # =========================================================
 
-# --- 1. Global Helper Function (Defined Once) ---
+# --- 1. THE SURGICAL GAP FIX ---
+# This is placed at the very top. It implements YOUR proven solution (`gap:0`)
+# but scopes it correctly to prevent side effects.
+st.markdown("""
+<style>
+    /*
+    Step 1: Target the main content area's layout container.
+    - '.main': This is the class for the main page content, so it will NOT affect the sidebar.
+    - '> div[data-testid="stVerticalBlock"]': This finds the specific container inside '.main'
+      that uses the 'gap' property to space out all of your content blocks.
+    */
+    .main > div[data-testid="stVerticalBlock"] {
+        /*
+        Step 2: Apply YOUR fix.
+        This removes the default 1rem gap that Streamlit forces between your header
+        and the content below it. This is the command that permanently closes the gap.
+        */
+        gap: 0rem !important;
+    }
+
+    /*
+    Step 3: Restore spacing for the rest of the page.
+    After removing the gap, all content would be squished. This rule adds a clean
+    margin to the top of every content block EXCEPT the very first one (your header).
+    This gives you a clean layout without affecting the header gap.
+    */
+    .main > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
+        margin-top: 1.5rem !important; /* Adjust this value for desired spacing */
+    }
+    .main > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"]:first-child {
+        margin-top: 0 !important; /* Ensure the header block has no top margin */
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- 2. Global Helper Function (Defined Once) ---
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -44,7 +80,7 @@ def image_to_base_64(path):
         print(f"Warning: Image file not found at path: {path}")
         return None
 
-# --- 2. Central Configuration for All Pages ---
+# --- 3. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
     'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
@@ -57,12 +93,12 @@ PAGE_CONFIG = {
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
-# --- 3. Get Configuration for the Current Page ---
+# --- 4. Get Configuration for the Current Page ---
 current_page_key = st.session_state.get('current_page', 'fundamentals')
 page_info = PAGE_CONFIG.get(current_page_key)
 
 if page_info:
-    # --- 4. Define CSS Styles for the Header Box ---
+    # --- 5. Define CSS Styles for the Header Box ---
     main_container_style = """
         background-color: black; 
         padding: 20px 25px; 
@@ -80,7 +116,7 @@ if page_info:
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 5. Prepare Dynamic Parts of the Header ---
+    # --- 6. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
@@ -89,7 +125,7 @@ if page_info:
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Test123!"))}</b>!'
 
-    # --- 6. Build the HTML for the Header Box and Divider ---
+    # --- 7. Build the HTML for the Header Box and Divider ---
     header_html = (
         f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
@@ -110,28 +146,8 @@ if page_info:
         <hr style="margin-top: 2rem; border-color: #2d4646;">
     """
     
-    # --- 7. Wrap Header in a Div with a UNIQUE ID and Render ---
-    # This ID is the stable anchor for our CSS.
-    st.markdown(f'<div id="global-header-container">{full_header_block}</div>', unsafe_allow_html=True)
-
-    # --- 8. Inject the SURGICAL CSS Fix ---
-    # This is the final and correct CSS to solve the problem.
-    st.markdown("""
-        <style>
-            /*
-            Step 1: Find the Streamlit container that holds our unique header ID.
-            The :has() selector is modern, stable, and precise.
-            */
-            div[data-testid="stVerticalBlock"]:has(> #global-header-container) {
-                /* 
-                Step 2: Apply a negative bottom margin to counteract the parent's "gap" property.
-                This pulls the next element up, closing the gap permanently.
-                Streamlit's default gap is 1rem, so we use -1rem to cancel it perfectly.
-                */
-                margin-bottom: -1rem !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+    # --- 8. Render the Header Block ---
+    st.markdown(full_header_block, unsafe_allow_html=True)
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
