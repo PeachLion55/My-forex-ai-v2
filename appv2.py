@@ -993,8 +993,8 @@ from PIL import Image
 import pandas as pd
 
 # =========================================================
-# GLOBAL HELPER FUNCTION (MOVED TO TOP LEVEL)
-# This is the fix for the NameError. The function is now defined globally.
+# 1. GLOBAL HELPER FUNCTION
+# This is defined once at the top level and is available to the whole app.
 # =========================================================
 @st.cache_data
 def image_to_base_64(path):
@@ -1005,11 +1005,9 @@ def image_to_base_64(path):
     except FileNotFoundError:
         print(f"Warning: Image file not found at path: {path}")
         return None
-# =========================================================
-
 
 # =========================================================
-# MOCK DATA and SESSION STATE (for standalone testing)
+# 2. MOCK DATA and SESSION STATE
 # =========================================================
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
@@ -1020,64 +1018,62 @@ econ_df = pd.DataFrame({
     "Date": ["2025-09-15", "2025-09-16", "2025-09-20", "2025-09-22"]
 })
 df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
-# --- End of Mock Data ---
-
 
 # =========================================================
-# FUNDAMENTALS PAGE
+# 3. UNIFIED GLOBAL HEADER
+# This code is now OUTSIDE any 'if page' block. It will run on EVERY page.
 # =========================================================
-if st.session_state.current_page == 'fundamentals':
 
-    # --- HEADER SECTION ---
+# --- Define CSS styles with smaller sizes ---
+main_container_style = """
+    background-color: black; 
+    padding: 12px 20px; 
+    border-radius: 10px; 
+    display: flex; 
+    align-items: center; 
+    gap: 15px;
+    border: 1px solid #2d4646;
+    box-shadow: 0 0 12px 4px rgba(45, 70, 70, 0.5);
+"""
+left_column_style = "flex: 3; display: flex; align-items: center; gap: 15px;"
+right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 10px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.8rem;"
+title_style = "color: white; margin: 0; font-size: 1.6rem; line-height: 1.2;"
+icon_style = "width: 100px; height: auto;" # Halved from 200px
+caption_style = "color: #808495; margin: 4px 0 0 0; font-family: sans-serif; font-size: 0.85rem;"
 
-    # 1. Define all CSS styles as simple strings
-    # --- STYLE CHANGE: Added box-shadow for the glow effect ---
-    main_container_style = """
-        background-color: black; 
-        padding: 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px;
-        border: 1px solid #2d4646;
-        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-    """
-    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.95rem;"
-    title_style = "color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;"
-    icon_style = "width: 200px; height: auto;"
-    caption_style = "color: #808495; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+# --- Prepare the icon HTML ---
+icon_html = ""
+icon_path = os.path.join("icons", "forex_fundamentals.png")
+icon_base64 = image_to_base_64(icon_path) # This call is now safe
+if icon_base64:
+    icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
 
-    # 2. Prepare the icon HTML
-    icon_html = ""
-    icon_path = os.path.join("icons", "forex_fundamentals.png")
-    # This function call now works on any page because it's globally defined.
-    icon_base64 = image_to_base_64(icon_path)
-    if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-
-    # 3. Build the final HTML string using safe concatenation
-    header_html = (
-        f'<div style="{main_container_style.replace(" G", " G")}">' # Using replace to handle potential quote issues safely
-            f'<div style="{left_column_style}">'
-                f'{icon_html}'
-                '<div>'
-                    f'<h1 style="{title_style}">Forex Fundamentals</h1>'
-                    f'<p style="{caption_style}">Macro snapshot: sentiment, calendar highlights, and policy rates.</p>'
-                '</div>'
-            '</div>'
-            f'<div style="{right_column_style}">'
-                'See the <b>Trading Journal</b> tab for live charts + detailed news.'
+# --- Build and render the final header HTML ---
+header_html = (
+    f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div style="{left_column_style}">'
+            f'{icon_html}'
+            '<div>'
+                f'<h1 style="{title_style}">Forex Fundamentals</h1>'
+                f'<p style="{caption_style}">Macro snapshot: sentiment, calendar highlights, and policy rates.</p>'
             '</div>'
         '</div>'
-    )
+        f'<div style="{right_column_style}">'
+            'See the <b>Trading Journal</b> tab for live charts + detailed news.'
+        '</div>'
+    '</div>'
+)
+st.markdown(header_html, unsafe_allow_html=True)
+st.markdown('---')
 
-    # 4. Render the final HTML
-    st.markdown(header_html, unsafe_allow_html=True)
 
-    st.markdown('---')
+# =========================================================
+# 4. PAGE-SPECIFIC CONTENT
+# Only the content for the current page is rendered below the header.
+# =========================================================
 
-    # NOTE: The rest of your code for this page follows here without any changes.
+if st.session_state.current_page == 'fundamentals':
+    # --- This block now ONLY contains content for the Fundamentals page ---
     st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
@@ -1093,7 +1089,6 @@ if st.session_state.current_page == 'fundamentals':
         styles = [''] * len(row)
         selected_1 = st.session_state.get('selected_currency_1')
         selected_2 = st.session_state.get('selected_currency_2')
-
         if selected_1 and row['Currency'] == selected_1:
             styles = ['background-color: #4c7170; color: white' if col == 'Currency' else 'background-color: #4c7170' for col in row.index]
         if selected_2 and row['Currency'] == selected_2:
@@ -1136,67 +1131,19 @@ if st.session_state.current_page == 'fundamentals':
     st.markdown("### 📊 Major High-Impact Forex Events")
     forex_high_impact_events = [
         {
-            "event": "Non-Farm Payrolls (NFP)",
-            "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.",
-            "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
-            "impact_positive": {
-                "USD": "↑ Stronger USD due to strong labor market",
-                "EUR/USD": "↓ EUR weakens vs USD",
-                "GBP/USD": "↓ GBP weakens vs USD",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ AUD weakens vs USD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "USD": "↓ Weaker USD due to weak labor market",
-                "EUR/USD": "↑ EUR strengthens vs USD",
-                "GBP/USD": "↑ GBP strengthens vs USD",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ AUD strengthens vs USD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
+            "event": "Non-Farm Payrolls (NFP)", "description": "Monthly report showing U.S. jobs added or lost, excluding farming, households, and non-profits.", "why_it_matters": "Indicates economic health; strong jobs → stronger USD, weak jobs → weaker USD.",
+            "impact_positive": {"USD": "↑ Stronger USD due to strong labor market", "EUR/USD": "↓ EUR weakens vs USD", "GBP/USD": "↓ GBP weakens vs USD", "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ AUD weakens vs USD", "USD/CAD": "↑ USD strengthens vs CAD"},
+            "impact_negative": {"USD": "↓ Weaker USD due to weak labor market", "EUR/USD": "↑ EUR strengthens vs USD", "GBP/USD": "↑ GBP strengthens vs USD", "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ AUD strengthens vs USD", "USD/CAD": "↓ USD weakens vs CAD"},
         },
         {
-            "event": "Consumer Price Index (CPI)",
-            "description": "Measures changes in consumer prices; gauges inflation.",
-            "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ Higher rates likely → currency strengthens",
-                "EUR/USD": "↓ Currency strengthens vs EUR",
-                "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ Currency strengthens vs AUD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ Lower inflation → dovish → currency weakens",
-                "EUR/USD": "↑ Currency weakens vs EUR",
-                "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ Currency weakens vs AUD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
+            "event": "Consumer Price Index (CPI)", "description": "Measures changes in consumer prices; gauges inflation.", "why_it_matters": "Higher inflation → potential rate hikes → currency strengthens; lower inflation → dovish expectations → currency weakens.",
+            "impact_positive": {"Currency": "↑ Higher rates likely → currency strengthens", "EUR/USD": "↓ Currency strengthens vs EUR", "GBP/USD": "↓ Currency strengthens vs GBP", "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ Currency strengthens vs AUD", "USD/CAD": "↑ USD strengthens vs CAD"},
+            "impact_negative": {"Currency": "↓ Lower inflation → dovish → currency weakens", "EUR/USD": "↑ Currency weakens vs EUR", "GBP/USD": "↑ Currency weakens vs GBP", "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ Currency weakens vs AUD", "USD/CAD": "↓ USD weakens vs CAD"},
         },
         {
-            "event": "Interest Rate Decision",
-            "description": "Central bank sets the official interest rate.",
-            "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
-            "impact_positive": {
-                "Currency": "↑ if hike or hawkish guidance → strengthens vs majors",
-                "EUR/USD": "↓ Currency strengthens vs EUR",
-                "GBP/USD": "↓ Currency strengthens vs GBP",
-                "USD/JPY": "↑ USD strengthens vs JPY",
-                "AUD/USD": "↓ Currency strengthens vs AUD",
-                "USD/CAD": "↑ USD strengthens vs CAD"
-            },
-            "impact_negative": {
-                "Currency": "↓ if cut or dovish guidance → weakens vs majors",
-                "EUR/USD": "↑ Currency weakens vs EUR",
-                "GBP/USD": "↑ Currency weakens vs GBP",
-                "USD/JPY": "↓ USD weakens vs JPY",
-                "AUD/USD": "↑ Currency weakens vs AUD",
-                "USD/CAD": "↓ USD weakens vs CAD"
-            },
+            "event": "Interest Rate Decision", "description": "Central bank sets the official interest rate.", "why_it_matters": "Rate hikes or hawkish guidance → currency strengthens; rate cuts or dovish guidance → currency weakens.",
+            "impact_positive": {"Currency": "↑ if hike or hawkish guidance → strengthens vs majors", "EUR/USD": "↓ Currency strengthens vs EUR", "GBP/USD": "↓ Currency strengthens vs GBP", "USD/JPY": "↑ USD strengthens vs JPY", "AUD/USD": "↓ Currency strengthens vs AUD", "USD/CAD": "↑ USD strengthens vs CAD"},
+            "impact_negative": {"Currency": "↓ if cut or dovish guidance → weakens vs majors", "EUR/USD": "↑ Currency weakens vs EUR", "GBP/USD": "↑ Currency weakens vs GBP", "USD/JPY": "↓ USD weakens vs JPY", "AUD/USD": "↑ Currency weakens vs AUD", "USD/CAD": "↓ USD weakens vs CAD"},
         },
     ]
     for ev in forex_high_impact_events:
@@ -1204,14 +1151,7 @@ if st.session_state.current_page == 'fundamentals':
         negative_impact = "<br>".join([f"<b>{k}:</b> {v}" for k, v in ev["impact_negative"].items()])
         st.markdown(
             f"""
-            <div style="
-                border-radius:12px;
-                padding:15px;
-                margin-bottom:18px;
-                background-color:#0000;
-                color:white;
-                box-shadow: 2px 4px 10px rgba(0,0,0,0.4);
-            ">
+            <div style="border-radius:12px; padding:15px; margin-bottom:18px; background-color:#0000; color:white; box-shadow: 2px 4px 10px rgba(0,0,0,0.4);">
                 <h4 style="color:#FFD700; margin:0 0 6px 0;">{ev['event']}</h4>
                 <p style="margin:6px 0 6px 0;"><b>What it is:</b> {ev['description']}</p>
                 <p style="margin:6px 0 12px 0;"><b>Why it matters:</b> {ev['why_it_matters']}</p>
@@ -1228,6 +1168,10 @@ if st.session_state.current_page == 'fundamentals':
             </div>
             """, unsafe_allow_html=True
         )
+# Example of how another page would look
+# elif st.session_state.current_page == 'trading_journal':
+#     st.title("Trading Journal")
+#     # ... All the code for your trading journal page would go here
 # =========================================================
 # TRADING JOURNAL PAGE
 # =========================================================
