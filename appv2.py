@@ -1107,16 +1107,21 @@ def image_to_base64(path):
 # FOREX FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    # The global header now handles the title, icon, and caption.
-    # All the old header elements (columns, title, icon, caption, and horizontal line) have been removed.
+    # The 'st.info' box has been removed as requested.
 
-    # The st.info box, previously in a column, can now be displayed directly.
-    st.info("See the Trading Journal tab for live charts + detailed news.")
+    # To move the page content further up, we inject CSS to reduce the top padding
+    # of Streamlit's main block container. This is the most reliable method.
+    st.markdown("""
+        <style>
+            .main .block-container {
+                padding-top: 1rem; /* Adjust this value to control the space */
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # The rest of your page content starts immediately after.
+    # The rest of your page content starts here.
     st.markdown("### Upcoming Economic Events")
 
-    # NOTE: The rest of the code for this page remains the same.
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
     with col_filter1:
