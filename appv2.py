@@ -2987,42 +2987,94 @@ def image_to_base_64(path):
         print(f"Warning: Image file not found at path: {path}")
         return None
 
+import streamlit as st
+import os
+import io
+import base64
+import hashlib
+import json
+import pandas as pd
+import plotly.graph_objects as go
+import time
+import logging
+
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
-if st.session_state.current_page == 'account':
+elif st.session_state.current_page == 'account':
+
+    # --- HELPER FUNCTION DEFINED AT THE TOP TO FIX NameError ---
+    # This function is now available for both logged-in and logged-out views.
+    @st.cache_data
+    def image_to_base_64(path):
+        """Converts a local image file to a base64 string."""
+        try:
+            with open(path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        except FileNotFoundError:
+            print(f"Warning: Image file not found at path: {path}")
+            return None
+
     # This introductory section should ONLY show when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
-        # --- REPLACEMENT FOR THE MAIN TITLE ---
-        icon_path = os.path.join("icons", "my_account.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem;">My Account</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.title("👤 My Account") # Fallback
+        
+        # --- 1. Page-Specific Configuration (for Logged-Out Header) ---
+        page_info = {
+            'title': 'My Account', 
+            'icon': 'my_account.png', 
+            'caption': 'Manage your account, save your data, and track your progress.'
+        }
 
+        # --- 2. Define CSS Styles for the New Header ---
+        main_container_style = """
+            background-color: black; padding: 20px 25px; border-radius: 10px; 
+            display: flex; align-items: center; gap: 20px;
+            border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+        """
+        left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+        right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+        title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
+        icon_style = "width: 130px; height: auto;"
+        caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+        # --- 3. Prepare Dynamic Parts of the Header ---
+        icon_html = ""
+        icon_path = os.path.join("icons", page_info['icon'])
+        icon_base64 = image_to_base_64(icon_path)
+        if icon_base64:
+            icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+        
+        welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+        # --- 4. Build and Render the New Header ---
+        header_html = (
+            f'<div style="{main_container_style}">'
+                f'<div style="{left_column_style}">{icon_html}'
+                    '<div>'
+                        f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                        f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                    '</div>'
+                '</div>'
+                f'<div style="{right_column_style}">{welcome_message}</div>'
+            '</div>'
+        )
+        st.markdown(header_html, unsafe_allow_html=True)
+        st.markdown("---")
+
+        # --- RETAINED CONTENT: Description of Benefits ---
         st.markdown(
             """
-            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
+            Signing in lets you:
             - Keep your trading journal and strategies backed up.
             - Track your progress and gamification stats.
             - Sync across devices.
             - Import/export your account data easily.
             """
         )
-        st.write('---')
-    
-        # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
+        
+        # --- RETAINED CONTENT: Login/Signup/Debug Tabs ---
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
         
-        # --------------------------
-        # SIGN IN TAB
-        # --------------------------
         with tab_signin:
             st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
@@ -3030,27 +3082,21 @@ if st.session_state.current_page == 'account':
                 password = st.text_input("Password", type="password", key="login_password_input") 
                 login_button = st.form_submit_button("Login")
                 if login_button:
+                    # NOTE: Assume 'c' and 'conn' (database connection) are defined elsewhere
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
                     c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
                     if result and result[0] == hashed_password:
                         st.session_state.logged_in_user = username
-                        initialize_and_load_session_state() # Reload session state with the new logged-in user's data
-                        
-                        # This section remains as you provided it, with the success box
+                        initialize_and_load_session_state() # Assumed function
                         st.success(f"Welcome back, {username}!")
-
                         logging.info(f"User {username} logged in successfully")
-                        
-                        import time
                         time.sleep(1.5)
                         st.rerun() 
                     else:
                         st.error("Invalid username or password.")
                         logging.warning(f"Failed login attempt for {username}")
-        # --------------------------
-        # SIGN UP TAB
-        # --------------------------
+        
         with tab_signup:
             st.subheader("Create a new account to start tracking your trades and progress.")
             with st.form("register_form"):
@@ -3059,87 +3105,51 @@ if st.session_state.current_page == 'account':
                 confirm_password = st.text_input("Confirm Password", type="password", key="register_confirm_password_input") 
                 register_button = st.form_submit_button("Register")
                 if register_button:
-                    if new_password != confirm_password:
-                        st.error("Passwords do not match.")
-                    elif not new_username or not new_password:
-                        st.error("Username and password cannot be empty.")
+                    if new_password != confirm_password: st.error("Passwords do not match.")
+                    elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                     else:
                         c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                        if c.fetchone():
-                            st.error("Username already exists.")
+                        if c.fetchone(): st.error("Username already exists.")
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({
-                                "xp": DEFAULT_APP_STATE['xp'], "level": DEFAULT_APP_STATE['level'],
-                                "badges": DEFAULT_APP_STATE['badges'], "streak": DEFAULT_APP_STATE['streak'],
-                                "last_journal_date": DEFAULT_APP_STATE['last_journal_date'],
-                                "last_login_xp_date": DEFAULT_APP_STATE['last_login_xp_date'],
-                                "gamification_flags": DEFAULT_APP_STATE['gamification_flags'],
-                                "drawings": DEFAULT_APP_STATE['drawings'],
-                                "trade_journal": DEFAULT_APP_STATE['trade_journal'].to_dict('records'),
-                                "strategies": DEFAULT_APP_STATE['strategies'].to_dict('records'),
-                                "emotion_log": DEFAULT_APP_STATE['emotion_log'].to_dict('records'),
-                                "reflection_log": DEFAULT_APP_STATE['reflection_log'].to_dict('records'),
-                                "xp_log": DEFAULT_APP_STATE['xp_log'],
-                                'chatroom_rules_accepted': DEFAULT_APP_STATE['chatroom_rules_accepted'],
-                                'chatroom_nickname': None
-                            })
+                            initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None }) # Simplified initial data
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
-                                initialize_and_load_session_state() 
+                                initialize_and_load_session_state() # Assumed function
                                 st.success(f"Account created for {new_username}!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Failed to create account: {str(e)}")
-        # --------------------------
-        # DEBUG TAB
-        # --------------------------
+
         with tab_debug:
             st.subheader("Debug: Inspect Users Database")
             st.warning("This is for debugging only. Remove in production.")
             try:
                 c.execute("SELECT username, password, data FROM users")
                 users = c.fetchall()
-                if users:
-                    debug_df = pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"])
-                    st.dataframe(debug_df, use_container_width=True)
-                else:
-                    st.info("No users found in the database.")
+                if users: st.dataframe(pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"]), use_container_width=True)
+                else: st.info("No users found in the database.")
                 c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                tables = c.fetchall()
-                st.write("Database Tables:", tables)
+                st.write("Database Tables:", c.fetchall())
             except Exception as e:
                 st.error(f"Error accessing database: {str(e)}")
 
     else: # This block displays when a user IS logged in.
-        # --------------------------
-        # LOGGED-IN USER VIEW
-        # --------------------------
         
         def handle_logout():
-            if st.session_state.logged_in_user is not None:
-                save_user_data(st.session_state.logged_in_user)
-            
-            for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal',
-                        'xp', 'level', 'badges', 'streak', 'last_journal_date',
-                        'last_login_xp_date', 'gamification_flags', 'xp_log', 
-                        'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress',
-                        'edit_trade_metrics'
-                        ]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            
-            initialize_and_load_session_state()
+            if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user) # Assumed function
+            for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']:
+                if key in st.session_state: del st.session_state[key]
+            initialize_and_load_session_state() # Assumed function
             st.session_state.current_page = "account"
             st.rerun()
 
-        # --- THIS IS THE CORRECTED SECTION ---
-        # Instead of st.header, we use st.markdown to include the image.
+        # --- LOGGED-IN WELCOME HEADER (Your original code, now working) ---
         icon_path = os.path.join("icons", "my_account.png")
         if os.path.exists(icon_path):
-            icon_base64_welcome = image_to_base64(icon_path)
+            icon_base64_welcome = image_to_base_64(icon_path)
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
@@ -3147,12 +3157,12 @@ if st.session_state.current_page == 'account':
                 </div>
             """, unsafe_allow_html=True)
         else:
-            # Fallback if the icon is not found
             st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
 
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
         
+        # --- RETAINED CONTENT: The rest of your logged-in dashboard ---
         st.subheader("📈 Progress Snapshot")
         
         st.markdown("""
@@ -3168,53 +3178,33 @@ if st.session_state.current_page == 'account':
 
         kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
         with kpi_col1:
-            level = st.session_state.get('level', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {level}</div><div class="kpi-label">Trader\'s Rank</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🧙‍♂️</div><div class="kpi-value">Level {st.session_state.get("level", 0)}</div><div class="kpi-label">Trader\'s Rank</div></div>', unsafe_allow_html=True)
         with kpi_col2:
-            streak = st.session_state.get('streak', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{streak} Days</div><div class="kpi-label">Journaling Streak</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">🔥</div><div class="kpi-value">{st.session_state.get("streak", 0)} Days</div><div class="kpi-label">Journaling Streak</div></div>', unsafe_allow_html=True)
         with kpi_col3:
-            total_xp = st.session_state.get('xp', 0)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{total_xp:,}</div><div class="kpi-label">Total Experience (XP)</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">{st.session_state.get("xp", 0):,}</div><div class="kpi-label">Total XP</div></div>', unsafe_allow_html=True)
         with kpi_col4:
-            redeemable_xp = int(st.session_state.get('xp', 0) / 2)
-            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{redeemable_xp:,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{int(st.session_state.get("xp", 0) / 2):,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
         
         st.markdown("---")
-
+        
         chart_col, insights_col = st.columns([1, 2])
-
         with chart_col:
             st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
-            total_xp = st.session_state.get('xp', 0)
-            xp_in_level = total_xp % 100
-            xp_needed = 100 - xp_in_level
-
-            fig = go.Figure(go.Pie(
-                values=[xp_in_level, xp_needed],
-                hole=0.6,
-                marker_colors=['#58b3b1', '#2d4646'],
-                textinfo='none',
-                hoverinfo='label+value'
-            ))
-            fig.update_layout(
-                showlegend=False, paper_bgcolor='rgba(0,0,0,0)',
-                annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")],
-                margin=dict(t=20, b=20, l=20, r=20)
-            )
+            xp_in_level = st.session_state.get('xp', 0) % 100
+            fig = go.Figure(go.Pie(values=[xp_in_level, 100 - xp_in_level], hole=0.6, marker_colors=['#58b3b1', '#2d4646'], textinfo='none', hoverinfo='label+value'))
+            fig.update_layout(showlegend=False, paper_bgcolor='rgba(0,0,0,0)', annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")], margin=dict(t=20, b=20, l=20, r=20))
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         
         with insights_col:
             st.markdown("<h5 style='text-align: center;'>Personalized Insights & Badges</h5>", unsafe_allow_html=True)
             insight_sub_col, badge_sub_col = st.columns(2)
-            
             with insight_sub_col:
                 st.markdown("<h6>💡 Insights</h6>", unsafe_allow_html=True)
                 streak = st.session_state.get('streak', 0)
                 insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
                 st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
-                
-                num_trades = len(st.session_state.trade_journal) 
+                num_trades = len(st.session_state.get('trade_journal', []))
                 if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
                 elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
                 else: next_milestone = "The next streak badge is at 30 days. You've got this!"
@@ -3227,29 +3217,21 @@ if st.session_state.current_page == 'account':
                     for badge in badges: st.markdown(f"- 🏅 {badge}")
                 else:
                     st.info("No badges earned yet. Keep trading to unlock them!")
-        
+
         st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
-        # Removed "🚀 Your XP Journey" chart from here
-        # Removed "---" separator as the chart above it is now gone.
         
         st.subheader("💎 Redeem Your RXP")
         current_rxp = int(st.session_state.get('xp', 0) / 2)
         st.info(f"You have **{current_rxp:,} RXP** available to spend.")
         
-        items = {
-            "1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"},
-            "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"},
-            "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}
-        }
+        items = {"1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"}, "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"}, "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}}
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
                 st.markdown(f'<div class="redeem-card"><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem {item_details['name']}", key=f"redeem_{item_key}", use_container_width=True):
                     if current_rxp >= item_details['cost']:
-                        xp_cost = item_details['cost'] * 2
-                        ta_update_xp(st.session_state.logged_in_user, -xp_cost, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)")
-                        
+                        ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
                         st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
                         time.sleep(1)
                         st.rerun()
@@ -3257,30 +3239,16 @@ if st.session_state.current_page == 'account':
                         st.warning("You do not have enough RXP for this item.")
 
         st.markdown("---")
-
-        # --- XP Transaction History (Now Above How to Earn XP) ---
-        st.subheader("📜 Your XP Transaction History")
         
+        st.subheader("📜 Your XP Transaction History")
         xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
-
         if not xp_log_df.empty:
             xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
             xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
-
-            def style_amount_column_numeric(val):
-                if val > 0:
-                    return 'color: green; font-weight: bold;'
-                elif val < 0:
-                    return 'color: red; font-weight: bold;'
-                return ''
-
-            styled_xp_log = xp_log_df.style.applymap(style_amount_column_numeric, subset=['Amount'])
-            styled_xp_log = styled_xp_log.format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
-
+            styled_xp_log = xp_log_df.style.applymap(lambda val: 'color: green; font-weight: bold;' if val > 0 else 'color: red; font-weight: bold;' if val < 0 else '', subset=['Amount']).format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
             st.dataframe(styled_xp_log, use_container_width=True)
         else:
             st.info("Your XP transaction history is empty. Start interacting to earn XP!")
-        # --- END XP Transaction History ---
         
         st.markdown("---")
 
