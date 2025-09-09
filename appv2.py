@@ -996,64 +996,83 @@ from PIL import Image
 # =========================================================
 @st.cache_data
 def image_to_base64(path):
-    with open(path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
+    """Converts an image file to a base64 encoded string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        return None
 
 # =========================================================
 # FUNDAMENTALS PAGE
 # =========================================================
+# Mock session state and dataframes for standalone execution
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
+
+import pandas as pd
+econ_df = pd.DataFrame({
+    "Currency": ["USD", "EUR", "JPY", "GBP"],
+    "Event": ["CPI", "Retail Sales", "BoJ Meeting", "GDP"],
+    "Date": ["2025-09-15", "2025-09-16", "2025-09-20", "2025-09-22"]
+})
+df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
+# --- End of Mock Data ---
+
+
 if st.session_state.current_page == 'fundamentals':
-    # --- WRAP THE ENTIRE HEADER SECTION IN A DIV WITH A BLACK BACKGROUND ---
-    st.markdown("""
-        <div style="background-color: black; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+    
+    # --- NEW: UNIFIED HTML HEADER ---
+    # This single block creates the black background, two-column layout, title, and info box.
+    
+    # First, prepare the image HTML to avoid breaking the main f-string
+    icon_html = ""
+    icon_path = os.path.join("icons", "forex_fundamentals.png")
+    icon_base64 = image_to_base64(icon_path)
+    if icon_base64:
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 100px; max-width: 100%;">'
+
+    # Now, define the entire header in one st.markdown call
+    st.markdown(f"""
+    <div style="
+        background-color: #000000;
+        padding: 20px;
+        border-radius: 10px;
+        display: grid;
+        grid-template-columns: 3fr 1fr; /* 3:1 ratio for columns */
+        gap: 20px;
+        align-items: center;
+    ">
+        <!-- Column 1: Title and Caption -->
+        <div style="display: flex; flex-direction: row; align-items: center; gap: 15px;">
+            {icon_html}
+            <div>
+                <h1 style="color: white; margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
+                <p style="color: #9A9A9A; margin: 5px 0 0 0; font-family: sans-serif;">
+                    Macro snapshot: sentiment, calendar highlights, and policy rates.
+                </p>
+            </div>
+        </div>
+
+        <!-- Column 2: Info Box (Styled to look like st.info) -->
+        <div style="
+            background-color: rgba(45, 70, 70, 0.3); 
+            border: 1px solid #2d4646;
+            padding: 15px; 
+            border-radius: 5px;
+            color: white;
+            font-family: sans-serif;
+            font-size: 0.95rem;
+        ">
+            See the <b>Trading Journal</b> tab for live charts + detailed news.
+        </div>
+    </div>
     """, unsafe_allow_html=True)
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        # --- REPLACEMENT FOR THE TITLE ---
-        # The title color is changed to white to be visible on the black background.
-        icon_path = os.path.join("icons", "forex_fundamentals.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem; color: white;">Forex Fundamentals</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Fallback in case the icon file is not found
-            st.markdown('<h1 style="color: white;">Forex Fundamentals</h1>', unsafe_allow_html=True)
-
-        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-        # The st.markdown('---') is removed from here.
-
-    with col2:
-        st.info("See the Trading Journal tab for live charts + detailed news.")
-
-    # --- CLOSE THE DIV AND ADD THE DIVIDER ---
-    # This closes the black background div and adds the horizontal rule below it.
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("---")
-
+    
+    st.markdown('---')
 
     # NOTE: The rest of your code for this page follows here without any changes.
-    # The emoji has been removed from the markdown header below.
     st.markdown("### Upcoming Economic Events")
-
-    # Assuming econ_df and df_news are defined elsewhere in your app
-    # As they are not in the provided code, I will create dummy placeholders
-    # so the code can run without error. You should have these defined already.
-    import pandas as pd
-    econ_df = pd.DataFrame({
-        "Currency": ["USD", "EUR", "JPY", "GBP"],
-        "Event": ["CPI", "Retail Sales", "BoJ Meeting", "GDP"],
-        "Date": ["2025-09-15", "2025-09-16", "2025-09-20", "2025-09-22"]
-    })
-    df_news = pd.DataFrame({
-        "Currency": ["AUD", "CAD", "NZD", "CHF"]
-    })
-
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
