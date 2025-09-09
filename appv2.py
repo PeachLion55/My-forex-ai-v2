@@ -1099,8 +1099,8 @@ def image_to_base64(path):
 # =========================================================
 # FOREX FUNDAMENTALS PAGE
 # =========================================================
-if st.session_state.current_page == 'fundamentals':    
-st.markdown("### Upcoming Economic Events")
+if st.session_state.current_page == 'fundamentals': 
+    st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
