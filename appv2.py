@@ -989,47 +989,91 @@ import streamlit as st
 import os
 import io
 import base64
-from PIL import Image
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Required for this method)
+# HELPER FUNCTION TO ENCODE IMAGES (Using the new version)
 # =========================================================
 @st.cache_data
-def image_to_base64(path):
-    with open(path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
+def image_to_base_64(path):
+    """Converts a local image file to a base64 string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        # This provides a helpful warning in the console if the icon is missing.
+        print(f"Warning: Image file not found at path: {path}")
+        return None
 
 # =========================================================
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        # --- REPLACEMENT FOR THE TITLE ---
-        # Instead of columns, we use a single markdown block with HTML for precise control.
-        icon_path = os.path.join("icons", "forex_fundamentals.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            # This HTML uses flexbox to align items with a specific gap.
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Fallback in case the icon file is not found
-            st.title("Forex Fundamentals")
 
-        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-        st.markdown('---')
-    with col2:
-        st.info("See the Trading Journal tab for live charts + detailed news.")
+    # --- 1. Page-Specific Configuration ---
+    # We define the details for this page directly here instead of using a global dictionary.
+    page_info = {
+        'title': 'Forex Fundamentals', 
+        'icon': 'forex_fundamentals.png', 
+        'caption': 'Macro snapshot, calendar highlights, and policy rates.'
+    }
 
-    # NOTE: The rest of your code for this page follows here without any changes.
-    # The emoji has been removed from the markdown header below.
+    # --- 2. Define CSS Styles for the New Header ---
+    main_container_style = """
+        background-color: black; 
+        padding: 20px 25px; 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px;
+        border: 1px solid #2d4646;
+        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+    """
+    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
+    icon_style = "width: 130px; height: auto;"
+    caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+    # --- 3. Prepare Dynamic Parts of the Header ---
+    icon_html = ""
+    icon_path = os.path.join("icons", page_info['icon'])
+    icon_base64 = image_to_base_64(icon_path)
+    if icon_base64:
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+    
+    # This safely gets the user's name, with fallbacks.
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+    # --- 4. Build the HTML for the New Header ---
+    header_html = (
+        f'<div style="{main_container_style.replace(" G", " ")}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">'
+                f'{welcome_message}'
+            '</div>'
+        '</div>'
+    )
+
+    # --- 5. Render the New Header ---
+    # This single line replaces the entire old header structure.
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
+    # The st.info box that was in the old column 2 is now placed below the new header.
+    st.info("See the Trading Journal tab for live charts + detailed news.")
+
+    st.markdown('---')
+    
+    # The rest of your page code follows here without any changes.
     st.markdown("### Upcoming Economic Events")
 
+    # (Your other Streamlit elements for this page go here...)
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
     with col_filter1:
