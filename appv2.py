@@ -1002,14 +1002,11 @@ def image_to_base64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        # Return a placeholder or None if the image is not found
         return None
 
 # =========================================================
 # MOCK DATA and SESSION STATE (for standalone testing)
 # =========================================================
-# This part is just to make the script runnable.
-# You should already have these in your actual app.
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
@@ -1026,51 +1023,58 @@ df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
 
-    # --- CORRECTED HTML HEADER ---
-    # Prepare the HTML for the icon first to keep the main block clean
+    # --- FINAL CORRECTED HTML HEADER ---
+    # By defining CSS styles as variables first, we prevent f-string formatting errors.
+
+    # 1. Define all CSS styles as separate strings
+    main_container_style = """
+        background-color: #000000;
+        padding: 25px;
+        border-radius: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+    """
+    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+    right_column_style = """
+        flex: 1;
+        background-color: #0E1117;
+        border: 1px solid #2d4646;
+        padding: 15px;
+        border-radius: 8px;
+        color: white;
+        font-family: sans-serif;
+        font-size: 0.95rem;
+        text-align: center;
+    """
+    title_style = "color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;"
+    caption_style = "color: #AAAAAA; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1.1rem;"
+
+    # 2. Prepare the icon HTML
     icon_html = ""
     icon_path = os.path.join("icons", "forex_fundamentals.png")
     icon_base64 = image_to_base64(icon_path)
     if icon_base64:
-        # The image style ensures it doesn't get too big or small
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 90px; height: auto; flex-shrink: 0;">'
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 90px; height: auto;">'
 
-    # This single st.markdown call creates the entire header with a black background.
-    # It uses CSS Flexbox for a robust two-column layout.
+    # 3. Build the final HTML block using the style variables
+    # This is much cleaner and avoids syntax errors.
     st.markdown(f"""
-    <div style="
-        background-color: #000000;
-        padding: 20px;
-        border-radius: 10px;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-    ">
-        <!-- Left Column (Title, Icon, Caption) -->
-        <div style="flex: 3; display: flex; flex-direction: row; align-items: center; gap: 20px;">
+    <div style="{main_container_style.replace('"', "'")}">
+        <!-- Left Column -->
+        <div style="{left_column_style.replace('"', "'")}">
             {icon_html}
             <div>
-                <h1 style="color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;">Forex Fundamentals</h1>
-                <p style="color: #AAAAAA; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1.1rem;">
+                <h1 style="{title_style.replace('"', "'")}">Forex Fundamentals</h1>
+                <p style="{caption_style.replace('"', "'")}">
                     Macro snapshot: sentiment, calendar highlights, and policy rates.
                 </p>
             </div>
         </div>
 
-        <!-- Right Column (Custom Info Box) -->
-        <div style="
-            flex: 1;
-            background-color: #0E1117; 
-            border: 1px solid #2d4646;
-            padding: 15px; 
-            border-radius: 8px;
-            color: white;
-            font-family: sans-serif;
-            font-size: 0.95rem;
-            text-align: center;
-        ">
+        <!-- Right Column -->
+        <div style="{right_column_style.replace('"', "'")}">
             See the <b>Trading Journal</b> tab for live charts + detailed news.
         </div>
     </div>
