@@ -72,7 +72,7 @@ if page_info:
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        margin-top: 0px;
+        margin-top: 40px;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
