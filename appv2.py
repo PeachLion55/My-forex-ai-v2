@@ -47,7 +47,7 @@ st.markdown("""
             By setting the gap to 0, we remove the unwanted space between all elements.
             The !important flag is crucial to override Streamlit's default styles.
             */
-            gap: 1rem !important;
+            gap: 0.5rem !important;
         }
 
         /*
