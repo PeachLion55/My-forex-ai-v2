@@ -72,7 +72,7 @@ if page_info:
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        margin-top: 40px;
+        margin: 0;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
@@ -89,10 +89,9 @@ if page_info:
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "None"))}</b>!'
 
-    # --- 6. Build the HTML for the Header Box ---
-    # This block was missing in the previous version, causing the NameError. It is now restored.
+    # --- 6. Build Header with unique id ---
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div id="global-dashboard-header" style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -106,30 +105,33 @@ if page_info:
         '</div>'
     )
 
-    # --- 7. Combine Header and Divider into a Single Block ---
-    full_header_block = f"""
-        {header_html}
-        <hr style="margin-top: 2rem; border-color: #2d4646;">
-    """
-    
-    # --- 8. Render the Combined Header Block ---
-    st.markdown(full_header_block, unsafe_allow_html=True)
+    # --- 7. Render header ---
+    st.markdown(header_html, unsafe_allow_html=True)
 
-    # --- 9. Inject CSS to Fix the Gap ---
-    # This targets the generic containers Streamlit creates and removes their padding.
+    # --- 8. CSS to kill Streamlit's default gaps ---
     st.markdown("""
         <style>
-            /* Find the first container Streamlit creates on the page, which holds our header */
-            div[data-testid="stVerticalBlock"]:nth-of-type(1) {
-                /* Remove the bottom padding, which is the top half of the gap */
-                padding-bottom: 0 !important;
+            /* Remove margin from our header */
+            #global-dashboard-header {
+                margin: 0 !important;
             }
 
-            /* Find the second container, which holds our page content */
-            div[data-testid="stVerticalBlock"]:nth-of-type(2) {
-                /* Remove the top padding, which is the bottom half of the gap */
+            /* Kill Streamlit's block gap after the header */
+            #global-dashboard-header + div[data-testid="stVerticalBlock"] {
+                margin-top: -40px !important;  /* Adjust this number if needed */
                 padding-top: 0 !important;
-                margin-top: 1.5rem; /* Use margin to create controlled space instead */
+            }
+
+            /* Make sure markdown/caption immediately after has no gap */
+            #global-dashboard-header + div [data-testid="stMarkdownContainer"],
+            #global-dashboard-header + div [data-testid="stCaption"] {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+
+            /* Also kill Streamlit's default block padding */
+            div.block-container {
+                padding-top: 1rem !important;  /* smaller than default */
             }
         </style>
     """, unsafe_allow_html=True)
