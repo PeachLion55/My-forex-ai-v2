@@ -2761,19 +2761,7 @@ elif st.session_state.current_page == 'strategy':
 elif st.session_state.current_page == 'account':
     # This introductory section should ONLY show when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
-        # --- REPLACEMENT FOR THE MAIN TITLE ---
-        icon_path = os.path.join("icons", "my_account.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem;">My Account</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.title("My Account") # Fallback
-
+        st.title("👤 My Account")
         st.markdown(
             """
             Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
@@ -2785,25 +2773,13 @@ elif st.session_state.current_page == 'account':
         )
         st.write('---')
     
-        # Tabs for Sign In and Sign Up
+        # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
-        
         # --------------------------
         # SIGN IN TAB
         # --------------------------
         with tab_signin:
-            # --- REPLACEMENT FOR THE SUBHEADER ---
-            # We reuse the icon_base64 variable from the main title block above.
-            if 'icon_base64' in locals():
-                st.markdown(f"""
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="data:image/png;base64,{icon_base64}" width="100">
-                        <h3 style="margin: 0;">Welcome back! Please sign in to access your account.</h3>
-                    </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.subheader("Welcome back! Please sign in to access your account.") # Fallback
-
+            st.subheader("Welcome back! Please sign in to access your account.")
             with st.form("login_form"):
                 username = st.text_input("Username", key="login_username_input")
                 password = st.text_input("Password", type="password", key="login_password_input") 
@@ -2814,11 +2790,11 @@ elif st.session_state.current_page == 'account':
                     result = c.fetchone()
                     if result and result[0] == hashed_password:
                         st.session_state.logged_in_user = username
-                        initialize_and_load_session_state() # Reload session state
+                        initialize_and_load_session_state() # Reload session state with the new logged-in user's data
                         
                         st.success(f"Welcome back, {username}!")
                         logging.info(f"User {username} logged in successfully")
-                        st.rerun()
+                        st.rerun() # Crucial for state refresh
                     else:
                         st.error("Invalid username or password.")
                         logging.warning(f"Failed login attempt for {username}")
