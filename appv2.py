@@ -25,6 +25,107 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+import streamlit as st
+import os
+import base64
+
+# =========================================================
+# DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
+# =========================================================
+
+# --- 1. Global Helper Function (Defined Once) ---
+@st.cache_data
+def image_to_base_64(path):
+    """Converts a local image file to a base64 string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        print(f"Warning: Image file not found at path: {path}")
+        return None
+
+# --- 2. Central Configuration for All Pages ---
+PAGE_CONFIG = {
+    'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
+    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
+    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
+    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
+    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
+    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
+    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
+    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
+    'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
+}
+
+# --- 3. Get Configuration for the Current Page ---
+current_page_key = st.session_state.get('current_page', 'account')
+page_info = PAGE_CONFIG.get(current_page_key)
+
+if page_info:
+    # --- 4. Define CSS Styles for the New Header ---
+    main_container_style = """
+        background-color: black; 
+        padding: 20px 25px; 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px;
+        border: 1px solid #2d4646;
+        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+    """
+    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
+    icon_style = "width: 130px; height: auto;"
+    caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+    # --- 5. Prepare Dynamic Parts of the Header ---
+    icon_html = ""
+    icon_path = os.path.join("icons", page_info['icon'])
+    icon_base64 = image_to_base_64(icon_path)
+    if icon_base64:
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+    
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+    # --- 6. Build the HTML for the New Header ---
+    # The main container is given a unique ID: "global-header-container"
+    header_html = (
+        f'<div id="global-header-container" style="{main_container_style.replace(" G", " ")}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">'
+                f'{welcome_message}'
+            '</div>'
+        '</div>'
+    )
+
+    # --- 7. CSS Magic to Hide Old Headers and Captions ---
+    # This CSS hides ALL h1 and caption elements, then specifically UN-HIDES the ones inside our new header.
+    st.markdown("""
+        <style>
+            /* 
+               This is the trick: find all the individual header markdown blocks
+               that Streamlit creates and hide them. These selectors target the containers
+               for the old headers you created.
+            */
+            .stApp > div:nth-child(1) > div > div > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div > div > div[data-testid="stMarkdown"],
+            .stApp > div:nth-child(1) > div > div > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div > div > [data-testid="stCaption"] {
+                display: none !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+    # --- 8. Render the New Header and Divider ---
+    st.markdown(header_html, unsafe_allow_html=True)
+    st.markdown('---')
+
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
