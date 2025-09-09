@@ -3698,7 +3698,7 @@ def image_to_base_64(path):
 # =========================================================
 # TRADING TOOLS PAGE
 # =========================================================
-elif st.session_state.current_page == 'trading_tools':
+if st.session_state.current_page == 'trading_tools':
     # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Tools section.")
