@@ -990,27 +990,29 @@ import os
 import io
 import base64
 from PIL import Image
+import pandas as pd
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Required for this method)
+# HELPER FUNCTION TO ENCODE IMAGES
 # =========================================================
 @st.cache_data
 def image_to_base64(path):
-    """Converts an image file to a base64 encoded string."""
+    """Converts a local image file to a base64 string."""
     try:
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
+        # Return a placeholder or None if the image is not found
         return None
 
 # =========================================================
-# FUNDAMENTALS PAGE
+# MOCK DATA and SESSION STATE (for standalone testing)
 # =========================================================
-# Mock session state and dataframes for standalone execution
+# This part is just to make the script runnable.
+# You should already have these in your actual app.
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
-import pandas as pd
 econ_df = pd.DataFrame({
     "Currency": ["USD", "EUR", "JPY", "GBP"],
     "Event": ["CPI", "Retail Sales", "BoJ Meeting", "GDP"],
@@ -1019,56 +1021,61 @@ econ_df = pd.DataFrame({
 df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
 # --- End of Mock Data ---
 
-
+# =========================================================
+# FUNDAMENTALS PAGE
+# =========================================================
 if st.session_state.current_page == 'fundamentals':
-    
-    # --- NEW: UNIFIED HTML HEADER ---
-    # This single block creates the black background, two-column layout, title, and info box.
-    
-    # First, prepare the image HTML to avoid breaking the main f-string
+
+    # --- CORRECTED HTML HEADER ---
+    # Prepare the HTML for the icon first to keep the main block clean
     icon_html = ""
     icon_path = os.path.join("icons", "forex_fundamentals.png")
     icon_base64 = image_to_base64(icon_path)
     if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 100px; max-width: 100%;">'
+        # The image style ensures it doesn't get too big or small
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 90px; height: auto; flex-shrink: 0;">'
 
-    # Now, define the entire header in one st.markdown call
+    # This single st.markdown call creates the entire header with a black background.
+    # It uses CSS Flexbox for a robust two-column layout.
     st.markdown(f"""
     <div style="
         background-color: #000000;
         padding: 20px;
         border-radius: 10px;
-        display: grid;
-        grid-template-columns: 3fr 1fr; /* 3:1 ratio for columns */
-        gap: 20px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
         align-items: center;
+        gap: 20px;
     ">
-        <!-- Column 1: Title and Caption -->
-        <div style="display: flex; flex-direction: row; align-items: center; gap: 15px;">
+        <!-- Left Column (Title, Icon, Caption) -->
+        <div style="flex: 3; display: flex; flex-direction: row; align-items: center; gap: 20px;">
             {icon_html}
             <div>
-                <h1 style="color: white; margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
-                <p style="color: #9A9A9A; margin: 5px 0 0 0; font-family: sans-serif;">
+                <h1 style="color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;">Forex Fundamentals</h1>
+                <p style="color: #AAAAAA; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1.1rem;">
                     Macro snapshot: sentiment, calendar highlights, and policy rates.
                 </p>
             </div>
         </div>
 
-        <!-- Column 2: Info Box (Styled to look like st.info) -->
+        <!-- Right Column (Custom Info Box) -->
         <div style="
-            background-color: rgba(45, 70, 70, 0.3); 
+            flex: 1;
+            background-color: #0E1117; 
             border: 1px solid #2d4646;
             padding: 15px; 
-            border-radius: 5px;
+            border-radius: 8px;
             color: white;
             font-family: sans-serif;
             font-size: 0.95rem;
+            text-align: center;
         ">
             See the <b>Trading Journal</b> tab for live charts + detailed news.
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
+
     st.markdown('---')
 
     # NOTE: The rest of your code for this page follows here without any changes.
