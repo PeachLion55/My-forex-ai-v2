@@ -1244,16 +1244,14 @@ def image_to_base_64(path):
 # =========================================================
 # TRADING JOURNAL PAGE
 # =========================================================
-if st.session_state.current_page == 'trading_journal':
+elif st.session_state.current_page == 'trading_journal':
     # --- RETAINED CONTENT: User Login Check ---
-    # This important logic is kept at the beginning of the page script.
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access your Trading Journal.")
         st.session_state.current_page = 'account'
         st.rerun()
 
     # --- 1. Page-Specific Configuration ---
-    # We define the details for this page directly here.
     page_info = {
         'title': 'Trading Journal', 
         'icon': 'trading_journal.png', 
@@ -1302,16 +1300,15 @@ if st.session_state.current_page == 'trading_journal':
         '</div>'
     )
 
-    # --- 5. Render the New Header ---
-    # This single line replaces the old title, icon, caption, and divider.
+    # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
-    
-    # Adding a visual space before the tabs for better layout
-    st.write("") 
+    st.markdown("---") # <-- ADDED AS REQUESTED
 
     # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
     # The tab functionality from your original code is preserved and placed here.
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
+    
+    # (Your code for each tab goes here...)
     
     # (Your code for each tab goes here...)
 
