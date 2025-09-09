@@ -111,7 +111,8 @@ if page_info:
     """
 
     # --- 7. Render the Header Block ---
-    st.markdown(full_header_block, unsafe_allow_html=True)
+    # --- 8. Render the Header Block ---
+st.markdown(full_header_block, unsafe_allow_html=True)
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
@@ -119,23 +120,23 @@ if page_info:
 st.markdown(
     """
     <style>
-    /* --- THE DEFINITIVE GAP FIX --- */
+    /* --- THE DEFINITIVE, SURGICAL GAP FIX --- */
     /*
-    This selector targets the specific container inside the main content area that
-    is responsible for stacking your page elements and adding the unwanted gap.
-    It is designed to be very specific to avoid affecting your sidebar or other components.
+    Step 1: Find the specific Streamlit container that HOLDS our unique header anchor.
+    The ':has()' selector makes this incredibly precise and stable.
+    The '.main' scope prevents it from ever affecting the sidebar.
     */
-    .main .block-container > div:first-child > div:first-child {
-        gap: 0rem !important; /* Your proven fix: remove the gap */
+    .main div[data-testid="stVerticalBlock"]:has(> #custom-global-header-anchor) {
+        gap: 0rem !important; /* Step 2: Apply YOUR proven fix to remove the gap. */
     }
 
     /*
-    This rule restores spacing for the rest of your page. It adds a controlled
-    margin to the top of every content block EXCEPT the very first one (your header),
-    preventing your layout from collapsing while keeping the header gap closed.
+    Step 3: Restore spacing for the content that comes AFTER the header.
+    This rule finds the container with our header and then adds a margin-top
+    to the VERY NEXT content block, giving you perfect control over the space.
     */
-    .main .block-container > div:first-child > div:first-child > [data-testid="stVerticalBlock"]:nth-of-type(n+2) {
-         margin-top: 1.5rem !important; /* Adjust this value to control the spacing */
+    .main div[data-testid="stVerticalBlock"]:has(> #custom-global-header-anchor) + [data-testid="stVerticalBlock"] {
+         margin-top: 1.5rem !important; /* Adjust this value to control the space */
     }
     /* --- END OF FIX --- */
 
