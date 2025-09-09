@@ -89,9 +89,9 @@ if page_info:
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
 
     # --- 6. Build the HTML for the New Header ---
-    # The main container is given a unique ID: "global-header-container"
+    # The container is given a unique ID: "global-header-container"
     header_html = (
-        f'<div id="global-header-container" style="{main_container_style.replace(" G", " ")}">'
+        f'<div id="global-header-container" style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -105,18 +105,22 @@ if page_info:
         '</div>'
     )
 
-    # --- 7. CSS Magic to Hide Old Headers and Captions ---
-    # This CSS hides ALL h1 and caption elements, then specifically UN-HIDES the ones inside our new header.
+    # --- 7. CSS to Hide Old Headers and Un-hide the New One ---
+    # This robustly hides old elements and ensures the new one is always visible.
     st.markdown("""
         <style>
-            /* 
-               This is the trick: find all the individual header markdown blocks
-               that Streamlit creates and hide them. These selectors target the containers
-               for the old headers you created.
-            */
-            .stApp > div:nth-child(1) > div > div > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div > div > div[data-testid="stMarkdown"],
-            .stApp > div:nth-child(1) > div > div > div > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div > div > [data-testid="stCaption"] {
-                display: none !important;
+            /* Step 1: Hide the Streamlit containers that wrap the OLD page-specific headers and captions */
+            div[data-testid="stMarkdownContainer"] h1 {
+                display: none;
+            }
+            [data-testid="stCaption"] {
+                display: none;
+            }
+
+            /* Step 2: Specifically UN-HIDE the h1 and p (caption) inside our new global header */
+            #global-header-container h1,
+            #global-header-container p {
+                display: block !important;
             }
         </style>
     """, unsafe_allow_html=True)
