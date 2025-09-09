@@ -72,7 +72,7 @@ if page_info:
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        margin: 0;
+        margin-top: 40px;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
@@ -89,9 +89,10 @@ if page_info:
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "None"))}</b>!'
 
-    # --- 6. Build the HTML for the Header Box (with unique id) ---
+    # --- 6. Build the HTML for the Header Box ---
+    # This block was missing in the previous version, causing the NameError. It is now restored.
     header_html = (
-        f'<div id="global-dashboard-header" style="{main_container_style}">'
+        f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -105,39 +106,31 @@ if page_info:
         '</div>'
     )
 
-    # --- 7. Render header (no <hr>) ---
-    st.markdown(header_html, unsafe_allow_html=True)
+    # --- 7. Combine Header and Divider into a Single Block ---
+    full_header_block = f"""
+        {header_html}
+        <hr style="margin-top: 2rem; border-color: #2d4646;">
+    """
+    
+    # --- 8. Render the Combined Header Block ---
+    st.markdown(full_header_block, unsafe_allow_html=True)
 
-    # --- 8. Inject CSS to fix the gap ---
-    NEGATIVE_GAP_PX = -24  # adjust this number if gap is still too big
-
-    st.markdown(f"""
+    # --- 9. Inject CSS to Fix the Gap ---
+    # This targets the generic containers Streamlit creates and removes their padding.
+    st.markdown("""
         <style>
-            /* Ensure header has no extra margin */
-            #global-dashboard-header {{
-                margin: 0 !important;
-                padding-bottom: 8px !important;
-            }}
+            /* Find the first container Streamlit creates on the page, which holds our header */
+            div[data-testid="stVerticalBlock"]:nth-of-type(1) {
+                /* Remove the bottom padding, which is the top half of the gap */
+                padding-bottom: 0 !important;
+            }
 
-            /* Collapse gap between header and next container */
-            #global-dashboard-header + div {{
-                margin-top: {NEGATIVE_GAP_PX}px !important;
+            /* Find the second container, which holds our page content */
+            div[data-testid="stVerticalBlock"]:nth-of-type(2) {
+                /* Remove the top padding, which is the bottom half of the gap */
                 padding-top: 0 !important;
-            }}
-
-            /* Fallback selectors for Streamlit containers */
-            #global-dashboard-header ~ div[data-testid="stVerticalBlock"],
-            #global-dashboard-header ~ section {{
-                margin-top: {NEGATIVE_GAP_PX}px !important;
-                padding-top: 0 !important;
-            }}
-
-            /* Extra tightening for markdown/caption blocks */
-            #global-dashboard-header ~ [data-testid="stMarkdownContainer"],
-            #global-dashboard-header ~ [data-testid="stCaption"] {{
-                margin-top: 0 !important;
-                padding-top: 0 !important;
-            }}
+                margin-top: 1.5rem; /* Use margin to create controlled space instead */
+            }
         </style>
     """, unsafe_allow_html=True)
 # =========================================================
