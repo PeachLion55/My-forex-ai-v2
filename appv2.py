@@ -89,9 +89,8 @@ if page_info:
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
 
     # --- 6. Build the HTML for the New Header ---
-    # The container is given a unique ID: "global-header-container"
     header_html = (
-        f'<div id="global-header-container" style="{main_container_style}">'
+        f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -105,30 +104,28 @@ if page_info:
         '</div>'
     )
 
-    # --- 7. CSS to Hide Old Headers and Un-hide the New One ---
-    # This robustly hides old elements and ensures the new one is always visible.
+    # --- 7. Render the New Header ---
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    # --- 8. Render a Divider with a UNIQUE ID ---
+    st.markdown('<hr id="global-header-divider">', unsafe_allow_html=True)
+
+    # --- 9. Inject CSS to hide the OLD header elements that appear AFTER the divider ---
     st.markdown("""
         <style>
-            /* Step 1: Hide the Streamlit containers that wrap the OLD page-specific headers and captions */
-            div[data-testid="stMarkdownContainer"] h1 {
-                display: none;
+            /* 
+               This is the key: The ~ selector finds siblings.
+               This tells Streamlit to hide the FIRST markdown container and the FIRST caption
+               that appear anywhere AFTER our unique divider. This reliably targets the old headers.
+            */
+            #global-header-divider ~ [data-testid="stMarkdownContainer"]:nth-of-type(1) {
+                display: none !important;
             }
-            [data-testid="stCaption"] {
-                display: none;
-            }
-
-            /* Step 2: Specifically UN-HIDE the h1 and p (caption) inside our new global header */
-            #global-header-container h1,
-            #global-header-container p {
-                display: block !important;
+            #global-header-divider ~ [data-testid="stCaption"]:nth-of-type(1) {
+                display: none !important;
             }
         </style>
     """, unsafe_allow_html=True)
-
-
-    # --- 8. Render the New Header and Divider ---
-    st.markdown(header_html, unsafe_allow_html=True)
-    st.markdown('---')
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
