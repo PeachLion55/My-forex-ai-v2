@@ -47,7 +47,13 @@ def image_to_base_64(path):
 # --- 2. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
-    # ... other page configs ...
+    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
+    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
+    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
+    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
+    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
+    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
+    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
@@ -83,7 +89,7 @@ if page_info:
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
 
-    # --- 6. Build the HTML for the New Header ---
+    # --- 6. Build the HTML for the Header Box ---
     header_html = (
         f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
@@ -99,26 +105,38 @@ if page_info:
         '</div>'
     )
     
-    # --- 7. & 8. COMBINED: Render Header and Divider in ONE BLOCK ---
-    # We wrap everything in a div with a unique ID and add the <hr> inside the same markdown call.
-    # This is the key to solving the gap issue.
+    # --- 7. Render Header and Divider in ONE BLOCK ---
+    # We wrap everything in a div with a unique ID to make it easy to find with CSS.
     full_header_block = f"""
-    <div id="global-header-block">
+    <div id="global-header-wrapper">
         {header_html}
-        <hr style="margin-top: 2rem; margin-bottom: 0; border-color: #2d4646;">
+        <hr style="margin-top: 2rem; border-color: #2d4646;">
     </div>
     """
     st.markdown(full_header_block, unsafe_allow_html=True)
 
-    # --- 9. Inject CSS to remove the bottom padding of THIS specific block ---
-    # This targets the Streamlit container that holds our "#global-header-block"
-    # and removes the padding that creates the gap.
+    # --- 8. The Definitive CSS Fix for the Gap ---
+    # This CSS targets the invisible containers Streamlit creates around your content.
     st.markdown("""
-        <style>
-            div[data-testid="stVerticalBlock"] div:has(> #global-header-block) {
-                padding-bottom: 0 !important;
-            }
-        </style>
+    <style>
+        /* 
+        Part 1: Target the container that holds the header.
+        We find the Streamlit block that contains our unique #global-header-wrapper.
+        Then, we remove the default bottom padding that Streamlit adds.
+        */
+        div[data-testid="stVerticalBlock"] > div:has(> div#global-header-wrapper) {
+            padding-bottom: 0 !important;
+        }
+
+        /*
+        Part 2: Target the VERY NEXT container that holds the page content.
+        We use the same selector as above, but add '+' to select the *next sibling* block.
+        Then, we remove its default top padding. This closes the gap completely.
+        */
+        div[data-testid="stVerticalBlock"] > div:has(> div#global-header-wrapper) + div[data-testid="stVerticalBlock"] {
+            padding-top: 1rem !important; /* Adjust this value for desired spacing */
+        }
+    </style>
     """, unsafe_allow_html=True)
 
 
