@@ -1798,33 +1798,89 @@ if st.session_state.current_page == 'trading_journal':
                 fig_pnl_symbol.update_layout(paper_bgcolor="#0d1117", plot_bgcolor="#161b22", showlegend=False)
                 st.plotly_chart(fig_pnl_symbol, use_container_width=True)
 
+import streamlit as st
+import os
+import io
+import base64
+
+# =========================================================
+# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
+# =========================================================
+@st.cache_data
+def image_to_base_64(path):
+    """Converts a local image file to a base64 string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        print(f"Warning: Image file not found at path: {path}")
+        return None
+
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
 elif st.session_state.current_page == 'mt5':
+    # --- RETAINED CONTENT: User Login Check ---
+    # This logic correctly remains at the start of the page script.
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Performance Dashboard.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- REPLACEMENT FOR THE TITLE ---
-    # We use markdown with HTML for a custom icon and title layout.
-    icon_path = os.path.join("icons", "performance_dashboard.png")
-    if os.path.exists(icon_path):
-        icon_base64 = image_to_base64(icon_path)
-        # HTML flexbox is used to align the icon and title horizontally.
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <img src="data:image/png;base64,{icon_base64}" width="100">
-                <h1 style="margin: 0; font-size: 2.75rem;">Performance Dashboard</h1>
-            </div>
-        """, unsafe_allow_html=True)
-    else:
-        # Fallback if the icon file isn't found
-        st.title("Performance Dashboard")
+    # --- 1. Page-Specific Configuration ---
+    page_info = {
+        'title': 'Performance Dashboard', 
+        'icon': 'performance_dashboard.png', 
+        'caption': 'Analyze your MT5 trading history with advanced metrics and visualizations.'
+    }
 
-    st.caption("Analyze your MT5 trading history with advanced metrics and visualizations.")
-    st.markdown('---')
+    # --- 2. Define CSS Styles for the New Header ---
+    main_container_style = """
+        background-color: black; 
+        padding: 20px 25px; 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px;
+        border: 1px solid #2d4646;
+        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+    """
+    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
+    icon_style = "width: 130px; height: auto;"
+    caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+    # --- 3. Prepare Dynamic Parts of the Header ---
+    icon_html = ""
+    icon_path = os.path.join("icons", page_info['icon'])
+    icon_base64 = image_to_base_64(icon_path)
+    if icon_base64:
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+    
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+    # --- 4. Build the HTML for the New Header ---
+    header_html = (
+        f'<div style="{main_container_style.replace(" G", " ")}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">'
+                f'{welcome_message}'
+            '</div>'
+        '</div>'
+    )
+
+    # --- 5. Render the New Header and Divider ---
+    st.markdown(header_html, unsafe_allow_html=True)
+    st.markdown("---")
+
+    # (The rest of your page code for the dashboard, tabs, charts, etc., goes here...)
     st.markdown(
         """
         <style>
