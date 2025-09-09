@@ -1023,21 +1023,24 @@ df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
 
-    # --- THE DEFINITIVE, WORKING HEADER ---
-    # We construct the HTML using simple concatenation to avoid all formatting errors.
+    # --- HEADER SECTION ---
+    # We construct the HTML using simple concatenation to avoid formatting errors.
 
-    # 1. Define CSS styles as simple strings
+    # 1. Define all CSS styles as simple strings
     main_container_style = "background-color: black; padding: 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px;"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.95rem;"
     title_style = "color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;"
-    caption_style = "color: #AAAAAA; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1.1rem;"
-    icon_style = "width: 90px; height: auto;"
+    
+    # --- STYLE CHANGES ARE HERE ---
+    icon_style = "width: 200px; height: auto;" # CHANGED: Icon width is now 200px
+    caption_style = "color: #808495; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1rem;" # CHANGED: Font style updated to match original caption
+    # --- END OF STYLE CHANGES ---
 
     # 2. Prepare the icon HTML
     icon_html = ""
     icon_path = os.path.join("icons", "forex_fundamentals.png")
-    icon_base64 = image_to_base64(icon_path)
+    icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
 
