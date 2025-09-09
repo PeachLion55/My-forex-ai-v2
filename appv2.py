@@ -1023,62 +1023,45 @@ df_news = pd.DataFrame({"Currency": ["AUD", "CAD", "NZD", "CHF"]})
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
 
-    # --- FINAL CORRECTED HTML HEADER ---
-    # By defining CSS styles as variables first, we prevent f-string formatting errors.
+    # --- THE DEFINITIVE, WORKING HEADER ---
+    # We construct the HTML using simple concatenation to avoid all formatting errors.
 
-    # 1. Define all CSS styles as separate strings
-    main_container_style = """
-        background-color: #000000;
-        padding: 25px;
-        border-radius: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-    """
+    # 1. Define CSS styles as simple strings
+    main_container_style = "background-color: black; padding: 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px;"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = """
-        flex: 1;
-        background-color: #0E1117;
-        border: 1px solid #2d4646;
-        padding: 15px;
-        border-radius: 8px;
-        color: white;
-        font-family: sans-serif;
-        font-size: 0.95rem;
-        text-align: center;
-    """
+    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.95rem;"
     title_style = "color: white; margin: 0; font-size: 2.75rem; line-height: 1.2;"
     caption_style = "color: #AAAAAA; margin: 8px 0 0 0; font-family: sans-serif; font-size: 1.1rem;"
+    icon_style = "width: 90px; height: auto;"
 
     # 2. Prepare the icon HTML
     icon_html = ""
     icon_path = os.path.join("icons", "forex_fundamentals.png")
     icon_base64 = image_to_base64(icon_path)
     if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 90px; height: auto;">'
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
 
-    # 3. Build the final HTML block using the style variables
-    # This is much cleaner and avoids syntax errors.
-    st.markdown(f"""
-    <div style="{main_container_style.replace('"', "'")}">
-        <!-- Left Column -->
-        <div style="{left_column_style.replace('"', "'")}">
-            {icon_html}
-            <div>
-                <h1 style="{title_style.replace('"', "'")}">Forex Fundamentals</h1>
-                <p style="{caption_style.replace('"', "'")}">
-                    Macro snapshot: sentiment, calendar highlights, and policy rates.
-                </p>
-            </div>
-        </div>
+    # 3. Build the final HTML string using safe concatenation
+    header_html = (
+        f'<div style="{main_container_style}">'
+            # Left Column
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">Forex Fundamentals</h1>'
+                    f'<p style="{caption_style}">Macro snapshot: sentiment, calendar highlights, and policy rates.</p>'
+                '</div>'
+            '</div>'
+            
+            # Right Column
+            f'<div style="{right_column_style}">'
+                'See the <b>Trading Journal</b> tab for live charts + detailed news.'
+            '</div>'
+        '</div>'
+    )
 
-        <!-- Right Column -->
-        <div style="{right_column_style.replace('"', "'")}">
-            See the <b>Trading Journal</b> tab for live charts + detailed news.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # 4. Render the final HTML
+    st.markdown(header_html, unsafe_allow_html=True)
 
     st.markdown('---')
 
