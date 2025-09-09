@@ -29,45 +29,15 @@ import streamlit as st
 import os
 import base64
 
+import streamlit as st
+import os
+import base64
+
 # =========================================================
 # DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
 # =========================================================
 
-# --- 1. THE SURGICAL GAP FIX ---
-# This is placed at the very top. It uses YOUR proven solution (`gap:0`)
-# but scopes it with a highly specific selector to prevent side effects.
-st.markdown("""
-<style>
-    /*
-    Step 1: Target the main content area's primary layout container.
-    - '.main': Ensures we ONLY affect the main page content, not the sidebar.
-    - '> div > div[data-testid="stVerticalBlock"]': This is a specific path to the container
-      that Streamlit uses to stack all your content blocks vertically and apply the "gap".
-    */
-    .main > div > div[data-testid="stVerticalBlock"] {
-        /*
-        Step 2: Apply YOUR fix. This removes the default 1rem gap that Streamlit
-        forces between your header and the content below it.
-        */
-        gap: 0rem !important;
-    }
-
-    /*
-    Step 3: Restore spacing for the rest of the page in a controlled way.
-    This adds a clean margin to the top of every content block EXCEPT the very
-    first one (your header), preventing the rest of your page from collapsing.
-    */
-    .main > div > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
-        margin-top: 1.5rem !important; /* Adjust this value for desired spacing */
-    }
-    .main > div > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"]:first-child {
-        margin-top: 0 !important; /* Ensures the header block itself has no top margin */
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# --- 2. Global Helper Function (Defined Once) ---
+# --- 1. Global Helper Function (Defined Once) ---
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -78,7 +48,7 @@ def image_to_base_64(path):
         print(f"Warning: Image file not found at path: {path}")
         return None
 
-# --- 3. Central Configuration for All Pages ---
+# --- 2. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
     'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
@@ -91,12 +61,12 @@ PAGE_CONFIG = {
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
-# --- 4. Get Configuration for the Current Page ---
+# --- 3. Get Configuration for the Current Page ---
 current_page_key = st.session_state.get('current_page', 'fundamentals')
 page_info = PAGE_CONFIG.get(current_page_key)
 
 if page_info:
-    # --- 5. Define CSS Styles for the Header Box ---
+    # --- 4. Define CSS Styles for the Header Box ---
     main_container_style = """
         background-color: black;
         padding: 20px 25px;
@@ -113,7 +83,7 @@ if page_info:
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 6. Prepare Dynamic Parts of the Header ---
+    # --- 5. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
@@ -122,7 +92,7 @@ if page_info:
 
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Test123!"))}</b>!'
 
-    # --- 7. Build the HTML for the Header Box and Divider ---
+    # --- 6. Build the HTML for the Header Box and Divider ---
     header_html = (
         f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
@@ -143,20 +113,31 @@ if page_info:
         <hr style="margin-top: 2rem; border-color: #2d4646;">
     """
 
-    # --- 8. Render the Header Block ---
+    # --- 7. Render the Header Block ---
     st.markdown(full_header_block, unsafe_allow_html=True)
+
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
 st.markdown(
     """
     <style>
-    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
+    /* --- THE DEFINITIVE GAP FIX --- */
+    /* Target the container in the main content area that applies the unwanted gap. The '.main' class ensures this NEVER affects the sidebar. */
+    .main > div[data-testid="stVerticalBlock"] {
+        gap: 0rem !important; /* Your proven fix: remove the gap */
+    }
+
+    /* Restore spacing for all content blocks below the header. This adds a controlled margin-top to every content block EXCEPT the first one. */
+    .main > div[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"]:nth-of-type(n+2) {
+         margin-top: 1.5rem !important; /* Adjust this value to control the spacing */
+    }
+    /* --- END OF FIX --- */
+
+    /* --- Main App Styling --- */
     .stApp {
-        /* Retain Code B's background styling, adding only text color */
-        background-color: #000000; /* black background */
-        color: #c9d1d9; /* Text color from Code A */
-        /* Code B gridline background */
+        background-color: #000000;
+        color: #c9d1d9;
         background-image:
         linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
         linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
@@ -165,34 +146,33 @@ st.markdown(
     }
 
     .block-container {
-        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
+        padding: 1.5rem 2.5rem 2rem 2.5rem !important;
     }
 
     h1, h2, h3, h4 {
-        color: #c9d1d9 !important; /* From Code A */
+        color: #c9d1d9 !important;
     }
 
-    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
+    /* --- Global Horizontal Line Style --- */
     hr {
         margin-top: 1.5rem !important;
         margin-bottom: 1.5rem !important;
-        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
+        border-top: 1px solid #30363d !important;
         border-bottom: none !important;
         background-color: transparent !important;
         height: 1px !important;
     }
 
-    /* Hide Streamlit Branding (From Code A & B merged) */
+    /* Hide Streamlit Branding */
     #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
 
-    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
+    /* Optional: remove extra padding/margin from main page */
     .css-18e3th9, .css-1d391kg {
         padding-top: 0rem !important;
         margin-top: 0rem !important;
     }
 
-    /* --- Metric Card Styling (from Code A) --- */
-    /* This styling for st.metric is kept for non-editable metrics elsewhere */
+    /* --- Metric Card Styling --- */
     [data-testid="stMetric"] {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -208,18 +188,18 @@ st.markdown(
         color: #8b949e;
     }
 
-    /* --- Tab Styling (from Code A, adapted) --- */
+    /* --- Tab Styling --- */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
         height: 48px;
         background-color: transparent;
-        border: 1px solid #30363d; /* Adjusted border from Code A */
+        border: 1px solid #30363d;
         border-radius: 8px;
         padding: 0 24px;
         transition: all 0.2s ease-in-out;
-        color: #c9d1d9; /* Default text color for tabs */
+        color: #c9d1d9;
     }
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #161b22;
@@ -228,10 +208,10 @@ st.markdown(
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
         background-color: #161b22;
         border-color: #58a6ff;
-        color: #c9d1d9; /* Active tab text color from Code A */
+        color: #c9d1d9;
     }
 
-    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
+    /* --- Styling for Markdown in Trade Playbook --- */
     .trade-notes-display {
         background-color: #161b22;
         border-left: 4px solid #58a6ff;
@@ -242,13 +222,13 @@ st.markdown(
     .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
     .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
     
-    /* --- Custom Playbook Metric Display (new for editable section) --- */
+    /* --- Custom Playbook Metric Display --- */
     .playbook-metric-display {
         background-color: #161b22;
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 1rem;
-        margin-bottom: 10px; /* Space between rows of metrics/actions */
+        margin-bottom: 10px;
     }
     .playbook-metric-display .label {
         font-size: 0.9em;
@@ -261,12 +241,12 @@ st.markdown(
         color: #c9d1d9;
     }
     .playbook-metric-display.profit-positive {
-        border-color: #2da44e; /* Green border for profit */
-        background-color: #0b1f15; /* Darker green background */
+        border-color: #2da44e;
+        background-color: #0b1f15;
     }
     .playbook-metric-display.profit-negative {
-        border-color: #cf222e; /* Red border for loss */
-        background-color: #260d0d; /* Darker red background */
+        border-color: #cf222e;
+        background-color: #260d0d;
     }
     </style>
     """, unsafe_allow_html=True)
