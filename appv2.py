@@ -1819,7 +1819,7 @@ def image_to_base_64(path):
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
-elif st.session_state.current_page == 'mt5':
+if st.session_state.current_page == 'mt5':
     # --- RETAINED CONTENT: User Login Check ---
     # This logic correctly remains at the start of the page script.
     if st.session_state.logged_in_user is None:
