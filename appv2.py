@@ -108,8 +108,8 @@ if page_info:
     # --- 7. Render the New Header ---
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # --- 8. Render a Divider with a UNIQUE ID ---
-    st.markdown('<hr id="global-header-divider">', unsafe_allow_html=True)
+    # --- 8. Render a Divider with Controlled Spacing ---
+st.markdown('<hr id="global-header-divider" style="margin-bottom: 1rem; border-color: #2d4646;">', unsafe_allow_html=True)
 
 
 
