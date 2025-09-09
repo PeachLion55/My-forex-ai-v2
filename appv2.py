@@ -111,22 +111,7 @@ if page_info:
     # --- 8. Render a Divider with a UNIQUE ID ---
     st.markdown('<hr id="global-header-divider">', unsafe_allow_html=True)
 
-    # --- 9. Inject CSS to hide the OLD header elements that appear AFTER the divider ---
-    st.markdown("""
-        <style>
-            /* 
-               This is the key: The ~ selector finds siblings.
-               This tells Streamlit to hide the FIRST markdown container and the FIRST caption
-               that appear anywhere AFTER our unique divider. This reliably targets the old headers.
-            */
-            #global-header-divider ~ [data-testid="stMarkdownContainer"]:nth-of-type(1) {
-                display: none !important;
-            }
-            #global-header-divider ~ [data-testid="stCaption"]:nth-of-type(1) {
-                display: none !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+
 
 
 # =========================================================
