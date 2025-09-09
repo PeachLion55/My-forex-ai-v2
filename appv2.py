@@ -1244,7 +1244,7 @@ def image_to_base_64(path):
 # =========================================================
 # TRADING JOURNAL PAGE
 # =========================================================
-elif st.session_state.current_page == 'trading_journal':
+if st.session_state.current_page == 'trading_journal':
     # --- RETAINED CONTENT: User Login Check ---
     # This important logic is kept at the beginning of the page script.
     if st.session_state.logged_in_user is None:
