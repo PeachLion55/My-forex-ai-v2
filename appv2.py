@@ -25,125 +25,18 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
-import streamlit as st
-import os
-import base64
-
-# =========================================================
-# DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
-# (This section is now clean and contains NO CSS fixes)
-# =========================================================
-
-# --- 1. Global Helper Function (Defined Once) ---
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
-        return None
-
-# --- 2. Central Configuration for All Pages ---
-PAGE_CONFIG = {
-    'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
-    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
-    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
-    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
-    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
-    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
-    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
-    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
-    'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
-}
-
-# --- 3. Get Configuration for the Current Page ---
-current_page_key = st.session_state.get('current_page', 'fundamentals')
-page_info = PAGE_CONFIG.get(current_page_key)
-
-if page_info:
-    # --- 4. Define CSS Styles for the Header Box ---
-    main_container_style = """
-        background-color: black;
-        padding: 20px 25px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        border: 1px solid #2d4646;
-        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-    """
-    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
-    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
-    icon_style = "width: 130px; height: auto;"
-    caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
-
-    # --- 5. Prepare Dynamic Parts of the Header ---
-    icon_html = ""
-    icon_path = os.path.join("icons", page_info['icon'])
-    icon_base_64 = image_to_base_64(icon_path)
-    if icon_base_64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base_64}" style="{icon_style}">'
-
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Test123!"))}</b>!'
-
-    # --- 6. Build the HTML for the Header Box and Divider ---
-    header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
-            f'<div style="{left_column_style}">'
-                f'{icon_html}'
-                '<div>'
-                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
-                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
-                '</div>'
-            '</div>'
-            f'<div style="{right_column_style}">'
-                f'{welcome_message}'
-            '</div>'
-        '</div>'
-    )
-
-    full_header_block = f"""
-        {header_html}
-        <hr style="margin-top: 2rem; border-color: #2d4646;">
-    """
-
-    # --- 7. Render the Header Block ---
-    st.markdown(full_header_block, unsafe_allow_html=True)
-
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
 st.markdown(
     """
     <style>
-    /* --- THE DEFINITIVE GAP FIX --- */
-    /*
-    This selector surgically targets the single container in the main content area
-    that is responsible for stacking your page elements and adding the unwanted gap.
-    It will not affect the sidebar or any other component.
-    */
-    .main .block-container > div:first-child > div:first-child {
-        gap: 0rem !important; /* Your proven fix: removes the 1rem gap */
-    }
-
-    /*
-    This rule restores spacing for the rest of your page. It adds a controlled
-    margin to the top of every content block EXCEPT the very first one (your header),
-    preventing your layout from collapsing while keeping the header gap closed.
-    */
-    .main .block-container > div:first-child > div:first-child > [data-testid="stVerticalBlock"]:nth-of-type(n+2) {
-         margin-top: 1.5rem !important; /* Adjust this to control the space below the header */
-    }
-    /* --- END OF FIX --- */
-
-
-    /* --- Main App Styling --- */
+    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
     .stApp {
-        background-color: #000000;
-        color: #c9d1d9;
+        /* Retain Code B's background styling, adding only text color */
+        background-color: #000000; /* black background */
+        color: #c9d1d9; /* Text color from Code A */
+        /* Code B gridline background */
         background-image:
         linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
         linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
@@ -152,33 +45,34 @@ st.markdown(
     }
 
     .block-container {
-        padding: 1.5rem 2.5rem 2rem 2.5rem !important;
+        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
     }
 
     h1, h2, h3, h4 {
-        color: #c9d1d9 !important;
+        color: #c9d1d9 !important; /* From Code A */
     }
 
-    /* --- Global Horizontal Line Style --- */
+    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
     hr {
         margin-top: 1.5rem !important;
         margin-bottom: 1.5rem !important;
-        border-top: 1px solid #30363d !important;
+        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
         border-bottom: none !important;
         background-color: transparent !important;
         height: 1px !important;
     }
 
-    /* Hide Streamlit Branding */
+    /* Hide Streamlit Branding (From Code A & B merged) */
     #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
 
-    /* Optional: remove extra padding/margin from main page */
+    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
     .css-18e3th9, .css-1d391kg {
         padding-top: 0rem !important;
         margin-top: 0rem !important;
     }
 
-    /* --- Metric Card Styling --- */
+    /* --- Metric Card Styling (from Code A) --- */
+    /* This styling for st.metric is kept for non-editable metrics elsewhere */
     [data-testid="stMetric"] {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -194,18 +88,18 @@ st.markdown(
         color: #8b949e;
     }
 
-    /* --- Tab Styling --- */
+    /* --- Tab Styling (from Code A, adapted) --- */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
     .stTabs [data-baseweb="tab"] {
         height: 48px;
         background-color: transparent;
-        border: 1px solid #30363d;
+        border: 1px solid #30363d; /* Adjusted border from Code A */
         border-radius: 8px;
         padding: 0 24px;
         transition: all 0.2s ease-in-out;
-        color: #c9d1d9;
+        color: #c9d1d9; /* Default text color for tabs */
     }
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #161b22;
@@ -214,10 +108,10 @@ st.markdown(
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
         background-color: #161b22;
         border-color: #58a6ff;
-        color: #c9d1d9;
+        color: #c9d1d9; /* Active tab text color from Code A */
     }
 
-    /* --- Styling for Markdown in Trade Playbook --- */
+    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
     .trade-notes-display {
         background-color: #161b22;
         border-left: 4px solid #58a6ff;
@@ -228,13 +122,13 @@ st.markdown(
     .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
     .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
     
-    /* --- Custom Playbook Metric Display --- */
+    /* --- Custom Playbook Metric Display (new for editable section) --- */
     .playbook-metric-display {
         background-color: #161b22;
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 1rem;
-        margin-bottom: 10px;
+        margin-bottom: 10px; /* Space between rows of metrics/actions */
     }
     .playbook-metric-display .label {
         font-size: 0.9em;
@@ -247,15 +141,16 @@ st.markdown(
         color: #c9d1d9;
     }
     .playbook-metric-display.profit-positive {
-        border-color: #2da44e;
-        background-color: #0b1f15;
+        border-color: #2da44e; /* Green border for profit */
+        background-color: #0b1f15; /* Darker green background */
     }
     .playbook-metric-display.profit-negative {
-        border-color: #cf222e;
-        background-color: #260d0d;
+        border-color: #cf222e; /* Red border for loss */
+        background-color: #260d0d; /* Darker red background */
     }
     </style>
     """, unsafe_allow_html=True)
+
 # =========================================================
 # LOGGING & DATABASE SETUP
 # =========================================================
@@ -1108,9 +1003,33 @@ def image_to_base64(path):
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    st.markdown('<h3 style="margin-top: -40;">Upcoming Economic Events</h3>', unsafe_allow_html=True)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        # --- REPLACEMENT FOR THE TITLE ---
+        # Instead of columns, we use a single markdown block with HTML for precise control.
+        icon_path = os.path.join("icons", "forex_fundamentals.png")
+        if os.path.exists(icon_path):
+            icon_base64 = image_to_base64(icon_path)
+            # This HTML uses flexbox to align items with a specific gap.
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="data:image/png;base64,{icon_base64}" width="100">
+                    <h1 style="margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            # Fallback in case the icon file is not found
+            st.title("Forex Fundamentals")
 
-    # ... continue with the rest of your page-specific code here ...
+        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
+        st.markdown('---')
+    with col2:
+        st.info("See the Trading Journal tab for live charts + detailed news.")
+
+    # NOTE: The rest of your code for this page follows here without any changes.
+    # The emoji has been removed from the markdown header below.
+    st.markdown("### Upcoming Economic Events")
+
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
     with col_filter1:
