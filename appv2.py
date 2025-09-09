@@ -2969,35 +2969,98 @@ if st.session_state.current_page == 'strategy':
     else:
         st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
+import streamlit as st
+import os
+import io
+import base64
+
+# =========================================================
+# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
+# =========================================================
+@st.cache_data
+def image_to_base_64(path):
+    """Converts a local image file to a base64 string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        print(f"Warning: Image file not found at path: {path}")
+        return None
+
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
-elif st.session_state.current_page == 'account':
-    # This introductory section should ONLY show when the user is NOT logged in.
+if st.session_state.current_page == 'account':
+    # This entire introductory section, including the header, ONLY shows when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
-        # --- REPLACEMENT FOR THE MAIN TITLE ---
-        icon_path = os.path.join("icons", "my_account.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem;">My Account</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.title("👤 My Account") # Fallback
 
+        # --- 1. Page-Specific Configuration ---
+        page_info = {
+            'title': 'My Account', 
+            'icon': 'my_account.png', 
+            'caption': 'Manage your account, save your data, and track your progress.'
+        }
+
+        # --- 2. Define CSS Styles for the New Header ---
+        main_container_style = """
+            background-color: black; 
+            padding: 20px 25px; 
+            border-radius: 10px; 
+            display: flex; 
+            align-items: center; 
+            gap: 20px;
+            border: 1px solid #2d4646;
+            box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+        """
+        left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+        right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+        title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
+        icon_style = "width: 130px; height: auto;"
+        caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+        # --- 3. Prepare Dynamic Parts of the Header ---
+        icon_html = ""
+        icon_path = os.path.join("icons", page_info['icon'])
+        icon_base64 = image_to_base_64(icon_path)
+        if icon_base64:
+            icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+        
+        # When logged out, this will correctly default to "Guest".
+        welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+        # --- 4. Build the HTML for the New Header ---
+        header_html = (
+            f'<div style="{main_container_style.replace(" G", " ")}">'
+                f'<div style="{left_column_style}">'
+                    f'{icon_html}'
+                    '<div>'
+                        f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                        f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                    '</div>'
+                '</div>'
+                f'<div style="{right_column_style}">'
+                    f'{welcome_message}'
+                '</div>'
+            '</div>'
+        )
+
+        # --- 5. Render the New Header and Divider ---
+        st.markdown(header_html, unsafe_allow_html=True)
+        st.markdown("---")
+        
+        # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
+        # This detailed list of benefits is preserved from your original code.
         st.markdown(
             """
-            Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
+            Signing in lets you:
             - Keep your trading journal and strategies backed up.
             - Track your progress and gamification stats.
             - Sync across devices.
             - Import/export your account data easily.
             """
         )
-        st.write('---')
+
+    # (The rest of your page logic, like the login/signup forms or the logged-in user dashboard, goes here...)
     
         # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
