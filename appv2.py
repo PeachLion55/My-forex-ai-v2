@@ -34,36 +34,34 @@ import base64
 # =========================================================
 
 # --- 1. THE SURGICAL GAP FIX ---
-# This is placed at the very top. It implements YOUR proven solution (`gap:0`)
-# but scopes it correctly to prevent side effects.
+# This is placed at the very top. It uses YOUR proven solution (`gap:0`)
+# but scopes it with a highly specific selector to prevent side effects.
 st.markdown("""
 <style>
     /*
-    Step 1: Target the main content area's layout container.
-    - '.main': This is the class for the main page content, so it will NOT affect the sidebar.
-    - '> div[data-testid="stVerticalBlock"]': This finds the specific container inside '.main'
-      that uses the 'gap' property to space out all of your content blocks.
+    Step 1: Target the main content area's primary layout container.
+    - '.main': Ensures we ONLY affect the main page content, not the sidebar.
+    - '> div > div[data-testid="stVerticalBlock"]': This is a specific path to the container
+      that Streamlit uses to stack all your content blocks vertically and apply the "gap".
     */
-    .main > div[data-testid="stVerticalBlock"] {
+    .main > div > div[data-testid="stVerticalBlock"] {
         /*
-        Step 2: Apply YOUR fix.
-        This removes the default 1rem gap that Streamlit forces between your header
-        and the content below it. This is the command that permanently closes the gap.
+        Step 2: Apply YOUR fix. This removes the default 1rem gap that Streamlit
+        forces between your header and the content below it.
         */
         gap: 0rem !important;
     }
 
     /*
-    Step 3: Restore spacing for the rest of the page.
-    After removing the gap, all content would be squished. This rule adds a clean
-    margin to the top of every content block EXCEPT the very first one (your header).
-    This gives you a clean layout without affecting the header gap.
+    Step 3: Restore spacing for the rest of the page in a controlled way.
+    This adds a clean margin to the top of every content block EXCEPT the very
+    first one (your header), preventing the rest of your page from collapsing.
     */
-    .main > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
+    .main > div > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
         margin-top: 1.5rem !important; /* Adjust this value for desired spacing */
     }
-    .main > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"]:first-child {
-        margin-top: 0 !important; /* Ensure the header block has no top margin */
+    .main > div > div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"]:first-child {
+        margin-top: 0 !important; /* Ensures the header block itself has no top margin */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -100,15 +98,14 @@ page_info = PAGE_CONFIG.get(current_page_key)
 if page_info:
     # --- 5. Define CSS Styles for the Header Box ---
     main_container_style = """
-        background-color: black; 
-        padding: 20px 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
+        background-color: black;
+        padding: 20px 25px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        margin-top: 2.5rem;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
@@ -122,7 +119,7 @@ if page_info:
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-    
+
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Test123!"))}</b>!'
 
     # --- 7. Build the HTML for the Header Box and Divider ---
@@ -140,12 +137,12 @@ if page_info:
             '</div>'
         '</div>'
     )
-    
+
     full_header_block = f"""
         {header_html}
         <hr style="margin-top: 2rem; border-color: #2d4646;">
     """
-    
+
     # --- 8. Render the Header Block ---
     st.markdown(full_header_block, unsafe_allow_html=True)
 # =========================================================
