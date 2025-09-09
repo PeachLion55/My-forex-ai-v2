@@ -87,61 +87,36 @@ if page_info:
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "None"))}</b>!'
 
-    # --- 6. Build the HTML for the Header Box ---
-    header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
-            f'<div style="{left_column_style}">'
-                f'{icon_html}'
-                '<div>'
-                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
-                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
-                '</div>'
-            '</div>'
-            f'<div style="{right_column_style}">'
-                f'{welcome_message}'
-            '</div>'
-        '</div>'
-    )
-    
-    # --- 7. Render Header and Divider in ONE BLOCK ---
-    # We wrap everything in a div with a unique ID to make it easy to find with CSS.
-    full_header_block = f"""
-    <div id="global-header-wrapper">
+    # --- 6. Build the HTML for the Header Box and Divider ---
+    # We combine the header and divider into a single HTML string.
+    full_header_html = f"""
         {header_html}
         <hr style="margin-top: 2rem; border-color: #2d4646;">
-    </div>
     """
-    st.markdown(full_header_block, unsafe_allow_html=True)
+    
+    # --- 7. Render the Header Block ---
+    st.markdown(full_header_html, unsafe_allow_html=True)
 
-    # --- 8. The Definitive CSS Fix for the Gap ---
-    # This CSS targets the invisible containers Streamlit creates around your content.
+    # --- 8. Inject CSS to fix the gap ---
+    # This targets the generic containers Streamlit creates and removes their padding.
     st.markdown("""
-    <style>
-        /* 
-        Part 1: Target the container that holds the header.
-        We find the Streamlit block that contains our unique #global-header-wrapper.
-        Then, we remove the default bottom padding that Streamlit adds.
-        */
-        div[data-testid="stVerticalBlock"] > div:has(> div#global-header-wrapper) {
-            padding-bottom: 0 !important;
-        }
+        <style>
+            /* Find the first container Streamlit creates on the page, which holds our header */
+            div[data-testid="stVerticalBlock"]:nth-of-type(1) {
+                /* Remove the bottom padding, which is the top half of the gap */
+                padding-bottom: 0 !important;
+            }
 
-        /*
-        Part 2: Target the VERY NEXT container that holds the page content.
-        We use the same selector as above, but add '+' to select the *next sibling* block.
-        Then, we remove its default top padding. This closes the gap completely.
-        */
-        div[data-testid="stVerticalBlock"] > div:has(> div#global-header-wrapper) + div[data-testid="stVerticalBlock"] {
-            padding-top: 1rem !important; /* Adjust this value for desired spacing */
-        }
-    </style>
+            /* Find the second container, which holds our page content */
+            div[data-testid="stVerticalBlock"]:nth-of-type(2) {
+                /* Remove the top padding, which is the bottom half of the gap */
+                padding-top: 0 !important;
+                margin-top: 1.5rem; /* Use margin to create controlled space instead */
+            }
+        </style>
     """, unsafe_allow_html=True)
-
-
-
-
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
