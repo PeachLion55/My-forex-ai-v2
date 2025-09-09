@@ -1126,7 +1126,7 @@ def image_to_base64(path):
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    st.markdown('<h3 style="margin-top: 0;">Upcoming Economic Events</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin-top: -40;">Upcoming Economic Events</h3>', unsafe_allow_html=True)
 
     # ... continue with the rest of your page-specific code here ...
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
