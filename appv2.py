@@ -2761,7 +2761,19 @@ elif st.session_state.current_page == 'strategy':
 elif st.session_state.current_page == 'account':
     # This introductory section should ONLY show when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
-        st.title("👤 My Account")
+        # --- REPLACEMENT FOR THE MAIN TITLE ---
+        icon_path = os.path.join("icons", "my_account.png")
+        if os.path.exists(icon_path):
+            icon_base64 = image_to_base64(icon_path)
+            st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="data:image/png;base64,{icon_base64}" width="40">
+                    <h1 style="margin: 0; font-size: 2.75rem;">My Account</h1>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.title("👤 My Account") # Fallback
+
         st.markdown(
             """
             Manage your account, save your data, and sync your trading journal and drawings. Signing in lets you:
@@ -2775,6 +2787,7 @@ elif st.session_state.current_page == 'account':
     
         # Tabs for Sign In and Sign Up (only visible when logged_in_user is None)
         tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
+        
         # --------------------------
         # SIGN IN TAB
         # --------------------------
@@ -2792,8 +2805,33 @@ elif st.session_state.current_page == 'account':
                         st.session_state.logged_in_user = username
                         initialize_and_load_session_state() # Reload session state with the new logged-in user's data
                         
-                        st.success(f"Welcome back, {username}!")
+                        # --- REPLACEMENT FOR st.success() ---
+                        # Use the icon_base64 variable that was already loaded for the title
+                        if 'icon_base64' in locals():
+                            st.markdown(f"""
+                                <div style="
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                    background-color: #0E2919; /* Darker green background */
+                                    color: #CFF0D6; /* Light green text */
+                                    padding: 1rem;
+                                    border-radius: 0.5rem;
+                                    border: 1px solid #2ECC71; /* Brighter green border */
+                                ">
+                                    <img src="data:image/png;base64,{icon_base64}" width="30">
+                                    <span style="font-size: 1rem; font-weight: 500;">Welcome back, {username}!</span>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            # Fallback if the icon somehow wasn't loaded
+                            st.success(f"Welcome back, {username}!")
+
                         logging.info(f"User {username} logged in successfully")
+                        
+                        # A short delay to allow the user to see the welcome message
+                        import time
+                        time.sleep(1.5)
                         st.rerun() # Crucial for state refresh
                     else:
                         st.error("Invalid username or password.")
