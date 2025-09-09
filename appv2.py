@@ -1106,7 +1106,7 @@ def image_to_base64(path):
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
     
-    st.info("See the Trading Journal tab for live charts + detailed news.")
+
 
     # NOTE: The rest of your code for this page follows here without any changes.
     # The emoji has been removed from the markdown header below.
