@@ -1099,38 +1099,8 @@ def image_to_base64(path):
 # =========================================================
 # FOREX FUNDAMENTALS PAGE
 # =========================================================
-if st.session_state.current_page == 'fundamentals':
-
-    # This CSS is the key to solving the spacing issue.
-    # It directly targets the invisible <hr> and removes its vertical margins.
-    st.markdown("""
-        <style>
-            /* 
-               The <hr> with this ID is the main cause of the vertical space.
-               We are removing its default margins and border to make it take up no space.
-            */
-            #global-header-divider {
-                margin-top: 0 !important;
-                margin-bottom: 0 !important;
-                border: none !important;
-                height: 0 !important;
-            }
-
-            /* 
-               We also remove the default top padding from the main Streamlit container
-               to bring the content all the way up.
-            */
-            .main .block-container {
-                padding-top: 0rem !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # To add a controlled amount of space back, we can use st.write with empty lines,
-    # or adjust the margin-bottom of the #global-header-divider above.
-    # For now, we'll place the header right above the dataframe.
-    
-    st.markdown("### Upcoming Economic Events")
+if st.session_state.current_page == 'fundamentals':    
+st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
