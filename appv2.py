@@ -1289,9 +1289,9 @@ elif st.session_state.current_page == 'trading_journal':
         """, unsafe_allow_html=True)
     else:
         # Fallback in case the icon file is not found
-        st.title("Trading Journal")
+        #st.title("Trading Journal")
 
-    st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
+    #st.caption(f"A streamlined interface for professional trade analysis. | Logged in as: **{st.session_state.logged_in_user}**")
     st.markdown("---")
 
     tab_entry, tab_playbook, tab_analytics = st.tabs(["**📝 Log New Trade**", "**📚 Trade Playbook**", "**📊 Analytics Dashboard**"])
