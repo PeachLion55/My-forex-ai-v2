@@ -29,12 +29,9 @@ import streamlit as st
 import os
 import base64
 
-import streamlit as st
-import os
-import base64
-
 # =========================================================
 # DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
+# (This section is now clean and contains NO CSS fixes)
 # =========================================================
 
 # --- 1. Global Helper Function (Defined Once) ---
@@ -123,16 +120,25 @@ st.markdown(
     """
     <style>
     /* --- THE DEFINITIVE GAP FIX --- */
-    /* Target the container in the main content area that applies the unwanted gap. The '.main' class ensures this NEVER affects the sidebar. */
-    .main > div[data-testid="stVerticalBlock"] {
+    /*
+    This selector targets the specific container inside the main content area that
+    is responsible for stacking your page elements and adding the unwanted gap.
+    It is designed to be very specific to avoid affecting your sidebar or other components.
+    */
+    .main .block-container > div:first-child > div:first-child {
         gap: 0rem !important; /* Your proven fix: remove the gap */
     }
 
-    /* Restore spacing for all content blocks below the header. This adds a controlled margin-top to every content block EXCEPT the first one. */
-    .main > div[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"]:nth-of-type(n+2) {
+    /*
+    This rule restores spacing for the rest of your page. It adds a controlled
+    margin to the top of every content block EXCEPT the very first one (your header),
+    preventing your layout from collapsing while keeping the header gap closed.
+    */
+    .main .block-container > div:first-child > div:first-child > [data-testid="stVerticalBlock"]:nth-of-type(n+2) {
          margin-top: 1.5rem !important; /* Adjust this value to control the spacing */
     }
     /* --- END OF FIX --- */
+
 
     /* --- Main App Styling --- */
     .stApp {
@@ -250,7 +256,6 @@ st.markdown(
     }
     </style>
     """, unsafe_allow_html=True)
-
 # =========================================================
 # LOGGING & DATABASE SETUP
 # =========================================================
