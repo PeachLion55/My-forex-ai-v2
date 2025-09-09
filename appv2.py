@@ -1105,11 +1105,6 @@ def image_to_base64(path):
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    
-
-
-    # NOTE: The rest of your code for this page follows here without any changes.
-    # The emoji has been removed from the markdown header below.
     st.markdown("### Upcoming Economic Events")
 
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
