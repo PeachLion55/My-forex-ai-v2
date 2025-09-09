@@ -47,13 +47,7 @@ def image_to_base_64(path):
 # --- 2. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
-    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
-    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
-    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
-    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
-    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
-    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
-    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
+    # ... other pages
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
@@ -76,10 +70,9 @@ if page_info:
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
-    title_style = "color: white; margin: 0px; font-size: 2.2rem; line-height: 1.2;"
+    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
-    # Adjusted caption margin for better alignment
-    caption_style = "color: #808495; margin-top: 0; font-family: sans-serif; font-size: 1rem;"
+    caption_style = "color: #808495; margin: 0; font-family: sans-serif; font-size: 1rem;"
 
     # --- 5. Prepare Dynamic Parts of the Header ---
     icon_html = ""
@@ -91,8 +84,9 @@ if page_info:
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
 
     # --- 6. Build the HTML for the New Header ---
+    # **** KEY CHANGE 1: Added id="global-header-container" to the main div ****
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div id="global-header-container" style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -109,35 +103,25 @@ if page_info:
     # --- 7. Render the New Header ---
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # --- 8. Render a Divider with a UNIQUE ID ---
-    st.markdown('<hr id="global-header-divider">', unsafe_allow_html=True)
+    # --- 8. RENDER A DIVIDER ---
+    # **** KEY CHANGE 2: The <hr> markdown call has been COMPLETELY REMOVED ****
 
-    # --- 9. Inject CSS to hide OLD headers AND collapse the divider itself ---
-    # THIS BLOCK IS THE FIX
+    # --- 9. Inject CSS to hide the OLD header elements ---
+    # **** KEY CHANGE 3: The CSS selectors now use the new ID from the header div ****
     st.markdown("""
         <style>
             /* 
-               THIS IS THE CRITICAL FIX:
-               It targets the invisible <hr> and removes its margins and border,
-               making it take up zero vertical space.
+               This now targets the elements that come directly after our main header container,
+               which reliably hides the old page titles and captions.
             */
-            #global-header-divider {
-                margin: -20 !important;
-                border: none !important;
-                height: 0 !important;
-                visibility: hidden !important;
-            }
-
-            /* These original rules still correctly hide old headers */
-            #global-header-divider ~ [data-testid="stMarkdownContainer"]:nth-of-type(1) {
+            #global-header-container ~ [data-testid="stMarkdownContainer"]:nth-of-type(1) {
                 display: none !important;
             }
-            #global-header-divider ~ [data-testid="stCaption"]:nth-of-type(1) {
+            #global-header-container ~ [data-testid="stCaption"]:nth-of-type(1) {
                 display: none !important;
             }
         </style>
     """, unsafe_allow_html=True)
-
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
