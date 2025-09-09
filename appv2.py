@@ -2990,7 +2990,7 @@ def image_to_base_64(path):
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
-elif st.session_state.current_page == 'account':
+if st.session_state.current_page == 'account':
     # This introductory section should ONLY show when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
         # --- REPLACEMENT FOR THE MAIN TITLE ---
