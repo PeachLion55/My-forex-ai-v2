@@ -2799,7 +2799,7 @@ def image_to_base_64(path):
 # =========================================================
 # MANAGE MY STRATEGY PAGE
 # =========================================================
-elif st.session_state.current_page == 'strategy':
+if st.session_state.current_page == 'strategy':
     # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to manage your strategies.")
