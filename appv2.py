@@ -33,32 +33,29 @@ import base64
 # DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
 # =========================================================
 
-# --- 1. THE DEFINITIVE GAP FIX ---
-# This CSS is injected first. It targets the main Streamlit container
-# that holds all the page content and removes the "gap" that creates the space.
+# --- 1. THE DEFINITIVE & SAFE GAP FIX ---
+# This CSS is now more specific and will NOT affect the sidebar.
 st.markdown("""
     <style>
         /*
-        The main container for all content in a Streamlit app has this structure.
-        We target the container that uses a 'gap' to space out its children.
+        Target the main container ONLY in the main content area of the page.
+        The ".main" class ensures that we do not touch the sidebar.
         */
-        div[data-testid="stVerticalBlock"] {
+        .main .st-emotion-cache-z5fcl4 {
             /* 
-            By setting the gap to 0, we remove the unwanted space between all elements.
-            The !important flag is crucial to override Streamlit's default styles.
+            By setting the gap to 0, we remove the unwanted space between all elements
+            in the main content area. The !important flag overrides Streamlit's default.
             */
             gap: 0rem !important;
         }
 
         /*
-        OPTIONAL: If you want to add back a controlled amount of space between elements,
-        you can uncomment the rule below. This targets every block EXCEPT the first one.
+        Add back a controlled amount of space between elements in the MAIN area.
+        This targets every block except the very first one, giving a clean layout.
         */
-        /*
-        .main > div[data-testid="stVerticalBlock"] ~ div[data-testid="stVerticalBlock"] {
-            margin-top: 1.5rem !important;
+        .main [data-testid="stVerticalBlock"] ~ [data-testid="stVerticalBlock"] {
+            margin-top: 1.5rem !important; /* Adjust this value to control spacing */
         }
-        */
     </style>
     """, unsafe_allow_html=True)
 
@@ -141,7 +138,6 @@ if page_info:
     """
     
     # --- 8. Render the Header Block ---
-    # This entire block is now treated as a single element by Streamlit.
     st.markdown(full_header_block, unsafe_allow_html=True)
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
