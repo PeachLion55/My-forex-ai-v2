@@ -3001,7 +3001,7 @@ import logging
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
-elif st.session_state.current_page == 'account':
+if st.session_state.current_page == 'account':
 
     # --- HELPER FUNCTION DEFINED AT THE TOP TO FIX NameError ---
     # This function is now available for both logged-in and logged-out views.
