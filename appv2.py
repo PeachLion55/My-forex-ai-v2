@@ -47,13 +47,7 @@ def image_to_base_64(path):
 # --- 2. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
-    'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
-    'mt5': {'title': 'Performance Dashboard', 'icon': 'performance_dashboard.png', 'caption': 'Analyze your MT5 trading history with advanced metrics.'},
-    'trading_tools': {'title': 'Trading Tools', 'icon': 'trading_tools.png', 'caption': 'A complete suite of utilities to optimize your trading.'},
-    'strategy': {'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png', 'caption': 'Define, refine, and track your trading strategies.'},
-    'community': {'title': 'Community Trade Ideas', 'icon': 'community_trade_ideas.png', 'caption': 'Share and explore trade ideas with the community.'},
-    'Community Chatroom': {'title': 'Community Chatroom', 'icon': 'community_chatroom.png', 'caption': 'Connect, collaborate, and grow with fellow traders.'},
-    'Zenvo Academy': {'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.'},
+    # ... other page configs ...
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
@@ -104,27 +98,25 @@ if page_info:
             '</div>'
         '</div>'
     )
+    
+    # --- 7. & 8. COMBINED: Render Header and Divider in ONE BLOCK ---
+    # We wrap everything in a div with a unique ID and add the <hr> inside the same markdown call.
+    # This is the key to solving the gap issue.
+    full_header_block = f"""
+    <div id="global-header-block">
+        {header_html}
+        <hr style="margin-top: 2rem; margin-bottom: 0; border-color: #2d4646;">
+    </div>
+    """
+    st.markdown(full_header_block, unsafe_allow_html=True)
 
-    # --- 7. Render the New Header ---
-    st.markdown(header_html, unsafe_allow_html=True)
-
-    # --- 8. Render a Divider Wrapped in a Unique Container ---
-    # We wrap the divider in a div with a unique class name to target it with CSS.
-    st.markdown('<div class="global-header-divider-container"><hr style="border-color: #2d4646;"></div>', unsafe_allow_html=True)
-
-    # --- 9. Inject CSS to Precisely Control Spacing ---
-    # This CSS removes the default padding from Streamlit's containers around our divider
-    # and the content that follows it, giving us full control over the gap.
+    # --- 9. Inject CSS to remove the bottom padding of THIS specific block ---
+    # This targets the Streamlit container that holds our "#global-header-block"
+    # and removes the padding that creates the gap.
     st.markdown("""
         <style>
-            /* Target the Streamlit container that WRAPS our custom divider div */
-            div[data-testid="stVerticalBlock"] > div.global-header-divider-container {
+            div[data-testid="stVerticalBlock"] div:has(> #global-header-block) {
                 padding-bottom: 0 !important;
-            }
-
-            /* Target the Streamlit container that IMMEDIATELY FOLLOWS the one with our divider */
-            div[data-testid="stVerticalBlock"] > div.global-header-divider-container + div[data-testid="stVerticalBlock"] {
-                padding-top: 1.5rem !important; /* Adjust this value to control the space */
             }
         </style>
     """, unsafe_allow_html=True)
