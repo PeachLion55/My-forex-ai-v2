@@ -1066,7 +1066,7 @@ if st.session_state.current_page == 'fundamentals':
 
     # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
     # The st.info box that was in the old column 2 is now placed below the new header.
-    st.info("See the Trading Journal tab for live charts + detailed news.")
+    
 
     st.markdown('---')
     
