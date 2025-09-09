@@ -31,39 +31,10 @@ import base64
 
 # =========================================================
 # DYNAMIC GLOBAL HEADER & AUTOMATIC REPLACEMENT LOGIC
+# (This section is now clean and contains NO CSS fixes)
 # =========================================================
 
-# --- 1. THE DEFINITIVE GAP FIX ---
-# This CSS is injected first. It targets the main Streamlit container
-# that holds all the page content and removes the "gap" that creates the space.
-st.markdown("""
-    <style>
-        /*
-        The main container for all content in a Streamlit app has this structure.
-        We target the container that uses a 'gap' to space out its children.
-        */
-        div[data-testid="stVerticalBlock"] {
-            /* 
-            By setting the gap to 0, we remove the unwanted space between all elements.
-            The !important flag is crucial to override Streamlit's default styles.
-            */
-            gap: 0.5rem !important;
-        }
-
-        /*
-        OPTIONAL: If you want to add back a controlled amount of space between elements,
-        you can uncomment the rule below. This targets every block EXCEPT the first one.
-        */
-        /*
-        .main > div[data-testid="stVerticalBlock"] ~ div[data-testid="stVerticalBlock"] {
-            margin-top: 1.5rem !important;
-        }
-        */
-    </style>
-    """, unsafe_allow_html=True)
-
-
-# --- 2. Global Helper Function (Defined Once) ---
+# --- 1. Global Helper Function (Defined Once) ---
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -74,7 +45,7 @@ def image_to_base_64(path):
         print(f"Warning: Image file not found at path: {path}")
         return None
 
-# --- 3. Central Configuration for All Pages ---
+# --- 2. Central Configuration for All Pages ---
 PAGE_CONFIG = {
     'fundamentals': {'title': 'Forex Fundamentals', 'icon': 'forex_fundamentals.png', 'caption': 'Macro snapshot, calendar highlights, and policy rates.'},
     'trading_journal': {'title': 'Trading Journal', 'icon': 'trading_journal.png', 'caption': 'A streamlined interface for professional trade analysis.'},
@@ -87,22 +58,21 @@ PAGE_CONFIG = {
     'account': {'title': 'My Account', 'icon': 'my_account.png', 'caption': 'Manage your account, save your data, and track your progress.'}
 }
 
-# --- 4. Get Configuration for the Current Page ---
+# --- 3. Get Configuration for the Current Page ---
 current_page_key = st.session_state.get('current_page', 'fundamentals')
 page_info = PAGE_CONFIG.get(current_page_key)
 
 if page_info:
-    # --- 5. Define CSS Styles for the Header Box ---
+    # --- 4. Define CSS Styles for the Header Box ---
     main_container_style = """
-        background-color: black; 
-        padding: 20px 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
+        background-color: black;
+        padding: 20px 25px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        margin-top: 2.5rem;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
@@ -110,16 +80,16 @@ if page_info:
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: 5px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 6. Prepare Dynamic Parts of the Header ---
+    # --- 5. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
-    icon_base64 = image_to_base_64(icon_path)
-    if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-    
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "None"))}</b>!'
+    icon_base_64 = image_to_base_64(icon_path)
+    if icon_base_64:
+        icon_html = f'<img src="data:image/png;base64,{icon_base_64}" style="{icon_style}">'
 
-    # --- 7. Build the HTML for the Header Box and Divider ---
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Test123!"))}</b>!'
+
+    # --- 6. Build the HTML for the Header Box and Divider ---
     header_html = (
         f'<div style="{main_container_style.replace(" G", " ")}">'
             f'<div style="{left_column_style}">'
@@ -134,14 +104,13 @@ if page_info:
             '</div>'
         '</div>'
     )
-    
+
     full_header_block = f"""
         {header_html}
         <hr style="margin-top: 2rem; border-color: #2d4646;">
     """
-    
-    # --- 8. Render the Header Block ---
-    # This entire block is now treated as a single element by Streamlit.
+
+    # --- 7. Render the Header Block ---
     st.markdown(full_header_block, unsafe_allow_html=True)
 
 # =========================================================
@@ -150,23 +119,23 @@ if page_info:
 st.markdown(
     """
     <style>
-    /* --- THE DEFINITIVE, SURGICAL GAP FIX --- */
+    /* --- THE DEFINITIVE GAP FIX --- */
     /*
-    Step 1: Find the specific Streamlit container that HOLDS our unique header anchor.
-    The ':has()' selector makes this incredibly precise and stable.
-    The '.main' scope prevents it from ever affecting the sidebar.
+    This selector surgically targets the single container in the main content area
+    that is responsible for stacking your page elements and adding the unwanted gap.
+    It will not affect the sidebar or any other component.
     */
-    .main div[data-testid="stVerticalBlock"]:has(> #custom-global-header-anchor) {
-        gap: 0rem !important; /* Step 2: Apply YOUR proven fix to remove the gap. */
+    .main .block-container > div:first-child > div:first-child {
+        gap: 0rem !important; /* Your proven fix: removes the 1rem gap */
     }
 
     /*
-    Step 3: Restore spacing for the content that comes AFTER the header.
-    This rule finds the container with our header and then adds a margin-top
-    to the VERY NEXT content block, giving you perfect control over the space.
+    This rule restores spacing for the rest of your page. It adds a controlled
+    margin to the top of every content block EXCEPT the very first one (your header),
+    preventing your layout from collapsing while keeping the header gap closed.
     */
-    .main div[data-testid="stVerticalBlock"]:has(> #custom-global-header-anchor) + [data-testid="stVerticalBlock"] {
-         margin-top: 1.5rem !important; /* Adjust this value to control the space */
+    .main .block-container > div:first-child > div:first-child > [data-testid="stVerticalBlock"]:nth-of-type(n+2) {
+         margin-top: 1.5rem !important; /* Adjust this to control the space below the header */
     }
     /* --- END OF FIX --- */
 
