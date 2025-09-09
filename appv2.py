@@ -58,7 +58,7 @@ PAGE_CONFIG = {
 }
 
 # --- 3. Get Configuration for the Current Page ---
-current_page_key = st.session_state.get('current_page', 'account')
+current_page_key = st.session_state.get('current_page', 'fundamentals')
 page_info = PAGE_CONFIG.get(current_page_key)
 
 if page_info:
@@ -108,8 +108,26 @@ if page_info:
     # --- 7. Render the New Header ---
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # --- 8. Render a Divider with Controlled Spacing ---
-st.markdown('<hr id="global-header-divider" style="margin-bottom: 1rem; border-color: #2d4646;">', unsafe_allow_html=True)
+    # --- 8. Render a Divider Wrapped in a Unique Container ---
+    # We wrap the divider in a div with a unique class name to target it with CSS.
+    st.markdown('<div class="global-header-divider-container"><hr style="border-color: #2d4646;"></div>', unsafe_allow_html=True)
+
+    # --- 9. Inject CSS to Precisely Control Spacing ---
+    # This CSS removes the default padding from Streamlit's containers around our divider
+    # and the content that follows it, giving us full control over the gap.
+    st.markdown("""
+        <style>
+            /* Target the Streamlit container that WRAPS our custom divider div */
+            div[data-testid="stVerticalBlock"] > div.global-header-divider-container {
+                padding-bottom: 0 !important;
+            }
+
+            /* Target the Streamlit container that IMMEDIATELY FOLLOWS the one with our divider */
+            div[data-testid="stVerticalBlock"] > div.global-header-divider-container + div[data-testid="stVerticalBlock"] {
+                padding-top: 1.5rem !important; /* Adjust this value to control the space */
+            }
+        </style>
+    """, unsafe_allow_html=True)
 
 
 
