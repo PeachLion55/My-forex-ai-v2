@@ -72,13 +72,14 @@ if page_info:
         gap: 20px;
         border: 1px solid #2d4646;
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        margin-top: 40px; /* This is the new line to move the header down */
+        margin-top: 40px;
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
     title_style = "color: white; margin: 0px; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
-    caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+    # Adjusted caption margin for better alignment
+    caption_style = "color: #808495; margin-top: 0; font-family: sans-serif; font-size: 1rem;"
 
     # --- 5. Prepare Dynamic Parts of the Header ---
     icon_html = ""
@@ -111,14 +112,23 @@ if page_info:
     # --- 8. Render a Divider with a UNIQUE ID ---
     st.markdown('<hr id="global-header-divider">', unsafe_allow_html=True)
 
-    # --- 9. Inject CSS to hide the OLD header elements that appear AFTER the divider ---
+    # --- 9. Inject CSS to hide OLD headers AND collapse the divider itself ---
+    # THIS BLOCK IS THE FIX
     st.markdown("""
         <style>
             /* 
-               This is the key: The ~ selector finds siblings.
-               This tells Streamlit to hide the FIRST markdown container and the FIRST caption
-               that appear anywhere AFTER our unique divider. This reliably targets the old headers.
+               THIS IS THE CRITICAL FIX:
+               It targets the invisible <hr> and removes its margins and border,
+               making it take up zero vertical space.
             */
+            #global-header-divider {
+                margin: 0 !important;
+                border: none !important;
+                height: 0 !important;
+                visibility: hidden !important;
+            }
+
+            /* These original rules still correctly hide old headers */
             #global-header-divider ~ [data-testid="stMarkdownContainer"]:nth-of-type(1) {
                 display: none !important;
             }
@@ -127,7 +137,6 @@ if page_info:
             }
         </style>
     """, unsafe_allow_html=True)
-
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
