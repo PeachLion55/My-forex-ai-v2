@@ -1107,33 +1107,14 @@ def image_to_base64(path):
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        # --- REPLACEMENT FOR THE TITLE ---
-        # Instead of columns, we use a single markdown block with HTML for precise control.
-        icon_path = os.path.join("icons", "forex_fundamentals.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            # This HTML uses flexbox to align items with a specific gap.
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Fallback in case the icon file is not found
-            st.title("Forex Fundamentals")
+    # All the code that created the old header, caption, and info box has been removed.
+    # Your global header script will now handle the header automatically.
 
-        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-        st.markdown('---')
-    with col2:
-        st.info("See the Trading Journal tab for live charts + detailed news.")
-
-    # NOTE: The rest of your code for this page follows here without any changes.
+    # The rest of your code for this page starts here.
     # The emoji has been removed from the markdown header below.
     st.markdown("### Upcoming Economic Events")
 
+    # ... continue with the rest of your page-specific code here ...
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
     with col_filter1:
