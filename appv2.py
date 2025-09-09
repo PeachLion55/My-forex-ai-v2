@@ -1104,36 +1104,19 @@ def image_to_base64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# FUNDAMENTALS PAGE
+# FOREX FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        # --- REPLACEMENT FOR THE TITLE ---
-        # Instead of columns, we use a single markdown block with HTML for precise control.
-        icon_path = os.path.join("icons", "forex_fundamentals.png")
-        if os.path.exists(icon_path):
-            icon_base64 = image_to_base64(icon_path)
-            # This HTML uses flexbox to align items with a specific gap.
-            st.markdown(f"""
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <img src="data:image/png;base64,{icon_base64}" width="100">
-                    <h1 style="margin: 0; font-size: 2.75rem;">Forex Fundamentals</h1>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            # Fallback in case the icon file is not found
-            st.title("Forex Fundamentals")
+    # The global header now handles the title, icon, and caption.
+    # All the old header elements (columns, title, icon, caption, and horizontal line) have been removed.
 
-        st.caption("Macro snapshot: sentiment, calendar highlights, and policy rates.")
-        st.markdown('---')
-    with col2:
-        st.info("See the Trading Journal tab for live charts + detailed news.")
+    # The st.info box, previously in a column, can now be displayed directly.
+    st.info("See the Trading Journal tab for live charts + detailed news.")
 
-    # NOTE: The rest of your code for this page follows here without any changes.
-    # The emoji has been removed from the markdown header below.
+    # The rest of your page content starts immediately after.
     st.markdown("### Upcoming Economic Events")
 
+    # NOTE: The rest of the code for this page remains the same.
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
     col_filter1, col_filter2 = st.columns(2)
     with col_filter1:
@@ -1153,8 +1136,8 @@ if st.session_state.current_page == 'fundamentals':
         if selected_2 and row['Currency'] == selected_2:
             styles = ['background-color: #2e4747; color: white' if col == 'Currency' else 'background-color: #2e4747' for col in row.index]
         return styles
+        
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
-
     st.markdown("### 💹 Major Central Bank Interest Rates")
     st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
     interest_rates = [
