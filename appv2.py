@@ -1480,9 +1480,8 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== MODIFICATION START: NEW, ROBUST METHOD =====
+            # ===== MODIFICATION START: Corrected & Resized Method =====
 
-            # Function to safely load and encode the icon image
             @st.cache_data
             def load_icon(filepath):
                 if not os.path.exists(filepath):
@@ -1491,28 +1490,26 @@ if st.session_state.current_page == 'trading_journal':
                 with open(filepath, "rb") as f:
                     return base64.b64encode(f.read()).decode()
 
-            # Load the icon and inject the specific CSS for our custom HTML button
             icon_path = os.path.join("icons", "pencil_icon.png")
             img_base64 = load_icon(icon_path)
             
             if img_base64:
                 st.markdown(f"""
                 <style>
-                    /* This styles our custom HTML 'a' tag to look like a button */
+                    /* This styles our custom HTML 'a' tag to look like a larger button */
                     a.edit-button-custom {{
                         display: inline-block;
-                        width: 38px;
-                        height: 38px;
-                        margin-top: 26px; /* Vertical alignment */
+                        width: 44px;  /* Increased Button Size */
+                        height: 44px; /* Increased Button Size */
+                        margin-top: 22px; /* Re-aligned for new height */
                         background-image: url("data:image/png;base64,{img_base64}");
                         background-repeat: no-repeat;
                         background-position: center center;
-                        background-size: 18px 18px; /* Icon size */
+                        background-size: 26px 26px; /* Increased Icon Size */
                         border: 1px solid rgba(255, 255, 255, 0.2);
                         border-radius: 5px;
                         transition: background-color 0.2s, border-color 0.2s;
                     }}
-                    /* Hover effect for our custom button */
                     a.edit-button-custom:hover {{
                         background-color: rgba(150, 150, 150, 0.1);
                         border-color: #8b949e;
@@ -1520,15 +1517,15 @@ if st.session_state.current_page == 'trading_journal':
                 </style>
                 """, unsafe_allow_html=True)
 
-            # Check for URL parameters to trigger edit state. This runs on every script rerun.
-            query_params = st.query_params.to_dict()
+            # CORRECTED LOGIC: Check URL parameters to trigger edit state without a faulty rerun.
+            query_params = st.query_params
             if "edit" in query_params:
-                edit_key = query_params["edit"]
-                st.session_state.edit_state[edit_key] = True
-                
-                # Clear the query parameter and rerun to have a clean URL and prevent re-triggering.
-                st.query_params.clear()
-                st.rerun()
+                edit_key = query_params.get("edit")
+                if edit_key:
+                    st.session_state.edit_state[edit_key] = True
+                    # Clear the query param so the URL is clean and subsequent interactions work correctly.
+                    # Crucially, we DO NOT call st.rerun() here. We let the script finish this run.
+                    st.query_params.clear()
 
             # ===== MODIFICATION END =====
 
@@ -1622,7 +1619,7 @@ if st.session_state.current_page == 'trading_journal':
                         
                         with button_col:
                             if not is_editing and img_base64:
-                                # Render the custom HTML link. When clicked, it adds "?edit=..." to the URL.
+                                # This custom HTML link sets the "?edit=..." query parameter on click.
                                 button_html = f'<a href="?edit={edit_session_key}" target="_self" class="edit-button-custom" title="Edit {metric_label}"></a>'
                                 st.markdown(button_html, unsafe_allow_html=True)
 
@@ -1677,10 +1674,9 @@ if st.session_state.current_page == 'trading_journal':
                                 xp_deduction_amount += 5
                                 del gamification_flags[notes_award_key_for_deleted]
                             
-                            if trade_id_key in st.session_state.edit_state:
-                                for key in list(st.session_state.edit_state.keys()):
-                                    if trade_id_key in key:
-                                        del st.session_state.edit_state[key]
+                            edit_keys_to_delete = [k for k in st.session_state.edit_state if trade_id_key in k]
+                            for k in edit_keys_to_delete:
+                                del st.session_state.edit_state[k]
                             
                             st.session_state.gamification_flags = gamification_flags
                             
@@ -1773,7 +1769,6 @@ if st.session_state.current_page == 'trading_journal':
                             visual_cols[1].info("No Exit Screenshot available.")
                             
                     st.markdown("---")
-
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
