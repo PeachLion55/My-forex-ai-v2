@@ -1475,6 +1475,16 @@ if st.session_state.current_page == 'trading_journal':
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
+            # CUSTOM CSS FOR THE EDIT BUTTONS
+            st.markdown("""
+            <style>
+            .st-emotion-cache-12w0qpk button p {
+                font-size: 8px !important;
+                text-align: center !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
             
             if 'edit_state' not in st.session_state:
