@@ -1475,12 +1475,14 @@ if st.session_state.current_page == 'trading_journal':
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
-            # CUSTOM CSS FOR THE EDIT BUTTONS
+            # CUSTOM CSS FOR THE EDIT BUTTONS (RELIABLE METHOD)
+            # This targets the custom class "edit-button-container" that we will add around the button.
             st.markdown("""
             <style>
-            .st-emotion-cache-12w0qpk button p {
-                font-size: 8px !important;
-                text-align: center !important;
+            .edit-button-container button p {
+                font-size: 8px !important;   /* Sets the font size */
+                text-align: center !important; /* Ensures text is centered */
+                line-height: 1.2 !important; /* Adjusts spacing between lines for small font */
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1578,7 +1580,8 @@ if st.session_state.current_page == 'trading_journal':
                                     </div>""", unsafe_allow_html=True)
                         
                         with button_col:
-                            st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
+                            # CRITICAL CHANGE HERE: Using our own custom class "edit-button-container"
+                            st.markdown('<div class="edit-button-container">', unsafe_allow_html=True)
                             if not is_editing:
                                 button_label = f"Edit\n{metric_label}"
                                 if st.button(button_label, key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
