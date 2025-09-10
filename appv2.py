@@ -707,8 +707,7 @@ st.markdown(
     /* Sidebar buttons (default) */
     section[data-testid="stSidebar"] div.stButton > button {
         width: 200px !important;
-        background-color: #000000 !important; /* Pure black */
-        background-image: none !important;    /* Remove gradient */
+        background-color: #000000 !important; /* Solid black */
         color: #ffffff !important;
         border: none !important;
         border-radius: 5px !important;
@@ -724,9 +723,11 @@ st.markdown(
         text-overflow: ellipsis !important;
         transition: all 0.3s ease !important;
 
-        /* Teal glow on top + bottom only */
-        box-shadow: inset 0 3px 6px rgba(88,179,177,0.9),
-                    inset 0 -3px 6px rgba(88,179,177,0.9) !important;
+        /* Glow only top & bottom using borders */
+        border-top: 2px solid rgba(88,179,177,0.9) !important;
+        border-bottom: 2px solid rgba(88,179,177,0.9) !important;
+        box-shadow: 0 -2px 8px rgba(88,179,177,0.8),
+                    0 2px 8px rgba(88,179,177,0.8) !important;
     }
 
     /* Keep your original hover styling (unchanged) */
@@ -741,12 +742,13 @@ st.markdown(
     /* Active state */
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
         background-color: #000000 !important;
-        background-image: none !important;
         color: #ffffff !important;
 
-        /* Stronger teal glow top & bottom */
-        box-shadow: inset 0 4px 8px rgba(88,179,177,1),
-                    inset 0 -4px 8px rgba(88,179,177,1) !important;
+        /* Brighter glow top & bottom */
+        border-top: 2px solid rgba(88,179,177,1) !important;
+        border-bottom: 2px solid rgba(88,179,177,1) !important;
+        box-shadow: 0 -3px 10px rgba(88,179,177,1),
+                    0 3px 10px rgba(88,179,177,1) !important;
     }
     </style>
     """,
