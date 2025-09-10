@@ -1480,64 +1480,56 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== MODIFICATION START: CSS INJECTION FOR CUSTOM ICON =====
-            # Function to encode the image, cached for performance
+            # ===== MODIFICATION START: NEW, ROBUST METHOD =====
+
+            # Function to safely load and encode the icon image
             @st.cache_data
-            def load_icon_as_base64(icon_path):
-                # First, verify the file actually exists
-                if not os.path.exists(icon_path):
-                    # Display a prominent error in the app if the icon is missing
-                    st.error(f"Icon not found at path: {icon_path}")
+            def load_icon(filepath):
+                if not os.path.exists(filepath):
+                    st.error(f"FATAL: Icon file not found at '{filepath}'. Please check the path.")
                     return None
-                try:
-                    with open(icon_path, "rb") as f:
-                        return base64.b64encode(f.read()).decode()
-                except Exception as e:
-                    st.error(f"Error loading icon: {e}")
-                    return None
+                with open(filepath, "rb") as f:
+                    return base64.b64encode(f.read()).decode()
 
-            # Path to your custom icon
+            # Load the icon and inject the specific CSS for our custom HTML button
             icon_path = os.path.join("icons", "pencil_icon.png")
-            img_base64 = load_icon_as_base64(icon_path)
-
-            # Inject CSS only if the icon was loaded successfully
+            img_base64 = load_icon(icon_path)
+            
             if img_base64:
                 st.markdown(f"""
                 <style>
-                    /* 
-                     * This targets any button where the 'title' attribute (generated from the 'help' parameter)
-                     * starts with the word "Edit".
-                     */
-                    button[title^="Edit "] {{
+                    /* This styles our custom HTML 'a' tag to look like a button */
+                    a.edit-button-custom {{
+                        display: inline-block;
+                        width: 38px;
+                        height: 38px;
+                        margin-top: 26px; /* Vertical alignment */
                         background-image: url("data:image/png;base64,{img_base64}");
                         background-repeat: no-repeat;
                         background-position: center center;
-                        background-size: 18px 18px; /* Control the size of your icon */
-                        
-                        /* Style the button itself */
-                        width: 38px !important;
-                        height: 38px !important;
-                        padding: 0 !important;
-                        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-                        background-color: transparent !important;
-                        margin-top: 26px; /* Align vertically with the metric box */
+                        background-size: 18px 18px; /* Icon size */
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                        border-radius: 5px;
+                        transition: background-color 0.2s, border-color 0.2s;
                     }}
-
-                    /* 
-                     * CRITICAL RULE: This finds the <p> element *inside* the button
-                     * and completely removes it from view. This is what hides the original emoji.
-                     */
-                    button[title^="Edit "] p {{
-                        display: none !important;
-                    }}
-
-                    /* Optional: Add a hover effect */
-                    button[title^="Edit "]:hover {{
-                        background-color: rgba(150, 150, 150, 0.1) !important;
-                        border: 1px solid #8b949e !important;
+                    /* Hover effect for our custom button */
+                    a.edit-button-custom:hover {{
+                        background-color: rgba(150, 150, 150, 0.1);
+                        border-color: #8b949e;
                     }}
                 </style>
                 """, unsafe_allow_html=True)
+
+            # Check for URL parameters to trigger edit state. This runs on every script rerun.
+            query_params = st.query_params.to_dict()
+            if "edit" in query_params:
+                edit_key = query_params["edit"]
+                st.session_state.edit_state[edit_key] = True
+                
+                # Clear the query parameter and rerun to have a clean URL and prevent re-triggering.
+                st.query_params.clear()
+                st.rerun()
+
             # ===== MODIFICATION END =====
 
             filter_cols = st.columns([1, 1, 1, 2])
@@ -1567,6 +1559,7 @@ if st.session_state.current_page == 'trading_journal':
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
 
                 with st.container(border=True):
+                    # Trade Header
                     st.markdown(f"""
                     <div style="display: flex; flex-direction: row; align-items: stretch; gap: 15px; margin-left: -10px;">
                       <div style="width: 4px; background-color: {outcome_color}; border-radius: 3px;"></div>
@@ -1582,6 +1575,7 @@ if st.session_state.current_page == 'trading_journal':
                     """, unsafe_allow_html=True)
                     st.markdown("---")
 
+                    # Metrics Section
                     metric_cols = st.columns(3)
                     
                     pnl_val = float(pd.to_numeric(row.get('PnL', 0.0), errors='coerce') or 0.0)
@@ -1589,7 +1583,8 @@ if st.session_state.current_page == 'trading_journal':
                     lots_val = float(pd.to_numeric(row.get('Lots', 0.01), errors='coerce') or 0.01)
 
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
-                        is_editing = st.session_state.edit_state.get(f"{key_suffix}_{trade_id_key}", False)
+                        edit_session_key = f"{key_suffix}_{trade_id_key}"
+                        is_editing = st.session_state.edit_state.get(edit_session_key, False)
                         
                         main_col, button_col = col_obj.columns([4, 1])
 
@@ -1602,10 +1597,10 @@ if st.session_state.current_page == 'trading_journal':
                                     if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
                                         st.session_state.trade_journal.loc[index, db_column] = new_value
                                         _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
-                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
+                                        st.session_state.edit_state[edit_session_key] = False
                                         st.rerun()
                                     if c_col.form_submit_button("✗ Cancel", use_container_width=True):
-                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
+                                        st.session_state.edit_state[edit_session_key] = False
                                         st.rerun()
                             else:
                                 border_style = ""
@@ -1616,7 +1611,7 @@ if st.session_state.current_page == 'trading_journal':
                                     display_val_str = f"<div class='value' style='color:{val_color};'>${current_value:.2f}</div>"
                                 elif metric_label == "R-Multiple":
                                     display_val_str = f"<div class='value'>{current_value:.2f}R</div>"
-                                else:
+                                else: # Position Size
                                     display_val_str = f"<div class='value'>{current_value:.2f} lots</div>"
                                 
                                 st.markdown(f"""
@@ -1625,14 +1620,11 @@ if st.session_state.current_page == 'trading_journal':
                                         {display_val_str}
                                     </div>""", unsafe_allow_html=True)
                         
-                        # ===== The button call remains the same. The magic happens in the CSS. =====
                         with button_col:
-                            if not is_editing:
-                                # We still use the emoji as a fallback, but the CSS will hide it.
-                                # The 'help' parameter is essential as it's how the CSS finds the button.
-                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
-                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
-                                    st.rerun()
+                            if not is_editing and img_base64:
+                                # Render the custom HTML link. When clicked, it adds "?edit=..." to the URL.
+                                button_html = f'<a href="?edit={edit_session_key}" target="_self" class="edit-button-custom" title="Edit {metric_label}"></a>'
+                                st.markdown(button_html, unsafe_allow_html=True)
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1646,41 +1638,126 @@ if st.session_state.current_page == 'trading_journal':
                         if tags_list: st.markdown(f"**Tags:** {', '.join(tags_list)}")
                     
                     with st.expander("Journal Notes & Screenshots", expanded=False):
-                        notes = st.text_area("Trade Journal Notes", value=row['TradeJournalNotes'], key=f"notes_{trade_id_key}", height=150)
+                        notes = st.text_area(
+                            "Trade Journal Notes",
+                            value=row['TradeJournalNotes'],
+                            key=f"notes_{trade_id_key}",
+                            height=150
+                        )
+
                         action_cols_notes_delete = st.columns([1, 1, 4]) 
 
                         if action_cols_notes_delete[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
-                            # ... (rest of your existing logic for saving notes)
+                            original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
                             st.session_state.trade_journal.loc[index, 'TradeJournalNotes'] = notes
-                            _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
-                            st.rerun()
+                            
+                            if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
+                                current_notes_hash = hashlib.md5(notes.strip().encode()).hexdigest() if notes.strip() else ""
+                                gamification_flags = st.session_state.get('gamification_flags', {})
+                                notes_award_key = f"xp_notes_for_trade_{trade_id_key}_content_hash"
+                                last_awarded_notes_hash = gamification_flags.get(notes_award_key)
+
+                                if notes.strip() and current_notes_hash != last_awarded_notes_hash:
+                                    award_xp_for_notes_added_if_changed(st.session_state.logged_in_user, trade_id_key, notes)
+                                else:
+                                    st.toast(f"Notes for {row['TradeID']} updated (no new XP for same content).", icon="✅")
+                                save_user_data(st.session_state.logged_in_user)
+                                st.rerun()
+                            else:
+                                st.error("Failed to save notes.")
 
                         if action_cols_notes_delete[1].button("Delete Trade", key=f"delete_trade_{trade_id_key}"):
-                            # ... (rest of your existing logic for deleting trades)
+                            username = st.session_state.logged_in_user
+                            xp_deduction_amount = 0
+                            xp_deduction_amount += 10
+
+                            gamification_flags = st.session_state.get('gamification_flags', {})
+                            notes_award_key_for_deleted = f"xp_notes_for_trade_{trade_id_key}_content_hash"
+                            if notes_award_key_for_deleted in gamification_flags:
+                                xp_deduction_amount += 5
+                                del gamification_flags[notes_award_key_for_deleted]
+                            
+                            if trade_id_key in st.session_state.edit_state:
+                                for key in list(st.session_state.edit_state.keys()):
+                                    if trade_id_key in key:
+                                        del st.session_state.edit_state[key]
+                            
+                            st.session_state.gamification_flags = gamification_flags
+                            
+                            if xp_deduction_amount > 0:
+                                ta_update_xp(username, -xp_deduction_amount, f"Deleted trade {row['TradeID']}")
+                                st.toast(f"Trade {row['TradeID']} deleted. {xp_deduction_amount} XP deducted.", icon="🗑️")
+                            else:
+                                st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
+
                             st.session_state.trade_journal.drop(index, inplace=True)
-                            _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
-                            st.rerun()
+                            st.session_state.trade_journal.reset_index(drop=True, inplace=True)
+                            
+                            if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                                try: os.remove(row['EntryScreenshot'])
+                                except OSError as e: logging.error(f"Error deleting entry screenshot {row['EntryScreenshot']}: {e}")
+                            if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                                try: os.remove(row['ExitScreenshot'])
+                                except OSError as e: logging.error(f"Error deleting exit screenshot {row['ExitScreenshot']}: {e}")
+
+                            if _ta_save_journal(username, st.session_state.trade_journal):
+                                check_and_award_trade_milestones(username)
+                                check_and_award_performance_milestones(username)
+                                st.rerun()
+                            else:
+                                st.error("Failed to delete trade.")
                         
                         st.markdown("---")
                         st.subheader("Update Screenshots")
                         
                         image_base_path = os.path.join("user_data", st.session_state.logged_in_user, "journal_images")
                         os.makedirs(image_base_path, exist_ok=True)
+
                         upload_cols = st.columns(2)
                         
                         with upload_cols[0]:
-                            new_entry_screenshot_file = st.file_uploader(f"Upload/Update Entry Screenshot", type=["png", "jpg", "jpeg"], key=f"update_entry_ss_uploader_{trade_id_key}")
+                            new_entry_screenshot_file = st.file_uploader(
+                                f"Upload/Update Entry Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_entry_ss_uploader_{trade_id_key}"
+                            )
                             if new_entry_screenshot_file:
                                 if st.button("Save Entry Image", key=f"save_new_entry_ss_btn_{trade_id_key}", type="secondary", use_container_width=True):
-                                    # ... (rest of your logic for saving entry screenshots)
-                                    pass
+                                    if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
+                                        try: os.remove(row['EntryScreenshot'])
+                                        except OSError as e: logging.error(f"Error deleting old entry screenshot {row['EntryScreenshot']}: {e}")
+
+                                    entry_screenshot_filename = f"{trade_id_key}_entry_{uuid.uuid4().hex[:4]}_{new_entry_screenshot_file.name}"
+                                    entry_screenshot_full_path = os.path.join(image_base_path, entry_screenshot_filename)
+                                    with open(entry_screenshot_full_path, "wb") as f:
+                                        f.write(new_entry_screenshot_file.getbuffer())
+                                    
+                                    st.session_state.trade_journal.loc[index, 'EntryScreenshot'] = entry_screenshot_full_path
+                                    _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                    st.toast("Entry screenshot updated!", icon="📸")
+                                    st.rerun()
 
                         with upload_cols[1]:
-                            new_exit_screenshot_file = st.file_uploader(f"Upload/Update Exit Screenshot", type=["png", "jpg", "jpeg"], key=f"update_exit_ss_uploader_{trade_id_key}")
+                            new_exit_screenshot_file = st.file_uploader(
+                                f"Upload/Update Exit Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_exit_ss_uploader_{trade_id_key}"
+                            )
                             if new_exit_screenshot_file:
                                 if st.button("Save Exit Image", key=f"save_new_exit_ss_btn_{trade_id_key}", type="secondary", use_container_width=True):
-                                    # ... (rest of your logic for saving exit screenshots)
-                                    pass
+                                    if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
+                                        try: os.remove(row['ExitScreenshot'])
+                                        except OSError as e: logging.error(f"Error deleting old exit screenshot {row['ExitScreenshot']}: {e}")
+
+                                    exit_screenshot_filename = f"{trade_id_key}_exit_{uuid.uuid4().hex[:4]}_{new_exit_screenshot_file.name}"
+                                    exit_screenshot_full_path = os.path.join(image_base_path, exit_screenshot_filename)
+                                    with open(exit_screenshot_full_path, "wb") as f:
+                                        f.write(new_exit_screenshot_file.getbuffer())
+
+                                    st.session_state.trade_journal.loc[index, 'ExitScreenshot'] = exit_screenshot_full_path
+                                    _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                    st.toast("Exit screenshot updated!", icon="📸")
+                                    st.rerun()
                                     
                         st.markdown("---")
                         st.subheader("Current Visuals")
