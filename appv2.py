@@ -1786,7 +1786,7 @@ if st.session_state.current_page == 'trading_journal':
                         else:
                             visual_cols[1].info("No Exit Screenshot available.")
                             
-                    st.markdown("---")```
+                    st.markdown("---")
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
