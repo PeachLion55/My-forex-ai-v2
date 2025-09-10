@@ -1480,9 +1480,9 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== MODIFICATION START: The Definitive & Stable Fix =====
+            # ===== MODIFICATION START: The Definitive & Guaranteed Fix =====
 
-            # Function to safely load and encode the icon image for HTML
+            # Function to safely load and encode the icon image for CSS
             @st.cache_data
             def load_icon_as_base64(filepath):
                 if not os.path.exists(filepath):
@@ -1490,17 +1490,42 @@ if st.session_state.current_page == 'trading_journal':
                     return None
                 with open(filepath, "rb") as f:
                     return base64.b64encode(f.read()).decode()
-            
+
+            # The stable 'on_click' callback function for cleanly managing state.
+            # This PREVENTS the logout bug.
+            def set_edit_state_true(session_key):
+                st.session_state.edit_state[session_key] = True
+
+            # Load the icon and inject the final, more forceful CSS.
             icon_path = os.path.join("icons", "pencil_icon.png")
             img_base64 = load_icon_as_base64(icon_path)
             
-            # This simplified logic block handles the click event robustly.
-            # It reads the URL parameter and sets the state for the current script run.
-            if "edit" in st.query_params:
-                edit_key = st.query_params["edit"]
-                st.session_state.edit_state[edit_key] = True
-                # CRITICAL: We DO NOT clear query_params here, as it was causing a race condition.
-                # The parameter will remain in the URL, but the app will be stable and functional.
+            if img_base64:
+                # This CSS uses a more specific selector and !important to guarantee it overrides defaults.
+                st.markdown(f"""
+                <style>
+                    /* Use a more specific selector to target the button precisely */
+                    .stButton > button[title^="Edit "] {{
+                        background-image: url("data:image/png;base64,{img_base64}") !important;
+                        background-repeat: no-repeat !important;
+                        background-position: center center !important;
+                        background-size: 26px 26px !important; /* Your desired icon size */
+                        
+                        /* Force the button's dimensions and appearance */
+                        width: 44px !important;
+                        height: 44px !important;
+                        margin-top: 22px !important;
+                        padding: 0 !important;
+                        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+                        background-color: transparent !important;
+                    }}
+                    /* Force the hover effect */
+                    .stButton > button[title^="Edit "]:hover {{
+                        background-color: rgba(150, 150, 150, 0.1) !important;
+                        border-color: #8b949e !important;
+                    }}
+                </style>
+                """, unsafe_allow_html=True)
 
             # ===== MODIFICATION END =====
 
@@ -1556,7 +1581,6 @@ if st.session_state.current_page == 'trading_journal':
 
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
                         edit_session_key = f"{key_suffix}_{trade_id_key}"
-                        # The logic at the top of the script sets this state before this line is ever reached.
                         is_editing = st.session_state.edit_state.get(edit_session_key, False)
                         
                         main_col, button_col = col_obj.columns([4, 1])
@@ -1570,14 +1594,10 @@ if st.session_state.current_page == 'trading_journal':
                                     if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
                                         st.session_state.trade_journal.loc[index, db_column] = new_value
                                         _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
-                                        # When saving, clear the edit state and the URL parameter
                                         st.session_state.edit_state[edit_session_key] = False
-                                        st.query_params.clear()
                                         st.rerun()
                                     if c_col.form_submit_button("✗ Cancel", use_container_width=True):
-                                        # When cancelling, clear the edit state and the URL parameter
                                         st.session_state.edit_state[edit_session_key] = False
-                                        st.query_params.clear()
                                         st.rerun()
                             else:
                                 border_style = ""
@@ -1599,24 +1619,14 @@ if st.session_state.current_page == 'trading_journal':
                         
                         with button_col:
                             if not is_editing and img_base64:
-                                # This markdown link creates the button and adds the "?edit=..." URL parameter.
-                                button_html = f"""
-                                <a href="?edit={edit_session_key}" target="_self" title="Edit {metric_label}" style="
-                                    display: inline-block;
-                                    width: 44px;
-                                    height: 44px;
-                                    margin-top: 22px;
-                                    background-image: url('data:image/png;base64,{img_base64}');
-                                    background-repeat: no-repeat;
-                                    background-position: center center;
-                                    background-size: 26px 26px;
-                                    border: 1px solid rgba(255, 255, 255, 0.2);
-                                    border-radius: 5px;
-                                    text-decoration: none;
-                                ">
-                                </a>
-                                """
-                                st.markdown(button_html, unsafe_allow_html=True)
+                                # THE FIX: Use an invisible character ("\u200B") as the label.
+                                st.button(
+                                    "\u200B", # Zero-width space
+                                    key=f"edit_btn_{edit_session_key}",
+                                    help=f"Edit {metric_label}",
+                                    on_click=set_edit_state_true,
+                                    args=(edit_session_key,)
+                                )
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
