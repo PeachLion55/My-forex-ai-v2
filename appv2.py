@@ -1475,14 +1475,24 @@ if st.session_state.current_page == 'trading_journal':
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
-            # CUSTOM CSS FOR THE EDIT BUTTONS (RELIABLE METHOD)
-            # This targets the custom class "edit-button-container" that we will add around the button.
+            # CUSTOM CSS FOR EXTREMELY SMALL BUTTONS (RELIABLE & AGGRESSIVE METHOD)
+            # This targets the button inside our custom container and forcefully overrides
+            # its size, padding, and font properties.
             st.markdown("""
             <style>
-            .edit-button-container button p {
-                font-size: 8px !important;   /* Sets the font size */
-                text-align: center !important; /* Ensures text is centered */
-                line-height: 1.2 !important; /* Adjusts spacing between lines for small font */
+            .edit-button-container button {
+                /* Shrink the button's physical size */
+                height: 30px !important;
+                min-height: 30px !important;
+                padding-top: 1px !important;
+                padding-bottom: 1px !important;
+                padding-left: 6px !important;
+                padding-right: 6px !important;
+
+                /* Make the text tiny */
+                font-size: 8px !important;
+                line-height: 1.2 !important; /* Adjust space between text lines */
+                text-align: center !important;
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1580,7 +1590,7 @@ if st.session_state.current_page == 'trading_journal':
                                     </div>""", unsafe_allow_html=True)
                         
                         with button_col:
-                            # CRITICAL CHANGE HERE: Using our own custom class "edit-button-container"
+                            # We wrap the button in our custom div class to target it with CSS
                             st.markdown('<div class="edit-button-container">', unsafe_allow_html=True)
                             if not is_editing:
                                 button_label = f"Edit\n{metric_label}"
