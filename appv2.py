@@ -1475,24 +1475,26 @@ if st.session_state.current_page == 'trading_journal':
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
-            # CUSTOM CSS FOR EXTREMELY SMALL BUTTONS (RELIABLE & AGGRESSIVE METHOD)
-            # This targets the button inside our custom container and forcefully overrides
-            # its size, padding, and font properties.
+            # FINAL ATTEMPT: Using a highly specific selector to force the override.
+            # This targets the button inside its Streamlit-generated container, ONLY when that container
+            # is inside our custom div. This should be strong enough to override any default theme.
             st.markdown("""
             <style>
-            .edit-button-container button {
-                /* Shrink the button's physical size */
-                height: 30px !important;
-                min-height: 30px !important;
-                padding-top: 1px !important;
-                padding-bottom: 1px !important;
-                padding-left: 6px !important;
-                padding-right: 6px !important;
+            .edit-button-container [data-testid="stButton"] > button {
+                /* Force the button to be extremely small */
+                height: auto !important;
+                min-height: 28px !important; /* Adjust if needed */
+                padding: 1px 6px !important;
 
-                /* Make the text tiny */
+                /* Force the text to be extremely small */
                 font-size: 8px !important;
-                line-height: 1.2 !important; /* Adjust space between text lines */
+                line-height: 1.2 !important;
                 text-align: center !important;
+                
+                /* Adjust vertical alignment if text is off-center */
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1590,7 +1592,7 @@ if st.session_state.current_page == 'trading_journal':
                                     </div>""", unsafe_allow_html=True)
                         
                         with button_col:
-                            # We wrap the button in our custom div class to target it with CSS
+                            # This div is the anchor for our CSS selector.
                             st.markdown('<div class="edit-button-container">', unsafe_allow_html=True)
                             if not is_editing:
                                 button_label = f"Edit\n{metric_label}"
