@@ -1480,7 +1480,7 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== MODIFICATION START: The Definitive Markdown Button Fix =====
+            # ===== MODIFICATION START: The Definitive & Stable Fix =====
 
             # Function to safely load and encode the icon image for HTML
             @st.cache_data
@@ -1494,13 +1494,13 @@ if st.session_state.current_page == 'trading_journal':
             icon_path = os.path.join("icons", "pencil_icon.png")
             img_base64 = load_icon_as_base64(icon_path)
             
-            # This logic block handles the click event from our custom markdown button.
-            # It runs at the start of the script.
+            # This simplified logic block handles the click event robustly.
+            # It reads the URL parameter and sets the state for the current script run.
             if "edit" in st.query_params:
                 edit_key = st.query_params["edit"]
                 st.session_state.edit_state[edit_key] = True
-                # Clean the URL and let the script continue its run to show the edit form.
-                st.query_params.clear()
+                # CRITICAL: We DO NOT clear query_params here, as it was causing a race condition.
+                # The parameter will remain in the URL, but the app will be stable and functional.
 
             # ===== MODIFICATION END =====
 
@@ -1528,7 +1528,7 @@ if st.session_state.current_page == 'trading_journal':
 
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
                 trade_id_key = row['TradeID']
-                outcome_color = {"Win": "#2da44e", "Loss": "#cf2e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
+                outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
 
                 with st.container(border=True):
                     # Trade Header
@@ -1556,6 +1556,7 @@ if st.session_state.current_page == 'trading_journal':
 
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
                         edit_session_key = f"{key_suffix}_{trade_id_key}"
+                        # The logic at the top of the script sets this state before this line is ever reached.
                         is_editing = st.session_state.edit_state.get(edit_session_key, False)
                         
                         main_col, button_col = col_obj.columns([4, 1])
@@ -1569,10 +1570,14 @@ if st.session_state.current_page == 'trading_journal':
                                     if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
                                         st.session_state.trade_journal.loc[index, db_column] = new_value
                                         _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
+                                        # When saving, clear the edit state and the URL parameter
                                         st.session_state.edit_state[edit_session_key] = False
+                                        st.query_params.clear()
                                         st.rerun()
                                     if c_col.form_submit_button("✗ Cancel", use_container_width=True):
+                                        # When cancelling, clear the edit state and the URL parameter
                                         st.session_state.edit_state[edit_session_key] = False
+                                        st.query_params.clear()
                                         st.rerun()
                             else:
                                 border_style = ""
@@ -1594,7 +1599,7 @@ if st.session_state.current_page == 'trading_journal':
                         
                         with button_col:
                             if not is_editing and img_base64:
-                                # **THE FIX**: A self-contained, styled HTML link inside markdown.
+                                # This markdown link creates the button and adds the "?edit=..." URL parameter.
                                 button_html = f"""
                                 <a href="?edit={edit_session_key}" target="_self" title="Edit {metric_label}" style="
                                     display: inline-block;
@@ -1608,7 +1613,6 @@ if st.session_state.current_page == 'trading_journal':
                                     border: 1px solid rgba(255, 255, 255, 0.2);
                                     border-radius: 5px;
                                     text-decoration: none;
-                                    transition: background-color 0.2s, border-color 0.2s;
                                 ">
                                 </a>
                                 """
@@ -1760,7 +1764,6 @@ if st.session_state.current_page == 'trading_journal':
                             visual_cols[1].info("No Exit Screenshot available.")
                             
                     st.markdown("---")
-
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
         st.header("Your Performance Dashboard")
