@@ -704,11 +704,11 @@ st.markdown(
         max-height: 100vh !important;
     }
 
-    /* Sidebar buttons */
+    /* Sidebar buttons (default) */
     section[data-testid="stSidebar"] div.stButton > button {
         width: 200px !important;
-        background-color: #000000 !important; /* Full black */
-        background-image: none !important;    /* Kill gradient */
+        background-color: #000000 !important; /* Pure black */
+        background-image: none !important;    /* Remove gradient */
         color: #ffffff !important;
         border: none !important;
         border-radius: 5px !important;
@@ -724,31 +724,29 @@ st.markdown(
         text-overflow: ellipsis !important;
         transition: all 0.3s ease !important;
 
-        /* Top & bottom teal glow only */
-        box-shadow: inset 0 2px 8px rgba(88,179,177,0.9),
-                    inset 0 -2px 8px rgba(88,179,177,0.9) !important;
+        /* Teal glow on top + bottom only */
+        box-shadow: inset 0 3px 6px rgba(88,179,177,0.9),
+                    inset 0 -3px 6px rgba(88,179,177,0.9) !important;
     }
 
-    /* Hover state */
+    /* Keep your original hover styling (unchanged) */
     section[data-testid="stSidebar"] div.stButton > button:hover {
-        background-color: #000000 !important; /* Keep black */
-        background-image: none !important;
+        background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
         transform: scale(1.05) !important;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
         color: #f0f0f0 !important;
         cursor: pointer !important;
-
-        /* Stronger teal glow top & bottom */
-        box-shadow: inset 0 3px 10px rgba(88,179,177,1),
-                    inset 0 -3px 10px rgba(88,179,177,1) !important;
     }
 
     /* Active state */
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-        background-color: #000000 !important; 
+        background-color: #000000 !important;
         background-image: none !important;
         color: #ffffff !important;
-        box-shadow: inset 0 3px 10px rgba(88,179,177,1),
-                    inset 0 -3px 10px rgba(88,179,177,1) !important;
+
+        /* Stronger teal glow top & bottom */
+        box-shadow: inset 0 4px 8px rgba(88,179,177,1),
+                    inset 0 -4px 8px rgba(88,179,177,1) !important;
     }
     </style>
     """,
