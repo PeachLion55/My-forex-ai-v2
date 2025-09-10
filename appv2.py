@@ -1480,7 +1480,7 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== START: THE DEFINITIVE FIX (from previous correct version) =====
+            # ===== MODIFICATION START: The Definitive & Guaranteed Fix =====
 
             # Function to safely load and encode the icon image for CSS
             @st.cache_data
@@ -1491,42 +1491,42 @@ if st.session_state.current_page == 'trading_journal':
                 with open(filepath, "rb") as f:
                     return base64.b64encode(f.read()).decode()
 
-            # The stable 'on_click' callback function to manage state.
+            # The stable 'on_click' callback function to manage state correctly.
             def set_edit_state_true(session_key):
                 st.session_state.edit_state[session_key] = True
 
-            # Load the icon and inject a simplified, clean CSS.
+            # Load the icon and inject the final, more forceful CSS.
             icon_path = os.path.join("icons", "pencil_icon.png")
             img_base64 = load_icon_as_base64(icon_path)
             
             if img_base64:
-                # This CSS simply styles the button container.
+                # This CSS uses a more specific selector and !important to guarantee it overrides defaults.
                 st.markdown(f"""
                 <style>
-                    /* Target the button container using its 'title' attribute */
-                    button[title^="Edit "] {{
-                        background-image: url("data:image/png;base64,{img_base64}");
-                        background-repeat: no-repeat;
-                        background-position: center center;
-                        background-size: 26px 26px; /* Your desired icon size */
+                    /* Use a more specific selector to target the button precisely */
+                    .stButton > button[title^="Edit "] {{
+                        background-image: url("data:image/png;base64,{img_base64}") !important;
+                        background-repeat: no-repeat !important;
+                        background-position: center center !important;
+                        background-size: 26px 26px !important;
                         
-                        /* Style the button's dimensions and appearance */
-                        width: 44px;
-                        height: 44px;
-                        margin-top: 22px;
+                        /* Force the button's dimensions and appearance */
+                        width: 44px !important;
+                        height: 44px !important;
+                        margin-top: 22px !important;
                         padding: 0 !important;
                         border: 1px solid rgba(255, 255, 255, 0.2) !important;
                         background-color: transparent !important;
                     }}
-                    /* Style the button on hover */
-                    button[title^="Edit "]:hover {{
+                    /* Force the hover effect */
+                    .stButton > button[title^="Edit "]:hover {{
                         background-color: rgba(150, 150, 150, 0.1) !important;
                         border-color: #8b949e !important;
                     }}
                 </style>
                 """, unsafe_allow_html=True)
 
-            # ===== END OF FIX SECTION =====
+            # ===== MODIFICATION END =====
 
             filter_cols = st.columns([1, 1, 1, 2])
             outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
@@ -1552,8 +1552,6 @@ if st.session_state.current_page == 'trading_journal':
 
             for index, row in filtered_df.sort_values(by="Date", ascending=False).iterrows():
                 trade_id_key = row['TradeID']
-                
-                # ***** THE FIX FOR THE NameError IS HERE *****
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
 
                 with st.container(border=True):
@@ -1620,7 +1618,7 @@ if st.session_state.current_page == 'trading_journal':
                         
                         with button_col:
                             if not is_editing and img_base64:
-                                # Using the invisible character "\u200B" to ensure no emoji is displayed.
+                                # THE FIX: Use an invisible character ("\u200B") as the label.
                                 st.button(
                                     "\u200B",
                                     key=f"edit_btn_{edit_session_key}",
@@ -1651,14 +1649,15 @@ if st.session_state.current_page == 'trading_journal':
                         action_cols_notes_delete = st.columns([1, 1, 4]) 
 
                         if action_cols_notes_delete[0].button("Save Notes", key=f"save_notes_{trade_id_key}", type="primary"):
-                            # Your original full logic is restored here
                             original_notes_from_df = st.session_state.trade_journal.loc[st.session_state.trade_journal['TradeID'] == trade_id_key, 'TradeJournalNotes'].iloc[0]
                             st.session_state.trade_journal.loc[index, 'TradeJournalNotes'] = notes
+                            
                             if _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal):
                                 current_notes_hash = hashlib.md5(notes.strip().encode()).hexdigest() if notes.strip() else ""
                                 gamification_flags = st.session_state.get('gamification_flags', {})
                                 notes_award_key = f"xp_notes_for_trade_{trade_id_key}_content_hash"
                                 last_awarded_notes_hash = gamification_flags.get(notes_award_key)
+
                                 if notes.strip() and current_notes_hash != last_awarded_notes_hash:
                                     award_xp_for_notes_added_if_changed(st.session_state.logged_in_user, trade_id_key, notes)
                                 else:
@@ -1669,32 +1668,38 @@ if st.session_state.current_page == 'trading_journal':
                                 st.error("Failed to save notes.")
 
                         if action_cols_notes_delete[1].button("Delete Trade", key=f"delete_trade_{trade_id_key}"):
-                            # Your original full logic is restored here
                             username = st.session_state.logged_in_user
                             xp_deduction_amount = 0
                             xp_deduction_amount += 10
+
                             gamification_flags = st.session_state.get('gamification_flags', {})
                             notes_award_key_for_deleted = f"xp_notes_for_trade_{trade_id_key}_content_hash"
                             if notes_award_key_for_deleted in gamification_flags:
                                 xp_deduction_amount += 5
                                 del gamification_flags[notes_award_key_for_deleted]
+                            
                             edit_keys_to_delete = [k for k in st.session_state.edit_state if trade_id_key in k]
                             for k in edit_keys_to_delete:
                                 del st.session_state.edit_state[k]
+                            
                             st.session_state.gamification_flags = gamification_flags
+                            
                             if xp_deduction_amount > 0:
                                 ta_update_xp(username, -xp_deduction_amount, f"Deleted trade {row['TradeID']}")
                                 st.toast(f"Trade {row['TradeID']} deleted. {xp_deduction_amount} XP deducted.", icon="🗑️")
                             else:
                                 st.toast(f"Trade {row['TradeID']} deleted.", icon="🗑️")
+
                             st.session_state.trade_journal.drop(index, inplace=True)
                             st.session_state.trade_journal.reset_index(drop=True, inplace=True)
+                            
                             if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
                                 try: os.remove(row['EntryScreenshot'])
                                 except OSError as e: logging.error(f"Error deleting entry screenshot {row['EntryScreenshot']}: {e}")
                             if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
                                 try: os.remove(row['ExitScreenshot'])
                                 except OSError as e: logging.error(f"Error deleting exit screenshot {row['ExitScreenshot']}: {e}")
+
                             if _ta_save_journal(username, st.session_state.trade_journal):
                                 check_and_award_trade_milestones(username)
                                 check_and_award_performance_milestones(username)
@@ -1711,32 +1716,44 @@ if st.session_state.current_page == 'trading_journal':
                         upload_cols = st.columns(2)
                         
                         with upload_cols[0]:
-                            new_entry_screenshot_file = st.file_uploader(f"Upload/Update Entry Screenshot", type=["png", "jpg", "jpeg"], key=f"update_entry_ss_uploader_{trade_id_key}")
+                            new_entry_screenshot_file = st.file_uploader(
+                                f"Upload/Update Entry Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_entry_ss_uploader_{trade_id_key}"
+                            )
                             if new_entry_screenshot_file:
                                 if st.button("Save Entry Image", key=f"save_new_entry_ss_btn_{trade_id_key}", type="secondary", use_container_width=True):
                                     if row['EntryScreenshot'] and os.path.exists(row['EntryScreenshot']):
                                         try: os.remove(row['EntryScreenshot'])
                                         except OSError as e: logging.error(f"Error deleting old entry screenshot {row['EntryScreenshot']}: {e}")
+
                                     entry_screenshot_filename = f"{trade_id_key}_entry_{uuid.uuid4().hex[:4]}_{new_entry_screenshot_file.name}"
                                     entry_screenshot_full_path = os.path.join(image_base_path, entry_screenshot_filename)
                                     with open(entry_screenshot_full_path, "wb") as f:
                                         f.write(new_entry_screenshot_file.getbuffer())
+                                    
                                     st.session_state.trade_journal.loc[index, 'EntryScreenshot'] = entry_screenshot_full_path
                                     _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
                                     st.toast("Entry screenshot updated!", icon="📸")
                                     st.rerun()
 
                         with upload_cols[1]:
-                            new_exit_screenshot_file = st.file_uploader(f"Upload/Update Exit Screenshot", type=["png", "jpg", "jpeg"], key=f"update_exit_ss_uploader_{trade_id_key}")
+                            new_exit_screenshot_file = st.file_uploader(
+                                f"Upload/Update Exit Screenshot", 
+                                type=["png", "jpg", "jpeg"], 
+                                key=f"update_exit_ss_uploader_{trade_id_key}"
+                            )
                             if new_exit_screenshot_file:
                                 if st.button("Save Exit Image", key=f"save_new_exit_ss_btn_{trade_id_key}", type="secondary", use_container_width=True):
                                     if row['ExitScreenshot'] and os.path.exists(row['ExitScreenshot']):
                                         try: os.remove(row['ExitScreenshot'])
                                         except OSError as e: logging.error(f"Error deleting old exit screenshot {row['ExitScreenshot']}: {e}")
+
                                     exit_screenshot_filename = f"{trade_id_key}_exit_{uuid.uuid4().hex[:4]}_{new_exit_screenshot_file.name}"
                                     exit_screenshot_full_path = os.path.join(image_base_path, exit_screenshot_filename)
                                     with open(exit_screenshot_full_path, "wb") as f:
                                         f.write(new_exit_screenshot_file.getbuffer())
+
                                     st.session_state.trade_journal.loc[index, 'ExitScreenshot'] = exit_screenshot_full_path
                                     _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
                                     st.toast("Exit screenshot updated!", icon="📸")
