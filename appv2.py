@@ -1480,53 +1480,58 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== MODIFICATION START: Corrected & Resized Method =====
+            # ===== MODIFICATION START: FINAL, STABLE & CORRECTED METHOD =====
 
+            # Function to safely load and encode the icon image for CSS
             @st.cache_data
-            def load_icon(filepath):
+            def load_icon_as_base64(filepath):
                 if not os.path.exists(filepath):
-                    st.error(f"FATAL: Icon file not found at '{filepath}'. Please check the path.")
+                    st.error(f"Icon file not found at '{filepath}'. Please verify the file path.")
                     return None
                 with open(filepath, "rb") as f:
                     return base64.b64encode(f.read()).decode()
 
+            # The 'on_click' callback function. This is the correct way to manage state.
+            # It modifies the session state, and Streamlit reruns the script automatically.
+            def set_edit_state_true(session_key):
+                st.session_state.edit_state[session_key] = True
+
+            # Load the icon and inject the specific CSS for the native st.button
             icon_path = os.path.join("icons", "pencil_icon.png")
-            img_base64 = load_icon(icon_path)
+            img_base64 = load_icon_as_base64(icon_path)
             
             if img_base64:
                 st.markdown(f"""
                 <style>
-                    /* This styles our custom HTML 'a' tag to look like a larger button */
-                    a.edit-button-custom {{
-                        display: inline-block;
-                        width: 44px;  /* Increased Button Size */
-                        height: 44px; /* Increased Button Size */
-                        margin-top: 22px; /* Re-aligned for new height */
+                    /* Target the button using the 'title' attribute (from the 'help' param) */
+                    button[title^="Edit "] {{
                         background-image: url("data:image/png;base64,{img_base64}");
                         background-repeat: no-repeat;
                         background-position: center center;
-                        background-size: 26px 26px; /* Increased Icon Size */
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                        border-radius: 5px;
+                        background-size: 26px 26px;  /* INCREASED ICON SIZE */
+                        
+                        /* Style the button container */
+                        width: 44px;  /* INCREASED BUTTON SIZE */
+                        height: 44px; /* INCREASED BUTTON SIZE */
+                        margin-top: 22px;
+                        padding: 0 !important;
+                        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+                        background-color: transparent !important;
                         transition: background-color 0.2s, border-color 0.2s;
                     }}
-                    a.edit-button-custom:hover {{
-                        background-color: rgba(150, 150, 150, 0.1);
-                        border-color: #8b949e;
+                    /* CRITICAL RULE: Forcefully hide the original emoji text within the button */
+                    button[title^="Edit "] p {{
+                        display: none !important;
+                    }}
+                    /* Optional: Style the button on hover */
+                    button[title^="Edit "]:hover {{
+                        background-color: rgba(150, 150, 150, 0.1) !important;
+                        border-color: #8b949e !important;
                     }}
                 </style>
                 """, unsafe_allow_html=True)
 
-            # CORRECTED LOGIC: Check URL parameters to trigger edit state without a faulty rerun.
-            query_params = st.query_params
-            if "edit" in query_params:
-                edit_key = query_params.get("edit")
-                if edit_key:
-                    st.session_state.edit_state[edit_key] = True
-                    # Clear the query param so the URL is clean and subsequent interactions work correctly.
-                    # Crucially, we DO NOT call st.rerun() here. We let the script finish this run.
-                    st.query_params.clear()
-
+            # We NO LONGER use the flawed query_params logic. It has been removed.
             # ===== MODIFICATION END =====
 
             filter_cols = st.columns([1, 1, 1, 2])
@@ -1619,9 +1624,15 @@ if st.session_state.current_page == 'trading_journal':
                         
                         with button_col:
                             if not is_editing and img_base64:
-                                # This custom HTML link sets the "?edit=..." query parameter on click.
-                                button_html = f'<a href="?edit={edit_session_key}" target="_self" class="edit-button-custom" title="Edit {metric_label}"></a>'
-                                st.markdown(button_html, unsafe_allow_html=True)
+                                # Use a real st.button. The CSS handles its appearance.
+                                # The on_click callback handles the logic without breaking the session.
+                                st.button(
+                                    "✏️",  # This emoji is now hidden by CSS
+                                    key=f"edit_btn_{edit_session_key}",
+                                    help=f"Edit {metric_label}",
+                                    on_click=set_edit_state_true,
+                                    args=(edit_session_key,) # Pass the unique key to the callback
+                                )
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
