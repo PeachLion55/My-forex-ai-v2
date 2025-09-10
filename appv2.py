@@ -721,9 +721,9 @@ section[data-testid="stSidebar"] div.stButton > button {
     text-overflow: ellipsis !important;
     transition: all 0.3s ease !important;
 
-    /* Glow only top and bottom (no left/right) */
-    box-shadow: 0 -4px 8px rgba(88,179,177,0.8),  /* top glow */
-                0 4px 8px rgba(88,179,177,0.8);   /* bottom glow */
+    /* Top and bottom glow only */
+    box-shadow: 0 -5px 10px rgba(88,179,177,0.8),  /* top glow */
+                0 5px 10px rgba(88,179,177,0.8);   /* bottom glow */
 }
 
 /* Hover effect - untouched */
@@ -739,8 +739,8 @@ section[data-testid="stSidebar"] div.stButton > button:hover {
 section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
     background-color: #000000 !important;
     color: #ffffff !important;
-    box-shadow: 0 -4px 10px rgba(88,179,177,1),  /* top glow */
-                0 4px 10px rgba(88,179,177,1);   /* bottom glow */
+    box-shadow: 0 -5px 12px rgba(88,179,177,1),  /* top glow */
+                0 5px 12px rgba(88,179,177,1);   /* bottom glow */
 }
 </style>
 """, unsafe_allow_html=True)
