@@ -1570,7 +1570,8 @@ if st.session_state.current_page == 'trading_journal':
                         with button_col:
                             st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
                             if not is_editing:
-                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
+                                button_label = f"Edit\n{metric_label}"
+                                if st.button(button_label, key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
