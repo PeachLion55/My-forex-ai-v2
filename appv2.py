@@ -705,7 +705,7 @@ st.markdown(
     }
     section[data-testid="stSidebar"] div.stButton > button {
         width: 200px !important;
-        background: linear-gradient(to right, rgba(0,0,0,0.7), rgba(88,179,177,0.7), rgba(0,0,0,0.7)) !important;
+        background-color: #000000 !important; /* Solid black */
         color: #ffffff !important;
         border: none !important;
         border-radius: 5px !important;
@@ -720,7 +720,8 @@ st.markdown(
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        /* Glow effect: teal glow top and bottom only */
+        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 0 2px 6px rgba(88,179,177,0.9) !important;
     }
     section[data-testid="stSidebar"] div.stButton > button:hover {
         background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
@@ -732,26 +733,18 @@ st.markdown(
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
         background: rgba(88, 179, 177, 0.7) !important;
         color: #ffffff !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 0 2px 6px rgba(88,179,177,0.9) !important;
     }
     @media (max-height: 800px) {
         section[data-testid="stSidebar"] div.stButton > button {
             font-size: 14px !important;
             padding: 8px !important;
         }
-        section[data-testid="stSidebar"] div.stButton > button:hover {
-            transform: scale(1.05) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
-        }
     }
     @media (max-height: 600px) {
         section[data-testid="stSidebar"] div.stButton > button {
             font-size: 12px !important;
             padding: 6px !important;
-        }
-        section[data-testid="stSidebar"] div.stButton > button:hover {
-            transform: scale(1.05) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
         }
     }
     </style>
