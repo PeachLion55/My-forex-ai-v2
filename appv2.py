@@ -1470,7 +1470,7 @@ if st.session_state.current_page == 'trading_journal':
             </style>
             """, unsafe_allow_html=True
         )
-        # ========== END: CSS OVERRIDE ==========
+        # ========== END: CSS OVERRRIDE ==========
 
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
@@ -1480,9 +1480,9 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
-            # ===== MODIFICATION START: FINAL, STABLE & CORRECTED METHOD =====
+            # ===== MODIFICATION START: The Definitive CSS Fix =====
 
-            # Function to safely load and encode the icon image for CSS
+            # Function to safely load and encode the icon image
             @st.cache_data
             def load_icon_as_base64(filepath):
                 if not os.path.exists(filepath):
@@ -1491,39 +1491,49 @@ if st.session_state.current_page == 'trading_journal':
                 with open(filepath, "rb") as f:
                     return base64.b64encode(f.read()).decode()
 
-            # The 'on_click' callback function. This is the correct way to manage state.
-            # It modifies the session state, and Streamlit reruns the script automatically.
+            # The 'on_click' callback function for cleanly managing state
             def set_edit_state_true(session_key):
                 st.session_state.edit_state[session_key] = True
 
-            # Load the icon and inject the specific CSS for the native st.button
+            # Load the icon and inject the new, more aggressive CSS
             icon_path = os.path.join("icons", "pencil_icon.png")
             img_base64 = load_icon_as_base64(icon_path)
             
             if img_base64:
                 st.markdown(f"""
                 <style>
-                    /* Target the button using the 'title' attribute (from the 'help' param) */
+                    /* Style the button container to look like a custom icon button */
                     button[title^="Edit "] {{
                         background-image: url("data:image/png;base64,{img_base64}");
                         background-repeat: no-repeat;
                         background-position: center center;
-                        background-size: 26px 26px;  /* INCREASED ICON SIZE */
-                        
-                        /* Style the button container */
-                        width: 44px;  /* INCREASED BUTTON SIZE */
-                        height: 44px; /* INCREASED BUTTON SIZE */
+                        background-size: 26px 26px;
+                        width: 44px;
+                        height: 44px;
                         margin-top: 22px;
                         padding: 0 !important;
                         border: 1px solid rgba(255, 255, 255, 0.2) !important;
                         background-color: transparent !important;
                         transition: background-color 0.2s, border-color 0.2s;
                     }}
-                    /* CRITICAL RULE: Forcefully hide the original emoji text within the button */
-                    button[title^="Edit "] p {{
-                        display: none !important;
+
+                    /* 
+                     * NEW CRITICAL RULE: A highly specific and forceful set of properties 
+                     * to guarantee the original emoji text is hidden.
+                     */
+                    .stButton > button[title^="Edit "] p {{
+                        display: none !important;      /* Primary method */
+                        color: transparent !important; /* Fallback for visibility */
+                        font-size: 0px !important;     /* Fallback to remove space */
+                        line-height: 0 !important;     /* Fallback to remove space */
+                        width: 0 !important;
+                        height: 0 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: hidden;              /* Final fallback */
                     }}
-                    /* Optional: Style the button on hover */
+
+                    /* Style the button on hover */
                     button[title^="Edit "]:hover {{
                         background-color: rgba(150, 150, 150, 0.1) !important;
                         border-color: #8b949e !important;
@@ -1531,7 +1541,6 @@ if st.session_state.current_page == 'trading_journal':
                 </style>
                 """, unsafe_allow_html=True)
 
-            # We NO LONGER use the flawed query_params logic. It has been removed.
             # ===== MODIFICATION END =====
 
             filter_cols = st.columns([1, 1, 1, 2])
@@ -1624,10 +1633,8 @@ if st.session_state.current_page == 'trading_journal':
                         
                         with button_col:
                             if not is_editing and img_base64:
-                                # Use a real st.button. The CSS handles its appearance.
-                                # The on_click callback handles the logic without breaking the session.
                                 st.button(
-                                    "✏️",  # This emoji is now hidden by CSS
+                                    "✏️",  # The emoji text that our CSS will hide
                                     key=f"edit_btn_{edit_session_key}",
                                     help=f"Edit {metric_label}",
                                     on_click=set_edit_state_true,
@@ -1779,7 +1786,7 @@ if st.session_state.current_page == 'trading_journal':
                         else:
                             visual_cols[1].info("No Exit Screenshot available.")
                             
-                    st.markdown("---")
+                    st.markdown("---")```
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
