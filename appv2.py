@@ -24,7 +24,6 @@ import io
 import base64
 import calendar
 from datetime import datetime, date, timedelta
-import streamlit.components.v1 as components
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
@@ -1476,52 +1475,6 @@ if st.session_state.current_page == 'trading_journal':
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
-            # JAVASCRIPT DIRECT STYLE INJECTION - FINAL & MOST ROBUST METHOD
-            # This script watches for elements and forcefully applies inline styles,
-            # bypassing all CSS specificity issues from Streamlit's themes.
-            js_script = """
-            <script>
-            // This function contains the exact styles we want to apply
-            const styleButton = (buttonEl) => {
-                buttonEl.style.height = '28px';
-                buttonEl.style.minHeight = '28px';
-                buttonEl.style.padding = '1px 6px';
-                buttonEl.style.fontSize = '8px';
-                buttonEl.style.lineHeight = '1.2';
-                buttonEl.style.display = 'flex';
-                buttonEl.style.justifyContent = 'center';
-                buttonEl.style.alignItems = 'center';
-            };
-
-            // This function finds the button within our specific container
-            const processNode = (node) => {
-                if (node.nodeType !== 1) return;
-                const targetButtons = node.querySelectorAll('.edit-button-container [data-testid="stButton"] > button');
-                targetButtons.forEach(styleButton);
-            };
-
-            // MutationObserver watches for elements being added to the page dynamically
-            const observer = new MutationObserver((mutationsList) => {
-                for(const mutation of mutationsList) {
-                    if (mutation.type === 'childList') {
-                        mutation.addedNodes.forEach(processNode);
-                    }
-                }
-            });
-
-            // Start observing the entire document for changes
-            observer.observe(document.body, { childList: true, subtree: true });
-
-            // Run once on load to catch any buttons already on the page
-            document.addEventListener('DOMContentLoaded', (event) => {
-                processNode(document.body);
-            });
-            // Also process the body right away in case DOMContentLoaded has already fired
-            processNode(document.body);
-            </script>
-            """
-            components.html(js_script, height=0, width=0)
-
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
             
             if 'edit_state' not in st.session_state:
@@ -1615,11 +1568,9 @@ if st.session_state.current_page == 'trading_journal':
                                     </div>""", unsafe_allow_html=True)
                         
                         with button_col:
-                            # This DIV is the critical anchor for our JavaScript to find the button
-                            st.markdown('<div class="edit-button-container">', unsafe_allow_html=True)
+                            st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
                             if not is_editing:
-                                button_label = f"Edit\n{metric_label}"
-                                if st.button(button_label, key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
+                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
@@ -1770,7 +1721,8 @@ if st.session_state.current_page == 'trading_journal':
                         else:
                             visual_cols[1].info("No Exit Screenshot available.")
                             
-                    st.markdown("---")
+                    st.markdown("---") 
+
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
         st.header("Your Performance Dashboard")
