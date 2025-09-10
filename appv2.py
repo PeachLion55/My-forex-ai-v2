@@ -705,7 +705,7 @@ st.markdown(
     }
     section[data-testid="stSidebar"] div.stButton > button {
         width: 200px !important;
-        background-color: #000000 !important; /* Solid black */
+        background-color: #000000 !important; /* Plain black background */
         color: #ffffff !important;
         border: none !important;
         border-radius: 5px !important;
@@ -720,20 +720,25 @@ st.markdown(
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         transition: all 0.3s ease !important;
-        /* Glow effect: teal glow top and bottom only */
-        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 0 2px 6px rgba(88,179,177,0.9) !important;
+        /* Teal glow ONLY on top and bottom */
+        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 
+                    0 2px 6px rgba(88,179,177,0.9) !important;
     }
     section[data-testid="stSidebar"] div.stButton > button:hover {
         background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
         transform: scale(1.05) !important;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+        /* Keep teal glow top & bottom while hovering */
+        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 
+                    0 2px 6px rgba(88,179,177,0.9), 
+                    0 4px 8px rgba(0, 0, 0, 0.3) !important;
         color: #f0f0f0 !important;
         cursor: pointer !important;
     }
     section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-        background: rgba(88, 179, 177, 0.7) !important;
+        background-color: #000000 !important; /* Keep black for active */
         color: #ffffff !important;
-        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 0 2px 6px rgba(88,179,177,0.9) !important;
+        box-shadow: 0 -2px 6px rgba(88,179,177,0.9), 
+                    0 2px 6px rgba(88,179,177,0.9) !important;
     }
     @media (max-height: 800px) {
         section[data-testid="stSidebar"] div.stButton > button {
