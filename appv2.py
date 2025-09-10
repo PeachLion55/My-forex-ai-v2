@@ -1567,13 +1567,48 @@ if st.session_state.current_page == 'trading_journal':
                                         {display_val_str}
                                     </div>""", unsafe_allow_html=True)
                         
+                        # ===== MODIFICATION START =====
                         with button_col:
                             st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
                             if not is_editing:
+                                icon_path = os.path.join("icons", "pencil_icon.png")
+
+                                # Check if the icon file exists and encode it to base64
+                                if os.path.exists(icon_path):
+                                    with open(icon_path, "rb") as f:
+                                        encoded_string = base64.b64encode(f.read()).decode()
+
+                                    # Inject custom CSS to style the button with the image
+                                    st.markdown(f"""
+                                    <style>
+                                        /* Target the button using its title from the 'help' parameter */
+                                        .stButton > button[title="{f"Edit {metric_label}"}"] {{
+                                            background: url(data:image/png;base64,{encoded_string}) no-repeat center center;
+                                            background-size: 20px 20px; /* Adjust icon size */
+                                            border: none !important;
+                                            width: 35px; /* Adjust button width */
+                                            height: 35px; /* Adjust button height */
+                                            padding: 0 !important;
+                                            margin-top: 25px; /* Align vertically with the metric display */
+                                        }}
+                                        .stButton > button[title="{f"Edit {metric_label}"}"]:hover {{
+                                            background-color: rgba(150, 150, 150, 0.15); /* Optional: hover effect */
+                                            border-radius: 5px;
+                                        }}
+                                        /* Hide the original emoji/text label */
+                                        .stButton > button[title="{f"Edit {metric_label}"}"] p {{
+                                            display: none;
+                                        }}
+                                    </style>
+                                    """, unsafe_allow_html=True)
+
+                                # The button's label "✏️" now acts as a fallback. CSS will hide it and show the image.
+                                # The 'help' parameter is crucial as it's used by the CSS selector.
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
                             st.markdown('</div>', unsafe_allow_html=True)
+                        # ===== MODIFICATION END =====
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1721,7 +1756,7 @@ if st.session_state.current_page == 'trading_journal':
                         else:
                             visual_cols[1].info("No Exit Screenshot available.")
                             
-                    st.markdown("---") 
+                    st.markdown("---")
 
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
