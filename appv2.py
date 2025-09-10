@@ -695,65 +695,50 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # =========================================================
 # CUSTOM SIDEBAR CSS
 # =========================================================
-st.markdown(
-    """
-    <style>
-    section[data-testid="stSidebar"] {
-        background-color: #000000 !important;
-        overflow: hidden !important;
-        max-height: 100vh !important;
-    }
+st.markdown("""
+<style>
+section[data-testid="stSidebar"] div.stButton > button {
+    /* Force solid black background */
+    background: #000000 !important;
+    background-image: none !important; /* Remove any gradient */
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    margin: 5px 0 !important;
+    font-weight: bold !important;
+    font-size: 16px !important;
+    text-align: left !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    transition: all 0.3s ease !important;
 
-    /* Sidebar buttons (default) */
-    section[data-testid="stSidebar"] div.stButton > button {
-        width: 200px !important;
-        background-color: #000000 !important; /* Solid black */
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 5px !important;
-        padding: 10px !important;
-        margin: 5px 0 !important;
-        font-weight: bold !important;
-        font-size: 16px !important;
-        text-align: left !important;
-        display: block !important;
-        box-sizing: border-box !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        transition: all 0.3s ease !important;
+    /* Glow only top & bottom */
+    box-shadow: 0 -3px 8px rgba(88,179,177,0.8), /* top glow */
+                0 3px 8px rgba(88,179,177,0.8);  /* bottom glow */
+}
 
-        /* Glow only top & bottom using borders */
-        border-top: 2px solid rgba(88,179,177,0.9) !important;
-        border-bottom: 2px solid rgba(88,179,177,0.9) !important;
-        box-shadow: 0 -2px 8px rgba(88,179,177,0.8),
-                    0 2px 8px rgba(88,179,177,0.8) !important;
-    }
+/* Keep your existing hover code untouched */
+section[data-testid="stSidebar"] div.stButton > button:hover {
+    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    color: #f0f0f0 !important;
+    cursor: pointer !important;
+}
 
-    /* Keep your original hover styling (unchanged) */
-    section[data-testid="stSidebar"] div.stButton > button:hover {
-        background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
-        transform: scale(1.05) !important;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
-        color: #f0f0f0 !important;
-        cursor: pointer !important;
-    }
-
-    /* Active state */
-    section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-        background-color: #000000 !important;
-        color: #ffffff !important;
-
-        /* Brighter glow top & bottom */
-        border-top: 2px solid rgba(88,179,177,1) !important;
-        border-bottom: 2px solid rgba(88,179,177,1) !important;
-        box-shadow: 0 -3px 10px rgba(88,179,177,1),
-                    0 3px 10px rgba(88,179,177,1) !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+/* Active button style */
+section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+    background: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: 0 -3px 10px rgba(88,179,177,1),
+                0 3px 10px rgba(88,179,177,1);
+}
+</style>
+""", unsafe_allow_html=True)
 # =========================================================
 # NEWS & ECONOMIC CALENDAR DATA / HELPERS
 # =========================================================
