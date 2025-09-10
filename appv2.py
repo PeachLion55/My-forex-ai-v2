@@ -1480,6 +1480,45 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
+            # ===== MODIFICATION START: CSS INJECTION FOR CUSTOM ICON =====
+            @st.cache_data
+            def get_img_as_base64(file):
+                if not os.path.exists(file):
+                    return None
+                with open(file, "rb") as f:
+                    data = f.read()
+                return base64.b64encode(data).decode()
+
+            icon_path = os.path.join("icons", "pencil_icon.png")
+            img_base64 = get_img_as_base64(icon_path)
+
+            if img_base64:
+                st.markdown(f"""
+                <style>
+                    /* Target all edit buttons using the 'help' text (rendered as a title attribute) */
+                    .stButton > button[title^="Edit "] {{
+                        background: url(data:image/png;base64,{img_base64}) no-repeat center center;
+                        background-size: 18px 18px;
+                        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+                        width: 38px;
+                        height: 38px;
+                        padding: 0 !important;
+                        margin-top: 26px; /* Vertical alignment with the metric box */
+                        border-radius: 5px;
+                        color: transparent !important; /* This hides the original emoji text */
+                    }}
+                    .stButton > button[title^="Edit "]:hover {{
+                        background-color: rgba(150, 150, 150, 0.15) !important;
+                        border: 1px solid #8b949e !important;
+                    }}
+                    /* Hide the paragraph element that holds the emoji */
+                    .stButton > button[title^="Edit "] p {{
+                        display: none;
+                    }}
+                </style>
+                """, unsafe_allow_html=True)
+            # ===== MODIFICATION END =====
+
             filter_cols = st.columns([1, 1, 1, 2])
             outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
             symbol_filter = filter_cols[1].multiselect("Filter Symbol", df_playbook['Symbol'].unique(), default=df_playbook['Symbol'].unique())
@@ -1507,7 +1546,7 @@ if st.session_state.current_page == 'trading_journal':
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
 
                 with st.container(border=True):
-                    # Trade Header - MODIFIED BLOCK
+                    # Trade Header
                     st.markdown(f"""
                     <div style="display: flex; flex-direction: row; align-items: stretch; gap: 15px; margin-left: -10px;">
                       <div style="width: 4px; background-color: {outcome_color}; border-radius: 3px;"></div>
@@ -1567,47 +1606,14 @@ if st.session_state.current_page == 'trading_journal':
                                         {display_val_str}
                                     </div>""", unsafe_allow_html=True)
                         
-                        # ===== MODIFICATION START =====
+                        # ===== MODIFICATION START: SIMPLIFIED BUTTON RENDERING =====
                         with button_col:
-                            st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
                             if not is_editing:
-                                icon_path = os.path.join("icons", "pencil_icon.png")
-
-                                # Check if the icon file exists and encode it to base64
-                                if os.path.exists(icon_path):
-                                    with open(icon_path, "rb") as f:
-                                        encoded_string = base64.b64encode(f.read()).decode()
-
-                                    # Inject custom CSS to style the button with the image
-                                    st.markdown(f"""
-                                    <style>
-                                        /* Target the button using its title from the 'help' parameter */
-                                        .stButton > button[title="{f"Edit {metric_label}"}"] {{
-                                            background: url(data:image/png;base64,{encoded_string}) no-repeat center center;
-                                            background-size: 20px 20px; /* Adjust icon size */
-                                            border: none !important;
-                                            width: 35px; /* Adjust button width */
-                                            height: 35px; /* Adjust button height */
-                                            padding: 0 !important;
-                                            margin-top: 25px; /* Align vertically with the metric display */
-                                        }}
-                                        .stButton > button[title="{f"Edit {metric_label}"}"]:hover {{
-                                            background-color: rgba(150, 150, 150, 0.15); /* Optional: hover effect */
-                                            border-radius: 5px;
-                                        }}
-                                        /* Hide the original emoji/text label */
-                                        .stButton > button[title="{f"Edit {metric_label}"}"] p {{
-                                            display: none;
-                                        }}
-                                    </style>
-                                    """, unsafe_allow_html=True)
-
-                                # The button's label "✏️" now acts as a fallback. CSS will hide it and show the image.
-                                # The 'help' parameter is crucial as it's used by the CSS selector.
+                                # The custom CSS injected earlier will style this button.
+                                # The "help" text is essential for the CSS selector to work.
                                 if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
                                     st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
                                     st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
                         # ===== MODIFICATION END =====
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
