@@ -1480,6 +1480,54 @@ if st.session_state.current_page == 'trading_journal':
             if 'edit_state' not in st.session_state:
                 st.session_state.edit_state = {}
 
+            # ===== MODIFICATION START: The Final & Stable Fix =====
+
+            # Function to safely load and encode the icon image for CSS
+            @st.cache_data
+            def load_icon_as_base64(filepath):
+                if not os.path.exists(filepath):
+                    st.error(f"Icon file not found at '{filepath}'. Please verify the file path.")
+                    return None
+                with open(filepath, "rb") as f:
+                    return base64.b64encode(f.read()).decode()
+
+            # The stable 'on_click' callback function for cleanly managing state.
+            def set_edit_state_true(session_key):
+                st.session_state.edit_state[session_key] = True
+
+            # Load the icon and inject the final, more forceful CSS.
+            icon_path = os.path.join("icons", "pencil_icon.png")
+            img_base64 = load_icon_as_base64(icon_path)
+            
+            if img_base64:
+                # This CSS uses a more specific selector and !important to guarantee it overrides defaults.
+                st.markdown(f"""
+                <style>
+                    /* Use a more specific selector to target the button precisely */
+                    .stButton > button[title^="Edit "] {{
+                        background-image: url("data:image/png;base64,{img_base64}") !important;
+                        background-repeat: no-repeat !important;
+                        background-position: center center !important;
+                        background-size: 26px 26px !important; /* Your desired icon size */
+                        
+                        /* Force the button's dimensions and appearance */
+                        width: 44px !important;
+                        height: 44px !important;
+                        margin-top: 22px !important;
+                        padding: 0 !important;
+                        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+                        background-color: transparent !important;
+                    }}
+                    /* Force the hover effect */
+                    .stButton > button[title^="Edit "]:hover {{
+                        background-color: rgba(150, 150, 150, 0.1) !important;
+                        border-color: #8b949e !important;
+                    }}
+                </style>
+                """, unsafe_allow_html=True)
+
+            # ===== MODIFICATION END =====
+
             filter_cols = st.columns([1, 1, 1, 2])
             outcome_filter = filter_cols[0].multiselect("Filter Outcome", df_playbook['Outcome'].unique(), default=df_playbook['Outcome'].unique())
             symbol_filter = filter_cols[1].multiselect("Filter Symbol", df_playbook['Symbol'].unique(), default=df_playbook['Symbol'].unique())
@@ -1507,7 +1555,7 @@ if st.session_state.current_page == 'trading_journal':
                 outcome_color = {"Win": "#2da44e", "Loss": "#cf222e", "Breakeven": "#8b949e", "No Trade/Study": "#58a6ff"}.get(row['Outcome'], "#30363d")
 
                 with st.container(border=True):
-                    # Trade Header - MODIFIED BLOCK
+                    # Trade Header
                     st.markdown(f"""
                     <div style="display: flex; flex-direction: row; align-items: stretch; gap: 15px; margin-left: -10px;">
                       <div style="width: 4px; background-color: {outcome_color}; border-radius: 3px;"></div>
@@ -1531,7 +1579,8 @@ if st.session_state.current_page == 'trading_journal':
                     lots_val = float(pd.to_numeric(row.get('Lots', 0.01), errors='coerce') or 0.01)
 
                     def render_metric_cell_or_form(col_obj, metric_label, db_column, current_value, key_suffix, format_str, is_pnl_metric=False):
-                        is_editing = st.session_state.edit_state.get(f"{key_suffix}_{trade_id_key}", False)
+                        edit_session_key = f"{key_suffix}_{trade_id_key}"
+                        is_editing = st.session_state.edit_state.get(edit_session_key, False)
                         
                         main_col, button_col = col_obj.columns([4, 1])
 
@@ -1544,10 +1593,10 @@ if st.session_state.current_page == 'trading_journal':
                                     if s_col.form_submit_button("✓ Save", type="primary", use_container_width=True):
                                         st.session_state.trade_journal.loc[index, db_column] = new_value
                                         _ta_save_journal(st.session_state.logged_in_user, st.session_state.trade_journal)
-                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
+                                        st.session_state.edit_state[edit_session_key] = False
                                         st.rerun()
                                     if c_col.form_submit_button("✗ Cancel", use_container_width=True):
-                                        st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = False
+                                        st.session_state.edit_state[edit_session_key] = False
                                         st.rerun()
                             else:
                                 border_style = ""
@@ -1568,12 +1617,15 @@ if st.session_state.current_page == 'trading_journal':
                                     </div>""", unsafe_allow_html=True)
                         
                         with button_col:
-                            st.markdown('<div class="st-emotion-cache-12w0qpk">', unsafe_allow_html=True)
-                            if not is_editing:
-                                if st.button("✏️", key=f"edit_btn_{key_suffix}_{trade_id_key}", help=f"Edit {metric_label}"):
-                                    st.session_state.edit_state[f"{key_suffix}_{trade_id_key}"] = True
-                                    st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
+                            if not is_editing and img_base64:
+                                # THE FIX: Use an invisible character ("\u200B") as the label.
+                                st.button(
+                                    "\u200B",
+                                    key=f"edit_btn_{edit_session_key}",
+                                    help=f"Edit {metric_label}",
+                                    on_click=set_edit_state_true,
+                                    args=(edit_session_key,)
+                                )
 
                     render_metric_cell_or_form(metric_cols[0], "Net PnL", "PnL", pnl_val, "pnl", "%.2f", is_pnl_metric=True)
                     render_metric_cell_or_form(metric_cols[1], "R-Multiple", "RR", rr_val, "rr", "%.2f")
@@ -1626,10 +1678,9 @@ if st.session_state.current_page == 'trading_journal':
                                 xp_deduction_amount += 5
                                 del gamification_flags[notes_award_key_for_deleted]
                             
-                            if trade_id_key in st.session_state.edit_state:
-                                for key in list(st.session_state.edit_state.keys()):
-                                    if trade_id_key in key:
-                                        del st.session_state.edit_state[key]
+                            edit_keys_to_delete = [k for k in st.session_state.edit_state if trade_id_key in k]
+                            for k in edit_keys_to_delete:
+                                del st.session_state.edit_state[k]
                             
                             st.session_state.gamification_flags = gamification_flags
                             
@@ -1721,7 +1772,7 @@ if st.session_state.current_page == 'trading_journal':
                         else:
                             visual_cols[1].info("No Exit Screenshot available.")
                             
-                    st.markdown("---") 
+                    st.markdown("---")
 
     # --- TAB 3: ANALYTICS DASHBOARD ---
     with tab_analytics:
