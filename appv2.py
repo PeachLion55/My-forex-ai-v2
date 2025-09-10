@@ -24,6 +24,7 @@ import io
 import base64
 import calendar
 from datetime import datetime, date, timedelta
+import streamlit.components.v1 as components
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
@@ -1475,29 +1476,51 @@ if st.session_state.current_page == 'trading_journal':
         if df_playbook.empty:
             st.info("Your logged trades will appear here as playbook cards. Log your first trade to get started!")
         else:
-            # FINAL ATTEMPT: Using a highly specific selector to force the override.
-            # This targets the button inside its Streamlit-generated container, ONLY when that container
-            # is inside our custom div. This should be strong enough to override any default theme.
-            st.markdown("""
-            <style>
-            .edit-button-container [data-testid="stButton"] > button {
-                /* Force the button to be extremely small */
-                height: auto !important;
-                min-height: 28px !important; /* Adjust if needed */
-                padding: 1px 6px !important;
+            # JAVASCRIPT DIRECT STYLE INJECTION - FINAL & MOST ROBUST METHOD
+            # This script watches for elements and forcefully applies inline styles,
+            # bypassing all CSS specificity issues from Streamlit's themes.
+            js_script = """
+            <script>
+            // This function contains the exact styles we want to apply
+            const styleButton = (buttonEl) => {
+                buttonEl.style.height = '28px';
+                buttonEl.style.minHeight = '28px';
+                buttonEl.style.padding = '1px 6px';
+                buttonEl.style.fontSize = '8px';
+                buttonEl.style.lineHeight = '1.2';
+                buttonEl.style.display = 'flex';
+                buttonEl.style.justifyContent = 'center';
+                buttonEl.style.alignItems = 'center';
+            };
 
-                /* Force the text to be extremely small */
-                font-size: 8px !important;
-                line-height: 1.2 !important;
-                text-align: center !important;
-                
-                /* Adjust vertical alignment if text is off-center */
-                display: flex !important;
-                justify-content: center !important;
-                align-items: center !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            // This function finds the button within our specific container
+            const processNode = (node) => {
+                if (node.nodeType !== 1) return;
+                const targetButtons = node.querySelectorAll('.edit-button-container [data-testid="stButton"] > button');
+                targetButtons.forEach(styleButton);
+            };
+
+            // MutationObserver watches for elements being added to the page dynamically
+            const observer = new MutationObserver((mutationsList) => {
+                for(const mutation of mutationsList) {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach(processNode);
+                    }
+                }
+            });
+
+            // Start observing the entire document for changes
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Run once on load to catch any buttons already on the page
+            document.addEventListener('DOMContentLoaded', (event) => {
+                processNode(document.body);
+            });
+            // Also process the body right away in case DOMContentLoaded has already fired
+            processNode(document.body);
+            </script>
+            """
+            components.html(js_script, height=0, width=0)
 
             st.caption("Filter and review your past trades to refine your strategy and identify patterns.")
             
@@ -1592,7 +1615,7 @@ if st.session_state.current_page == 'trading_journal':
                                     </div>""", unsafe_allow_html=True)
                         
                         with button_col:
-                            # This div is the anchor for our CSS selector.
+                            # This DIV is the critical anchor for our JavaScript to find the button
                             st.markdown('<div class="edit-button-container">', unsafe_allow_html=True)
                             if not is_editing:
                                 button_label = f"Edit\n{metric_label}"
