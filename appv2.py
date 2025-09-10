@@ -702,10 +702,10 @@ section[data-testid="stSidebar"] {
     background-color: #000000 !important;
 }
 
-/* Sidebar buttons */
+/* Sidebar buttons - default state */
 section[data-testid="stSidebar"] div.stButton > button {
     background-color: #000000 !important;
-    background-image: none !important; /* remove any gradient */
+    background-image: none !important; /* remove gradient */
     color: #ffffff !important;
     border: none !important;
     border-radius: 5px !important;
@@ -721,22 +721,26 @@ section[data-testid="stSidebar"] div.stButton > button {
     text-overflow: ellipsis !important;
     transition: all 0.3s ease !important;
 
-    /* Glow only top and bottom */
-    box-shadow: 0 -4px 8px rgba(88,179,177,0.8), /* top glow */
-                0 4px 8px rgba(88,179,177,0.8);  /* bottom glow */
+    /* Glow only top and bottom (no left/right) */
+    box-shadow: 0 -4px 8px rgba(88,179,177,0.8),  /* top glow */
+                0 4px 8px rgba(88,179,177,0.8);   /* bottom glow */
 }
 
-/* Keep hover effect untouched */
+/* Hover effect - untouched */
 section[data-testid="stSidebar"] div.stButton > button:hover {
-    /* original hover code */
+    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    color: #f0f0f0 !important;
+    cursor: pointer !important;
 }
 
 /* Active button */
 section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
     background-color: #000000 !important;
     color: #ffffff !important;
-    box-shadow: 0 -4px 10px rgba(88,179,177,1),
-                0 4px 10px rgba(88,179,177,1);
+    box-shadow: 0 -4px 10px rgba(88,179,177,1),  /* top glow */
+                0 4px 10px rgba(88,179,177,1);   /* bottom glow */
 }
 </style>
 """, unsafe_allow_html=True)
