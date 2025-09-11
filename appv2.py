@@ -669,7 +669,7 @@ def initialize_and_load_session_state():
             # to ensure the flag is set immediately. ta_update_xp will call save_user_data again,
             # so the updated last_login_xp_date will be saved correctly.
             st.session_state.last_login_xp_date = today.isoformat()
-            ta_update_xp(username, 5, "Daily Login Bonus") # ta_update_xp contains st.rerun
+            ta_update_xp(username, 10, "Daily Login Bonus") # ta_update_xp contains st.rerun
             logging.info(f"Daily login XP (10) awarded to {username}")
         # --- END DAILY LOGIN XP ---
 
@@ -3248,7 +3248,7 @@ if st.session_state.current_page == 'account':
         current_rxp = int(st.session_state.get('xp', 0) / 2)
         st.info(f"You have **{current_rxp:,} RXP** available to spend.")
         
-        items = {"1_month_access": {"name": "6th Month Free Access", "cost": 100, "icon": "🗓️"}, "consultation": {"name": "Any Month Free Access", "cost": 450, "icon": "🗓️"}, "advanced_course": {"name": "Any 2 Month Free Access", "cost": 850, "icon": "🗓️"}}
+        items = {"1_month_access": {"name": "6th Month Free Access", "cost": 300, "icon": "🗓️"}, "consultation": {"name": "Any Month Free Access", "cost": 450, "icon": "🗓️"}, "advanced_course": {"name": "Any 2 Month Free Access", "cost": 850, "icon": "🗓️"}}
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
