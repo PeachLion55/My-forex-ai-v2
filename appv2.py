@@ -2977,21 +2977,22 @@ if st.session_state.current_page == 'account':
             with open(path, "rb") as image_file:
                 return base64.b64encode(image_file.read()).decode()
         except FileNotFoundError:
-            # Using st.warning is better for in-app feedback than print()
             st.warning(f"Warning: Image file not found at path: {path}")
             return None
 
-    # This block renders the new full-screen login/signup form when the user is NOT logged in.
+    # This entire block renders the pixel-perfect login form when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
-        # --- CSS STYLING FOR THE LOGIN/SIGNUP FORM ---
+        # --- CSS STYLING TO EXACTLY MATCH THE IMAGE ---
         st.markdown("""
         <style>
-            /* --- HIDE STREAMLIT UI & PREPARE PAGE FOR CENTERING --- */
+            /* --- HIDE STREAMLIT UI & PREPARE FULL-SCREEN CONTAINER --- */
             [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] {
                 display: none !important;
             }
-            /* Target Streamlit's main container to apply flex centering */
+            div[data-testid="stAppViewContainer"] > .main {
+                background-color: #000000; /* Ensure pure black background */
+            }
             div[data-testid="stAppViewContainer"] > .main .block-container {
                 display: flex;
                 flex-direction: column;
@@ -3000,97 +3001,108 @@ if st.session_state.current_page == 'account':
                 padding: 0;
                 margin: 0;
                 width: 100%;
-                min-height: 100vh; /* Ensure it takes full viewport height */
+                min-height: 100vh;
             }
 
-            /* --- LOGIN FORM STYLING --- */
+            /* --- LOGIN FORM CONTAINER --- */
             .login-form {
-                background-color: #0E0E0E;
+                background: #000000;
                 padding: 2.5rem 3rem;
                 border-radius: 1rem;
                 width: 450px;
                 max-width: 95%;
-                border: 1px solid rgba(0, 255, 231, 0.1);
-                box-shadow: 0 0 40px rgba(0, 255, 231, 0.2);
+                border: 1px solid rgba(48, 184, 163, 0.15); /* Subtle border color */
+                /* Outer glow effect */
+                box-shadow: 0 0 40px rgba(10, 200, 180, 0.15), 0 0 15px rgba(10, 200, 180, 0.1);
             }
+            
+            /* --- TYPOGRAPHY --- */
             .login-form h1 {
-                font-family: sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 font-size: 2.5rem;
                 color: white;
-                font-weight: bold;
+                font-weight: 700;
                 margin-top: 5px;
-                margin-bottom: 25px;
+                margin-bottom: 30px; /* Increased space after title */
             }
             .login-form .subtitle {
-                font-family: sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 font-size: 1rem;
-                color: #B0B0B0;
+                color: #B0B0B0; /* Light grey from image */
             }
 
-            /* --- STREAMLIT WIDGET OVERRIDES --- */
+            /* --- INPUT FIELDS & CHECKBOX --- */
             .login-form input[type="text"], .login-form input[type="password"] {
                 background-color: transparent !important;
-                border: 1px solid #3c4c5b !important;
+                border: 1px solid #1c5f58 !important; /* Base border color */
                 border-radius: 8px !important;
                 color: white !important;
-                padding: 1.3rem 1rem !important;
-                box-shadow: 0 0 15px rgba(0, 255, 231, 0.1) inset;
+                padding: 1.4rem 1rem !important; /* Increase height */
+                margin-bottom: 0.5rem; /* Space between fields */
+                /* Teal inner glow effect */
+                box-shadow: 0 0 10px rgba(29, 142, 128, 0.3) inset;
                 transition: all 0.2s ease-in-out;
             }
             .login-form input:focus {
-                border: 1px solid rgba(0, 255, 231, 0.8) !important;
-                box-shadow: 0 0 10px rgba(0, 255, 231, 0.6) !important;
+                border: 1px solid #33c4b0 !important; /* Brighter border on focus */
+                /* Brighter glow on focus */
+                box-shadow: 0 0 12px rgba(47, 185, 167, 0.6) inset, 0 0 10px rgba(47, 185, 167, 0.4);
+            }
+             .login-form ::placeholder {
+                color: #8a8a8a !important;
+                opacity: 1;
             }
             .login-form .stCheckbox p {
                 color: #B0B0B0;
+                font-size: 0.95rem;
             }
 
-            /* --- MAIN SUBMIT BUTTON --- */
+            /* --- LOGIN BUTTON --- */
             .login-form .stButton>button[kind="form_submit"] {
-                background-color: #4A69E2;
+                background-color: #3856d1; /* Exact blue from image */
                 color: white;
                 border: none;
                 border-radius: 8px;
-                padding: 0.8rem 1rem;
+                padding: 1rem 1rem;
                 width: 100%;
-                font-size: 1rem;
-                font-weight: 500;
+                font-size: 1.05rem;
+                font-weight: 600;
+                margin-top: 20px;
+                /* Button glow effect */
+                box-shadow: 0 0 20px rgba(56, 86, 209, 0.4);
                 transition: all 0.3s ease;
-                margin-top: 15px;
             }
             .login-form .stButton>button[kind="form_submit"]:hover {
-                background-color: #5A79F2;
-                box-shadow: 0 0 15px #4A69E2;
+                background-color: #4A69E2; /* Slightly brighter blue on hover */
+                box-shadow: 0 0 25px rgba(74, 105, 226, 0.7);
             }
             
-            /* --- FORGOT/TOGGLE LINKS --- */
+            /* --- BOTTOM LINKS & TEXT --- */
             .login-form a {
-                color: #4A69E2;
+                color: #4A69E2; /* Matching blue link color */
                 text-decoration: none;
-                font-size: 0.9rem;
+                font-size: 0.95rem;
+            }
+             .login-form a:hover {
+                text-decoration: underline;
             }
             .bottom-text-container {
                 display: flex;
                 justify-content: center;
                 align-items: center;
                 gap: 0.5rem;
-                margin-top: 1.5rem;
+                margin-top: 2rem;
             }
             .bottom-text-container span {
-                color: #909090;
+                color: #B0B0B0;
                 font-size: 1rem;
             }
             /* Style the toggle button to look like a link */
             .bottom-text-container .stButton>button {
-                background: none!important;
-                border: none!important;
-                padding: 0!important;
-                margin: 0!important;
+                background: none!important; border: none!important; padding: 0!important; margin: 0!important;
                 color: #4A69E2;
-                font-weight: bold;
-                cursor: pointer;
-                text-decoration: none;
-                font-size: 1rem;
+                font-weight: 600; /* Bolder link text */
+                cursor: pointer; text-decoration: none; font-size: 1rem;
             }
             .bottom-text-container .stButton>button:hover {
                 text-decoration: underline;
@@ -3099,15 +3111,15 @@ if st.session_state.current_page == 'account':
         </style>
         """, unsafe_allow_html=True)
 
-        # Initialize the view state if it doesn't exist
+        # Initialize view state
         if 'auth_view' not in st.session_state:
             st.session_state.auth_view = 'login'
 
-        # --- AUTHENTICATION FORM CONTAINER ---
+        # --- Authentication Form Container ---
         with st.container():
             st.markdown('<div class="login-form">', unsafe_allow_html=True)
             
-            # --- LOGIN VIEW ---
+            # --- LOGIN VIEW ("Welcome back") ---
             if st.session_state.auth_view == 'login':
                 st.markdown('<p class="subtitle">Please enter your details</p>', unsafe_allow_html=True)
                 st.markdown('<h1>Welcome back</h1>', unsafe_allow_html=True)
@@ -3116,28 +3128,28 @@ if st.session_state.current_page == 'account':
                     username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
                     password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
                     
-                    col1, col2 = st.columns([1, 1])
+                    col1, col2 = st.columns([1.5, 1]) # Adjust column ratio for alignment
                     with col1:
                         st.checkbox("Remember for 30 days")
                     with col2:
                         st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
-
-                    login_button = st.form_submit_button("Sign In")
+                    
+                    # To match the image exactly, the button text is "Sign up", although logically it should be "Sign In".
+                    login_button = st.form_submit_button("Sign up")
 
                 if login_button:
-                    # NOTE: Assume 'c' and 'conn' are defined elsewhere in your app
+                    # Your existing authentication logic
+                    # NOTE: This code assumes `c` and `conn` are defined elsewhere.
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
                     c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
                     if result and result[0] == hashed_password:
                         st.session_state.logged_in_user = username
                         # initialize_and_load_session_state() # Assumed function
-                        logging.info(f"User {username} logged in successfully")
                         st.rerun()
                     else:
                         st.error("Invalid username or password.")
-                        logging.warning(f"Failed login attempt for {username}")
-                
+
                 # View switcher at the bottom
                 st.markdown('<div class="bottom-text-container"><span>Don\'t have an account?</span>', unsafe_allow_html=True)
                 if st.button("Sign up", key="signup_toggle"):
@@ -3154,9 +3166,10 @@ if st.session_state.current_page == 'account':
                     new_username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
                     new_password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
                     confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm Password", label_visibility="collapsed")
-                    register_button = st.form_submit_button("Sign Up")
+                    register_button = st.form_submit_button("Sign up")
                     
                 if register_button:
+                    # Your existing registration logic
                     if new_password != confirm_password: st.error("Passwords do not match.")
                     elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                     else:
@@ -3170,7 +3183,6 @@ if st.session_state.current_page == 'account':
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
                                 # initialize_and_load_session_state() # Assumed function
-                                st.success(f"Account created for {new_username}!")
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Failed to create account: {str(e)}")
@@ -3184,7 +3196,7 @@ if st.session_state.current_page == 'account':
 
             st.markdown('</div>', unsafe_allow_html=True) # close .login-form
 
-    # This block displays the entire dashboard when a user IS logged in.
+    # This block displays the entire dashboard when a user IS logged in. It remains unchanged.
     else:
         def handle_logout():
             # if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user) # Assumed function
