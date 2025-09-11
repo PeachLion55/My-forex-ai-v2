@@ -2969,8 +2969,7 @@ import logging
 # =========================================================
 if st.session_state.current_page == 'account':
 
-    # --- HELPER FUNCTION DEFINED AT THE TOP TO FIX NameError ---
-    # This function is now available for both logged-in and logged-out views.
+    # --- HELPER FUNCTION DEFINED AT THE TOP ---
     @st.cache_data
     def image_to_base_64(path):
         """Converts a local image file to a base64 string."""
@@ -2978,98 +2977,193 @@ if st.session_state.current_page == 'account':
             with open(path, "rb") as image_file:
                 return base64.b64encode(image_file.read()).decode()
         except FileNotFoundError:
-            print(f"Warning: Image file not found at path: {path}")
+            st.warning(f"Warning: Image file not found at path: {path}")
             return None
 
-    # This introductory section should ONLY show when the user is NOT logged in.
+    # This entire block renders ONLY when the user is NOT logged in.
     if st.session_state.logged_in_user is None:
-        
-        # --- 1. Page-Specific Configuration (for Logged-Out Header) ---
-        page_info = {
-            'title': 'My Account', 
-            'icon': 'my_account.png', 
-            'caption': 'Manage your account, save your data, and track your progress.'
-        }
 
-        # --- 2. Define CSS Styles for the New Header ---
-        main_container_style = """
-            background-color: black; padding: 20px 25px; border-radius: 10px; 
-            display: flex; align-items: center; gap: 20px;
-            border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-        """
-        left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-        right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
-        title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
-        icon_style = "width: 130px; height: auto;"
-        caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+        # --- CSS STYLING FOR THE NEW LOGIN/SIGNUP FORM ---
+        st.markdown("""
+        <style>
+            /* --- HIDE STREAMLIT ELEMENTS & SETUP FULL PAGE --- */
+            [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] { 
+                display: none !important; 
+            }
+            .main .block-container { 
+                padding: 0 !important; 
+                margin: 0 !important;
+                max-width: 100% !important; 
+            }
+            /* --- FULL PAGE CONTAINER FOR CENTERING --- */
+            .login-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                width: 100vw;
+                background-color: black;
+            }
+            /* --- LOGIN FORM STYLING --- */
+            .login-form {
+                background-color: #0E0E0E; /* Dark background from image */
+                padding: 2.5rem 3rem;
+                border-radius: 1rem;
+                width: 450px;
+                max-width: 95%;
+                border: 1px solid rgba(0, 255, 231, 0.1);
+                box-shadow: 0 0 40px rgba(0, 255, 231, 0.2); /* Outer glow */
+            }
+            .login-form h1 {
+                font-family: sans-serif;
+                font-size: 2.5rem; /* "Welcome back" */
+                color: white;
+                font-weight: bold;
+                margin-top: 5px;
+                margin-bottom: 25px; /* Space after title */
+            }
+            .login-form .subtitle {
+                font-family: sans-serif;
+                font-size: 1rem;
+                color: #B0B0B0; /* "Please enter your details" */
+            }
+            /* --- STREAMLIT WIDGET OVERRIDES --- */
+            .login-form .stTextInput label, .login-form .stCheckbox label p{
+                color: #B0B0B0 !important;
+                padding-left: 5px;
+            }
+            .login-form input[type="text"], .login-form input[type="password"] {
+                background-color: transparent !important;
+                border: 1px solid #3c4c5b !important;
+                border-radius: 8px !important;
+                color: white !important;
+                padding: 1.3rem 1rem !important; /* Control field height */
+                box-shadow: 0 0 15px rgba(0, 255, 231, 0.1) inset;
+                transition: all 0.2s ease-in-out;
+            }
+            .login-form input:focus {
+                border: 1px solid rgba(0, 255, 231, 0.8) !important;
+                box-shadow: 0 0 10px rgba(0, 255, 231, 0.6) !important;
+            }
+            /* --- SUBMIT BUTTON --- */
+            .login-form .stButton>button {
+                background-color: #4A69E2; /* Blue from image */
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 0.8rem 1rem;
+                width: 100%;
+                font-size: 1rem;
+                font-weight: 500;
+                transition: all 0.3s ease;
+                margin-top: 15px; /* Space above button */
+            }
+            .login-form .stButton>button:hover {
+                background-color: #5A79F2;
+                box-shadow: 0 0 15px #4A69E2;
+            }
+            /* --- "Forgot password" and toggle links --- */
+            .login-form a {
+                color: #4A69E2;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .login-form a:hover { text-decoration: underline; }
+            .bottom-text {
+                text-align: center;
+                margin-top: 1.5rem;
+                color: #909090;
+                font-size: 1rem;
+            }
+            .bottom-text a { font-weight: bold; font-size: 1rem; }
+        </style>
+        """, unsafe_allow_html=True)
 
-        # --- 3. Prepare Dynamic Parts of the Header ---
-        icon_html = ""
-        icon_path = os.path.join("icons", page_info['icon'])
-        icon_base64 = image_to_base_64(icon_path)
-        if icon_base64:
-            icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-        
-        welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+        # Function to toggle between login and signup views
+        def change_view(view):
+            st.session_state.auth_view = view
+            st.rerun()
 
-        # --- 4. Build and Render the New Header ---
-        header_html = (
-            f'<div style="{main_container_style}">'
-                f'<div style="{left_column_style}">{icon_html}'
-                    '<div>'
-                        f'<h1 style="{title_style}">{page_info["title"]}</h1>'
-                        f'<p style="{caption_style}">{page_info["caption"]}</p>'
-                    '</div>'
-                '</div>'
-                f'<div style="{right_column_style}">{welcome_message}</div>'
-            '</div>'
-        )
-        st.markdown(header_html, unsafe_allow_html=True)
-        st.markdown("---")
+        # Initialize the view state
+        if 'auth_view' not in st.session_state:
+            st.session_state.auth_view = 'login'
 
-        # --- RETAINED CONTENT: Description of Benefits ---
-        st.markdown(
-            """
-            Signing in lets you:
-            - Keep your trading journal and strategies backed up.
-            - Track your progress and gamification stats.
-            - Sync across devices.
-            - Import/export your account data easily.
-            """
-        )
+        # --- HTML & STREAMLIT LAYOUT ---
+        # The outer container centers the form on the page
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # --- RETAINED CONTENT: Login/Signup/Debug Tabs ---
-        tab_signin, tab_signup, tab_debug = st.tabs(["🔑 Sign In", "📝 Sign Up", "🛠 Debug"])
-        
-        with tab_signin:
-            st.subheader("Welcome back! Please sign in to access your account.")
-            with st.form("login_form"):
-                username = st.text_input("Username", key="login_username_input")
-                password = st.text_input("Password", type="password", key="login_password_input") 
-                login_button = st.form_submit_button("Login")
+        # --- LOGIN VIEW ---
+        if st.session_state.auth_view == 'login':
+            with st.container():
+                st.markdown('<div class="login-form">', unsafe_allow_html=True)
+                st.markdown('<p class="subtitle">Please enter your details</p>', unsafe_allow_html=True)
+                st.markdown('<h1>Welcome back</h1>', unsafe_allow_html=True)
+
+                with st.form("login_form", clear_on_submit=False):
+                    username = st.text_input("Username", key="login_username_input")
+                    password = st.text_input("Password", type="password", key="login_password_input")
+                    
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        st.checkbox("Remember for 30 days", key="remember_me")
+                    with col2:
+                        st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
+
+                    login_button = st.form_submit_button("Sign In")
+
                 if login_button:
                     # NOTE: Assume 'c' and 'conn' (database connection) are defined elsewhere
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result and result[0] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        initialize_and_load_session_state() # Assumed function
-                        st.success(f"Welcome back, {username}!")
-                        logging.info(f"User {username} logged in successfully")
-                        time.sleep(1.5)
-                        st.rerun() 
-                    else:
-                        st.error("Invalid username or password.")
-                        logging.warning(f"Failed login attempt for {username}")
+                    try:
+                        c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+                        result = c.fetchone()
+                        if result and result[0] == hashed_password:
+                            st.session_state.logged_in_user = username
+                            initialize_and_load_session_state() # Assumed function
+                            st.success(f"Welcome back, {username}!")
+                            logging.info(f"User {username} logged in successfully")
+                            time.sleep(1.5)
+                            st.rerun()
+                        else:
+                            st.error("Invalid username or password.")
+                            logging.warning(f"Failed login attempt for {username}")
+                    except Exception as e:
+                        st.error(f"Database error: {e}")
+
+                st.markdown(
+                    '<p class="bottom-text">Don\'t have an account? <a href="#" id="signup-link">Sign up</a></p>', 
+                    unsafe_allow_html=True
+                )
+                if st.button("Sign up", key="signup_toggle", on_click=change_view, args=('signup',), type="primary"):
+                    # This button is hidden by CSS and triggered by the link above. It's a workaround for interactivity.
+                    pass # The on_click handles the logic
+                st.markdown("""
+                    <script>
+                        // JS to make the link above trigger the hidden button
+                        document.getElementById("signup-link").addEventListener("click", function(event) {
+                            event.preventDefault(); // Prevent default link behavior
+                            document.querySelector('button[kind="primary"]').click();
+                        });
+                        // Hide the Streamlit button itself
+                        document.querySelector('button[kind="primary"]').style.display = 'none';
+                    </script>
+                """, unsafe_allow_html=True)
+                
+                st.markdown('</div>', unsafe_allow_html=True) # close .login-form
         
-        with tab_signup:
-            st.subheader("Create a new account to start tracking your trades and progress.")
-            with st.form("register_form"):
-                new_username = st.text_input("New Username", key="register_username_input")
-                new_password = st.text_input("New Password", type="password", key="register_password_input")
-                confirm_password = st.text_input("Confirm Password", type="password", key="register_confirm_password_input") 
-                register_button = st.form_submit_button("Register")
+        # --- SIGNUP VIEW ---
+        elif st.session_state.auth_view == 'signup':
+            with st.container():
+                st.markdown('<div class="login-form">', unsafe_allow_html=True)
+                st.markdown('<p class="subtitle">Create your account</p>', unsafe_allow_html=True)
+                st.markdown('<h1>Get Started</h1>', unsafe_allow_html=True)
+                
+                with st.form("register_form"):
+                    new_username = st.text_input("Username", key="register_username_input")
+                    new_password = st.text_input("Password", type="password", key="register_password_input")
+                    confirm_password = st.text_input("Confirm Password", type="password", key="register_confirm_password_input") 
+                    register_button = st.form_submit_button("Sign Up")
+                    
                 if register_button:
                     if new_password != confirm_password: st.error("Passwords do not match.")
                     elif not new_username or not new_password: st.error("Username and password cannot be empty.")
@@ -3078,32 +3172,37 @@ if st.session_state.current_page == 'account':
                         if c.fetchone(): st.error("Username already exists.")
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None }) # Simplified initial data
+                            initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
                             try:
                                 c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
                                 conn.commit()
                                 st.session_state.logged_in_user = new_username
                                 initialize_and_load_session_state() # Assumed function
                                 st.success(f"Account created for {new_username}!")
+                                time.sleep(1.5)
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"Failed to create account: {str(e)}")
+                                
+                st.markdown('<p class="bottom-text">Already have an account? <a href="#" id="signin-link">Sign In</a></p>', unsafe_allow_html=True)
+                if st.button("Sign In", key="signin_toggle", on_click=change_view, args=('login',), type="secondary"):
+                    pass # on_click handles logic
+                st.markdown("""
+                    <script>
+                        document.getElementById("signin-link").addEventListener("click", function(event) {
+                            event.preventDefault();
+                            document.querySelector('button[kind="secondary"]').click();
+                        });
+                        document.querySelector('button[kind="secondary"]').style.display = 'none';
+                    </script>
+                """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True) # close .login-form
 
-        with tab_debug:
-            st.subheader("Debug: Inspect Users Database")
-            st.warning("This is for debugging only. Remove in production.")
-            try:
-                c.execute("SELECT username, password, data FROM users")
-                users = c.fetchall()
-                if users: st.dataframe(pd.DataFrame(users, columns=["Username", "Password (Hashed)", "Data"]), use_container_width=True)
-                else: st.info("No users found in the database.")
-                c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                st.write("Database Tables:", c.fetchall())
-            except Exception as e:
-                st.error(f"Error accessing database: {str(e)}")
+        st.markdown('</div>', unsafe_allow_html=True) # close .login-container
 
-    else: # This block displays when a user IS logged in.
-        
+    # --- LOGGED-IN VIEW ---
+    # This block displays when a user IS logged in. (No changes made here)
+    else: 
         def handle_logout():
             if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user) # Assumed function
             for key in ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']:
@@ -3112,7 +3211,7 @@ if st.session_state.current_page == 'account':
             st.session_state.current_page = "account"
             st.rerun()
 
-        # --- LOGGED-IN WELCOME HEADER (Your original code, now working) ---
+        # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
         if os.path.exists(icon_path):
             icon_base64_welcome = image_to_base_64(icon_path)
@@ -3218,7 +3317,6 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- How to Earn XP Section (Directly Visible) ---
         st.subheader("❓ How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
@@ -3239,14 +3337,10 @@ if st.session_state.current_page == 'account':
         
         Keep exploring the dashboard and trading to earn more XP and climb the ranks!
         """, unsafe_allow_html=True)
-        # --- END How to Earn XP Section ---
         
         st.markdown("---")
 
-        # Removed "🏆 Global XP Leaderboard" from here
-        # No more render_xp_leaderboard() call.
-
-        st.markdown("---") # Retain a final separator before Manage Account if desired.
+        st.markdown("---")
 
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
