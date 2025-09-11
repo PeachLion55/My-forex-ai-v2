@@ -697,6 +697,11 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # =========================================================
 st.markdown("""
 <style>
+/* Sidebar container - disable scrolling */
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: hidden !important;
+}
+
 /* Sidebar background stays black */
 section[data-testid="stSidebar"] {
     background-color: #000000 !important;
@@ -710,7 +715,7 @@ section[data-testid="stSidebar"] div.stButton > button {
     border: none !important;
     border-radius: 5px !important;
     padding: 10px !important;
-    margin: 2px 0 !important;
+    margin: 2px 0 !important; /* This keeps the buttons close */
     font-weight: bold !important;
     font-size: 16px !important;
     text-align: left !important;
