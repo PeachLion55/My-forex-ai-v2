@@ -3248,7 +3248,7 @@ if st.session_state.current_page == 'account':
         current_rxp = int(st.session_state.get('xp', 0) / 2)
         st.info(f"You have **{current_rxp:,} RXP** available to spend.")
         
-        items = {"1_month_access": {"name": "6th Month Free Access", "cost": 100, "icon": "🗓️"}, "consultation": {"name": "Any Month Free Access", "cost": 350, "icon": "🗓️"}, "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}}
+        items = {"1_month_access": {"name": "6th Month Free Access", "cost": 100, "icon": "🗓️"}, "consultation": {"name": "Any Month Free Access", "cost": 450, "icon": "🗓️"}, "advanced_course": {"name": "Any 2 Month Free Access", "cost": 850, "icon": "🗓️"}}
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
