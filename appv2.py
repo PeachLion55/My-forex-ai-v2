@@ -710,7 +710,7 @@ section[data-testid="stSidebar"] div.stButton > button {
     border: none !important;
     border-radius: 5px !important;
     padding: 10px !important;
-    margin: 5px 0 !important;
+    margin: 2px 0 !important;
     font-weight: bold !important;
     font-size: 16px !important;
     text-align: left !important;
