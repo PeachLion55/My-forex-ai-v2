@@ -905,7 +905,7 @@ try:
     logo_str = base64.b64encode(buffered.getvalue()).decode()
     st.sidebar.markdown(
         f"""
-        <div style='text-align: center; margin-bottom: 27px; margin-top: -20px;'>
+        <div style='text-align: center; margin-bottom: 30px; margin-top: -20px;'>
             <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
         </div>
         """,
