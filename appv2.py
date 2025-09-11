@@ -2991,7 +2991,8 @@ if st.session_state.current_page == 'account':
                 display: none !important;
             }
             div[data-testid="stAppViewContainer"] > .main {
-                background-image: linear-gradient(to bottom, #050505, #000000); /* Dark bg */
+                background-color: #000000;
+                background-image: linear-gradient(180deg, #050505, #000000), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%231a1a1a' fill-opacity='0.4'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41-1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41zM20 18.59l2.83-2.83 1.41 1.41L21.41 20l2.83 2.83-1.41 1.41L20 21.41l-2.83 2.83-1.41-1.41L18.59 20l-2.83-2.83 1.41-1.41L20 18.59z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
             }
             div[data-testid="stAppViewContainer"] > .main .block-container {
                 display: flex;
@@ -3011,7 +3012,6 @@ if st.session_state.current_page == 'account':
                 border-radius: 1rem;
                 width: 470px; /* Fixed width for the form block */
                 max-width: 95%;
-                /* Using border instead of box-shadow to match the subtle look */
                 border: 1px solid rgba(255, 255, 255, 0.05);
             }
             
@@ -3034,10 +3034,11 @@ if st.session_state.current_page == 'account':
                 padding: 1.3rem 1rem !important;
                 margin-bottom: 0.75rem;
                 box-shadow: none !important;
-                transition: border 0.2s ease-in-out;
+                transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
             }
             .login-wrapper input:focus {
-                border: 1px solid #4a5fe2 !important;
+                border-color: #5bb7b3 !important;
+                box-shadow: 0 0 10px #5bb7b3 !important;
             }
             .login-wrapper .stCheckbox p {
                 color: #e0e0e0;
@@ -3057,13 +3058,13 @@ if st.session_state.current_page == 'account':
             }
             .login-wrapper .stButton>button:hover {
                 background-color: #2f303a;
-                border-color: #4a5fe2;
+                border-color: #5bb7b3;
                 color: #FFFFFF;
             }
             
             /* --- BOTTOM LINKS --- */
             .login-wrapper a {
-                color: #4a5fe2;
+                color: #5bb7b3;
                 text-decoration: none;
                 font-size: 0.95rem;
                 font-weight: 500;
