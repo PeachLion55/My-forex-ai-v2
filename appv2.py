@@ -2977,10 +2977,11 @@ if st.session_state.current_page == 'account':
             with open(path, "rb") as image_file:
                 return base64.b64encode(image_file.read()).decode()
         except FileNotFoundError:
+            # Using st.warning is better for in-app feedback than print()
             st.warning(f"Warning: Image file not found at path: {path}")
             return None
 
-    # This entire block renders ONLY when the user is NOT logged in.
+    # This block renders the new full-screen login/signup form when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
         # --- CSS STYLING FOR THE LOGIN/SIGNUP FORM ---
@@ -3044,8 +3045,8 @@ if st.session_state.current_page == 'account':
                 color: #B0B0B0;
             }
 
-            /* --- SUBMIT BUTTON --- */
-            .login-form .stButton>button {
+            /* --- MAIN SUBMIT BUTTON --- */
+            .login-form .stButton>button[kind="form_submit"] {
                 background-color: #4A69E2;
                 color: white;
                 border: none;
@@ -3057,7 +3058,7 @@ if st.session_state.current_page == 'account':
                 transition: all 0.3s ease;
                 margin-top: 15px;
             }
-            .login-form .stButton>button:hover {
+            .login-form .stButton>button[kind="form_submit"]:hover {
                 background-color: #5A79F2;
                 box-shadow: 0 0 15px #4A69E2;
             }
@@ -3068,29 +3069,32 @@ if st.session_state.current_page == 'account':
                 text-decoration: none;
                 font-size: 0.9rem;
             }
-            .bottom-text {
-                display: flex; /* Use flex to align text and button */
+            .bottom-text-container {
+                display: flex;
                 justify-content: center;
                 align-items: center;
-                gap: 0.5rem; /* Space between text and button */
+                gap: 0.5rem;
                 margin-top: 1.5rem;
+            }
+            .bottom-text-container span {
                 color: #909090;
                 font-size: 1rem;
             }
             /* Style the toggle button to look like a link */
-            .bottom-text .stButton>button {
+            .bottom-text-container .stButton>button {
                 background: none!important;
                 border: none!important;
                 padding: 0!important;
-                margin: 0!important; /* Reset margin */
+                margin: 0!important;
                 color: #4A69E2;
                 font-weight: bold;
                 cursor: pointer;
                 text-decoration: none;
                 font-size: 1rem;
             }
-            .bottom-text .stButton>button:hover {
+            .bottom-text-container .stButton>button:hover {
                 text-decoration: underline;
+                color: #5A79F2;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -3121,13 +3125,13 @@ if st.session_state.current_page == 'account':
                     login_button = st.form_submit_button("Sign In")
 
                 if login_button:
-                    # NOTE: Assume 'c' and 'conn' are defined elsewhere
+                    # NOTE: Assume 'c' and 'conn' are defined elsewhere in your app
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
                     c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
                     if result and result[0] == hashed_password:
                         st.session_state.logged_in_user = username
-                        # initialize_and_load_session_state() # Call your session init function here
+                        # initialize_and_load_session_state() # Assumed function
                         logging.info(f"User {username} logged in successfully")
                         st.rerun()
                     else:
@@ -3135,8 +3139,8 @@ if st.session_state.current_page == 'account':
                         logging.warning(f"Failed login attempt for {username}")
                 
                 # View switcher at the bottom
-                st.markdown('<div class="bottom-text"><span>Don\'t have an account?</span>', unsafe_allow_html=True)
-                if st.button("Sign up"):
+                st.markdown('<div class="bottom-text-container"><span>Don\'t have an account?</span>', unsafe_allow_html=True)
+                if st.button("Sign up", key="signup_toggle"):
                     st.session_state.auth_view = 'signup'
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -3160,33 +3164,35 @@ if st.session_state.current_page == 'account':
                         if c.fetchone(): st.error("Username already exists.")
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            initial_data = json.dumps({ "xp": 0, "level": 0, # and other initial data
-                                                      })
-                            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                            conn.commit()
-                            st.session_state.logged_in_user = new_username
-                            # initialize_and_load_session_state() # Call your session init function here
-                            st.rerun()
+                            initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
+                            try:
+                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                                conn.commit()
+                                st.session_state.logged_in_user = new_username
+                                # initialize_and_load_session_state() # Assumed function
+                                st.success(f"Account created for {new_username}!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Failed to create account: {str(e)}")
                                 
                 # View switcher at the bottom
-                st.markdown('<div class="bottom-text"><span>Already have an account?</span>', unsafe_allow_html=True)
-                if st.button("Sign In"):
+                st.markdown('<div class="bottom-text-container"><span>Already have an account?</span>', unsafe_allow_html=True)
+                if st.button("Sign In", key="signin_toggle"):
                     st.session_state.auth_view = 'login'
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('</div>', unsafe_allow_html=True) # close .login-form
 
-    # --- LOGGED-IN VIEW ---
-    # This block displays when a user IS logged in. It remains unchanged.
-    else: 
+    # This block displays the entire dashboard when a user IS logged in.
+    else:
         def handle_logout():
-            # if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user)
-            keys_to_delete = list(st.session_state.keys())
+            # if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user) # Assumed function
+            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
             for key in keys_to_delete:
-                if key != 'current_page': # Example of keeping a key
+                if key in st.session_state:
                     del st.session_state[key]
-            # initialize_and_load_session_state() # Re-initialize state if necessary
+            # initialize_and_load_session_state() # Assumed function
             st.session_state.current_page = "account"
             st.rerun()
 
@@ -3206,9 +3212,8 @@ if st.session_state.current_page == 'account':
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
         
-        # --- RETAINED CONTENT: The rest of your logged-in dashboard ---
+        # --- PROGRESS SNAPSHOT & KPI CARDS ---
         st.subheader("📈 Progress Snapshot")
-        
         st.markdown("""
         <style>
         .kpi-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #58b3b1; margin-bottom: 10px; }
@@ -3216,7 +3221,7 @@ if st.session_state.current_page == 'account':
         .kpi-value { font-size: 1.8em; font-weight: bold; color: #FFFFFF; }
         .kpi-label { font-size: 0.9em; color: #A0A0A0; }
         .insights-card { background-color: rgba(45, 70, 70, 0.3); border-left: 5px solid #58b3b1; padding: 15px; border-radius: 5px; margin-bottom: 10px; }
-        .redeem-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; border: 1px solid #58b3b1; text-align: center; height: 100%; }
+        .redeem-card { background-color: rgba(45, 70, 70, 0.5); border-radius: 10px; padding: 20px; border: 1px solid #58b3b1; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: space-between;}
         </style>
         """, unsafe_allow_html=True)
 
@@ -3230,10 +3235,102 @@ if st.session_state.current_page == 'account':
         with kpi_col4:
             st.markdown(f'<div class="kpi-card"><div class="kpi-icon">💎</div><div class="kpi-value">{int(st.session_state.get("xp", 0) / 2):,}</div><div class="kpi-label">Redeemable XP (RXP)</div></div>', unsafe_allow_html=True)
         
-        # ... (The rest of your extensive logged-in code for charts, insights, etc. remains here) ...
+        st.markdown("---")
+        
+        # --- CHARTS, INSIGHTS & BADGES ---
+        chart_col, insights_col = st.columns([1, 2])
+        with chart_col:
+            st.markdown("<h5 style='text-align: center;'>Progress to Next Level</h5>", unsafe_allow_html=True)
+            xp_in_level = st.session_state.get('xp', 0) % 100
+            fig = go.Figure(go.Pie(values=[xp_in_level, 100 - xp_in_level], hole=0.6, marker_colors=['#58b3b1', '#2d4646'], textinfo='none', hoverinfo='label+value'))
+            fig.update_layout(showlegend=False, paper_bgcolor='rgba(0,0,0,0)', annotations=[dict(text=f'<b>{xp_in_level}<span style="font-size:0.6em">/100</span></b>', x=0.5, y=0.5, font_size=18, showarrow=False, font_color="white")], margin=dict(t=20, b=20, l=20, r=20))
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        
+        with insights_col:
+            st.markdown("<h5 style='text-align: center;'>Personalized Insights & Badges</h5>", unsafe_allow_html=True)
+            insight_sub_col, badge_sub_col = st.columns(2)
+            with insight_sub_col:
+                st.markdown("<h6>💡 Insights</h6>", unsafe_allow_html=True)
+                streak = st.session_state.get('streak', 0)
+                insight_message = "Your journaling consistency is elite! This is a key trait of professional traders." if streak > 21 else "Over a week of consistent journaling! You're building a powerful habit." if streak > 7 else "Every trade journaled is a step forward. Stay consistent to build a strong foundation."
+                st.markdown(f"<div class='insights-card'><p>{insight_message}</p></div>", unsafe_allow_html=True)
+                num_trades = len(st.session_state.get('trade_journal', []))
+                if num_trades < 10: next_milestone = f"Log **{10 - num_trades} more trades** to earn the 'Ten Trades' badge!"
+                elif num_trades < 50: next_milestone = f"You're **{50 - num_trades} trades** away from the '50 Club' badge. Keep it up!"
+                else: next_milestone = "The next streak badge is at 30 days. You've got this!"
+                st.markdown(f"<div class='insights-card'><p>🎯 **Next Up:** {next_milestone}</p></div>", unsafe_allow_html=True)
+
+            with badge_sub_col:
+                st.markdown("<h6>🏆 Badges Earned</h6>", unsafe_allow_html=True)
+                badges = st.session_state.get('badges', [])
+                if badges:
+                    for badge in badges: st.markdown(f"- 🏅 {badge}")
+                else:
+                    st.info("No badges earned yet. Keep trading to unlock them!")
+
+        st.markdown("<hr style='border-color: #4d7171;'>", unsafe_allow_html=True)
+        
+        # --- REDEEM RXP SECTION ---
+        st.subheader("💎 Redeem Your RXP")
+        current_rxp = int(st.session_state.get('xp', 0) / 2)
+        st.info(f"You have **{current_rxp:,} RXP** available to spend.")
+        
+        items = {"1_month_access": {"name": "1 Month Free Access", "cost": 1000, "icon": "🗓️"}, "consultation": {"name": "30-Min Pro Consultation", "cost": 2500, "icon": "🧑‍🏫"}, "advanced_course": {"name": "Advanced Indicators Course", "cost": 5000, "icon": "📚"}}
+        redeem_cols = st.columns(len(items))
+        for i, (item_key, item_details) in enumerate(items.items()):
+            with redeem_cols[i]:
+                # The container div helps with consistent height
+                st.markdown(f'<div><div class="redeem-card"><div><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
+                if st.button(f"Redeem", key=f"redeem_{item_key}", use_container_width=True):
+                    # if current_rxp >= item_details['cost']:
+                        # ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
+                        # st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
+                        # time.sleep(1)
+                        # st.rerun()
+                    # else:
+                        # st.warning("You do not have enough RXP for this item.")
+                    pass # Placeholder for redemption logic
+                st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
+        
+        # --- XP TRANSACTION HISTORY ---
+        st.subheader("📜 Your XP Transaction History")
+        xp_log_df = pd.DataFrame(st.session_state.get('xp_log', []))
+        if not xp_log_df.empty:
+            xp_log_df['Date'] = pd.to_datetime(xp_log_df['Date'])
+            xp_log_df = xp_log_df.sort_values(by="Date", ascending=False).reset_index(drop=True)
+            styled_xp_log = xp_log_df.style.applymap(lambda val: 'color: green; font-weight: bold;' if val > 0 else 'color: red; font-weight: bold;' if val < 0 else '', subset=['Amount']).format({'Amount': lambda x: f'+{int(x)}' if x > 0 else f'{int(x)}'})
+            st.dataframe(styled_xp_log, use_container_width=True)
+        else:
+            st.info("Your XP transaction history is empty. Start interacting to earn XP!")
+        
+        st.markdown("---")
 
+        # --- HOW TO EARN XP ---
+        st.subheader("❓ How to Earn XP") 
+        st.markdown("""
+        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
+        - **Daily Login**: Log in each day to earn **10 XP** for your consistency.
+        - **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
+        - **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
+        - **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
+            * Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
+            * Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
+            * Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
+        - **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
+            * Maintain a Profit Factor of 2.0 or higher: **+30 XP**
+            * Achieve an Average R:R of 1.5 or higher: **+25 XP**
+            * Reach a Win Rate of 60% or higher: **+20 XP**
+        - **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
+        - **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
+        
+        Keep exploring the dashboard and trading to earn more XP and climb the ranks!
+        """)
+        
+        st.markdown("---")
+
+        # --- MANAGE ACCOUNT ---
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)")
