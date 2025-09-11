@@ -2980,10 +2980,10 @@ if st.session_state.current_page == 'account':
             st.warning(f"Warning: Image file not found at path: {path}")
             return None
 
-    # This entire block renders the pixel-perfect login form when the user is NOT logged in.
+    # This block renders the cleaned-up login form when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
-        # --- CSS STYLING TO EXACTLY MATCH THE IMAGE ---
+        # --- CSS STYLING WITH REQUESTED REMOVALS ---
         st.markdown("""
         <style>
             /* --- HIDE STREAMLIT UI & PREPARE FULL-SCREEN CONTAINER --- */
@@ -2991,7 +2991,7 @@ if st.session_state.current_page == 'account':
                 display: none !important;
             }
             div[data-testid="stAppViewContainer"] > .main {
-                background-color: #000000; /* Ensure pure black background */
+                background-color: #000000;
             }
             div[data-testid="stAppViewContainer"] > .main .block-container {
                 display: flex;
@@ -3011,9 +3011,8 @@ if st.session_state.current_page == 'account':
                 border-radius: 1rem;
                 width: 450px;
                 max-width: 95%;
-                border: 1px solid rgba(48, 184, 163, 0.15); /* Subtle border color */
-                /* Outer glow effect */
-                box-shadow: 0 0 40px rgba(10, 200, 180, 0.15), 0 0 15px rgba(10, 200, 180, 0.1);
+                border: 1px solid rgba(48, 184, 163, 0.15);
+                /* Glowing box-shadow has been removed */
             }
             
             /* --- TYPOGRAPHY --- */
@@ -3023,34 +3022,29 @@ if st.session_state.current_page == 'account':
                 color: white;
                 font-weight: 700;
                 margin-top: 5px;
-                margin-bottom: 30px; /* Increased space after title */
+                margin-bottom: 30px;
             }
+            /* .subtitle class is no longer used, but kept here for potential future use */
             .login-form .subtitle {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 font-size: 1rem;
-                color: #B0B0B0; /* Light grey from image */
+                color: #B0B0B0;
             }
 
             /* --- INPUT FIELDS & CHECKBOX --- */
             .login-form input[type="text"], .login-form input[type="password"] {
                 background-color: transparent !important;
-                border: 1px solid #1c5f58 !important; /* Base border color */
+                border: 1px solid #1c5f58 !important;
                 border-radius: 8px !important;
                 color: white !important;
-                padding: 1.4rem 1rem !important; /* Increase height */
-                margin-bottom: 0.5rem; /* Space between fields */
-                /* Teal inner glow effect */
+                padding: 1.4rem 1rem !important;
+                margin-bottom: 0.5rem;
                 box-shadow: 0 0 10px rgba(29, 142, 128, 0.3) inset;
                 transition: all 0.2s ease-in-out;
             }
             .login-form input:focus {
-                border: 1px solid #33c4b0 !important; /* Brighter border on focus */
-                /* Brighter glow on focus */
+                border: 1px solid #33c4b0 !important;
                 box-shadow: 0 0 12px rgba(47, 185, 167, 0.6) inset, 0 0 10px rgba(47, 185, 167, 0.4);
-            }
-             .login-form ::placeholder {
-                color: #8a8a8a !important;
-                opacity: 1;
             }
             .login-form .stCheckbox p {
                 color: #B0B0B0;
@@ -3059,7 +3053,7 @@ if st.session_state.current_page == 'account':
 
             /* --- LOGIN BUTTON --- */
             .login-form .stButton>button[kind="form_submit"] {
-                background-color: #3856d1; /* Exact blue from image */
+                background-color: #3856d1;
                 color: white;
                 border: none;
                 border-radius: 8px;
@@ -3068,22 +3062,21 @@ if st.session_state.current_page == 'account':
                 font-size: 1.05rem;
                 font-weight: 600;
                 margin-top: 20px;
-                /* Button glow effect */
                 box-shadow: 0 0 20px rgba(56, 86, 209, 0.4);
                 transition: all 0.3s ease;
             }
             .login-form .stButton>button[kind="form_submit"]:hover {
-                background-color: #4A69E2; /* Slightly brighter blue on hover */
+                background-color: #4A69E2;
                 box-shadow: 0 0 25px rgba(74, 105, 226, 0.7);
             }
             
             /* --- BOTTOM LINKS & TEXT --- */
             .login-form a {
-                color: #4A69E2; /* Matching blue link color */
+                color: #4A69E2;
                 text-decoration: none;
                 font-size: 0.95rem;
             }
-             .login-form a:hover {
+            .login-form a:hover {
                 text-decoration: underline;
             }
             .bottom-text-container {
@@ -3093,15 +3086,14 @@ if st.session_state.current_page == 'account':
                 gap: 0.5rem;
                 margin-top: 2rem;
             }
-            .bottom-text-container span {
+            .bottom-text-container span { /* Kept for the sign-up page's prompt */
                 color: #B0B0B0;
                 font-size: 1rem;
             }
-            /* Style the toggle button to look like a link */
             .bottom-text-container .stButton>button {
                 background: none!important; border: none!important; padding: 0!important; margin: 0!important;
                 color: #4A69E2;
-                font-weight: 600; /* Bolder link text */
+                font-weight: 600;
                 cursor: pointer; text-decoration: none; font-size: 1rem;
             }
             .bottom-text-container .stButton>button:hover {
@@ -3121,25 +3113,23 @@ if st.session_state.current_page == 'account':
             
             # --- LOGIN VIEW ("Welcome back") ---
             if st.session_state.auth_view == 'login':
-                st.markdown('<p class="subtitle">Please enter your details</p>', unsafe_allow_html=True)
+                # The "Please enter your details" subtitle has been removed.
                 st.markdown('<h1>Welcome back</h1>', unsafe_allow_html=True)
 
                 with st.form("login_form", clear_on_submit=False):
                     username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
                     password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
                     
-                    col1, col2 = st.columns([1.5, 1]) # Adjust column ratio for alignment
+                    col1, col2 = st.columns([1.5, 1])
                     with col1:
                         st.checkbox("Remember for 30 days")
                     with col2:
                         st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
                     
-                    # To match the image exactly, the button text is "Sign up", although logically it should be "Sign In".
-                    login_button = st.form_submit_button("Sign up")
+                    login_button = st.form_submit_button("Sign In") # Changed text for logical consistency
 
                 if login_button:
-                    # Your existing authentication logic
-                    # NOTE: This code assumes `c` and `conn` are defined elsewhere.
+                    # Your authentication logic
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
                     c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
@@ -3150,8 +3140,8 @@ if st.session_state.current_page == 'account':
                     else:
                         st.error("Invalid username or password.")
 
-                # View switcher at the bottom
-                st.markdown('<div class="bottom-text-container"><span>Don\'t have an account?</span>', unsafe_allow_html=True)
+                # View switcher: The prompt text "Don't have an account?" has been removed.
+                st.markdown('<div class="bottom-text-container">', unsafe_allow_html=True)
                 if st.button("Sign up", key="signup_toggle"):
                     st.session_state.auth_view = 'signup'
                     st.rerun()
@@ -3159,7 +3149,8 @@ if st.session_state.current_page == 'account':
 
             # --- SIGNUP VIEW ---
             elif st.session_state.auth_view == 'signup':
-                st.markdown('<p class="subtitle">Create your account</p>', unsafe_allow_html=True)
+                # This subtitle can be kept or removed for consistency
+                # st.markdown('<p class="subtitle">Create your account</p>', unsafe_allow_html=True) 
                 st.markdown('<h1>Get Started</h1>', unsafe_allow_html=True)
                 
                 with st.form("register_form"):
@@ -3169,7 +3160,7 @@ if st.session_state.current_page == 'account':
                     register_button = st.form_submit_button("Sign up")
                     
                 if register_button:
-                    # Your existing registration logic
+                    # Your registration logic
                     if new_password != confirm_password: st.error("Passwords do not match.")
                     elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                     else:
@@ -3178,16 +3169,13 @@ if st.session_state.current_page == 'account':
                         else:
                             hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
                             initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
-                            try:
-                                c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                                conn.commit()
-                                st.session_state.logged_in_user = new_username
-                                # initialize_and_load_session_state() # Assumed function
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Failed to create account: {str(e)}")
+                            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                            conn.commit()
+                            st.session_state.logged_in_user = new_username
+                            # initialize_and_load_session_state() # Assumed function
+                            st.rerun()
                                 
-                # View switcher at the bottom
+                # View switcher for the sign-up page
                 st.markdown('<div class="bottom-text-container"><span>Already have an account?</span>', unsafe_allow_html=True)
                 if st.button("Sign In", key="signin_toggle"):
                     st.session_state.auth_view = 'login'
@@ -3199,15 +3187,13 @@ if st.session_state.current_page == 'account':
     # This block displays the entire dashboard when a user IS logged in. It remains unchanged.
     else:
         def handle_logout():
-            # if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user) # Assumed function
+            # Your existing logout logic
             keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
             for key in keys_to_delete:
                 if key in st.session_state:
                     del st.session_state[key]
-            # initialize_and_load_session_state() # Assumed function
             st.session_state.current_page = "account"
             st.rerun()
-
         # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
         if os.path.exists(icon_path):
