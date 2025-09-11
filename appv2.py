@@ -2980,10 +2980,10 @@ if st.session_state.current_page == 'account':
             st.warning(f"Warning: Image file not found at path: {path}")
             return None
 
-    # This block renders the cleaned-up login form when the user is NOT logged in.
+    # This block renders the final, clean login form when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
-        # --- CSS STYLING WITH REQUESTED REMOVALS ---
+        # --- FINAL CSS STYLING ---
         st.markdown("""
         <style>
             /* --- HIDE STREAMLIT UI & PREPARE FULL-SCREEN CONTAINER --- */
@@ -3007,12 +3007,11 @@ if st.session_state.current_page == 'account':
             /* --- LOGIN FORM CONTAINER --- */
             .login-form {
                 background: #000000;
-                padding: 2.5rem 3rem;
+                padding: 2rem 3rem 2.5rem 3rem;
                 border-radius: 1rem;
                 width: 450px;
                 max-width: 95%;
                 border: 1px solid rgba(48, 184, 163, 0.15);
-                /* Glowing box-shadow has been removed */
             }
             
             /* --- TYPOGRAPHY --- */
@@ -3021,14 +3020,8 @@ if st.session_state.current_page == 'account':
                 font-size: 2.5rem;
                 color: white;
                 font-weight: 700;
-                margin-top: 5px;
+                margin-top: 0;
                 margin-bottom: 30px;
-            }
-            /* .subtitle class is no longer used, but kept here for potential future use */
-            .login-form .subtitle {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                font-size: 1rem;
-                color: #B0B0B0;
             }
 
             /* --- INPUT FIELDS & CHECKBOX --- */
@@ -3051,7 +3044,7 @@ if st.session_state.current_page == 'account':
                 font-size: 0.95rem;
             }
 
-            /* --- LOGIN BUTTON --- */
+            /* --- SUBMIT BUTTON --- */
             .login-form .stButton>button[kind="form_submit"] {
                 background-color: #3856d1;
                 color: white;
@@ -3086,7 +3079,7 @@ if st.session_state.current_page == 'account':
                 gap: 0.5rem;
                 margin-top: 2rem;
             }
-            .bottom-text-container span { /* Kept for the sign-up page's prompt */
+            .bottom-text-container span {
                 color: #B0B0B0;
                 font-size: 1rem;
             }
@@ -3111,9 +3104,8 @@ if st.session_state.current_page == 'account':
         with st.container():
             st.markdown('<div class="login-form">', unsafe_allow_html=True)
             
-            # --- LOGIN VIEW ("Welcome back") ---
+            # --- LOGIN VIEW ---
             if st.session_state.auth_view == 'login':
-                # The "Please enter your details" subtitle has been removed.
                 st.markdown('<h1>Welcome back</h1>', unsafe_allow_html=True)
 
                 with st.form("login_form", clear_on_submit=False):
@@ -3126,10 +3118,10 @@ if st.session_state.current_page == 'account':
                     with col2:
                         st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
                     
-                    login_button = st.form_submit_button("Sign In") # Changed text for logical consistency
+                    login_button = st.form_submit_button("Sign In")
 
                 if login_button:
-                    # Your authentication logic
+                    # NOTE: Assume 'c' and 'conn' (database connection) are defined elsewhere
                     hashed_password = hashlib.sha256(password.encode()).hexdigest()
                     c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                     result = c.fetchone()
@@ -3140,7 +3132,6 @@ if st.session_state.current_page == 'account':
                     else:
                         st.error("Invalid username or password.")
 
-                # View switcher: The prompt text "Don't have an account?" has been removed.
                 st.markdown('<div class="bottom-text-container">', unsafe_allow_html=True)
                 if st.button("Sign up", key="signup_toggle"):
                     st.session_state.auth_view = 'signup'
@@ -3149,8 +3140,6 @@ if st.session_state.current_page == 'account':
 
             # --- SIGNUP VIEW ---
             elif st.session_state.auth_view == 'signup':
-                # This subtitle can be kept or removed for consistency
-                # st.markdown('<p class="subtitle">Create your account</p>', unsafe_allow_html=True) 
                 st.markdown('<h1>Get Started</h1>', unsafe_allow_html=True)
                 
                 with st.form("register_form"):
@@ -3160,7 +3149,6 @@ if st.session_state.current_page == 'account':
                     register_button = st.form_submit_button("Sign up")
                     
                 if register_button:
-                    # Your registration logic
                     if new_password != confirm_password: st.error("Passwords do not match.")
                     elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                     else:
@@ -3175,23 +3163,23 @@ if st.session_state.current_page == 'account':
                             # initialize_and_load_session_state() # Assumed function
                             st.rerun()
                                 
-                # View switcher for the sign-up page
                 st.markdown('<div class="bottom-text-container"><span>Already have an account?</span>', unsafe_allow_html=True)
                 if st.button("Sign In", key="signin_toggle"):
                     st.session_state.auth_view = 'login'
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            st.markdown('</div>', unsafe_allow_html=True) # close .login-form
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    # This block displays the entire dashboard when a user IS logged in. It remains unchanged.
+    # This block displays the entire dashboard when a user IS logged in.
     else:
         def handle_logout():
-            # Your existing logout logic
+            # if st.session_state.logged_in_user is not None: save_user_data(st.session_state.logged_in_user) # Assumed function
             keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
             for key in keys_to_delete:
                 if key in st.session_state:
                     del st.session_state[key]
+            # initialize_and_load_session_state() # Assumed function
             st.session_state.current_page = "account"
             st.rerun()
         # --- LOGGED-IN WELCOME HEADER ---
