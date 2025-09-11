@@ -2992,7 +2992,11 @@ if st.session_state.current_page == 'account':
             }
             div[data-testid="stAppViewContainer"] > .main {
                 background-color: #000000;
-                background-image: linear-gradient(180deg, #050505, #000000), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%231a1a1a' fill-opacity='0.4'%3E%3Cpath d='M0 38.59l2.83-2.83 1.41 1.41L1.41 40H0v-1.41zM0 1.4l2.83 2.83 1.41-1.41L1.41 0H0v1.41zM38.59 40l-2.83-2.83 1.41-1.41L40 38.59V40h-1.41zM40 1.41l-2.83 2.83-1.41-1.41L38.59 0H40v1.41zM20 18.59l2.83-2.83 1.41 1.41L21.41 20l2.83 2.83-1.41 1.41L20 21.41l-2.83 2.83-1.41-1.41L18.59 20l-2.83-2.83 1.41-1.41L20 18.59z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+                /* Applying a grid background that matches the image */
+                background-image:
+                    linear-gradient(rgba(91, 183, 179, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(91, 183, 179, 0.1) 1px, transparent 1px);
+                background-size: 40px 40px;
             }
             div[data-testid="stAppViewContainer"] > .main .block-container {
                 display: flex;
@@ -3007,27 +3011,30 @@ if st.session_state.current_page == 'account':
 
             /* --- LOGIN FORM WRAPPER (THE KEY TO CONDENSING) --- */
             .login-wrapper {
-                background: transparent; /* Wrapper is invisible, only positions the form */
+                background: rgba(5, 5, 5, 0.8); /* Slightly transparent background */
+                backdrop-filter: blur(10px); /* Frosted glass effect */
                 padding: 2.5rem 3rem;
                 border-radius: 1rem;
-                width: 470px; /* Fixed width for the form block */
+                width: 470px;
                 max-width: 95%;
-                border: 1px solid rgba(255, 255, 255, 0.05);
+                /* --- THIS IS THE GLOWING BORDER --- */
+                border: 1px solid #5bb7b3;
+                box-shadow: 0 0 20px rgba(91, 183, 179, 0.5);
             }
             
             /* --- TYPOGRAPHY --- */
             .login-wrapper h1 {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                font-size: 2.3rem; /* Slightly smaller to match image scale */
+                font-size: 2.3rem;
                 color: #FFFFFF;
                 font-weight: 700;
-                margin-top: 0; /* REMOVES THE BLACK BOX ABOVE */
+                margin-top: 0;
                 margin-bottom: 35px;
             }
 
             /* --- INPUT FIELDS & CHECKBOX --- */
             .login-wrapper input[type="text"], .login-wrapper input[type="password"] {
-                background-color: #262730 !important; /* Dark input bg from image */
+                background-color: #262730 !important;
                 border: 1px solid #363741 !important;
                 border-radius: 8px !important;
                 color: #FFFFFF !important;
@@ -3036,9 +3043,10 @@ if st.session_state.current_page == 'account':
                 box-shadow: none !important;
                 transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
             }
+            /* Glowing effect on input field focus */
             .login-wrapper input:focus {
                 border-color: #5bb7b3 !important;
-                box-shadow: 0 0 10px #5bb7b3 !important;
+                box-shadow: 0 0 8px rgba(91, 183, 179, 0.7) !important;
             }
             .login-wrapper .stCheckbox p {
                 color: #e0e0e0;
