@@ -1513,7 +1513,7 @@ if st.session_state.current_page == 'trading_journal':
                       <div style="width: 4px; background-color: {outcome_color}; border-radius: 3px;"></div>
                       <div style="padding-top: 2px; padding-bottom: 2px;">
                         <div style="font-size: 1.1em; font-weight: 600;">
-                          {row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span> <span style="font-weight: normal; vertical-align: middle;">🔗</span>
+                          {row['Symbol']} <span style="font-weight: 500; color: {outcome_color};">{row['Direction']} / {row['Outcome']}</span>
                         </div>
                         <div style="color: #8b949e; font-size: 0.9em; margin-top: 2px;">
                           {row['Date'].strftime('%A, %d %B %Y')} | {trade_id_key}
