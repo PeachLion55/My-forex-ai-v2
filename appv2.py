@@ -4408,13 +4408,20 @@ if st.session_state.current_page == "Zenvo Academy":
         border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    # Adjusted to flex: 1 to take up remaining space
-    right_column_style = "flex: 1; display: flex; justify-content: flex-end;" 
-    # This style is now for the single, combined info tab
+    # MODIFIED: This column is now a vertical flex container to stack the tabs
+    right_column_style = """
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-end; 
+        gap: 8px;
+    """ 
+    # Generic style for the individual glowing info tabs
     info_tab_style = """
         background-color: #0E1117; border: 1px solid #2d4646; 
-        padding: 12px 15px; border-radius: 8px; color: white; 
-        text-align: center; font-family: sans-serif;
+        padding: 8px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif; 
+        font-size: 0.9rem; white-space: nowrap;
     """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
@@ -4427,15 +4434,9 @@ if st.session_state.current_page == "Zenvo Academy":
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    # Primary and secondary text for the info tab
-    welcome_text = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-    sessions_text = f'Active Sessions: {get_active_market_sessions()}'
-    
-    # Combine the welcome and session text into a single HTML block for vertical stacking
-    combined_info_html = f"""
-        <div style="font-size: 0.9rem;">{welcome_text}</div>
-        <div style="font-size: 0.8rem; color: #808495; margin-top: 4px;">{sessions_text}</div>
-    """
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    active_sessions_str = get_active_market_sessions()
+    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
@@ -4447,9 +4448,12 @@ if st.session_state.current_page == "Zenvo Academy":
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
-            # The right column now holds a single div containing the combined HTML
+            # The right column now stacks its two children vertically
             f'<div style="{right_column_style}">'
-                f'<div style="{info_tab_style}">{combined_info_html}</div>'
+                # Welcome tab comes first, so it's on top
+                f'<div style="{info_tab_style}">{welcome_message}</div>'
+                # Sessions tab comes second, so it's on the bottom
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
     )
