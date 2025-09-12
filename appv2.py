@@ -25,6 +25,15 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+# Add this to the top of your main script with other initializations
+if 'session_timings' not in st.session_state:
+    st.session_state.session_timings = {
+        "Sydney": {"start": 22, "end": 7},
+        "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17},
+        "New York": {"start": 13, "end": 22}
+    }
+
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
@@ -4390,27 +4399,41 @@ def image_to_base_64(path):
         logging.warning(f"Image file not found at path: {path}")
         return None
 
+# --- UPDATED FUNCTION ---
 def get_active_market_sessions():
     """
-    Determines which major forex market sessions are currently active based on UTC time.
-    Returns a formatted string of active sessions.
+    Determines active forex sessions based on user-defined UTC times
+    stored in st.session_state.
     """
-    sessions = {
-        "Sydney": (22, 7), "Tokyo": (0, 9),
-        "London": (8, 17), "New York": (13, 22)
-    }
+    # This now dynamically reads the user's custom settings from session_state.
+    # If the settings don't exist, it uses the default dictionary as a fallback.
+    sessions = st.session_state.get('session_timings', {
+        "Sydney": {"start": 22, "end": 7},
+        "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17},
+        "New York": {"start": 13, "end": 22}
+    })
+    
     utc_now = datetime.now(pytz.utc)
     current_hour = utc_now.hour
+    
     active_sessions = []
-    for session, (start, end) in sessions.items():
+    for session_name, timings in sessions.items():
+        start = timings['start']
+        end = timings['end']
+        
+        # Logic for sessions crossing midnight (e.g., Sydney)
         if start > end:
             if current_hour >= start or current_hour < end:
-                active_sessions.append(session)
+                active_sessions.append(session_name)
+        # Logic for sessions within the same day
         else:
             if start <= current_hour < end:
-                active_sessions.append(session)
+                active_sessions.append(session_name)
+                
     if not active_sessions:
         return "Markets Closed"
+    
     return ", ".join(active_sessions)
 
 # =========================================================
@@ -4440,7 +4463,6 @@ if st.session_state.current_page == "Zenvo Academy":
         border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    # MODIFIED: This column is now a vertical flex container to stack the tabs
     right_column_style = """
         flex: 1; 
         display: flex; 
@@ -4448,7 +4470,6 @@ if st.session_state.current_page == "Zenvo Academy":
         align-items: flex-end; 
         gap: 8px;
     """ 
-    # Generic style for the individual glowing info tabs
     info_tab_style = """
         background-color: #0E1117; border: 1px solid #2d4646; 
         padding: 8px 15px; border-radius: 8px; color: white; 
@@ -4467,6 +4488,7 @@ if st.session_state.current_page == "Zenvo Academy":
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    # This function now dynamically gets the user's custom session times
     active_sessions_str = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
@@ -4480,11 +4502,8 @@ if st.session_state.current_page == "Zenvo Academy":
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
-            # The right column now stacks its two children vertically
             f'<div style="{right_column_style}">'
-                # Welcome tab comes first, so it's on top
                 f'<div style="{info_tab_style}">{welcome_message}</div>'
-                # Sessions tab comes second, so it's on the bottom
                 f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
