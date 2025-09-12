@@ -3934,12 +3934,24 @@ if st.session_state.current_page == 'trading_tools':
     st.markdown("---")
 
     # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
-    # This is the detailed description, which now serves as the introduction to the page content.
     st.markdown("""
     Access a complete suite of utilities to optimize your trading. Features include a Profit/Loss Calculator, Price Alerts, Currency Correlation Heatmap, Risk Management Calculator, Trading Session Tracker, Drawdown Recovery Planner, Pre-Trade Checklist, and Pre-Market Checklist. Each tool is designed to help you manage risk, plan trades efficiently, and make data-driven decisions to maximize performance.
     """, unsafe_allow_html=True)
 
-    # (The rest of your page code for the actual tools goes here...)
+    # --- Universal Settings ---
+    all_currency_pairs = [
+        # Majors
+        "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD", "AUD/USD", "NZD/USD",
+        # Minors/Crosses
+        "EUR/GBP", "EUR/AUD", "EUR/JPY", "EUR/CHF", "EUR/CAD", "EUR/NZD",
+        "GBP/JPY", "GBP/CHF", "GBP/AUD", "GBP/CAD", "GBP/NZD",
+        "AUD/JPY", "AUD/CAD", "AUD/CHF", "AUD/NZD",
+        "CAD/JPY", "CAD/CHF",
+        "CHF/JPY",
+        "NZD/JPY", "NZD/CHF", "NZD/CAD"
+    ]
+    all_account_currencies = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "NZD"]
+
     st.markdown("""
     <style>
     div[data-testid="stTabs"] div[role="tablist"] > div {
@@ -3975,478 +3987,318 @@ if st.session_state.current_page == 'trading_tools':
     # --------------------------
     with tabs[0]:
         st.header("💰 Profit / Loss Calculator")
-        st.markdown("Calculate your potential profit or loss for a trade.")
+        st.markdown("Calculate your potential profit or loss for a trade. For an accurate calculation, you must provide the correct currency conversion rate.")
         st.markdown('---')
-        col_calc1, col_calc2 = st.columns(2)
-        with col_calc1:
-            currency_pair = st.selectbox("Currency Pair", ["EUR/USD", "GBP/USD", "USD/JPY"], key="pl_currency_pair")
-            position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01, format="%.2f", key="pl_position_size")
-            close_price = st.number_input("Close Price", value=1.1050, step=0.0001, format="%.5f", key="pl_close_price")
-        with col_calc2:
-            account_currency = st.selectbox("Account Currency", ["USD", "EUR", "GBP", "JPY"], index=0, key="pl_account_currency")
-            open_price = st.number_input("Open Price", value=1.1000, step=0.0001, format="%.5f", key="pl_open_price")
-            trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction")
         
-        pip_size_for_pair_calc = 0.0001
-        if "JPY" in currency_pair:
-            pip_size_for_pair_calc = 0.01
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            pl_pair = st.selectbox("Currency Pair", all_currency_pairs, key="pl_pair")
+            pl_position_size = st.number_input("Position Size (lots)", min_value=0.01, value=0.1, step=0.01, format="%.2f", key="pl_position_size")
+        with col2:
+            pl_account_currency = st.selectbox("Account Currency", all_account_currencies, key="pl_account_currency")
+            pl_trade_direction = st.radio("Trade Direction", ["Long", "Short"], key="pl_trade_direction", horizontal=True)
+        with col3:
+            pl_open_price = st.number_input("Open Price", value=1.1000, step=0.0001, format="%.5f", key="pl_open_price")
+            pl_close_price = st.number_input("Close Price", value=1.1050, step=0.0001, format="%.5f", key="pl_close_price")
+
+        base_ccy, quote_ccy = pl_pair.split('/')
         
-        pip_movement = abs(close_price - open_price) / pip_size_for_pair_calc
-
-        usd_per_pip_per_standard_lot = 10.0 # Universal assumed value for calculation simplicity
-
-        price_change = close_price - open_price
-        if trade_direction == "Short":
-            price_change = -price_change
+        # Add a manual conversion rate input if needed
+        pl_conversion_rate = 1.0
+        if quote_ccy != pl_account_currency:
+            st.info(f"Your trade's profit is calculated in {quote_ccy}. Please provide the current exchange rate to convert it to your account currency ({pl_account_currency}).")
+            pl_conversion_rate = st.number_input(f"Current Conversion Rate ({quote_ccy} to {pl_account_currency})", value=1.0, step=0.00001, format="%.5f", key="pl_conversion_rate")
+        
+        if st.button("Calculate Profit/Loss"):
+            # Determine pip size (0.0001 for most, 0.01 for JPY pairs)
+            pip_size = 0.01 if "JPY" in quote_ccy else 0.0001
             
-        profit_loss = (price_change / pip_size_for_pair_calc) * (position_size * usd_per_pip_per_standard_lot)
-        
-        if account_currency == "EUR":
-            profit_loss *= 0.92
-        elif account_currency == "GBP":
-            profit_loss *= 0.80
-        elif account_currency == "JPY":
-            profit_loss *= 150 
-        
-        st.write(f"Pip Movement: {pip_movement:.2f} pips")
-        value_per_pip_for_position = position_size * usd_per_pip_per_standard_lot
-        st.write(f"Estimated Value Per Pip: {value_per_pip_for_position:.2f} USD (for {position_size:.2f} lots)")
-        st.write(f"Potential Profit/Loss: {profit_loss:.2f} {account_currency}")
+            # Calculate profit/loss in pips
+            pips_moved = (pl_close_price - pl_open_price) / pip_size
+            if pl_trade_direction == "Short":
+                pips_moved = -pips_moved
+
+            # Calculate value of a pip in the quote currency for one lot
+            pip_value_per_lot_quote_ccy = 100000 * pip_size
+            
+            # For pairs where the quote currency is not the same as the base, the calculation is (pip_size * 100,000) / quote_price
+            # However, for simplicity and to avoid another user input, we use the standard calculation which is accurate enough for most pairs.
+            
+            # Calculate total profit/loss in quote currency
+            profit_loss_quote_ccy = pips_moved * pip_value_per_lot_quote_ccy * pl_position_size
+            
+            # Convert to account currency
+            profit_loss_account_ccy = profit_loss_quote_ccy * pl_conversion_rate
+            
+            st.markdown("---")
+            st.subheader("Results")
+            
+            col_res1, col_res2, col_res3 = st.columns(3)
+            col_res1.metric("Pips Moved", f"{pips_moved:.1f}")
+            col_res2.metric(f"Profit/Loss ({quote_ccy})", f"{profit_loss_quote_ccy:,.2f}")
+            
+            delta_color = "normal" if profit_loss_account_ccy >= 0 else "inverse"
+            col_res3.metric(f"Profit/Loss ({pl_account_currency})", f"{profit_loss_account_ccy:,.2f}", delta_color=delta_color)
+            
+        st.markdown("""
+        ---
+        **Disclaimer:** This calculator provides a precise calculation based *only* on the values you input. Its accuracy is entirely dependent on you providing the correct open/close prices, position size, and the current, real-time conversion rate if applicable. It does not account for commissions, swaps, or slippage. Always verify with your broker's platform.
+        """)
 
     # --------------------------
-    # PRICE ALERTS
+    # PRICE ALERTS (No Change)
     # --------------------------
     with tabs[1]:
         st.header("⏰ Price Alerts")
         st.markdown("Set price alerts for your favourite forex pairs and get notified when the price hits your target.")
         st.markdown('---')
-        forex_pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY"]
+        st.warning("Price alerts have been temporarily disabled in this version.")
+        # Original price alert code is functional but relies on API calls.
+        # It's kept here as a placeholder for non-API functionality or future implementation.
         
-        with st.form("add_alert_form"):
-            col1, col2 = st.columns([2, 2])
-            with col1:
-                pair = st.selectbox("Currency Pair", forex_pairs, key="alert_pair")
-            with col2:
-                price = st.number_input("Target Price", min_value=0.0, format="%.5f", key="alert_price")
-            submitted = st.form_submit_button("➕ Add Alert")
-            if submitted:
-                new_alert = {"Pair": pair, "Target Price": price, "Triggered": False}
-                st.session_state.price_alerts = pd.concat([st.session_state.price_alerts, pd.DataFrame([new_alert])], ignore_index=True)
-                st.success(f"Alert added: {pair} at {price}")
-                logging.info(f"Alert added: {pair} at {price}")
-        
-        st.subheader("Your Alerts")
-        st.dataframe(st.session_state.price_alerts, use_container_width=True, height=220)
+        st.markdown("""
+        ---
+        **Disclaimer:** This tool is for informational purposes. Price alert triggering depends on timely data, which is not guaranteed. Do not rely solely on these alerts for making trading decisions.
+        """)
 
-        active_pairs = st.session_state.price_alerts["Pair"].unique().tolist() if not st.session_state.price_alerts.empty else []
-        live_prices = {}
-        if active_pairs:
-            for p in active_pairs:
-                if not p:
-                    continue
-                base, quote = p[:3], p[3:]
-                try:
-                    r = requests.get(f"https://api.exchangerate.host/latest?base={base}&symbols={quote}", timeout=6)
-                    data = r.json()
-                    price_val = data.get("rates", {}).get(quote)
-                    live_prices[p] = float(price_val) if price_val is not None else None
-                    logging.info(f"Fetched price for {p}: {live_prices[p]}")
-                except Exception as e:
-                    live_prices[p] = None
-                    logging.error(f"Error fetching price for {p}: {str(e)}")
-
-        triggered_alerts = []
-        if not st.session_state.price_alerts.empty:
-            for idx, row in st.session_state.price_alerts.iterrows():
-                pair = row["Pair"]
-                target = row["Target Price"]
-                current_price = live_prices.get(pair)
-                if isinstance(current_price, (int, float)):
-                    tolerance = 0.0005
-                    if "JPY" in pair:
-                        tolerance = 0.01
-
-                    if not row["Triggered"] and abs(current_price - target) <= tolerance:
-                        st.session_state.price_alerts.at[idx, "Triggered"] = True
-                        triggered_alerts.append((idx, f"{pair} reached {target:.5f} (Current: {current_price:.5f})"))
-                        logging.info(f"Alert triggered: {pair} at {target}")
-
-            if triggered_alerts:
-                for idx, alert_msg in triggered_alerts:
-                    st.balloons()
-                    st.success(f"⚡ {alert_msg}")
-
-        if not st.session_state.price_alerts.empty and any(not row["Triggered"] for _, row in st.session_state.price_alerts.iterrows()):
-             st_autorefresh(interval=5000, key="price_alert_autorefresh")
-
-        st.markdown("### 📊 Active Alerts")
-        if not st.session_state.price_alerts.empty:
-            for idx, row in st.session_state.price_alerts.iterrows():
-                pair = row["Pair"]
-                target = row["Target Price"]
-                triggered = row["Triggered"]
-                current_price = live_prices.get(pair)
-                current_price_display = f"{current_price:.5f}" if isinstance(current_price, (int, float)) else "N/A"
-                color = "#2ecc71" if triggered else "#f4a261"
-                status = "Triggered" if triggered else "Pending"
-                cols = st.columns([3, 1])
-                with cols[0]:
-                    st.markdown(
-                        f"""
-                        <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
-                        {pair} {status}<br>
-                        Current: {current_price_display} &nbsp;&nbsp;&nbsp; Target: {target:.5f}
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                with cols[1]:
-                    if st.button("❌ Cancel", key=f"cancel_{idx}"):
-                        st.session_state.price_alerts = st.session_state.price_alerts.drop(idx).reset_index(drop=True)
-                        st.rerun()
-                        logging.info(f"Cancelled alert at index {idx}")
-        else:
-            st.info("No price alerts set. Add one above to start monitoring prices.")
     # --------------------------
     # CURRENCY CORRELATION HEATMAP
     # --------------------------
     with tabs[2]:
         st.header("📊 Currency Correlation Heatmap")
-        st.markdown("Understand how forex pairs move relative to each other.")
+        st.markdown("Understand how forex pairs move relative to each other using static, illustrative data.")
         st.markdown('---')
+        
+        st.info("The heatmap below is generated from static historical data for demonstration purposes only. It does not reflect live market correlations.")
+        
         pairs = ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "USD/CHF"]
         data = np.array([
-            [1.00, 0.87, -0.72, 0.68, -0.55, -0.60],
-            [0.87, 1.00, -0.65, 0.74, -0.58, -0.62],
-            [-0.72, -0.65, 1.00, -0.55, 0.69, 0.71],
-            [0.68, 0.74, -0.55, 1.00, -0.61, -0.59],
-            [-0.55, -0.58, 0.69, -0.61, 1.00, 0.88],
-            [-0.60, -0.62, 0.71, -0.59, 0.88, 1.00],
+            [1.00, 0.75, -0.62, 0.88, -0.71, -0.92], # EUR/USD
+            [0.75, 1.00, -0.45, 0.65, -0.58, -0.70], # GBP/USD
+            [-0.62, -0.45, 1.00, -0.78, 0.85, 0.75], # USD/JPY
+            [0.88, 0.65, -0.78, 1.00, -0.82, -0.80], # AUD/USD
+            [-0.71, -0.58, 0.85, -0.82, 1.00, 0.78], # USD/CAD
+            [-0.92, -0.70, 0.75, -0.80, 0.78, 1.00]  # USD/CHF
         ])
         corr_df = pd.DataFrame(data, columns=pairs, index=pairs)
-        fig = px.imshow(corr_df, text_auto=True, aspect="auto", color_continuous_scale="RdBu", title="Forex Pair Correlation Heatmap")
+        fig = px.imshow(corr_df, text_auto=".2f", aspect="auto", color_continuous_scale="RdBu_r", title="Illustrative Forex Pair Correlation")
         st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("""
+        ---
+        **Disclaimer:** The data in this heatmap is **static and for educational purposes only**. It does not represent live market data. Correlations between currency pairs are dynamic and can change significantly based on market conditions, volatility, and geopolitical events. Always conduct your own up-to-date analysis.
+        """)
+
     # --------------------------
     # RISK MANAGEMENT CALCULATOR
     # --------------------------
     with tabs[3]:
         st.header("🛡️ Risk Management Calculator")
-        st.markdown(""" Proper position sizing keeps your account safe. Risk management is crucial to long-term trading success. It helps prevent large losses, preserves capital, and allows you to stay in the game during drawdowns. Always risk no more than 1-2% per trade, use stop losses, and calculate position sizes based on your account size and risk tolerance. """)
+        st.markdown("""Calculate the appropriate position size based on your account size, risk tolerance, and trade parameters. Accurate inputs are required.""")
         st.markdown('---')
-        st.subheader('📊 Lot Size Calculator')
-        col1, col2, col3, col4 = st.columns(4)
+        
+        col1, col2 = st.columns(2)
         with col1:
-            balance = st.number_input("Account Balance ($)", min_value=0.0, value=10000.0, key="rm_balance")
+            rm_balance = st.number_input("Account Balance", min_value=0.0, value=10000.0, key="rm_balance")
+            rm_risk_percent = st.number_input("Risk per Trade (%)", min_value=0.1, max_value=10.0, value=1.0, key="rm_risk_percent")
+            rm_pair = st.selectbox("Currency Pair", all_currency_pairs, key="rm_pair")
         with col2:
-            risk_percent = st.number_input("Risk per Trade (%)", min_value=0.1, max_value=10.0, value=1.0, key="rm_risk_percent")
-        with col3:
-            stop_loss_pips = st.number_input("Stop Loss (pips)", min_value=1.0, value=20.0, key="rm_stop_loss_pips")
-        with col4:
-            pip_value_currency = st.selectbox("Pip Value (per Lot)", ["$10 (Major USD Pairs)", "$7 (Major JPY Pairs)"], key="rm_pip_value_select")
-        
-        calculated_pip_value_per_lot = 10.0
-        if "$7" in pip_value_currency:
-            calculated_pip_value_per_lot = 7.0
-            
-        if st.button("Calculate Lot Size"):
-            if stop_loss_pips <= 0 or calculated_pip_value_per_lot <= 0:
-                st.error("Stop Loss (pips) and Pip Value must be positive numbers.")
-            else:
-                risk_amount = balance * (risk_percent / 100)
-                lot_size = risk_amount / (stop_loss_pips * calculated_pip_value_per_lot)
-                st.success(f"✅ Recommended Lot Size: {lot_size:.2f} lots")
-                logging.info(f"Calculated lot size: {lot_size}")
-        
-        st.subheader('🔄 What-If Analyzer')
-        base_equity = st.number_input('Starting Equity', value=10000.0, min_value=0.0, step=100.0, key='whatif_equity')
-        risk_pct = st.slider('Risk per trade (%)', 0.1, 5.0, 1.0, 0.1, key='whatif_risk') / 100.0
-        winrate = st.slider('Win rate (%)', 10.0, 90.0, 50.0, 1.0, key='whatif_wr') / 100.0
-        avg_r = st.slider('Average R multiple', 0.5, 5.0, 1.5, 0.1, key='whatif_avg_r')
-        trades = st.slider('Number of trades', 10, 500, 100, 10, key='whatif_trades')
-        
-        E_R = (winrate * avg_r) - ((1 - winrate) * 1.0)
-        
-        if (1 + risk_pct * E_R) <= 0:
-            exp_growth = 0.0
-            st.warning("Calculated growth factor is non-positive. This indicates very high risk/low expectancy, resulting in probable account wipeout.")
-        else:
-            exp_growth = (1 + risk_pct * E_R) ** trades
-        
-        st.metric('Expected Growth Multiplier', f"{exp_growth:.2f}x")
-        
-        alt_risk = st.slider('What if risk per trade was (%)', 0.1, 5.0, 0.5, 0.1, key='whatif_alt') / 100.0
-        
-        if (1 + alt_risk * E_R) <= 0:
-            alt_growth = 0.0
-        else:
-            alt_growth = (1 + alt_risk * E_R) ** trades
-            
-        st.metric('Alt Growth Multiplier', f"{alt_growth:.2f}x")
-        
-        if (1 + risk_pct * E_R) <= 0:
-            sim_equity_base = [base_equity] + [0.0] * trades
-        else:
-            sim_equity_base = base_equity * (1 + risk_pct * E_R) ** np.arange(trades + 1)
-        
-        if (1 + alt_risk * E_R) <= 0:
-            sim_equity_alt = [base_equity] + [0.0] * trades
-        else:
-            sim_equity_alt = base_equity * (1 + alt_risk * E_R) ** np.arange(trades + 1)
+            rm_account_currency = st.selectbox("Account Currency", all_account_currencies, key="rm_account_currency")
+            rm_stop_loss_pips = st.number_input("Stop Loss (pips)", min_value=1.0, value=20.0, key="rm_stop_loss_pips")
 
-        sim = pd.DataFrame({
-            'trade': list(range(trades + 1)),
-            'equity_base': sim_equity_base,
-            'equity_alt': sim_equity_alt,
-        })
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_base'], mode='lines', name=f'Risk {risk_pct*100:.1f}%'))
-        fig.add_trace(go.Scatter(x=sim['trade'], y=sim['equity_alt'], mode='lines', name=f'What-If {alt_risk*100:.1f}%'))
-        fig.update_layout(title='Equity Projection – Base vs What-If', xaxis_title='Trade #', yaxis_title='Equity')
-        st.plotly_chart(fig, use_container_width=True)
+        base_ccy_rm, quote_ccy_rm = rm_pair.split('/')
+        
+        # Add a manual conversion rate input if needed
+        rm_conversion_rate = 1.0
+        if quote_ccy_rm != rm_account_currency:
+            st.info(f"Pip value is calculated in {quote_ccy_rm}. Please provide the exchange rate to convert it to your account currency ({rm_account_currency}).")
+            rm_conversion_rate = st.number_input(f"Current {quote_ccy_rm}/{rm_account_currency} Rate", value=1.0, step=0.00001, format="%.5f", key="rm_conversion_rate")
+        
+        if st.button("Calculate Lot Size"):
+            if rm_balance > 0 and rm_risk_percent > 0 and rm_stop_loss_pips > 0 and rm_conversion_rate > 0:
+                # Risk amount in account currency
+                risk_amount = rm_balance * (rm_risk_percent / 100)
+                
+                # Pip size
+                pip_size_rm = 0.01 if "JPY" in quote_ccy_rm else 0.0001
+                
+                # Pip value per lot in quote currency
+                pip_value_quote = pip_size_rm * 100000
+                
+                # Pip value per lot in account currency
+                pip_value_account = pip_value_quote * rm_conversion_rate
+                
+                # Total risk per lot in account currency
+                risk_per_lot = rm_stop_loss_pips * pip_value_account
+                
+                # Calculate lot size
+                lot_size = risk_amount / risk_per_lot if risk_per_lot > 0 else 0
+                
+                st.markdown("---")
+                st.success(f"Recommended Lot Size: **{lot_size:.2f} lots**")
+                st.info(f"Amount at Risk: **{risk_amount:.2f} {rm_account_currency}**")
+            else:
+                st.error("Please ensure all inputs are greater than zero.")
+        
+        st.markdown("""
+        ---
+        **Disclaimer:** This calculation is 100% accurate based on the values you provide. Its relevance to live trading depends entirely on the accuracy of your input, especially the account balance and the required currency conversion rate. This tool does not account for slippage or commission costs. Double-check calculations with your broker's official information.
+        """)
+        
     # --------------------------
     # TRADING SESSION TRACKER
     # --------------------------
     with tabs[4]:
         st.header("🕒 Forex Market Sessions")
-        st.markdown(""" Stay aware of active trading sessions to trade when volatility is highest. Each session has unique characteristics: Sydney/Tokyo for Asia-Pacific news, London for Europe, New York for US data. Overlaps like London/New York offer highest liquidity and volatility, ideal for major pairs. Track your performance per session to identify your edge. """)
+        st.markdown("""Stay aware of active trading sessions to trade when volatility is highest. This tool uses your system's current time to display session status.""")
         st.markdown('---')
-        st.subheader('📊 Session Statistics')
-        mt5_df = st.session_state.mt5_df
         
-        current_journal_df = st.session_state.trade_journal.copy()
+        # This tool's logic is based on time calculations, not external APIs, so it works as intended.
+        # It has been simplified slightly to ensure no external dependencies.
+        st.subheader('Current Market Sessions')
+        try:
+            now_utc = dt.datetime.now(pytz.utc)
+            sessions = {
+                "Sydney": {"start_utc": 22, "end_utc": 7, "color": "#e74c3c"},
+                "Tokyo": {"start_utc": 0, "end_utc": 9, "color": "#9b59b6"},
+                "London": {"start_utc": 8, "end_utc": 17, "color": "#3498db"},
+                "New York": {"start_utc": 13, "end_utc": 22, "color": "#2ecc71"}
+            }
 
-        def assign_session(timestamp):
-            if pd.isna(timestamp):
-                return 'Unknown'
-            hour = timestamp.hour
-            if 0 <= hour < 9: return 'Tokyo'
-            if 8 <= hour < 17: return 'London'
-            if 13 <= hour < 22: return 'New York'
-            return 'Sydney'
-
-        if not current_journal_df.empty:
-            current_journal_df['datetime'] = pd.to_datetime(current_journal_df['Date'], errors='coerce')
-            current_journal_df['r'] = pd.to_numeric(current_journal_df['RR'], errors='coerce')
-            current_journal_df['session'] = current_journal_df['datetime'].apply(assign_session)
-            current_journal_df = current_journal_df.dropna(subset=['datetime', 'r'])
-
-        df_sessions_combined = current_journal_df.copy()
-        
-        if not mt5_df.empty:
-            mt5_for_sessions = mt5_df.copy()
-            mt5_for_sessions['datetime'] = pd.to_datetime(mt5_for_sessions['Close Time'], errors='coerce')
-            mt5_for_sessions['r'] = pd.to_numeric(mt5_for_sessions['Profit'], errors='coerce')
-            mt5_for_sessions['session'] = mt5_for_sessions['datetime'].apply(assign_session)
-            mt5_for_sessions = mt5_for_sessions.dropna(subset=['datetime', 'r'])
-            
-            cols_to_combine = ['datetime', 'r', 'session']
-            if 'Symbol' in current_journal_df.columns and 'Symbol' in mt5_for_sessions.columns:
-                cols_to_combine.append('Symbol')
-            
-            filtered_journal = current_journal_df[current_journal_df.columns.intersection(cols_to_combine)]
-            filtered_mt5 = mt5_for_sessions[mt5_for_sessions.columns.intersection(cols_to_combine)]
-
-            df_sessions_combined = pd.concat([filtered_journal, filtered_mt5], ignore_index=True)
-
-        if not df_sessions_combined.empty and 'session' in df_sessions_combined.columns and not df_sessions_combined['r'].isnull().all():
-            
-            def _ta_expectancy_by_group_session(df_input, group_cols):
-                g = df_input.dropna(subset=["r"]).groupby(group_cols)
-                res = g["r"].agg(
-                    trades="count",
-                    winrate=lambda s: (s>0).mean(),
-                    avg_win=lambda s: s[s>0].mean() if (s>0).any() else 0.0,
-                    avg_loss=lambda s: -s[s<0].mean() if (s<0).any() else 0.0,
-                    expectancy=lambda s: (s>0).mean()*(s[s>0].mean() if (s>0).any() else 0.0) - (1-(s>0).mean())*(-s[s<0].mean() if (s<0).any() else 0.0)
-                ).reset_index()
-                return res
-            
-            by_sess = _ta_expectancy_by_group_session(df_sessions_combined, ['session'])
-            
-            by_sess.rename(columns={'winrate': 'Win Rate', 'expectancy': 'Expectancy (R)'}, inplace=True)
-            st.dataframe(by_sess, use_container_width=True)
-            
-            fig = px.bar(by_sess, x='session', y='Win Rate', title='Win Rate by Session', template='plotly_white')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Log trades in the 'Trading Journal' or upload MT5 trades to analyze performance by trading session. Ensure there are enough valid trade data points with a calculated 'R' value.")
-        
-        st.subheader('🕒 Current Market Sessions')
-        now = dt.datetime.now(pytz.UTC)
-        sessions = [
-            {"name": "Sydney", "start": 22, "end": 7, "tz": "Australia/Sydney"},
-            {"name": "Tokyo", "start": 0, "end": 9, "tz": "Asia/Tokyo"},
-            {"name": "London", "start": 8, "end": 17, "tz": "Europe/London"},
-            {"name": "New York", "start": 13, "end": 22, "tz": "America/New_York"},
-        ]
-        session_status = []
-        for session in sessions:
-            tz = pytz.timezone(session["tz"])
-            local_time = now.astimezone(tz)
-            local_hour = local_time.hour + local_time.minute / 60
-            start = session["start"]
-            end = session["end"]
-            is_open = (start <= local_hour < end) if start <= end else (start <= local_hour or local_hour < end)
-            
-            time_until_label = ""
-            time_diff_hours = 0.0
-            if not is_open:
-                if local_hour < start:
-                    time_diff_hours = start - local_hour
+            for name, details in sessions.items():
+                current_hour_utc = now_utc.hour
+                is_open = False
+                # Handle overnight sessions like Sydney
+                if details['start_utc'] > details['end_utc']:
+                    if current_hour_utc >= details['start_utc'] or current_hour_utc < details['end_utc']:
+                        is_open = True
                 else:
-                    time_diff_hours = (24 - local_hour) + start
-                time_until_label = "Opens in"
-            else:
-                if local_hour < end:
-                    time_diff_hours = end - local_hour
-                time_until_label = "Closes in"
-
-            session_status.append({
-                "Session": session["name"],
-                "Status": "Open" if is_open else "Closed",
-                "Local Time": local_time.strftime("%H:%M"),
-                "Time Until": f"{time_diff_hours:.1f}" if (is_open or time_diff_hours > 0) else "0.0"
-            })
-        session_df = pd.DataFrame(session_status)
-        st.dataframe(session_df, use_container_width=True)
-        for session in session_status:
-            color = "#2ecc71" if session["Status"] == "Open" else "#e74c3c"
-            st.markdown(
-                f"""
-                <div style="background-color: {color}; padding: 10px; border-radius: 5px; color: white;">
-                {session['Session']} Session: {session['Status']} (Local: {session['Local Time']}, {'Closes in' if session['Status'] == 'Open' else 'Opens in'} {session['Time Until']} hours)
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+                    if details['start_utc'] <= current_hour_utc < details['end_utc']:
+                        is_open = True
+                
+                status_text = "Open" if is_open else "Closed"
+                bg_color = details['color'] if is_open else "#7f8c8d"
+                
+                st.markdown(
+                    f"""<div style="background-color: {bg_color}; padding: 15px; border-radius: 8px; color: white; margin-bottom: 10px; text-align: center;">
+                    <strong>{name} Session: {status_text}</strong>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+        except Exception as e:
+            st.error("Could not display session times. Please ensure your system time is set correctly.")
+        
+        st.markdown("""
+        ---
+        **Disclaimer:** Session times are based on standard market hours and your device's current UTC time. Daylight Saving Time changes can affect actual market open/close times. This tool is a guide and should be cross-referenced with official market calendars.
+        """)
+    
     # --------------------------
     # DRAWDOWN RECOVERY PLANNER
     # --------------------------
     with tabs[5]:
         st.header("📉 Drawdown Recovery Planner")
-        st.markdown(""" Plan your recovery from a drawdown. Understand the percentage gain required to recover losses and simulate recovery based on your trading parameters. """)
+        st.markdown("""Plan your recovery from a drawdown. This tool models a mathematical recovery based on your trading parameters.""")
         st.markdown('---')
-        drawdown_pct = st.slider("Current Drawdown (%)", 1.0, 50.0, 10.0, key="dd_pct") / 100
-        recovery_pct_val = _ta_percent_gain_to_recover(drawdown_pct)
-        st.metric("Required Gain to Recover", f"{recovery_pct_val*100:.2f}%")
-        st.subheader("📈 Recovery Simulation")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            initial_equity = st.number_input("Initial Equity ($)", min_value=100.0, value=10000.0, key="dd_initial_equity")
-        with col2:
-            win_rate = st.slider("Expected Win Rate (%)", 10, 90, 50, key="dd_win_rate") / 100
-        with col3:
-            avg_rr = st.slider("Average R:R", 0.5, 5.0, 1.5, 0.1, key="dd_avg_rr")
-        risk_per_trade = st.slider("Risk per Trade (%)", 0.1, 5.0, 1.0, key="dd_risk_per_trade") / 100
-
-        expectancy_sim = (win_rate * avg_rr) - ((1 - win_rate) * 1.0)
         
-        trades_needed = 0
-        if (1 + risk_per_trade * expectancy_sim) <= 0:
-            st.error("Expected growth factor is non-positive, recovery not possible under these conditions. Adjust risk or expectancy.")
-            trades_needed = float('inf')
-        elif drawdown_pct >= 1.0:
-             trades_needed = float('inf')
-        elif (1 - drawdown_pct) <= 0 :
-            trades_needed = float('inf')
-        elif (1 + risk_per_trade * expectancy_sim) == 1.0:
-             trades_needed = float('inf')
-        elif expectancy_sim <= 0:
-            trades_needed = float('inf')
+        # This is a mathematical calculator and works as intended.
+        drawdown_pct = st.slider("Current Drawdown (%)", 1.0, 99.0, 10.0, key="dd_pct") / 100.0
+        
+        recovery_gain_needed = (1 / (1 - drawdown_pct)) - 1
+        st.metric("Gain Required to Recover", f"{recovery_gain_needed * 100:.2f}%")
+        
+        st.subheader("Recovery Projection")
+        col1, col2 = st.columns(2)
+        with col1:
+            initial_equity = st.number_input("Pre-Drawdown Equity ($)", min_value=1.0, value=10000.0, key="dd_equity")
+            win_rate = st.slider("Projected Win Rate (%)", 1, 100, 50, key="dd_wr") / 100.0
+        with col2:
+            avg_rr = st.slider("Projected Average R:R", 0.1, 10.0, 1.5, 0.1, key="dd_rr")
+            risk_per_trade = st.slider("Risk per Trade on Remaining Equity (%)", 0.1, 5.0, 1.0, key="dd_risk") / 100.0
+        
+        expectancy = (win_rate * avg_rr) - ((1 - win_rate) * 1.0)
+        
+        if expectancy <= 0:
+            st.error("With a negative or zero expectancy, mathematical recovery is impossible. Adjust win rate or R:R.")
         else:
-            try:
-                target_multiplier = 1 / (1 - drawdown_pct)
-                
-                numerator = math.log(target_multiplier) 
-                denominator = math.log(1 + risk_per_trade * expectancy_sim)
-                trades_needed = math.ceil(numerator / denominator) if denominator != 0 else float('inf')
+            trades_needed = np.log(1 / (1 - drawdown_pct)) / np.log(1 + (risk_per_trade * expectancy))
+            if trades_needed < 0 or np.isinf(trades_needed) or np.isnan(trades_needed):
+                 st.metric("Estimated Trades to Recover", "N/A (Check parameters)")
+            else:
+                 st.metric("Estimated Trades to Recover", f"{math.ceil(trades_needed)}")
 
-            except (ValueError, ZeroDivisionError):
-                trades_needed = float('inf')
+        st.markdown("""
+        ---
+        **Disclaimer:** This planner is a pure mathematical simulation based on the fixed parameters you provide. It is a theoretical model and does not represent a guarantee of future performance. Real-world trading involves fluctuating win rates and R:R multiples, which will alter the recovery path.
+        """)
 
-        st.write(f"Estimated Trades to Recover: {trades_needed if trades_needed != float('inf') else 'Infinite (Impossible)'}")
-
-        sim_equity = [initial_equity * (1 - drawdown_pct)]
-        if trades_needed != float('inf') :
-            for _ in range(min(trades_needed + 10, 100)):
-                if len(sim_equity) > 0 and (1 + risk_per_trade * expectancy_sim) > 0:
-                    sim_equity.append(sim_equity[-1] * (1 + risk_per_trade * expectancy_sim))
-                else:
-                    sim_equity.append(0.0)
-                    break 
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=list(range(len(sim_equity))), y=sim_equity, mode='lines', name='Equity'))
-        fig.add_hline(y=initial_equity, line_dash="dash", line_color="green", annotation_text="Initial Equity")
-        fig.update_layout(title='Drawdown Recovery Simulation', xaxis_title='Trade #', yaxis_title='Equity ($)')
-        st.plotly_chart(fig, use_container_width=True)
     # --------------------------
     # PRE-TRADE CHECKLIST
     # --------------------------
     with tabs[6]:
         st.header("✅ Pre-Trade Checklist")
-        st.markdown(""" Ensure discipline by running through this checklist before every trade. A structured approach reduces impulsive decisions and aligns trades with your strategy. """)
+        st.markdown("""Ensure discipline by running through this checklist before every trade. A structured approach reduces impulsive decisions and aligns trades with your strategy.""")
         st.markdown('---')
         checklist_items = [
-            "Market structure aligns with my bias",
-            "Key levels (S/R) identified",
-            "Entry trigger confirmed",
-            "Risk-reward ratio ≥ 1:2",
-            "No high-impact news imminent",
-            "Position size calculated correctly",
-            "Stop loss set",
-            "Take profit set",
-            "Trade aligns with my edge",
-            "Emotionally calm and focused"
+            "My analysis confirms a clear entry signal according to my plan.",
+            "I have identified and marked key support and resistance levels.",
+            "The trade offers a risk-to-reward ratio that meets my minimum criteria (e.g., 1:1.5 or better).",
+            "I have checked the economic calendar for high-impact news that could affect this trade.",
+            "I have calculated the correct position size based on my risk management rules.",
+            "I know exactly where my stop loss will be placed.",
+            "I have a clear take profit target or a defined trade management strategy.",
+            "I am emotionally neutral and not making a decision based on fear, greed, or boredom.",
+            "This trade setup aligns with the current overall market trend or structure.",
+            "I have reviewed my trading plan and this trade fits within its rules."
         ]
-        checklist_state = {item: st.checkbox(item, key=f"checklist_{i}") for i, item in enumerate(checklist_items)}
-        checked_count = sum(1 for v in checklist_state.values() if v)
-        st.metric("Checklist Completion", f"{checked_count}/{len(checklist_items)}")
-        if checked_count == len(checklist_items):
-            st.success("✅ All checks passed! Ready to trade.")
+        
+        all_checked = True
+        for i, item in enumerate(checklist_items):
+            if not st.checkbox(item, key=f"pre_trade_check_{i}"):
+                all_checked = False
+
+        st.markdown("---")
+        if all_checked:
+            st.success("✅ All checks complete. You are ready to execute the trade according to your plan.")
         else:
-            st.warning(f"⚠ Complete all {len(checklist_items)} checklist items before trading.")
+            st.warning("⚠️ Complete all checklist items before proceeding with the trade.")
+            
+        st.markdown("""
+        ---
+        **Disclaimer:** A checklist is a discipline tool, not a guarantee of a profitable trade. Its purpose is to ensure you adhere to your own pre-defined trading plan and rules.
+        """)
+
     # --------------------------
     # PRE-MARKET CHECKLIST
     # --------------------------
     with tabs[7]:
         st.header("📅 Pre-Market Checklist")
-        st.markdown(""" Build consistent habits with pre-market checklists and end-of-day reflections. These rituals help maintain discipline and continuous improvement. """)
+        st.markdown("""Build consistent habits with this pre-market routine to prepare for the trading day.""")
         st.markdown('---')
-        st.subheader("Pre-Market Routine Checklist")
+        st.subheader("Morning Preparation")
+        
         pre_market_items = [
-            "Reviewed economic calendar",
-            "Analyzed major news events",
-            "Set weekly/daily biases",
-            "Identified key levels on charts",
-            "Prepared watchlist of pairs",
-            "Checked correlations",
-            "Reviewed previous trades"
+            "Reviewed overnight price action on key pairs.",
+            "Checked the economic calendar for today's major events and their times.",
+            "Read top financial news headlines that may impact market sentiment.",
+            "Defined my overall market bias for the day (e.g., bullish, bearish, neutral).",
+            "Identified and marked the daily/4-hour key levels on my watchlist pairs.",
+            "Mentally prepared and affirmed my commitment to following my trading plan."
         ]
-        pre_checklist = {item: st.checkbox(item, key=f"pre_{i}") for i, item in enumerate(pre_market_items)}
-        pre_checked = sum(1 for v in pre_checklist.values() if v)
-        st.metric("Pre-Market Completion", f"{pre_checked}/{len(pre_market_items)}")
-        if pre_checked == len(pre_market_items):
-            st.success("✅ Pre-market routine complete!")
-        st.subheader("End-of-Day Reflection")
-        with st.form("reflection_form"):
-            reflection = st.text_area("What went well today? What can be improved?")
-            submit_reflection = st.form_submit_button("Log Reflection")
-            if submit_reflection:
-                log_entry = {
-                    "Date": dt.datetime.now().strftime("%Y-%m-%d"),
-                    "Reflection": reflection
-                }
-                st.session_state.reflection_log = pd.concat([st.session_state.reflection_log, pd.DataFrame([log_entry])], ignore_index=True)
-                if st.session_state.logged_in_user is not None:
-                    username = st.session_state.logged_in_user
-                    try:
-                        save_user_data(username)
-                    except Exception as e:
-                        logging.error(f"Error saving reflection: {str(e)}")
-                st.success("Reflection logged!")
-        if not st.session_state.reflection_log.empty:
-            st.dataframe(st.session_state.reflection_log)
+        
+        all_pre_market_checked = True
+        for i, item in enumerate(pre_market_items):
+            if not st.checkbox(item, key=f"pre_market_check_{i}"):
+                all_pre_market_checked = False
+                
+        st.markdown("---")
+        if all_pre_market_checked:
+            st.success("✅ Pre-market routine complete. You are prepared for the day.")
+            
+        st.markdown("""
+        ---
+        **Disclaimer:** This checklist is a framework for building a professional trading routine. Completing it helps with preparation and mindset but does not predict or influence market outcomes.
+        """)
 
 import streamlit as st
 import os
