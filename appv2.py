@@ -3320,61 +3320,55 @@ if st.session_state.current_page == 'account':
     st.markdown("---")
 
     # --- ACCOUNT TIME SETTINGS ---
-    with st.expander("🕒 Account Time", expanded=True): # Expanded by default for visibility
-        st.subheader("Set Your Local Timezone")
-        st.caption("This ensures market session times are displayed accurately for your location.")
-        
-        all_timezones = pytz.all_timezones
-        try:
-            current_index = all_timezones.index(st.session_state.user_timezone)
-        except ValueError:
-            current_index = all_timezones.index('UTC')
-
-        with st.form("timezone_form"):
-            selected_timezone = st.selectbox(
-                "Select your timezone",
-                options=all_timezones,
-                index=current_index,
-                key="timezone_selector"
-            )
-            if st.form_submit_button("Save Timezone", use_container_width=True):
-                st.session_state.user_timezone = selected_timezone
-                st.success(f"Timezone successfully set to {selected_timezone}!")
-                st.rerun()
-
-        current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
-        st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
-
-    # --- SESSION TIMINGS SETTINGS ---
-    with st.expander("⚙️ Session Timings"):
-        st.subheader("Customize Market Session Timings (in UTC)")
-        st.caption("Adjust the universal start and end hours for each market session.")
-        with st.form("session_timings_form"):
-            col1, col2, col3 = st.columns([2, 1, 1])
-            col1.markdown("**Session**")
-            col2.markdown("**Start Hour (UTC)**")
-            col3.markdown("**End Hour (UTC)**")
+        with st.expander("🕒 Account Time", expanded=True):
+            st.subheader("Set Your Local Timezone")
+            st.caption("This only affects the display of your local time, not session calculations.")
             
-            new_timings = {}
-            for session_name, timings in st.session_state.session_timings.items():
-                with st.container():
+            all_timezones = pytz.all_timezones
+            try:
+                current_index = all_timezones.index(st.session_state.user_timezone)
+            except ValueError:
+                current_index = all_timezones.index('UTC')
+
+            with st.form("timezone_form"):
+                selected_timezone = st.selectbox("Select your timezone", options=all_timezones, index=current_index)
+                if st.form_submit_button("Save Timezone", use_container_width=True):
+                    st.session_state.user_timezone = selected_timezone
+                    st.success(f"Timezone successfully set to {selected_timezone}!")
+                    st.rerun()
+
+            current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+            st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
+
+        # --- SESSION TIMINGS SETTINGS ---
+        with st.expander("⚙️ Session Timings"):
+            st.subheader("Customize Market Session Timings (in UTC)")
+            st.caption("Adjust the universal start and end hours (0-23) for each market session.")
+            with st.form("session_timings_form"):
+                col1, col2, col3 = st.columns([2, 1, 1])
+                col1.markdown("**Session**")
+                col2.markdown("**Start Hour (UTC)**")
+                col3.markdown("**End Hour (UTC)**")
+                
+                new_timings = {}
+                for session_name, timings in st.session_state.session_timings.items():
                     c1, c2, c3 = st.columns([2, 1, 1])
                     c1.write(f"**{session_name}**")
                     start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
                     end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
                     new_timings[session_name] = {'start': start_time, 'end': end_time}
-            
-            if st.form_submit_button("Save Session Timings", use_container_width=True):
-                st.session_state.session_timings.update(new_timings)
-                st.success("Session timings have been updated successfully!")
-                st.rerun()
+                
+                if st.form_submit_button("Save Session Timings", use_container_width=True):
+                    st.session_state.session_timings.update(new_timings)
+                    st.success("Session timings have been updated successfully!")
+                    st.rerun()
 
-    # --- MANAGE ACCOUNT ---
-    with st.expander("⚙️ Manage Account"):
-        st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-        st.write("**Email**: `trader.pro@email.com` (example)")
-        if st.button("Log Out", key="logout_account_page", type="primary"):
-            handle_logout()
+        # --- MANAGE ACCOUNT ---
+        with st.expander("⚙️ Manage Account"):
+            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+            st.write("**Email**: `trader.pro@email.com` (example)")
+            if st.button("Log Out", key="logout_account_page", type="primary"):
+                handle_logout()
 
 import streamlit as st
 import os
@@ -4424,46 +4418,32 @@ def image_to_base_64(path):
         logging.warning(f"Image file not found at path: {path}")
         return None
 
-# --- NEW, CORRECTED, TIMEZONE-AWARE FUNCTION ---
+# --- NEW, SIMPLIFIED, AND CORRECTED FUNCTION ---
 def get_active_market_sessions():
     """
-    Determines active forex sessions by converting universal UTC session times 
-    into the user's selected local timezone for accurate comparison.
+    Determines active forex sessions by checking the current UTC hour against
+    the session's defined UTC start/end hours. This is the correct and robust method.
     """
-    # 1. Get user's timezone and current local time
-    user_tz_str = st.session_state.get('user_timezone', 'UTC')
-    user_timezone = pytz.timezone(user_tz_str)
-    now_local = datetime.now(user_timezone)
-    
-    # 2. Get the universal session timings (in UTC)
-    sessions_utc = st.session_state.get('session_timings', {
+    # Get user-defined UTC session timings
+    sessions = st.session_state.get('session_timings', {
         "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
         "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
     })
     
+    # Get the current time in UTC
+    current_utc_hour = datetime.now(pytz.utc).hour
+    
     active_sessions = []
-    # 3. For each session, convert its UTC start/end to the user's local time
-    for session_name, timings in sessions_utc.items():
-        utc_start_hour = timings['start']
-        utc_end_hour = timings['end']
-
-        # Create today's start/end datetime objects in UTC
-        now_utc = datetime.now(pytz.utc)
-        start_utc_dt = now_utc.replace(hour=utc_start_hour, minute=0, second=0, microsecond=0)
-        end_utc_dt = now_utc.replace(hour=utc_end_hour, minute=0, second=0, microsecond=0)
+    for session_name, timings in sessions.items():
+        start, end = timings['start'], timings['end']
         
-        # Convert these UTC datetimes to the user's local timezone
-        start_local_dt = start_utc_dt.astimezone(user_timezone)
-        end_local_dt = end_utc_dt.astimezone(user_timezone)
-
-        # Handle overnight sessions correctly after conversion
-        if start_local_dt > end_local_dt:
-            # If current time is after start OR before end, the session is active
-            if now_local >= start_local_dt or now_local < end_local_dt:
+        # For overnight sessions (e.g., Sydney)
+        if start > end:
+            if current_utc_hour >= start or current_utc_hour < end:
                 active_sessions.append(session_name)
+        # For same-day sessions
         else:
-            # For same-day sessions
-            if start_local_dt <= now_local < end_local_dt:
+            if start <= current_utc_hour < end:
                 active_sessions.append(session_name)
 
     if not active_sessions:
@@ -4475,25 +4455,17 @@ def get_active_market_sessions():
 # =========================================================
 if st.session_state.current_page == "Zenvo Academy":
     
-    # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- 1. Page-Specific Configuration (No changes here) ---
+    # --- Page Configuration and CSS (No changes here) ---
     page_info = {
-        'title': 'Zenvo Academy', 
-        'icon': 'zenvo_academy.png', 
+        'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 
         'caption': 'Your journey to trading mastery starts here.'
     }
-
-    # --- 2. Define CSS Styles for the Header (No changes here) ---
-    main_container_style = """
-        background-color: black; padding: 20px 25px; border-radius: 10px; 
-        display: flex; align-items: center; gap: 20px;
-        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-    """
+    main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;" 
     info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
@@ -4501,30 +4473,28 @@ if st.session_state.current_page == "Zenvo Academy":
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 3. Prepare Dynamic Parts of the Header (This part is now correct) ---
+    # --- Dynamic Header Parts ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-    active_sessions_str = get_active_market_sessions()
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
+    active_sessions_str = get_active_market_sessions() # This now works correctly
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
-    # --- 4. Build the HTML for the New Header (No changes here) ---
+    # --- Build and Render Header (No changes here) ---
     header_html = (
         f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
             f'<div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div style="{info_tab_style}">{market_sessions_display}</div></div>'
         '</div>'
     )
-
-    # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
 
-    # (Your page content for courses etc. goes here)
+    
 
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
