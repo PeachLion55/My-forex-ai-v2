@@ -4494,43 +4494,43 @@ from datetime import datetime
 import logging
 
 # =========================================================
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS (These should be defined globally at the top of your main script file, e.g., appv2.py)
 # =========================================================
 
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        logging.warning(f"Image file not found at path: {path}")
-        return None
 
-# --- NEW, SIMPLIFIED, AND CORRECTED FUNCTION ---
+# This function should also be defined globally, outside any page-specific if blocks.
 def get_active_market_sessions():
     """
     Determines active forex sessions by checking the current UTC hour against
     the session's defined UTC start/end hours. This is the correct and robust method.
     """
-    # Get user-defined UTC session timings
-    sessions = st.session_state.get('session_timings', {
+    # Get user-defined UTC session timings from session state, or use defaults
+    sessions_utc = st.session_state.get('session_timings', {
         "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
         "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
     })
     
     # Get the current time in UTC
-    current_utc_hour = datetime.now(pytz.utc).hour
+    current_utc_time = datetime.now(pytz.utc)
+    current_utc_hour = current_utc_time.hour
     
     active_sessions = []
-    for session_name, timings in sessions.items():
+
+    # --- DEBUGGING LINES (Uncomment these two lines temporarily if session times are wrong) ---
+    # st.write(f"DEBUG: Current UTC Time: {current_utc_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    # st.write(f"DEBUG: Sessions being checked (UTC): {sessions_utc}")
+    # --- END DEBUGGING LINES ---
+
+    for session_name, timings in sessions_utc.items():
         start, end = timings['start'], timings['end']
         
-        # For overnight sessions (e.g., Sydney)
+        # Logic for overnight sessions (e.g., Sydney: 22:00-07:00 UTC)
+        # Active if current hour is >= start OR current hour < end
         if start > end:
             if current_utc_hour >= start or current_utc_hour < end:
                 active_sessions.append(session_name)
-        # For same-day sessions
+        # Logic for same-day sessions (e.g., New York: 13:00-22:00 UTC)
+        # Active if current hour is >= start AND current hour < end
         else:
             if start <= current_utc_hour < end:
                 active_sessions.append(session_name)
@@ -4539,51 +4539,76 @@ def get_active_market_sessions():
         return "Markets Closed"
     return ", ".join(active_sessions)
 
+
 # =========================================================
 # ZENVO ACADEMY PAGE
 # =========================================================
+# This 'if' block is CRUCIAL. It ensures this code ONLY runs when the
+# user is on the "Zenvo Academy" page.
 if st.session_state.current_page == "Zenvo Academy":
     
+    # --- Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- Page Configuration and CSS (No changes here) ---
+    # --- 1. Page-Specific Configuration ---
     page_info = {
-        'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 
+        'title': 'Zenvo Academy', 
+        'icon': 'zenvo_academy.png', # Ensure this icon exists in an 'icons' subfolder
         'caption': 'Your journey to trading mastery starts here.'
     }
-    main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
+
+    # --- 2. Define CSS Styles for the Header ---
+    main_container_style = """
+        background-color: black; padding: 20px 25px; border-radius: 10px; 
+        display: flex; align-items: center; gap: 20px;
+        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+    """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;" 
-    info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
+    right_column_style = """
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-end; 
+        gap: 8px;
+    """ 
+    info_tab_style = """
+        background-color: #0E1117; border: 1px solid #2d4646; 
+        padding: 8px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif; 
+        font-size: 0.9rem; white-space: nowrap;
+    """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- Dynamic Header Parts ---
+    # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
-    icon_base64 = image_to_base_64(icon_path)
+    icon_base64 = image_to_base_64(icon_path) # Assumes image_to_base_64 is a global helper
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
-    active_sessions_str = get_active_market_sessions() # This now works correctly
+    # Use st.session_state.logged_in_user directly for welcome message if available
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.logged_in_user)}</b>!'
+    
+    # This calls the globally defined helper function
+    active_sessions_str = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
-    # --- Build and Render Header (No changes here) ---
+    # --- 4. Build the HTML for the New Header ---
     header_html = (
         f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
             f'<div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div style="{info_tab_style}">{market_sessions_display}</div></div>'
         '</div>'
     )
+
+    # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-
-    
 
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
