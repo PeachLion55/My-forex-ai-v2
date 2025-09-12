@@ -24,21 +24,6 @@ import io
 import base64
 import calendar
 from datetime import datetime, date, timedelta
-# Add this import with your other imports at the top of the script
-import pytz
-
-# Add this with your other session state initializations
-if 'user_timezone' not in st.session_state:
-    st.session_state.user_timezone = 'UTC' # Default to UTC
-
-# Add this to the top of your main script with other initializations
-if 'session_timings' not in st.session_state:
-    st.session_state.session_timings = {
-        "Sydney": {"start": 22, "end": 7},
-        "Tokyo": {"start": 0, "end": 9},
-        "London": {"start": 8, "end": 17},
-        "New York": {"start": 13, "end": 22}
-    }
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
@@ -920,7 +905,7 @@ try:
     logo_str = base64.b64encode(buffered.getvalue()).decode()
     st.sidebar.markdown(
         f"""
-        <div style='text-align: center; margin-bottom: 30px; margin-top: -40px;'>
+        <div style='text-align: center; margin-bottom: 30px; margin-top: -20px;'>
             <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
         </div>
         """,
@@ -2783,196 +2768,195 @@ if st.session_state.current_page == 'mt5':
 
 
 import streamlit as st
-import pandas as pd
-import datetime as dt
 import os
-import logging
-import plotly.express as px
+import io
 import base64
 
 # =========================================================
-# 1. HELPER FUNCTIONS
+# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
 # =========================================================
-
 @st.cache_data
 def image_to_base_64(path):
-    """Converts a local image file to a base64 string for embedding."""
+    """Converts a local image file to a base64 string."""
     try:
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        logging.warning(f"Header icon not found at path: {path}. The header will be displayed without an icon.")
+        print(f"Warning: Image file not found at path: {path}")
         return None
 
-def save_user_data(username):
-    """Placeholder function to save user data."""
-    logging.info(f"Data for {username} would be saved here.")
-    pass
-
 # =========================================================
-# 2. SESSION STATE INITIALIZATION
+# MANAGE MY STRATEGY PAGE
 # =========================================================
-
-def initialize_session_state():
-    """Initializes all required session state variables to prevent errors."""
-    if 'logged_in_user' not in st.session_state:
-        st.session_state.logged_in_user = 'TestUser'
-    if 'user_nickname' not in st.session_state:
-        st.session_state.user_nickname = 'StreamlitFan'
-    if 'strategies' not in st.session_state:
-        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-    if 'trade_journal' not in st.session_state:
-        st.session_state.trade_journal = pd.DataFrame()
-    if 'mt5_df' not in st.session_state:
-        st.session_state.mt5_df = pd.DataFrame()
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'strategy'
-
-# Call the initialization function at the start of the script run
-initialize_session_state()
-
-# =========================================================
-# 3. PAGE DEFINITION for 'MANAGE MY STRATEGY'
-# =========================================================
-
 if st.session_state.current_page == 'strategy':
-
-    # --- Login Check ---
+    # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to manage your strategies.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- Custom Page Header ---
+    # --- 1. Page-Specific Configuration ---
     page_info = {
-        'title': 'Manage My Strategy', 'icon': 'manage_my_strategy.png',
+        'title': 'Manage My Strategy', 
+        'icon': 'manage_my_strategy.png', 
         'caption': 'Define, refine, and track your trading strategies.'
     }
-    main_container_style = """background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"""
+
+    # --- 2. Define CSS Styles for the New Header ---
+    main_container_style = """
+        background-color: black; 
+        padding: 20px 25px; 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px;
+        border: 1px solid #2d4646;
+        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+    """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+    # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+    
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+    # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style}"><div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1>'
-        f'<p style="{caption_style}">{page_info["caption"]}</p></div></div><div style="{right_column_style}">{welcome_message}</div></div>'
+        f'<div style="{main_container_style.replace(" G", " ")}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">'
+                f'{welcome_message}'
+            '</div>'
+        '</div>'
     )
+
+    # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
 
-    # --- MODULAR FUNCTIONS FOR PAGE SECTIONS ---
+    # (The rest of your page code for managing strategies goes here...)
+    st.subheader("➕ Add New Strategy")
+    with st.form("strategy_form"):
+        strategy_name = st.text_input("Strategy Name")
+        description = st.text_area("Strategy Description")
+        entry_rules = st.text_area("Entry Rules")
+        exit_rules = st.text_area("Exit Rules")
+        risk_management = st.text_area("Risk Management Rules")
+        submit_strategy = st.form_submit_button("Save Strategy")
+        if submit_strategy:
+            strategy_data = {
+                "Name": strategy_name,
+                "Description": description,
+                "Entry Rules": entry_rules,
+                "Exit Rules": exit_rules,
+                "Risk Management": risk_management,
+                "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
+            }
+            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([strategy_data])], ignore_index=True)
+            if st.session_state.logged_in_user is not None:
+                username = st.session_state.logged_in_user
+                try:
+                    save_user_data(username)
+                    st.success("Strategy saved to your account!")
+                    logging.info(f"Strategy saved for {username}: {strategy_name}")
+                except Exception as e:
+                    st.error(f"Failed to save strategy: {str(e)}")
+                    logging.error(f"Error saving strategy for {username}: {str(e)}")
+            st.success(f"Strategy '{strategy_name}' added successfully!")
 
-    def render_view_section():
-        st.subheader("🔎 View & Manage Your Strategies")
-        if not st.session_state.strategies.empty:
-            strategy_options = st.session_state.strategies['Name'].tolist()
-            selected_strategy_name = st.selectbox(
-                "Select a strategy to view its details",
-                options=strategy_options, index=0, label_visibility="collapsed"
-            )
-            selected_strategy_details = st.session_state.strategies[st.session_state.strategies['Name'] == selected_strategy_name].iloc[0]
-            with st.container(border=True):
-                st.markdown(f"### Details for: `{selected_strategy_details['Name']}`")
-                st.caption(f"Date Added: {selected_strategy_details['Date Added']}")
-                if st.button("❌ Delete This Strategy", key=f"delete_{selected_strategy_name}", use_container_width=True):
-                    idx_to_drop = st.session_state.strategies[st.session_state.strategies['Name'] == selected_strategy_name].index
-                    st.session_state.strategies = st.session_state.strategies.drop(idx_to_drop).reset_index(drop=True)
-                    if st.session_state.logged_in_user:
-                        save_user_data(st.session_state.logged_in_user)
-                    st.success(f"Strategy '{selected_strategy_name}' deleted.")
-                    st.rerun()
-                def display_multiline_text(title, text):
-                    st.markdown(f"<h5>{title}</h5>", unsafe_allow_html=True)
-                    formatted_text = text.replace('\n', '<br>')
-                    st.markdown(f"<div style='background-color:#0E1117; padding: 10px; border-radius: 5px; border: 1px solid #2d4646; min-height: 40px;'>{formatted_text}</div>", unsafe_allow_html=True)
-                display_multiline_text("Description", selected_strategy_details['Description'])
-                display_multiline_text("Entry Rules", selected_strategy_details['Entry Rules'])
-                display_multiline_text("Exit Rules", selected_strategy_details['Exit Rules'])
-                display_multiline_text("Risk Management", selected_strategy_details['Risk Management'])
-
-    def render_add_form():
-        st.subheader("➕ Add a New Strategy")
-        with st.form("strategy_form", clear_on_submit=True):
-            strategy_name = st.text_input("Strategy Name*", help="A unique and memorable name for your strategy.")
-            description = st.text_area("Strategy Description", help="What is the core idea or thesis behind this strategy?")
-            entry_rules = st.text_area("Entry Rules", height=150, help="Define the precise conditions for entering a trade.")
-            exit_rules = st.text_area("Exit Rules", height=150, help="Define the conditions for exiting a trade.")
-            risk_management = st.text_area("Risk Management", help="Define rules for position sizing, max risk per trade, etc.")
-            if st.form_submit_button("💾 Save Strategy"):
-                if not strategy_name:
-                    st.warning("Strategy Name is a required field.")
-                else:
-                    strategy_data = {"Name": strategy_name, "Description": description, "Entry Rules": entry_rules, "Exit Rules": exit_rules, "Risk Management": risk_management, "Date Added": dt.datetime.now().strftime("%Y-%m-%d")}
-                    new_strategy_df = pd.DataFrame([strategy_data])
-                    st.session_state.strategies = pd.concat([new_strategy_df, st.session_state.strategies], ignore_index=True)
-                    if st.session_state.logged_in_user:
-                        save_user_data(st.session_state.logged_in_user)
-                    st.success(f"Strategy '{strategy_name}' saved!")
-                    st.rerun()
-
-    def render_analytics_section():
-        st.subheader("📖 Evolving Playbook")
-        st.caption("Your refined edge profile based on real-time and historical trade data.")
-        journal_df = st.session_state.get('trade_journal', pd.DataFrame())
-        mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
-        combined_df = journal_df.copy()
-        if combined_df.empty:
-            sample_data = {'Symbol': ['EURUSD', 'EURUSD', 'GBPJPY', 'GBPJPY', 'AUDUSD', 'EURUSD'], 'RR': [2.5, -1.0, 3.0, -1.0, 1.5, -1.0]}
-            combined_df = pd.DataFrame(sample_data)
-        if "RR" in combined_df.columns:
-            combined_df['r'] = pd.to_numeric(combined_df['RR'], errors='coerce')
-        if "Symbol" in combined_df.columns and 'r' in combined_df.columns and not combined_df['r'].isnull().all():
-            g = combined_df.dropna(subset=["r"]).groupby("Symbol")
-            res_data = []
-            for name, group in g:
-                wins_r = group[group['r'] > 0]['r']
-                losses_r = group[group['r'] < 0]['r']
-                winrate_calc = len(wins_r) / len(group) if len(group) > 0 else 0.0
-                avg_win_r = wins_r.mean() if not wins_r.empty else 0.0
-                avg_loss_r = abs(losses_r.mean()) if not losses_r.empty else 0.0
-                expectancy_calc = (winrate_calc * avg_win_r) - ((1 - winrate_calc) * avg_loss_r)
-                res_data.append({"Symbol": name, "Trades": len(group), "Win Rate (%)": winrate_calc * 100, "Avg Win (R)": avg_win_r, "Avg Loss (R)": avg_loss_r, "Expectancy (R)": expectancy_calc})
-            if res_data:
-                agg_df = pd.DataFrame(res_data).sort_values("Expectancy (R)", ascending=False).reset_index(drop=True)
-                c1, c2, c3 = st.columns(3)
-                best_performer = agg_df.iloc[0]
-                c1.metric("🚀 Best Performer", best_performer['Symbol'], f"{best_performer['Expectancy (R)']:.2f} R")
-                c2.metric("📈 Total Trades Logged", f"{agg_df['Trades'].sum()}")
-                c3.metric("📊 Average Win Rate", f"{agg_df['Win Rate (%)'].mean():.2f}%")
-                data_col, chart_col = st.columns([1.5, 1])
-                with data_col:
-                    st.dataframe(agg_df, use_container_width=True, column_config={"Win Rate (%)": st.column_config.ProgressColumn(format="%.2f%%", min_value=0, max_value=100), "Avg Win (R)": st.column_config.NumberColumn(format="%.2f R"), "Avg Loss (R)": st.column_config.NumberColumn(format="%.2f R"), "Expectancy (R)": st.column_config.NumberColumn(format="%.2f R")})
-                with chart_col:
-                    fig = px.bar(agg_df, x='Symbol', y='Expectancy (R)', color='Expectancy (R)', color_continuous_scale=px.colors.sequential.RdBu, title="Expectancy per Symbol")
-                    fig.update_layout(xaxis_title="Symbol", yaxis_title="Expectancy (R-Multiple)", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-                    st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Log more trades to evolve your playbook.")
-        else:
-            st.info("Ensure your trade logs contain a numerical 'RR' column to analyze your playbook.")
-
-
-    # --- CONDITIONAL LAYOUT LOGIC ---
-    # If strategies exist, show the View section first. Otherwise, show the Add section first.
     if not st.session_state.strategies.empty:
-        render_view_section()
-        st.markdown("---")
-        render_add_form()
+        st.subheader("Your Strategies")
+        for idx, row in st.session_state.strategies.iterrows():
+            with st.expander(f"Strategy: {row['Name']} (Added: {row['Date Added']})"):
+                st.markdown(f"Description: {row['Description']}")
+                st.markdown(f"Entry Rules: {row['Entry Rules']}")
+                st.markdown(f"Exit Rules: {row['Exit Rules']}")
+                st.markdown(f"Risk Management: {row['Risk Management']}")
+                if st.button("Delete Strategy", key=f"delete_strategy_{idx}"):
+                    st.session_state.strategies = st.session_state.strategies.drop(idx).reset_index(drop=True)
+                    if st.session_state.logged_in_user is not None:
+                        username = st.session_state.logged_in_user
+                        try:
+                            save_user_data(username)
+                            st.success("Strategy deleted and account updated!")
+                            logging.info(f"Strategy deleted for {username}")
+                        except Exception as e:
+                            st.error(f"Failed to delete strategy: {str(e)}")
+                            logging.error(f"Error deleting strategy for {username}: {str(e)}")
+                    st.rerun()
     else:
-        render_add_form()
-        st.markdown("---")
-        st.info("No strategies defined yet. Add one above to get started.")
+        st.info("No strategies defined yet. Add one above.")
+    
+    st.subheader("📖 Evolving Playbook")
+    journal_df = st.session_state.trade_journal
+    mt5_df = st.session_state.mt5_df
 
-    # --- Analytics section is always at the bottom ---
-    st.markdown("---")
-    render_analytics_section()
+    combined_df = journal_df.copy()
+    
+    if not mt5_df.empty and 'Profit' in mt5_df.columns:
+        mt5_temp = pd.DataFrame()
+        mt5_temp['Date'] = pd.to_datetime(mt5_df['Close Time'], errors='coerce')
+        mt5_temp['PnL'] = pd.to_numeric(mt5_df['Profit'], errors='coerce').fillna(0.0)
+        mt5_temp['Symbol'] = mt5_df['Symbol']
+        mt5_temp['Outcome'] = mt5_df['Profit'].apply(lambda x: 'Win' if x > 0 else ('Loss' if x < 0 else 'Breakeven'))
+        if 'Open Price' in mt5_df.columns and 'StopLoss' in mt5_df.columns and 'Close Time' in mt5_df.columns: # Fixed to use mt5_df
+             mt5_temp['RR'] = mt5_df.apply(lambda row: (row['Profit'] / abs(row['Open Price'] - row['StopLoss'])) if abs(row['Open Price'] - row['StopLoss']) > 0 else 0, axis=1)
+        else:
+            mt5_temp['RR'] = 0.0
+        
+        for col in journal_cols:
+            if col not in mt5_temp.columns:
+                mt5_temp[col] = pd.Series(dtype=journal_dtypes.get(col))
+
+        combined_df = pd.concat([combined_df, mt5_temp[journal_cols]], ignore_index=True)
+
+    if "RR" in combined_df.columns:
+        combined_df['r'] = pd.to_numeric(combined_df['RR'], errors='coerce')
+    
+    group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
+
+    if group_cols and 'r' in combined_df.columns and not combined_df['r'].isnull().all():
+        g = combined_df.dropna(subset=["r"]).groupby(group_cols)
+
+        res_data = []
+        for name, group in g:
+            wins_r = group[group['r'] > 0]['r']
+            losses_r = group[group['r'] < 0]['r']
+
+            winrate_calc = len(wins_r) / len(group) if len(group) > 0 else 0.0
+            avg_win_r = wins_r.mean() if not wins_r.empty else 0.0
+            avg_loss_r = abs(losses_r.mean()) if not losses_r.empty else 0.0
+
+            expectancy_calc = (winrate_calc * avg_win_r) - ((1 - winrate_calc) * avg_loss_r)
+            
+            res_data.append({
+                "Symbol": name if isinstance(name, str) else name[0],
+                "trades": len(group),
+                "winrate": winrate_calc,
+                "avg_win_R": avg_win_r,
+                "avg_loss_R": avg_loss_r,
+                "expectancy_R": expectancy_calc
+            })
+        
+        agg = pd.DataFrame(res_data).sort_values("expectancy_R", ascending=False)
+        st.write("Your refined edge profile based on logged trades:")
+        st.dataframe(agg)
+    else:
+        st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
 import streamlit as st
 import os
@@ -2984,87 +2968,24 @@ import pandas as pd
 import plotly.graph_objects as go
 import time
 import logging
-import pytz # Ensure pytz is imported at the very top of your main script
-
-# =========================================================
-# HELPER FUNCTIONS (Place these at the very top of your main app.py, globally)
-# =========================================================
-
-# @st.cache_data
-# def image_to_base_64(path):
-#     """Converts a local image file to a base64 string."""
-#     try:
-#         with open(path, "rb") as image_file:
-#             return base64.b64encode(image_file.read()).decode()
-#     except FileNotFoundError:
-#         logging.warning(f"Warning: Image file not found at path: {path}")
-#         return None
-
-# def handle_logout():
-#     """Handles user logout."""
-#     keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics', 'user_timezone', 'session_timings']
-#     for key in keys_to_delete:
-#         if key in st.session_state:
-#             del st.session_state[key]
-#     st.session_state.current_page = "account"
-#     st.rerun()
-
-# --- NEW/UPDATED get_active_market_sessions (Make sure this is also a global helper) ---
-def get_active_market_sessions():
-    """
-    Determines active forex sessions by checking the current UTC hour against
-    the session's defined UTC start/end hours. This is the correct and robust method.
-    """
-    # Get user-defined UTC session timings from session state, or use defaults
-    sessions_utc = st.session_state.get('session_timings', {
-        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
-        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
-    })
-    
-    # Get the current time in UTC
-    current_utc_hour = datetime.now(pytz.utc).hour
-    
-    active_sessions = []
-    for session_name, timings in sessions_utc.items():
-        start, end = timings['start'], timings['end']
-        
-        # Logic for overnight sessions (e.g., Sydney: 22:00-07:00 UTC)
-        # If current hour is >= start OR current hour < end, it's active
-        if start > end:
-            if current_utc_hour >= start or current_utc_hour < end:
-                active_sessions.append(session_name)
-        # Logic for same-day sessions (e.g., London: 08:00-17:00 UTC)
-        # If current hour is >= start AND current hour < end, it's active
-        else:
-            if start <= current_utc_hour < end:
-                active_sessions.append(session_name)
-
-    if not active_sessions:
-        return "Markets Closed"
-    return ", ".join(active_sessions)
 
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
-
-# This is the primary conditional block for the entire account page
 if st.session_state.current_page == 'account':
 
-    # --- Initializations for the Account Page ---
-    # Ensure these are initialized for the account page's context if not global
-    if 'auth_view' not in st.session_state:
-        st.session_state.auth_view = 'login'
-    if 'user_timezone' not in st.session_state:
-        st.session_state.user_timezone = 'UTC'
-    if 'session_timings' not in st.session_state:
-        st.session_state.session_timings = {
-            "Sydney": {"start": 22, "end": 7},
-            "Tokyo": {"start": 0, "end": 9},
-            "London": {"start": 8, "end": 17},
-            "New York": {"start": 13, "end": 22}
-        }
-    
-    # This block renders the login/signup forms when the user is NOT logged in.
+    # --- HELPER FUNCTION DEFINED AT THE TOP ---
+    @st.cache_data
+    def image_to_base_64(path):
+        """Converts a local image file to a base64 string."""
+        try:
+            with open(path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        except FileNotFoundError:
+            st.warning(f"Warning: Image file not found at path: {path}")
+            return None
+
+    # This block renders the final, correctly centered login form when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
         # --- FINAL CSS FOR THE CONDENSED, CENTERED FORM ---
@@ -3166,6 +3087,10 @@ if st.session_state.current_page == 'account':
         </style>
         """, unsafe_allow_html=True)
 
+        # Initialize view state
+        if 'auth_view' not in st.session_state:
+            st.session_state.auth_view = 'login'
+        
         # Using the wrapper div to contain and center the form
         st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
@@ -3187,27 +3112,14 @@ if st.session_state.current_page == 'account':
 
             if login_button:
                 # NOTE: Assume `c`, `conn` are available from your app's setup
-                # For demonstration, use a placeholder logic if c and conn are not defined here
-                if 'c' in globals() and 'conn' in globals(): # Check if SQL objects exist
-                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result and result[0] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        # Optionally load user data here, including user_timezone, session_timings etc.
-                        # For example: user_data = json.loads(result[1])
-                        # st.session_state.user_timezone = user_data.get('user_timezone', 'UTC')
-                        # st.session_state.session_timings = user_data.get('session_timings', default_session_timings)
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password.")
-                else: # Placeholder for testing without actual DB connection
-                    if username == "test" and password == "test":
-                        st.session_state.logged_in_user = "test"
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password. (Using test credentials: 'test'/'test')")
-
+                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result and result[0] == hashed_password:
+                    st.session_state.logged_in_user = username
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password.")
 
             st.markdown('<div class="bottom-container">', unsafe_allow_html=True)
             if st.button("Sign up", key="signup_toggle"):
@@ -3228,33 +3140,13 @@ if st.session_state.current_page == 'account':
                 if new_password != confirm_password: st.error("Passwords do not match.")
                 elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                 else:
-                    if 'c' in globals() and 'conn' in globals(): # Check if SQL objects exist
-                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                        if c.fetchone(): st.error("Username already exists.")
-                        else:
-                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            # Ensure default session_timings and user_timezone are saved
-                            initial_user_data = {
-                                "xp": 0, "level": 0, "badges": [], "streak": 0, 
-                                "last_journal_date": None, "last_login_xp_date": None, 
-                                "gamification_flags": {}, "drawings": [], "trade_journal": [], 
-                                "strategies": [], "emotion_log": [], "reflection_log": [], 
-                                "xp_log": [], 'chatroom_rules_accepted': False, 
-                                'chatroom_nickname': None,
-                                'user_timezone': 'UTC', # Default for new users
-                                'session_timings': { # Default for new users
-                                    "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
-                                    "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
-                                }
-                            }
-                            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, json.dumps(initial_user_data)))
-                            conn.commit()
-                            st.session_state.logged_in_user = new_username
-                            st.session_state.user_timezone = initial_user_data['user_timezone']
-                            st.session_state.session_timings = initial_user_data['session_timings']
-                            st.rerun()
-                    else: # Placeholder for testing without actual DB connection
-                        st.success("User registered! (No DB, using test data)")
+                    c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
+                    if c.fetchone(): st.error("Username already exists.")
+                    else:
+                        hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                        initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
+                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                        conn.commit()
                         st.session_state.logged_in_user = new_username
                         st.rerun()
 
@@ -3268,30 +3160,27 @@ if st.session_state.current_page == 'account':
 
 
     # --- LOGGED-IN VIEW ---
-    # This block displays the dashboard and settings when a user IS logged in.
+    # This block displays your full dashboard when a user IS logged in. It remains untouched.
     else:
-        # Assuming handle_logout is defined globally or in the main app logic
         def handle_logout():
-            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics', 'user_timezone', 'session_timings']
+            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
             for key in keys_to_delete:
                 if key in st.session_state:
                     del st.session_state[key]
             st.session_state.current_page = "account"
             st.rerun()
-
         # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
-        # Ensure image_to_base_64 is accessible here, e.g., defined globally
-        if os.path.exists(icon_path) and 'image_to_base_64' in globals():
+        if os.path.exists(icon_path):
             icon_base64_welcome = image_to_base_64(icon_path)
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
-                    <h2 style="margin: 0;">Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋</h2>
+                    <h2 style="margin: 0;">Welcome back, {st.session_state.logged_in_user}! 👋</h2>
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.header(f"Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋")
+            st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
 
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
@@ -3359,15 +3248,21 @@ if st.session_state.current_page == 'account':
         current_rxp = int(st.session_state.get('xp', 0) / 2)
         st.info(f"You have **{current_rxp:,} RXP** available to spend.")
         
-        items = {"1_month_access": {"name": "6th Month Free Access", "cost": 650, "icon": "🗓️"}, "consultation": {"name": "Any Month Free Access", "cost": 850, "icon": "🗓️"}, "advanced_course": {"name": "Any 2 Month Free Access", "cost": 1400, "icon": "🗓️"}}
+        items = {"1_month_access": {"name": "6th Month Free Access", "cost": 300, "icon": "🗓️"}, "consultation": {"name": "Any Month Free Access", "cost": 750, "icon": "🗓️"}, "advanced_course": {"name": "Any 2 Month Free Access", "cost": 1400, "icon": "🗓️"}}
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
                 # The container div helps with consistent height
                 st.markdown(f'<div><div class="redeem-card"><div><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem", key=f"redeem_{item_key}", use_container_width=True):
-                    # Placeholder for redemption logic
-                    pass 
+                    # if current_rxp >= item_details['cost']:
+                        # ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
+                        # st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
+                        # time.sleep(1)
+                        # st.rerun()
+                    # else:
+                        # st.warning("You do not have enough RXP for this item.")
+                    pass # Placeholder for redemption logic
                 st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
@@ -3385,8 +3280,8 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- HOW TO EARN XP (Settings version) ---
-        st.subheader("How to Earn XP") 
+        # --- HOW TO EARN XP ---
+        st.subheader("❓ How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
         - **Daily Login**: Log in each day to earn **10 XP** for your consistency.
@@ -3402,63 +3297,18 @@ if st.session_state.current_page == 'account':
             * Reach a Win Rate of 60% or higher: **+20 XP**
         - **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
         - **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
-
+        
         Keep exploring the dashboard and trading to earn more XP and climb the ranks!
         """)
-
+        
         st.markdown("---")
-
-        # --- ACCOUNT TIME SETTINGS ---
-        with st.expander("🕒 Account Time", expanded=True):
-            st.subheader("Set Your Local Timezone")
-            st.caption("This only affects the display of your local time, not market session calculations.")
-            
-            all_timezones = pytz.all_timezones
-            try:
-                current_index = all_timezones.index(st.session_state.user_timezone)
-            except ValueError:
-                current_index = all_timezones.index('UTC')
-
-            with st.form("timezone_form"):
-                selected_timezone = st.selectbox("Select your timezone", options=all_timezones, index=current_index)
-                if st.form_submit_button("Save Timezone", use_container_width=True):
-                    st.session_state.user_timezone = selected_timezone
-                    st.success(f"Timezone successfully set to {selected_timezone}!")
-                    st.rerun()
-
-            current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
-            st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
-
-        # --- SESSION TIMINGS SETTINGS ---
-        with st.expander("⚙️ Session Timings"):
-            st.subheader("Customize Market Session Timings (in UTC)")
-            st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
-            with st.form("session_timings_form"):
-                col1, col2, col3 = st.columns([2, 1, 1])
-                col1.markdown("**Session**")
-                col2.markdown("**Start Hour (UTC)**")
-                col3.markdown("**End Hour (UTC)**")
-                
-                new_timings = {}
-                for session_name, timings in st.session_state.session_timings.items():
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    c1.write(f"**{session_name}**")
-                    start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
-                    end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
-                    new_timings[session_name] = {'start': start_time, 'end': end_time}
-                
-                if st.form_submit_button("Save Session Timings", use_container_width=True):
-                    st.session_state.session_timings.update(new_timings)
-                    st.success("Session timings have been updated successfully!")
-                    st.rerun()
 
         # --- MANAGE ACCOUNT ---
         with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)")
             if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout() # Ensure this function is defined elsewhere (e.g., globally or in your main app logic)```
-
+                handle_logout()
 import streamlit as st
 import os
 import io
@@ -4488,66 +4338,27 @@ if st.session_state.current_page == 'trading_tools':
 
 import streamlit as st
 import os
+import io
 import base64
-import pytz
-from datetime import datetime
-import logging
 
 # =========================================================
-# HELPER FUNCTIONS (These should be defined globally at the top of your main script file, e.g., appv2.py)
+# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
 # =========================================================
-
-
-# This function should also be defined globally, outside any page-specific if blocks.
-def get_active_market_sessions():
-    """
-    Determines active forex sessions by checking the current UTC hour against
-    the session's defined UTC start/end hours. This is the correct and robust method.
-    """
-    # Get user-defined UTC session timings from session state, or use defaults
-    sessions_utc = st.session_state.get('session_timings', {
-        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
-        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
-    })
-    
-    # Get the current time in UTC
-    current_utc_time = datetime.now(pytz.utc)
-    current_utc_hour = current_utc_time.hour
-    
-    active_sessions = []
-
-    # --- DEBUGGING LINES (Uncomment these two lines temporarily if session times are wrong) ---
-    # st.write(f"DEBUG: Current UTC Time: {current_utc_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    # st.write(f"DEBUG: Sessions being checked (UTC): {sessions_utc}")
-    # --- END DEBUGGING LINES ---
-
-    for session_name, timings in sessions_utc.items():
-        start, end = timings['start'], timings['end']
-        
-        # Logic for overnight sessions (e.g., Sydney: 22:00-07:00 UTC)
-        # Active if current hour is >= start OR current hour < end
-        if start > end:
-            if current_utc_hour >= start or current_utc_hour < end:
-                active_sessions.append(session_name)
-        # Logic for same-day sessions (e.g., New York: 13:00-22:00 UTC)
-        # Active if current hour is >= start AND current hour < end
-        else:
-            if start <= current_utc_hour < end:
-                active_sessions.append(session_name)
-
-    if not active_sessions:
-        return "Markets Closed"
-    return ", ".join(active_sessions)
-
+@st.cache_data
+def image_to_base_64(path):
+    """Converts a local image file to a base64 string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        print(f"Warning: Image file not found at path: {path}")
+        return None
 
 # =========================================================
 # ZENVO ACADEMY PAGE
 # =========================================================
-# This 'if' block is CRUCIAL. It ensures this code ONLY runs when the
-# user is on the "Zenvo Academy" page.
 if st.session_state.current_page == "Zenvo Academy":
-    
-    # --- Login Check ---
+    # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
@@ -4556,30 +4367,23 @@ if st.session_state.current_page == "Zenvo Academy":
     # --- 1. Page-Specific Configuration ---
     page_info = {
         'title': 'Zenvo Academy', 
-        'icon': 'zenvo_academy.png', # Ensure this icon exists in an 'icons' subfolder
+        'icon': 'zenvo_academy.png', 
         'caption': 'Your journey to trading mastery starts here.'
     }
 
-    # --- 2. Define CSS Styles for the Header ---
+    # --- 2. Define CSS Styles for the New Header ---
     main_container_style = """
-        background-color: black; padding: 20px 25px; border-radius: 10px; 
-        display: flex; align-items: center; gap: 20px;
-        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+        background-color: black; 
+        padding: 20px 25px; 
+        border-radius: 10px; 
+        display: flex; 
+        align-items: center; 
+        gap: 20px;
+        border: 1px solid #2d4646;
+        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = """
-        flex: 1; 
-        display: flex; 
-        flex-direction: column; 
-        align-items: flex-end; 
-        gap: 8px;
-    """ 
-    info_tab_style = """
-        background-color: #0E1117; border: 1px solid #2d4646; 
-        padding: 8px 15px; border-radius: 8px; color: white; 
-        text-align: center; font-family: sans-serif; 
-        font-size: 0.9rem; white-space: nowrap;
-    """
+    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -4587,22 +4391,25 @@ if st.session_state.current_page == "Zenvo Academy":
     # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
-    icon_base64 = image_to_base_64(icon_path) # Assumes image_to_base_64 is a global helper
+    icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    # Use st.session_state.logged_in_user directly for welcome message if available
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.logged_in_user)}</b>!'
-    
-    # This calls the globally defined helper function
-    active_sessions_str = get_active_market_sessions()
-    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style}">'
-            f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
-            f'<div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div style="{info_tab_style}">{market_sessions_display}</div></div>'
+        f'<div style="{main_container_style.replace(" G", " ")}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">'
+                f'{welcome_message}'
+            '</div>'
         '</div>'
     )
 
@@ -4611,6 +4418,7 @@ if st.session_state.current_page == "Zenvo Academy":
     st.markdown("---")
 
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
+
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
 
     with tab1:
