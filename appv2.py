@@ -3320,7 +3320,7 @@ if st.session_state.current_page == 'account':
     st.markdown("---")
 
     # --- ACCOUNT TIME SETTINGS ---
-        with st.expander("🕒 Account Time", expanded=True):
+            with st.expander("🕒 Account Time", expanded=True):
             st.subheader("Set Your Local Timezone")
             st.caption("This only affects the display of your local time, not session calculations.")
             
