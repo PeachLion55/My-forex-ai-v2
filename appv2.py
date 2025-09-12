@@ -3282,34 +3282,66 @@ if st.session_state.current_page == 'account':
         st.markdown("---")
 
         # --- HOW TO EARN XP ---
-        st.subheader("How to Earn XP") 
-        st.markdown("""
-        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
-        - **Daily Login**: Log in each day to earn **10 XP** for your consistency.
-        - **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
-        - **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
-        - **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
-            * Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
-            * Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
-            * Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
-        - **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
-            * Maintain a Profit Factor of 2.0 or higher: **+30 XP**
-            * Achieve an Average R:R of 1.5 or higher: **+25 XP**
-            * Reach a Win Rate of 60% or higher: **+20 XP**
-        - **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
-        - **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
-        
-        Keep exploring the dashboard and trading to earn more XP and climb the ranks!
-        """)
-        
-        st.markdown("---")
+st.subheader("How to Earn XP") 
+st.markdown("""
+Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
+- **Daily Login**: Log in each day to earn **10 XP** for your consistency.
+- **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
+- **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
+- **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
+    * Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
+    * Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
+    * Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
+- **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
+    * Maintain a Profit Factor of 2.0 or higher: **+30 XP**
+    * Achieve an Average R:R of 1.5 or higher: **+25 XP**
+    * Reach a Win Rate of 60% or higher: **+20 XP**
+- **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
+- **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
 
-        # --- MANAGE ACCOUNT ---
-        with st.expander("⚙️ Manage Account"):
-            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()
+Keep exploring the dashboard and trading to earn more XP and climb the ranks!
+""")
+
+st.markdown("---")
+
+# --- NEW SESSION TIMINGS SETTINGS ---
+with st.expander("⚙️ Session Timings"):
+    st.subheader("Customize Market Session Timings (UTC)")
+    st.caption("Adjust the start and end hours for each market session. These timings will be reflected in the header across the application.")
+
+    with st.form("session_timings_form"):
+        # Use columns for a clean header row
+        col1, col2, col3 = st.columns([2, 1, 1])
+        col1.markdown("**Session**")
+        col2.markdown("**Start Hour (0-23)**")
+        col3.markdown("**End Hour (0-23)**")
+
+        # Create a dictionary to hold the new values submitted by the form
+        new_timings = {}
+        # Iterate through the sessions currently stored in the session state
+        for session_name, timings in st.session_state.session_timings.items():
+            with st.container():
+                c1, c2, c3 = st.columns([2, 1, 1])
+                c1.write(f"**{session_name}**")
+                # Create number inputs for start and end times
+                start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                # Store the form's current values in our temporary dictionary
+                new_timings[session_name] = {'start': start_time, 'end': end_time}
+
+        submitted = st.form_submit_button("Save Session Timings", use_container_width=True)
+        if submitted:
+            # When the form is submitted, update the session_state with the new values
+            st.session_state.session_timings.update(new_timings)
+            st.success("Your session timings have been updated successfully!")
+            st.rerun()
+
+# --- MANAGE ACCOUNT ---
+with st.expander("⚙️ Manage Account"):
+    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+    st.write("**Email**: `trader.pro@email.com` (example)")
+    if st.button("Log Out", key="logout_account_page", type="primary"):
+        handle_logout() # Ensure the handle_logout() function is defined elsewhere in your app
 import streamlit as st
 import os
 import io
