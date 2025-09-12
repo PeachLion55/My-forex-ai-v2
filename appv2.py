@@ -905,7 +905,7 @@ try:
     logo_str = base64.b64encode(buffered.getvalue()).decode()
     st.sidebar.markdown(
         f"""
-        <div style='text-align: center; margin-bottom: 30px; margin-top: -20px;'>
+        <div style='text-align: center; margin-bottom: 30px; margin-top: -35px;'>
             <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
         </div>
         """,
@@ -3303,12 +3303,82 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- MANAGE ACCOUNT ---
-        with st.expander("⚙️ Manage Account"):
-            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()
+        # --- NICKNAME SETTINGS ---
+with st.expander("👤 Nickname"):
+    st.caption("Set a custom nickname that will be displayed throughout the application.")
+    with st.form("nickname_form"):
+        # The text input defaults to the current nickname or the username if no nickname is set
+        nickname = st.text_input(
+            "Your Nickname",
+            value=st.session_state.get('user_nickname', st.session_state.logged_in_user),
+            key="nickname_input"
+        )
+        if st.form_submit_button("Save Nickname", use_container_width=True):
+            st.session_state.user_nickname = nickname
+            st.success("Your nickname has been updated!")
+            # It's good practice to save this to your database here
+            st.rerun()
+
+# --- ACCOUNT TIME SETTINGS ---
+with st.expander("🕒 Account Time"):
+    st.caption("Select your timezone to display times accurately across the application.")
+    
+    # Get a list of all available timezones
+    all_timezones = pytz.all_timezones
+    
+    # Find the index of the currently saved timezone to set as the default
+    try:
+        current_index = all_timezones.index(st.session_state.user_timezone)
+    except ValueError:
+        current_index = all_timezones.index('UTC') # Fallback to UTC if saved value is invalid
+
+    with st.form("timezone_form"):
+        selected_timezone = st.selectbox(
+            "Select your timezone",
+            options=all_timezones,
+            index=current_index,
+            key="timezone_selector"
+        )
+        if st.form_submit_button("Save Timezone", use_container_width=True):
+            st.session_state.user_timezone = selected_timezone
+            st.success(f"Timezone successfully set to {selected_timezone}!")
+            # Save to database here
+            st.rerun()
+
+    # Provide immediate feedback to the user of their current selected time
+    current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+    st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
+
+# --- SESSION TIMINGS SETTINGS ---
+with st.expander("📈 Session Timings"):
+    st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
+    with st.form("session_timings_form"):
+        col1, col2, col3 = st.columns([2, 1, 1])
+        col1.markdown("**Session**")
+        col2.markdown("**Start Hour (UTC)**")
+        col3.markdown("**End Hour (UTC)**")
+        
+        new_timings = {}
+        for session_name, timings in st.session_state.session_timings.items():
+            with st.container():
+                c1, c2, c3 = st.columns([2, 1, 1])
+                c1.write(f"**{session_name}**")
+                start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                new_timings[session_name] = {'start': start_time, 'end': end_time}
+        
+        if st.form_submit_button("Save Session Timings", use_container_width=True):
+            st.session_state.session_timings.update(new_timings)
+            st.success("Session timings have been updated successfully!")
+            # Save to database here
+            st.rerun()
+
+# --- MANAGE ACCOUNT (Original Section) ---
+with st.expander("🔑 Manage Account"):
+    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+    st.write("**Email**: `trader.pro@email.com` (example)")
+    if st.button("Log Out", key="logout_account_page", type="primary", use_container_width=True):
+        handle_logout() # Ensure handle_logout() is defined globally
 import streamlit as st
 import os
 import io
@@ -4338,12 +4408,17 @@ if st.session_state.current_page == 'trading_tools':
 
 import streamlit as st
 import os
-import io
 import base64
+import pytz
+from datetime import datetime
+import logging
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
+# HELPER FUNCTIONS
 # =========================================================
+# These helper functions should ideally be defined globally at the top of your main script
+# so they can be accessed by any page without being redefined.
+
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -4351,14 +4426,52 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
+        logging.warning(f"Image file not found at path: {path}")
         return None
+
+# --- CORRECTED get_active_market_sessions function ---
+def get_active_market_sessions():
+    """
+    Determines active forex sessions by checking the current UTC hour against
+    the session's defined UTC start/end hours.
+    """
+    # Get user-defined UTC session timings from session state, or use defaults
+    sessions_utc = st.session_state.get('session_timings', {
+        "Sydney": {"start": 22, "end": 7},
+        "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17},
+        "New York": {"start": 13, "end": 22}
+    })
+    
+    # Get the current time's hour in UTC
+    current_utc_hour = datetime.now(pytz.utc).hour
+    
+    active_sessions = []
+    for session_name, timings in sessions_utc.items():
+        start_utc_hour = timings['start']
+        end_utc_hour = timings['end']
+        
+        # Logic for overnight sessions (e.g., Sydney: 22:00-07:00 UTC)
+        if start_utc_hour > end_utc_hour:
+            if current_utc_hour >= start_utc_hour or current_utc_hour < end_utc_hour:
+                active_sessions.append(session_name)
+        # Logic for same-day sessions (e.g., New York: 13:00-22:00 UTC)
+        else:
+            if start_utc_hour <= current_utc_hour < end_utc_hour: # end_utc_hour is exclusive
+                active_sessions.append(session_name)
+
+    if not active_sessions:
+        return "Markets Closed"
+    return ", ".join(active_sessions)
 
 # =========================================================
 # ZENVO ACADEMY PAGE
 # =========================================================
+# This 'if' block is CRUCIAL. It ensures this code ONLY runs when the
+# user is on the "Zenvo Academy" page.
 if st.session_state.current_page == "Zenvo Academy":
-    # --- RETAINED CONTENT: User Login Check ---
+    
+    # --- Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
@@ -4367,23 +4480,32 @@ if st.session_state.current_page == "Zenvo Academy":
     # --- 1. Page-Specific Configuration ---
     page_info = {
         'title': 'Zenvo Academy', 
-        'icon': 'zenvo_academy.png', 
+        'icon': 'zenvo_academy.png', # Ensure this icon exists in an 'icons' subfolder
         'caption': 'Your journey to trading mastery starts here.'
     }
 
-    # --- 2. Define CSS Styles for the New Header ---
+    # --- 2. Define CSS Styles for the Header ---
     main_container_style = """
-        background-color: black; 
-        padding: 20px 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px;
-        border: 1px solid #2d4646;
-        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+        background-color: black; padding: 20px 25px; border-radius: 10px; 
+        display: flex; align-items: center; gap: 20px;
+        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    # This style creates a vertical flex container to stack the two info tabs
+    right_column_style = """
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-end; 
+        gap: 8px;
+    """ 
+    # This is the style for each individual "glowing" tab
+    info_tab_style = """
+        background-color: #0E1117; border: 1px solid #2d4646; 
+        padding: 8px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif; 
+        font-size: 0.9rem; white-space: nowrap;
+    """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -4395,11 +4517,16 @@ if st.session_state.current_page == "Zenvo Academy":
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    # Use the saved nickname, falling back to the username if it's not set
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.logged_in_user)}</b>!'
+    
+    # This calls the globally defined helper function to get the correct session status
+    active_sessions_str = get_active_market_sessions()
+    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -4407,8 +4534,12 @@ if st.session_state.current_page == "Zenvo Academy":
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
+            # The right column now stacks its two children vertically
             f'<div style="{right_column_style}">'
-                f'{welcome_message}'
+                # Welcome tab is first, so it appears on top
+                f'<div style="{info_tab_style}">{welcome_message}</div>'
+                # Sessions tab is second, appearing on the bottom
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
     )
@@ -4416,7 +4547,6 @@ if st.session_state.current_page == "Zenvo Academy":
     # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
 
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
