@@ -4363,33 +4363,22 @@ def get_active_market_sessions():
     Determines which major forex market sessions are currently active based on UTC time.
     Returns a formatted string of active sessions.
     """
-    # Define market session hours in UTC. (Start Hour, End Hour)
-    # The end hour is exclusive (e.g., end 7 means up to 06:59:59).
     sessions = {
-        "Sydney": (22, 7),
-        "Tokyo": (0, 9),
-        "London": (8, 17),
-        "New York": (13, 22)
+        "Sydney": (22, 7), "Tokyo": (0, 9),
+        "London": (8, 17), "New York": (13, 22)
     }
-    
-    # Get the current time in UTC timezone
     utc_now = datetime.now(pytz.utc)
     current_hour = utc_now.hour
-    
     active_sessions = []
     for session, (start, end) in sessions.items():
-        # Condition for sessions that cross midnight (e.g., Sydney starts at 22:00 and ends at 07:00)
         if start > end:
             if current_hour >= start or current_hour < end:
                 active_sessions.append(session)
-        # Condition for sessions within the same day
         else:
             if start <= current_hour < end:
                 active_sessions.append(session)
-                
     if not active_sessions:
         return "Markets Closed"
-    
     return ", ".join(active_sessions)
 
 # =========================================================
@@ -4414,29 +4403,18 @@ if st.session_state.current_page == "Zenvo Academy":
 
     # --- 2. Define CSS Styles for the Header ---
     main_container_style = """
-        background-color: black; 
-        padding: 20px 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px;
-        border: 1px solid #2d4646;
-        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+        background-color: black; padding: 20px 25px; border-radius: 10px; 
+        display: flex; align-items: center; gap: 20px;
+        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    # Updated to be a flex container holding multiple tabs
-    right_column_style = "flex: 2; display: flex; justify-content: flex-end; gap: 10px;" 
-    # New generic style for the glowing info tabs
+    # Adjusted to flex: 1 to take up remaining space
+    right_column_style = "flex: 1; display: flex; justify-content: flex-end;" 
+    # This style is now for the single, combined info tab
     info_tab_style = """
-        background-color: #0E1117; 
-        border: 1px solid #2d4646; 
-        padding: 12px 15px; 
-        border-radius: 8px; 
-        color: white; 
-        text-align: center; 
-        font-family: sans-serif; 
-        font-size: 0.9rem;
-        white-space: nowrap;
+        background-color: #0E1117; border: 1px solid #2d4646; 
+        padding: 12px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif;
     """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
@@ -4449,11 +4427,15 @@ if st.session_state.current_page == "Zenvo Academy":
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    # Primary and secondary text for the info tab
+    welcome_text = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    sessions_text = f'Active Sessions: {get_active_market_sessions()}'
     
-    # Get the active market sessions string
-    active_sessions_str = get_active_market_sessions()
-    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
+    # Combine the welcome and session text into a single HTML block for vertical stacking
+    combined_info_html = f"""
+        <div style="font-size: 0.9rem;">{welcome_text}</div>
+        <div style="font-size: 0.8rem; color: #808495; margin-top: 4px;">{sessions_text}</div>
+    """
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
@@ -4465,10 +4447,9 @@ if st.session_state.current_page == "Zenvo Academy":
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
-            # The right column now contains two separate styled divs (tabs)
+            # The right column now holds a single div containing the combined HTML
             f'<div style="{right_column_style}">'
-                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
-                f'<div style="{info_tab_style}">{welcome_message}</div>'
+                f'<div style="{info_tab_style}">{combined_info_html}</div>'
             '</div>'
         '</div>'
     )
