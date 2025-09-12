@@ -3319,56 +3319,59 @@ if st.session_state.current_page == 'account':
 
     st.markdown("---")
 
-    # --- ACCOUNT TIME SETTINGS ---
-            with st.expander("🕒 Account Time", expanded=True):
-            st.subheader("Set Your Local Timezone")
-            st.caption("This only affects the display of your local time, not session calculations.")
-            
-            all_timezones = pytz.all_timezones
-            try:
-                current_index = all_timezones.index(st.session_state.user_timezone)
-            except ValueError:
-                current_index = all_timezones.index('UTC')
+# --- ACCOUNT TIME SETTINGS ---
+# This block is now correctly indented
+with st.expander("🕒 Account Time", expanded=True):
+    st.subheader("Set Your Local Timezone")
+    st.caption("This only affects the display of your local time, not session calculations.")
+    
+    all_timezones = pytz.all_timezones
+    try:
+        current_index = all_timezones.index(st.session_state.user_timezone)
+    except ValueError:
+        current_index = all_timezones.index('UTC')
 
-            with st.form("timezone_form"):
-                selected_timezone = st.selectbox("Select your timezone", options=all_timezones, index=current_index)
-                if st.form_submit_button("Save Timezone", use_container_width=True):
-                    st.session_state.user_timezone = selected_timezone
-                    st.success(f"Timezone successfully set to {selected_timezone}!")
-                    st.rerun()
+    with st.form("timezone_form"):
+        selected_timezone = st.selectbox("Select your timezone", options=all_timezones, index=current_index)
+        if st.form_submit_button("Save Timezone", use_container_width=True):
+            st.session_state.user_timezone = selected_timezone
+            st.success(f"Timezone successfully set to {selected_timezone}!")
+            st.rerun()
 
-            current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
-            st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
+    current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+    st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
 
-        # --- SESSION TIMINGS SETTINGS ---
-        with st.expander("⚙️ Session Timings"):
-            st.subheader("Customize Market Session Timings (in UTC)")
-            st.caption("Adjust the universal start and end hours (0-23) for each market session.")
-            with st.form("session_timings_form"):
-                col1, col2, col3 = st.columns([2, 1, 1])
-                col1.markdown("**Session**")
-                col2.markdown("**Start Hour (UTC)**")
-                col3.markdown("**End Hour (UTC)**")
-                
-                new_timings = {}
-                for session_name, timings in st.session_state.session_timings.items():
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    c1.write(f"**{session_name}**")
-                    start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
-                    end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
-                    new_timings[session_name] = {'start': start_time, 'end': end_time}
-                
-                if st.form_submit_button("Save Session Timings", use_container_width=True):
-                    st.session_state.session_timings.update(new_timings)
-                    st.success("Session timings have been updated successfully!")
-                    st.rerun()
+# --- SESSION TIMINGS SETTINGS ---
+# This block is now correctly indented
+with st.expander("⚙️ Session Timings"):
+    st.subheader("Customize Market Session Timings (in UTC)")
+    st.caption("Adjust the universal start and end hours (0-23) for each market session.")
+    with st.form("session_timings_form"):
+        col1, col2, col3 = st.columns([2, 1, 1])
+        col1.markdown("**Session**")
+        col2.markdown("**Start Hour (UTC)**")
+        col3.markdown("**End Hour (UTC)**")
+        
+        new_timings = {}
+        for session_name, timings in st.session_state.session_timings.items():
+            c1, c2, c3 = st.columns([2, 1, 1])
+            c1.write(f"**{session_name}**")
+            start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+            end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+            new_timings[session_name] = {'start': start_time, 'end': end_time}
+        
+        if st.form_submit_button("Save Session Timings", use_container_width=True):
+            st.session_state.session_timings.update(new_timings)
+            st.success("Session timings have been updated successfully!")
+            st.rerun()
 
-        # --- MANAGE ACCOUNT ---
-        with st.expander("⚙️ Manage Account"):
-            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-            st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()
+# --- MANAGE ACCOUNT ---
+# This block is now correctly indented
+with st.expander("⚙️ Manage Account"):
+    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+    st.write("**Email**: `trader.pro@email.com` (example)")
+    if st.button("Log Out", key="logout_account_page", type="primary"):
+        handle_logout() # Ensure this function is defined elsewhere
 
 import streamlit as st
 import os
