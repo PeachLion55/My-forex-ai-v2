@@ -2786,14 +2786,14 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        logging.warning(f"Image file not found at path: {path}")
+        # It's better to log a warning than to print to console in a web app
+        logging.warning(f"Header icon not found at path: {path}. The header will be displayed without an icon.")
         return None
 
 def save_user_data(username):
     """Placeholder function to save user data."""
-    # In a real application, this function would handle saving the
-    # st.session_state.strategies DataFrame to a database or file
-    # associated with the username.
+    # This function would handle saving the st.session_state.strategies
+    # DataFrame to a database or file associated with the username.
     logging.info(f"Data for {username} would be saved here.")
     pass
 
@@ -2801,13 +2801,12 @@ def save_user_data(username):
 # 2. SESSION STATE INITIALIZATION
 # =========================================================
 
-# This block ensures that all necessary variables exist in the session state
-# when the app starts, preventing errors.
 def initialize_session_state():
+    """Initializes all required session state variables to prevent errors."""
     if 'logged_in_user' not in st.session_state:
-        st.session_state.logged_in_user = 'TestUser'  # Example user
+        st.session_state.logged_in_user = 'TestUser'
     if 'user_nickname' not in st.session_state:
-        st.session_state.user_nickname = 'StreamlitFan'  # Example nickname
+        st.session_state.user_nickname = 'StreamlitFan'
     if 'strategies' not in st.session_state:
         st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
     if 'trade_journal' not in st.session_state:
@@ -2815,16 +2814,15 @@ def initialize_session_state():
     if 'mt5_df' not in st.session_state:
         st.session_state.mt5_df = pd.DataFrame()
     if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'strategy'  # Default for standalone testing
+        st.session_state.current_page = 'strategy'
 
 # Call the initialization function at the start of the script run
 initialize_session_state()
 
 # =========================================================
-# 3. PAGE DEFINITION
+# 3. PAGE DEFINITION for 'MANAGE MY STRATEGY'
 # =========================================================
-# This 'if' block is the key to creating a multi-page app. It ensures the code
-# below only runs when the session state indicates we are on the 'strategy' page.
+# This 'if' block ensures the code below only runs when the user is on the 'strategy' page.
 
 if st.session_state.current_page == 'strategy':
 
@@ -2834,10 +2832,49 @@ if st.session_state.current_page == 'strategy':
         st.session_state.current_page = 'account'  # Redirect to account page
         st.rerun()
 
-    # --- Page Header ---
-    st.title("♟️ Manage My Strategy")
-    st.caption("Define, refine, and track your trading strategies.")
+    # --- Custom Page Header ---
+    # 1. Page-Specific Configuration
+    page_info = {
+        'title': 'Manage My Strategy',
+        'icon': 'manage_my_strategy.png',  # Ensure this icon exists in the 'icons' subfolder
+        'caption': 'Define, refine, and track your trading strategies.'
+    }
+
+    # 2. CSS Styles for the Header
+    main_container_style = """background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"""
+    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
+    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
+    icon_style = "width: 130px; height: auto;"
+    caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+
+    # 3. Prepare Dynamic Parts of the Header
+    icon_html = ""
+    icon_path = os.path.join("icons", page_info['icon'])
+    icon_base64 = image_to_base_64(icon_path)
+    if icon_base64:
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+    
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+
+    # 4. Build the Final HTML for the Header
+    header_html = (
+        f'<div style="{main_container_style}">'
+            f'<div style="{left_column_style}">'
+                f'{icon_html}'
+                '<div>'
+                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
+                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
+                '</div>'
+            '</div>'
+            f'<div style="{right_column_style}">{welcome_message}</div>'
+        '</div>'
+    )
+
+    # 5. Render the Header and a Divider
+    st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
+
 
     # --- Section: Add New Strategy ---
     st.subheader("➕ Add a New Strategy")
@@ -2866,10 +2903,8 @@ if st.session_state.current_page == 'strategy':
                     try:
                         save_user_data(st.session_state.logged_in_user)
                         st.success(f"Strategy '{strategy_name}' saved to your account!")
-                        logging.info(f"Strategy saved for {st.session_state.logged_in_user}: {strategy_name}")
                     except Exception as e:
                         st.error(f"Failed to save strategy: {str(e)}")
-                        logging.error(f"Error saving strategy for {st.session_state.logged_in_user}: {str(e)}")
                 else:
                     st.success(f"Strategy '{strategy_name}' added successfully!")
 
@@ -2899,10 +2934,8 @@ if st.session_state.current_page == 'strategy':
                     try:
                         save_user_data(st.session_state.logged_in_user)
                         st.success(f"Strategy '{selected_strategy_name}' deleted and account updated!")
-                        logging.info(f"Strategy deleted for {st.session_state.logged_in_user}")
                     except Exception as e:
                         st.error(f"Failed to delete strategy: {str(e)}")
-                        logging.error(f"Error deleting strategy for {st.session_state.logged_in_user}: {str(e)}")
                 st.rerun()
 
             def display_multiline_text(title, text):
@@ -2928,7 +2961,6 @@ if st.session_state.current_page == 'strategy':
     mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
     combined_df = journal_df.copy()
 
-    # Create sample data if none exists, for demonstration purposes
     if combined_df.empty:
         sample_data = {'Symbol': ['EURUSD', 'EURUSD', 'GBPJPY', 'GBPJPY', 'AUDUSD', 'EURUSD'], 'RR': [2.5, -1.0, 3.0, -1.0, 1.5, -1.0]}
         combined_df = pd.DataFrame(sample_data)
