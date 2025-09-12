@@ -4339,12 +4339,15 @@ if st.session_state.current_page == 'trading_tools':
 
 import streamlit as st
 import os
-import io
 import base64
+import pytz
+from datetime import datetime
+import logging
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
+# HELPER FUNCTIONS
 # =========================================================
+
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -4352,13 +4355,50 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
+        logging.warning(f"Image file not found at path: {path}")
         return None
+
+def get_active_market_sessions():
+    """
+    Determines which major forex market sessions are currently active based on UTC time.
+    Returns a formatted string of active sessions.
+    """
+    # Define market session hours in UTC. (Start Hour, End Hour)
+    # The end hour is exclusive (e.g., end 7 means up to 06:59:59).
+    sessions = {
+        "Sydney": (22, 7),
+        "Tokyo": (0, 9),
+        "London": (8, 17),
+        "New York": (13, 22)
+    }
+    
+    # Get the current time in UTC timezone
+    utc_now = datetime.now(pytz.utc)
+    current_hour = utc_now.hour
+    
+    active_sessions = []
+    for session, (start, end) in sessions.items():
+        # Condition for sessions that cross midnight (e.g., Sydney starts at 22:00 and ends at 07:00)
+        if start > end:
+            if current_hour >= start or current_hour < end:
+                active_sessions.append(session)
+        # Condition for sessions within the same day
+        else:
+            if start <= current_hour < end:
+                active_sessions.append(session)
+                
+    if not active_sessions:
+        return "Markets Closed"
+    
+    return ", ".join(active_sessions)
 
 # =========================================================
 # ZENVO ACADEMY PAGE
 # =========================================================
+
+# This check ensures the code below only runs when the current page is 'Zenvo Academy'
 if st.session_state.current_page == "Zenvo Academy":
+    
     # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
         st.warning("Please log in to access the Zenvo Academy.")
@@ -4372,7 +4412,7 @@ if st.session_state.current_page == "Zenvo Academy":
         'caption': 'Your journey to trading mastery starts here.'
     }
 
-    # --- 2. Define CSS Styles for the New Header ---
+    # --- 2. Define CSS Styles for the Header ---
     main_container_style = """
         background-color: black; 
         padding: 20px 25px; 
@@ -4384,7 +4424,20 @@ if st.session_state.current_page == "Zenvo Academy":
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    # Updated to be a flex container holding multiple tabs
+    right_column_style = "flex: 2; display: flex; justify-content: flex-end; gap: 10px;" 
+    # New generic style for the glowing info tabs
+    info_tab_style = """
+        background-color: #0E1117; 
+        border: 1px solid #2d4646; 
+        padding: 12px 15px; 
+        border-radius: 8px; 
+        color: white; 
+        text-align: center; 
+        font-family: sans-serif; 
+        font-size: 0.9rem;
+        white-space: nowrap;
+    """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -4397,10 +4450,14 @@ if st.session_state.current_page == "Zenvo Academy":
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    
+    # Get the active market sessions string
+    active_sessions_str = get_active_market_sessions()
+    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -4408,8 +4465,10 @@ if st.session_state.current_page == "Zenvo Academy":
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
+            # The right column now contains two separate styled divs (tabs)
             f'<div style="{right_column_style}">'
-                f'{welcome_message}'
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
+                f'<div style="{info_tab_style}">{welcome_message}</div>'
             '</div>'
         '</div>'
     )
@@ -4419,7 +4478,6 @@ if st.session_state.current_page == "Zenvo Academy":
     st.markdown("---")
 
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
-
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
 
     with tab1:
