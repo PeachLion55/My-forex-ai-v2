@@ -2984,24 +2984,87 @@ import pandas as pd
 import plotly.graph_objects as go
 import time
 import logging
+import pytz # Ensure pytz is imported at the very top of your main script
+
+# =========================================================
+# HELPER FUNCTIONS (Place these at the very top of your main app.py, globally)
+# =========================================================
+
+# @st.cache_data
+# def image_to_base_64(path):
+#     """Converts a local image file to a base64 string."""
+#     try:
+#         with open(path, "rb") as image_file:
+#             return base64.b64encode(image_file.read()).decode()
+#     except FileNotFoundError:
+#         logging.warning(f"Warning: Image file not found at path: {path}")
+#         return None
+
+# def handle_logout():
+#     """Handles user logout."""
+#     keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics', 'user_timezone', 'session_timings']
+#     for key in keys_to_delete:
+#         if key in st.session_state:
+#             del st.session_state[key]
+#     st.session_state.current_page = "account"
+#     st.rerun()
+
+# --- NEW/UPDATED get_active_market_sessions (Make sure this is also a global helper) ---
+def get_active_market_sessions():
+    """
+    Determines active forex sessions by checking the current UTC hour against
+    the session's defined UTC start/end hours. This is the correct and robust method.
+    """
+    # Get user-defined UTC session timings from session state, or use defaults
+    sessions_utc = st.session_state.get('session_timings', {
+        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+    })
+    
+    # Get the current time in UTC
+    current_utc_hour = datetime.now(pytz.utc).hour
+    
+    active_sessions = []
+    for session_name, timings in sessions_utc.items():
+        start, end = timings['start'], timings['end']
+        
+        # Logic for overnight sessions (e.g., Sydney: 22:00-07:00 UTC)
+        # If current hour is >= start OR current hour < end, it's active
+        if start > end:
+            if current_utc_hour >= start or current_utc_hour < end:
+                active_sessions.append(session_name)
+        # Logic for same-day sessions (e.g., London: 08:00-17:00 UTC)
+        # If current hour is >= start AND current hour < end, it's active
+        else:
+            if start <= current_utc_hour < end:
+                active_sessions.append(session_name)
+
+    if not active_sessions:
+        return "Markets Closed"
+    return ", ".join(active_sessions)
 
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
+
+# This is the primary conditional block for the entire account page
 if st.session_state.current_page == 'account':
 
-    # --- HELPER FUNCTION DEFINED AT THE TOP ---
-    @st.cache_data
-    def image_to_base_64(path):
-        """Converts a local image file to a base64 string."""
-        try:
-            with open(path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode()
-        except FileNotFoundError:
-            st.warning(f"Warning: Image file not found at path: {path}")
-            return None
-
-    # This block renders the final, correctly centered login form when the user is NOT logged in.
+    # --- Initializations for the Account Page ---
+    # Ensure these are initialized for the account page's context if not global
+    if 'auth_view' not in st.session_state:
+        st.session_state.auth_view = 'login'
+    if 'user_timezone' not in st.session_state:
+        st.session_state.user_timezone = 'UTC'
+    if 'session_timings' not in st.session_state:
+        st.session_state.session_timings = {
+            "Sydney": {"start": 22, "end": 7},
+            "Tokyo": {"start": 0, "end": 9},
+            "London": {"start": 8, "end": 17},
+            "New York": {"start": 13, "end": 22}
+        }
+    
+    # This block renders the login/signup forms when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
         # --- FINAL CSS FOR THE CONDENSED, CENTERED FORM ---
@@ -3103,10 +3166,6 @@ if st.session_state.current_page == 'account':
         </style>
         """, unsafe_allow_html=True)
 
-        # Initialize view state
-        if 'auth_view' not in st.session_state:
-            st.session_state.auth_view = 'login'
-        
         # Using the wrapper div to contain and center the form
         st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
@@ -3128,14 +3187,27 @@ if st.session_state.current_page == 'account':
 
             if login_button:
                 # NOTE: Assume `c`, `conn` are available from your app's setup
-                hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                if result and result[0] == hashed_password:
-                    st.session_state.logged_in_user = username
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password.")
+                # For demonstration, use a placeholder logic if c and conn are not defined here
+                if 'c' in globals() and 'conn' in globals(): # Check if SQL objects exist
+                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+                    result = c.fetchone()
+                    if result and result[0] == hashed_password:
+                        st.session_state.logged_in_user = username
+                        # Optionally load user data here, including user_timezone, session_timings etc.
+                        # For example: user_data = json.loads(result[1])
+                        # st.session_state.user_timezone = user_data.get('user_timezone', 'UTC')
+                        # st.session_state.session_timings = user_data.get('session_timings', default_session_timings)
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password.")
+                else: # Placeholder for testing without actual DB connection
+                    if username == "test" and password == "test":
+                        st.session_state.logged_in_user = "test"
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password. (Using test credentials: 'test'/'test')")
+
 
             st.markdown('<div class="bottom-container">', unsafe_allow_html=True)
             if st.button("Sign up", key="signup_toggle"):
@@ -3156,13 +3228,33 @@ if st.session_state.current_page == 'account':
                 if new_password != confirm_password: st.error("Passwords do not match.")
                 elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                 else:
-                    c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                    if c.fetchone(): st.error("Username already exists.")
-                    else:
-                        hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                        initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
-                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                        conn.commit()
+                    if 'c' in globals() and 'conn' in globals(): # Check if SQL objects exist
+                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
+                        if c.fetchone(): st.error("Username already exists.")
+                        else:
+                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                            # Ensure default session_timings and user_timezone are saved
+                            initial_user_data = {
+                                "xp": 0, "level": 0, "badges": [], "streak": 0, 
+                                "last_journal_date": None, "last_login_xp_date": None, 
+                                "gamification_flags": {}, "drawings": [], "trade_journal": [], 
+                                "strategies": [], "emotion_log": [], "reflection_log": [], 
+                                "xp_log": [], 'chatroom_rules_accepted': False, 
+                                'chatroom_nickname': None,
+                                'user_timezone': 'UTC', # Default for new users
+                                'session_timings': { # Default for new users
+                                    "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+                                    "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+                                }
+                            }
+                            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, json.dumps(initial_user_data)))
+                            conn.commit()
+                            st.session_state.logged_in_user = new_username
+                            st.session_state.user_timezone = initial_user_data['user_timezone']
+                            st.session_state.session_timings = initial_user_data['session_timings']
+                            st.rerun()
+                    else: # Placeholder for testing without actual DB connection
+                        st.success("User registered! (No DB, using test data)")
                         st.session_state.logged_in_user = new_username
                         st.rerun()
 
@@ -3176,27 +3268,30 @@ if st.session_state.current_page == 'account':
 
 
     # --- LOGGED-IN VIEW ---
-    # This block displays your full dashboard when a user IS logged in. It remains untouched.
+    # This block displays the dashboard and settings when a user IS logged in.
     else:
+        # Assuming handle_logout is defined globally or in the main app logic
         def handle_logout():
-            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
+            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics', 'user_timezone', 'session_timings']
             for key in keys_to_delete:
                 if key in st.session_state:
                     del st.session_state[key]
             st.session_state.current_page = "account"
             st.rerun()
+
         # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
-        if os.path.exists(icon_path):
+        # Ensure image_to_base_64 is accessible here, e.g., defined globally
+        if os.path.exists(icon_path) and 'image_to_base_64' in globals():
             icon_base64_welcome = image_to_base_64(icon_path)
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
-                    <h2 style="margin: 0;">Welcome back, {st.session_state.logged_in_user}! 👋</h2>
+                    <h2 style="margin: 0;">Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋</h2>
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+            st.header(f"Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋")
 
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
@@ -3271,14 +3366,8 @@ if st.session_state.current_page == 'account':
                 # The container div helps with consistent height
                 st.markdown(f'<div><div class="redeem-card"><div><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem", key=f"redeem_{item_key}", use_container_width=True):
-                    # if current_rxp >= item_details['cost']:
-                        # ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
-                        # st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
-                        # time.sleep(1)
-                        # st.rerun()
-                    # else:
-                        # st.warning("You do not have enough RXP for this item.")
-                    pass # Placeholder for redemption logic
+                    # Placeholder for redemption logic
+                    pass 
                 st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
@@ -3296,82 +3385,79 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- HOW TO EARN XP ---
-    st.subheader("How to Earn XP") 
-    st.markdown("""
-    Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
-    - **Daily Login**: Log in each day to earn **10 XP** for your consistency.
-    - **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
-    - **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
-    - **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
-        * Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
-        * Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
-        * Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
-    - **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
-        * Maintain a Profit Factor of 2.0 or higher: **+30 XP**
-        * Achieve an Average R:R of 1.5 or higher: **+25 XP**
-        * Reach a Win Rate of 60% or higher: **+20 XP**
-    - **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
-    - **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
+        # --- HOW TO EARN XP (Settings version) ---
+        st.subheader("How to Earn XP") 
+        st.markdown("""
+        Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
+        - **Daily Login**: Log in each day to earn **10 XP** for your consistency.
+        - **Log New Trades**: Get **10 XP** for every trade you meticulously log in your Trading Journal.
+        - **Detailed Notes**: Add substantive notes to your logged trades in the Trade Playbook to earn **5 XP**.
+        - **Trade Milestones**: Achieve trade volume milestones for bonus XP and special badges:
+            * Log 10 Trades: **+20 XP** + "Ten Trades Novice" Badge
+            * Log 50 Trades: **+50 XP** + "Fifty Trades Apprentice" Badge
+            * Log 100 Trades: **+100 XP** + "Centurion Trader" Badge
+        - **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
+            * Maintain a Profit Factor of 2.0 or higher: **+30 XP**
+            * Achieve an Average R:R of 1.5 or higher: **+25 XP**
+            * Reach a Win Rate of 60% or higher: **+20 XP**
+        - **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
+        - **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
 
-    Keep exploring the dashboard and trading to earn more XP and climb the ranks!
-    """)
+        Keep exploring the dashboard and trading to earn more XP and climb the ranks!
+        """)
 
-    st.markdown("---")
+        st.markdown("---")
 
-# --- ACCOUNT TIME SETTINGS ---
-# This block is now correctly indented
-with st.expander("🕒 Account Time", expanded=True):
-    st.subheader("Set Your Local Timezone")
-    st.caption("This only affects the display of your local time, not session calculations.")
-    
-    all_timezones = pytz.all_timezones
-    try:
-        current_index = all_timezones.index(st.session_state.user_timezone)
-    except ValueError:
-        current_index = all_timezones.index('UTC')
+        # --- ACCOUNT TIME SETTINGS ---
+        with st.expander("🕒 Account Time", expanded=True):
+            st.subheader("Set Your Local Timezone")
+            st.caption("This only affects the display of your local time, not market session calculations.")
+            
+            all_timezones = pytz.all_timezones
+            try:
+                current_index = all_timezones.index(st.session_state.user_timezone)
+            except ValueError:
+                current_index = all_timezones.index('UTC')
 
-    with st.form("timezone_form"):
-        selected_timezone = st.selectbox("Select your timezone", options=all_timezones, index=current_index)
-        if st.form_submit_button("Save Timezone", use_container_width=True):
-            st.session_state.user_timezone = selected_timezone
-            st.success(f"Timezone successfully set to {selected_timezone}!")
-            st.rerun()
+            with st.form("timezone_form"):
+                selected_timezone = st.selectbox("Select your timezone", options=all_timezones, index=current_index)
+                if st.form_submit_button("Save Timezone", use_container_width=True):
+                    st.session_state.user_timezone = selected_timezone
+                    st.success(f"Timezone successfully set to {selected_timezone}!")
+                    st.rerun()
 
-    current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
-    st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
+            current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+            st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
 
-# --- SESSION TIMINGS SETTINGS ---
-# This block is now correctly indented
-with st.expander("⚙️ Session Timings"):
-    st.subheader("Customize Market Session Timings (in UTC)")
-    st.caption("Adjust the universal start and end hours (0-23) for each market session.")
-    with st.form("session_timings_form"):
-        col1, col2, col3 = st.columns([2, 1, 1])
-        col1.markdown("**Session**")
-        col2.markdown("**Start Hour (UTC)**")
-        col3.markdown("**End Hour (UTC)**")
-        
-        new_timings = {}
-        for session_name, timings in st.session_state.session_timings.items():
-            c1, c2, c3 = st.columns([2, 1, 1])
-            c1.write(f"**{session_name}**")
-            start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
-            end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
-            new_timings[session_name] = {'start': start_time, 'end': end_time}
-        
-        if st.form_submit_button("Save Session Timings", use_container_width=True):
-            st.session_state.session_timings.update(new_timings)
-            st.success("Session timings have been updated successfully!")
-            st.rerun()
+        # --- SESSION TIMINGS SETTINGS ---
+        with st.expander("⚙️ Session Timings"):
+            st.subheader("Customize Market Session Timings (in UTC)")
+            st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
+            with st.form("session_timings_form"):
+                col1, col2, col3 = st.columns([2, 1, 1])
+                col1.markdown("**Session**")
+                col2.markdown("**Start Hour (UTC)**")
+                col3.markdown("**End Hour (UTC)**")
+                
+                new_timings = {}
+                for session_name, timings in st.session_state.session_timings.items():
+                    c1, c2, c3 = st.columns([2, 1, 1])
+                    c1.write(f"**{session_name}**")
+                    start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                    end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                    new_timings[session_name] = {'start': start_time, 'end': end_time}
+                
+                if st.form_submit_button("Save Session Timings", use_container_width=True):
+                    st.session_state.session_timings.update(new_timings)
+                    st.success("Session timings have been updated successfully!")
+                    st.rerun()
 
-# --- MANAGE ACCOUNT ---
-# This block is now correctly indented
-with st.expander("⚙️ Manage Account"):
-    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-    st.write("**Email**: `trader.pro@email.com` (example)")
-    if st.button("Log Out", key="logout_account_page", type="primary"):
-        handle_logout() # Ensure this function is defined elsewhere
+        # --- MANAGE ACCOUNT ---
+        with st.expander("⚙️ Manage Account"):
+            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+            st.write("**Email**: `trader.pro@email.com` (example)")
+            if st.button("Log Out", key="logout_account_page", type="primary"):
+                handle_logout() # Ensure this function is defined elsewhere (e.g., globally or in your main app logic)```
 
 import streamlit as st
 import os
