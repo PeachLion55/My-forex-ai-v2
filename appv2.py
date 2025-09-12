@@ -3282,7 +3282,7 @@ if st.session_state.current_page == 'account':
         st.markdown("---")
 
         # --- HOW TO EARN XP ---
-        st.subheader("How to Earn XP:") 
+        st.subheader("How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
         - **Daily Login**: Log in each day to earn **10 XP** for your consistency.
