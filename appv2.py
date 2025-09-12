@@ -3319,80 +3319,63 @@ if st.session_state.current_page == 'account':
 
     st.markdown("---")
 
-    # --- SESSION TIMINGS SETTINGS ---
-with st.expander("⚙️ Session Timings"):
-    st.subheader("Customize Market Session Timings (UTC)")
-    st.caption("Adjust the start and end hours for each market session. These timings will be reflected in the header across the application.")
-
-    with st.form("session_timings_form"):
-        # Use columns for a clean header row
-        col1, col2, col3 = st.columns([2, 1, 1])
-        col1.markdown("**Session**")
-        col2.markdown("**Start Hour (0-23)**")
-        col3.markdown("**End Hour (0-23)**")
-
-        # Create a dictionary to hold the new values submitted by the form
-        new_timings = {}
-        # Iterate through the sessions currently stored in the session state
-        for session_name, timings in st.session_state.session_timings.items():
-            with st.container():
-                c1, c2, c3 = st.columns([2, 1, 1])
-                c1.write(f"**{session_name}**")
-                # Create number inputs for start and end times
-                start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
-                end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
-                # Store the form's current values in our temporary dictionary
-                new_timings[session_name] = {'start': start_time, 'end': end_time}
-
-        submitted = st.form_submit_button("Save Session Timings", use_container_width=True)
-        if submitted:
-            # When the form is submitted, update the session_state with the new values
-            st.session_state.session_timings.update(new_timings)
-            st.success("Your session timings have been updated successfully!")
-            st.rerun()
-
-# --- NEW ACCOUNT TIME SETTINGS ---
-with st.expander("🕒 Account Time"):
-    st.subheader("Set Your Local Timezone")
-    st.caption("Select your timezone to display times accurately across the application.")
-    
-    # Get a list of all available timezones
-    all_timezones = pytz.all_timezones
-    
-    # Find the index of the currently saved timezone to set as the default in the selectbox
-    try:
-        current_index = all_timezones.index(st.session_state.user_timezone)
-    except ValueError:
-        current_index = all_timezones.index('UTC') # Fallback to UTC if saved value is invalid
-
-    # Create a form for the timezone setting
-    with st.form("timezone_form"):
-        # The selectbox for choosing the timezone
-        selected_timezone = st.selectbox(
-            "Select your timezone",
-            options=all_timezones,
-            index=current_index,
-            key="timezone_selector"
-        )
+    # --- ACCOUNT TIME SETTINGS ---
+    with st.expander("🕒 Account Time", expanded=True): # Expanded by default for visibility
+        st.subheader("Set Your Local Timezone")
+        st.caption("This ensures market session times are displayed accurately for your location.")
         
-        submitted = st.form_submit_button("Save Timezone", use_container_width=True)
-        if submitted:
-            # Update the session state with the new timezone
-            st.session_state.user_timezone = selected_timezone
-            st.success(f"Timezone successfully set to {selected_timezone}!")
-            st.rerun()
+        all_timezones = pytz.all_timezones
+        try:
+            current_index = all_timezones.index(st.session_state.user_timezone)
+        except ValueError:
+            current_index = all_timezones.index('UTC')
 
-    # Provide immediate feedback to the user
-    current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
-    st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z%z')}**")
+        with st.form("timezone_form"):
+            selected_timezone = st.selectbox(
+                "Select your timezone",
+                options=all_timezones,
+                index=current_index,
+                key="timezone_selector"
+            )
+            if st.form_submit_button("Save Timezone", use_container_width=True):
+                st.session_state.user_timezone = selected_timezone
+                st.success(f"Timezone successfully set to {selected_timezone}!")
+                st.rerun()
 
+        current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+        st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
 
-# --- MANAGE ACCOUNT ---
-with st.expander("⚙️ Manage Account"):
-    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-    st.write("**Email**: `trader.pro@email.com` (example)")
-    if st.button("Log Out", key="logout_account_page", type="primary"):
-        handle_logout() # Ensure the handle_logout() function is defined elsewhere in your app
+    # --- SESSION TIMINGS SETTINGS ---
+    with st.expander("⚙️ Session Timings"):
+        st.subheader("Customize Market Session Timings (in UTC)")
+        st.caption("Adjust the universal start and end hours for each market session.")
+        with st.form("session_timings_form"):
+            col1, col2, col3 = st.columns([2, 1, 1])
+            col1.markdown("**Session**")
+            col2.markdown("**Start Hour (UTC)**")
+            col3.markdown("**End Hour (UTC)**")
+            
+            new_timings = {}
+            for session_name, timings in st.session_state.session_timings.items():
+                with st.container():
+                    c1, c2, c3 = st.columns([2, 1, 1])
+                    c1.write(f"**{session_name}**")
+                    start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                    end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                    new_timings[session_name] = {'start': start_time, 'end': end_time}
+            
+            if st.form_submit_button("Save Session Timings", use_container_width=True):
+                st.session_state.session_timings.update(new_timings)
+                st.success("Session timings have been updated successfully!")
+                st.rerun()
+
+    # --- MANAGE ACCOUNT ---
+    with st.expander("⚙️ Manage Account"):
+        st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+        st.write("**Email**: `trader.pro@email.com` (example)")
+        if st.button("Log Out", key="logout_account_page", type="primary"):
+            handle_logout()
+
 import streamlit as st
 import os
 import io
@@ -4441,49 +4424,55 @@ def image_to_base_64(path):
         logging.warning(f"Image file not found at path: {path}")
         return None
 
-# --- UPDATED DYNAMIC FUNCTION ---
+# --- NEW, CORRECTED, TIMEZONE-AWARE FUNCTION ---
 def get_active_market_sessions():
     """
-    Determines active forex sessions based on user-defined UTC times
-    stored in st.session_state.
+    Determines active forex sessions by converting universal UTC session times 
+    into the user's selected local timezone for accurate comparison.
     """
-    # This now dynamically reads the user's custom settings from session_state.
-    # If the settings don't exist, it uses the default dictionary as a fallback.
-    sessions = st.session_state.get('session_timings', {
-        "Sydney": {"start": 22, "end": 7},
-        "Tokyo": {"start": 0, "end": 9},
-        "London": {"start": 8, "end": 17},
-        "New York": {"start": 13, "end": 22}
+    # 1. Get user's timezone and current local time
+    user_tz_str = st.session_state.get('user_timezone', 'UTC')
+    user_timezone = pytz.timezone(user_tz_str)
+    now_local = datetime.now(user_timezone)
+    
+    # 2. Get the universal session timings (in UTC)
+    sessions_utc = st.session_state.get('session_timings', {
+        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
     })
     
-    utc_now = datetime.now(pytz.utc)
-    current_hour = utc_now.hour
-    
     active_sessions = []
-    for session_name, timings in sessions.items():
-        start = timings['start']
-        end = timings['end']
+    # 3. For each session, convert its UTC start/end to the user's local time
+    for session_name, timings in sessions_utc.items():
+        utc_start_hour = timings['start']
+        utc_end_hour = timings['end']
+
+        # Create today's start/end datetime objects in UTC
+        now_utc = datetime.now(pytz.utc)
+        start_utc_dt = now_utc.replace(hour=utc_start_hour, minute=0, second=0, microsecond=0)
+        end_utc_dt = now_utc.replace(hour=utc_end_hour, minute=0, second=0, microsecond=0)
         
-        # Logic for sessions crossing midnight (e.g., Sydney)
-        if start > end:
-            if current_hour >= start or current_hour < end:
+        # Convert these UTC datetimes to the user's local timezone
+        start_local_dt = start_utc_dt.astimezone(user_timezone)
+        end_local_dt = end_utc_dt.astimezone(user_timezone)
+
+        # Handle overnight sessions correctly after conversion
+        if start_local_dt > end_local_dt:
+            # If current time is after start OR before end, the session is active
+            if now_local >= start_local_dt or now_local < end_local_dt:
                 active_sessions.append(session_name)
-        # Logic for sessions within the same day
         else:
-            if start <= current_hour < end:
+            # For same-day sessions
+            if start_local_dt <= now_local < end_local_dt:
                 active_sessions.append(session_name)
-                
+
     if not active_sessions:
         return "Markets Closed"
-    
     return ", ".join(active_sessions)
 
 # =========================================================
 # ZENVO ACADEMY PAGE
 # =========================================================
-
-# This 'if' block is CRUCIAL. It ensures this code ONLY runs when the
-# user is on the "Zenvo Academy" page.
 if st.session_state.current_page == "Zenvo Academy":
     
     # --- RETAINED CONTENT: User Login Check ---
@@ -4492,38 +4481,27 @@ if st.session_state.current_page == "Zenvo Academy":
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- 1. Page-Specific Configuration ---
+    # --- 1. Page-Specific Configuration (No changes here) ---
     page_info = {
         'title': 'Zenvo Academy', 
         'icon': 'zenvo_academy.png', 
         'caption': 'Your journey to trading mastery starts here.'
     }
 
-    # --- 2. Define CSS Styles for the Header ---
+    # --- 2. Define CSS Styles for the Header (No changes here) ---
     main_container_style = """
         background-color: black; padding: 20px 25px; border-radius: 10px; 
         display: flex; align-items: center; gap: 20px;
         border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = """
-        flex: 1; 
-        display: flex; 
-        flex-direction: column; 
-        align-items: flex-end; 
-        gap: 8px;
-    """ 
-    info_tab_style = """
-        background-color: #0E1117; border: 1px solid #2d4646; 
-        padding: 8px 15px; border-radius: 8px; color: white; 
-        text-align: center; font-family: sans-serif; 
-        font-size: 0.9rem; white-space: nowrap;
-    """
+    right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;" 
+    info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 3. Prepare Dynamic Parts of the Header ---
+    # --- 3. Prepare Dynamic Parts of the Header (This part is now correct) ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
@@ -4534,26 +4512,19 @@ if st.session_state.current_page == "Zenvo Academy":
     active_sessions_str = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
-    # --- 4. Build the HTML for the New Header ---
+    # --- 4. Build the HTML for the New Header (No changes here) ---
     header_html = (
         f'<div style="{main_container_style}">'
-            f'<div style="{left_column_style}">'
-                f'{icon_html}'
-                '<div>'
-                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
-                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
-                '</div>'
-            '</div>'
-            f'<div style="{right_column_style}">'
-                f'<div style="{info_tab_style}">{welcome_message}</div>'
-                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
-            '</div>'
+            f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
+            f'<div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div style="{info_tab_style}">{market_sessions_display}</div></div>'
         '</div>'
     )
 
     # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
+
+    # (Your page content for courses etc. goes here)
 
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
