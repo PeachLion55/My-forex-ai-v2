@@ -2768,78 +2768,78 @@ if st.session_state.current_page == 'mt5':
 
 
 import streamlit as st
-import os
-import io
-import base64
-
-# =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
-# =========================================================
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
-        return None
-
-# =========================================================
-# MANAGE MY STRATEGY PAGE (REFACTORED AND IMPROVED)
-# =========================================================
-import streamlit as st
 import pandas as pd
 import datetime as dt
 import os
 import logging
 import plotly.express as px
+import base64
 
-# Helper function (assuming you have these defined elsewhere)
+# =========================================================
+# 1. HELPER FUNCTIONS
+# =========================================================
+
+@st.cache_data
 def image_to_base_64(path):
-    # This is a placeholder for your actual image conversion function
-    # Example:
-    # import base64
-    # with open(path, "rb") as image_file:
-    #     return base64.b64encode(image_file.read()).decode()
-    return ""
+    """Converts a local image file to a base64 string for embedding."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        logging.warning(f"Image file not found at path: {path}")
+        return None
 
 def save_user_data(username):
-    # This is a placeholder for your data saving logic
-    # It should save the st.session_state.strategies dataframe for the user
+    """Placeholder function to save user data."""
+    # In a real application, this function would handle saving the
+    # st.session_state.strategies DataFrame to a database or file
+    # associated with the username.
     logging.info(f"Data for {username} would be saved here.")
     pass
 
-# Initialize session state variables if they don't exist
-if 'logged_in_user' not in st.session_state:
-    st.session_state.logged_in_user = 'TestUser' # Example user
-if 'user_nickname' not in st.session_state:
-    st.session_state.user_nickname = 'StreamlitFan' # Example nickname
-if 'strategies' not in st.session_state:
-    st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
-if 'trade_journal' not in st.session_state:
-    st.session_state.trade_journal = pd.DataFrame() # Placeholder
-if 'mt5_df' not in st.session_state:
-    st.session_state.mt5_df = pd.DataFrame() # Placeholder
+# =========================================================
+# 2. SESSION STATE INITIALIZATION
+# =========================================================
 
-# --- Your main page logic starts here ---
-# if st.session_state.current_page == 'strategy': # Assuming this is handled by your app's navigation
+# This block ensures that all necessary variables exist in the session state
+# when the app starts, preventing errors.
+def initialize_session_state():
+    if 'logged_in_user' not in st.session_state:
+        st.session_state.logged_in_user = 'TestUser'  # Example user
+    if 'user_nickname' not in st.session_state:
+        st.session_state.user_nickname = 'StreamlitFan'  # Example nickname
+    if 'strategies' not in st.session_state:
+        st.session_state.strategies = pd.DataFrame(columns=["Name", "Description", "Entry Rules", "Exit Rules", "Risk Management", "Date Added"])
+    if 'trade_journal' not in st.session_state:
+        st.session_state.trade_journal = pd.DataFrame()
+    if 'mt5_df' not in st.session_state:
+        st.session_state.mt5_df = pd.DataFrame()
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'strategy'  # Default for standalone testing
 
-# --- 1. Login Check ---
-if st.session_state.logged_in_user is None:
-    st.warning("Please log in to manage your strategies.")
-    # st.session_state.current_page = 'account' # Uncomment for your navigation
-    # st.rerun()
+# Call the initialization function at the start of the script run
+initialize_session_state()
 
-# --- 2. Page Header ---
-st.title("♟️ Manage My Strategy")
-st.caption("Define, refine, and track your trading strategies.")
+# =========================================================
+# 3. PAGE DEFINITION
+# =========================================================
+# This 'if' block is the key to creating a multi-page app. It ensures the code
+# below only runs when the session state indicates we are on the 'strategy' page.
 
-# --- 3. Main Layout (Two Columns) ---
-col1, col2 = st.columns([1, 1])
+if st.session_state.current_page == 'strategy':
 
-# --- COLUMN 1: Add and Manage Strategies ---
-with col1:
+    # --- Login Check ---
+    if st.session_state.logged_in_user is None:
+        st.warning("Please log in to manage your strategies.")
+        st.session_state.current_page = 'account'  # Redirect to account page
+        st.rerun()
+
+    # --- Page Header ---
+    st.title("♟️ Manage My Strategy")
+    st.caption("Define, refine, and track your trading strategies.")
+    st.markdown("---")
+
+    # --- Section: Add New Strategy ---
     st.subheader("➕ Add a New Strategy")
     with st.form("strategy_form", clear_on_submit=True):
         strategy_name = st.text_input("Strategy Name*", help="A unique and memorable name for your strategy.")
@@ -2855,18 +2855,14 @@ with col1:
                 st.warning("Strategy Name is a required field.")
             else:
                 strategy_data = {
-                    "Name": strategy_name,
-                    "Description": description,
-                    "Entry Rules": entry_rules,
-                    "Exit Rules": exit_rules,
-                    "Risk Management": risk_management,
-                    "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
+                    "Name": strategy_name, "Description": description,
+                    "Entry Rules": entry_rules, "Exit Rules": exit_rules,
+                    "Risk Management": risk_management, "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
                 }
-                # Prepend new strategy to the top of the DataFrame
                 new_strategy_df = pd.DataFrame([strategy_data])
                 st.session_state.strategies = pd.concat([new_strategy_df, st.session_state.strategies], ignore_index=True)
                 
-                if st.session_state.logged_in_user is not None:
+                if st.session_state.logged_in_user:
                     try:
                         save_user_data(st.session_state.logged_in_user)
                         st.success(f"Strategy '{strategy_name}' saved to your account!")
@@ -2877,35 +2873,29 @@ with col1:
                 else:
                     st.success(f"Strategy '{strategy_name}' added successfully!")
 
-# --- COLUMN 2: View and Delete Strategies ---
-with col2:
+    st.markdown("---")
+
+    # --- Section: View and Manage Existing Strategies ---
     st.subheader("🔎 View & Manage Your Strategies")
     
     if not st.session_state.strategies.empty:
-        # Create a list of strategy names for the dropdown
         strategy_options = st.session_state.strategies['Name'].tolist()
         selected_strategy_name = st.selectbox(
             "Select a strategy to view its details",
-            options=strategy_options,
-            index=0 # Default to the most recently added strategy
+            options=strategy_options, index=0, label_visibility="collapsed"
         )
         
-        # Find the full details of the selected strategy
         selected_strategy_details = st.session_state.strategies[st.session_state.strategies['Name'] == selected_strategy_name].iloc[0]
         
-        st.markdown("---")
-        
-        # Display the details in a clean, containerized layout
-        with st.container():
+        with st.container(border=True):
             st.markdown(f"### Details for: `{selected_strategy_details['Name']}`")
             st.caption(f"Date Added: {selected_strategy_details['Date Added']}")
 
             if st.button("❌ Delete This Strategy", key=f"delete_{selected_strategy_name}", use_container_width=True):
-                # Find the index to drop
                 idx_to_drop = st.session_state.strategies[st.session_state.strategies['Name'] == selected_strategy_name].index
                 st.session_state.strategies = st.session_state.strategies.drop(idx_to_drop).reset_index(drop=True)
                 
-                if st.session_state.logged_in_user is not None:
+                if st.session_state.logged_in_user:
                     try:
                         save_user_data(st.session_state.logged_in_user)
                         st.success(f"Strategy '{selected_strategy_name}' deleted and account updated!")
@@ -2915,117 +2905,84 @@ with col2:
                         logging.error(f"Error deleting strategy for {st.session_state.logged_in_user}: {str(e)}")
                 st.rerun()
 
-            # Using st.markdown to correctly render multiline text
-            st.markdown("<h5>Description</h5>", unsafe_allow_html=True)
-            st.markdown(f"<div style='background-color:#0E1117; padding: 10px; border-radius: 5px; border: 1px solid #2d4646;'>{selected_strategy_details['Description'].replace('\n', '<br>')}</div>", unsafe_allow_html=True)
+            def display_multiline_text(title, text):
+                st.markdown(f"<h5>{title}</h5>", unsafe_allow_html=True)
+                formatted_text = text.replace('\n', '<br>')
+                st.markdown(f"<div style='background-color:#0E1117; padding: 10px; border-radius: 5px; border: 1px solid #2d4646; min-height: 40px;'>{formatted_text}</div>", unsafe_allow_html=True)
 
-            st.markdown("<h5>Entry Rules</h5>", unsafe_allow_html=True)
-            st.markdown(f"<div style='background-color:#0E1117; padding: 10px; border-radius: 5px; border: 1px solid #2d4646;'>{selected_strategy_details['Entry Rules'].replace('\n', '<br>')}</div>", unsafe_allow_html=True)
-
-            st.markdown("<h5>Exit Rules</h5>", unsafe_allow_html=True)
-            st.markdown(f"<div style='background-color:#0E1117; padding: 10px; border-radius: 5px; border: 1px solid #2d4646;'>{selected_strategy_details['Exit Rules'].replace('\n', '<br>')}</div>", unsafe_allow_html=True)
-
-            st.markdown("<h5>Risk Management</h5>", unsafe_allow_html=True)
-            st.markdown(f"<div style='background-color:#0E1117; padding: 10px; border-radius: 5px; border: 1px solid #2d4646;'>{selected_strategy_details['Risk Management'].replace('\n', '<br>')}</div>", unsafe_allow_html=True)
+            display_multiline_text("Description", selected_strategy_details['Description'])
+            display_multiline_text("Entry Rules", selected_strategy_details['Entry Rules'])
+            display_multiline_text("Exit Rules", selected_strategy_details['Exit Rules'])
+            display_multiline_text("Risk Management", selected_strategy_details['Risk Management'])
             
     else:
-        st.info("No strategies defined yet. Add one on the left to get started.")
+        st.info("No strategies defined yet. Add one above to get started.")
 
-st.markdown("---")
+    st.markdown("---")
 
-# --- EVOLVING PLAYBOOK SECTION (IMPROVED) ---
-st.subheader("📖 Evolving Playbook")
-st.caption("Your refined edge profile based on real-time and historical trade data.")
+    # --- Section: Evolving Playbook Analytics ---
+    st.subheader("📖 Evolving Playbook")
+    st.caption("Your refined edge profile based on real-time and historical trade data.")
 
-# (Assuming combined_df is created similar to your original code)
-# This part is kept similar as the logic is data-dependent, but the presentation is improved.
-# --- Placeholder for Data Loading Logic ---
-journal_df = st.session_state.get('trade_journal', pd.DataFrame())
-mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
-combined_df = journal_df.copy()
-# ... (your data combining and processing logic here) ...
-# Example of creating a sample combined_df for demonstration
-if combined_df.empty:
-    sample_data = {
-        'Symbol': ['EURUSD', 'EURUSD', 'GBPJPY', 'GBPJPY', 'AUDUSD', 'EURUSD'],
-        'RR': [2.5, -1.0, 3.0, -1.0, 1.5, -1.0]
-    }
-    combined_df = pd.DataFrame(sample_data)
-# --- End of Placeholder ---
+    journal_df = st.session_state.get('trade_journal', pd.DataFrame())
+    mt5_df = st.session_state.get('mt5_df', pd.DataFrame())
+    combined_df = journal_df.copy()
 
-if "RR" in combined_df.columns:
-    combined_df['r'] = pd.to_numeric(combined_df['RR'], errors='coerce')
+    # Create sample data if none exists, for demonstration purposes
+    if combined_df.empty:
+        sample_data = {'Symbol': ['EURUSD', 'EURUSD', 'GBPJPY', 'GBPJPY', 'AUDUSD', 'EURUSD'], 'RR': [2.5, -1.0, 3.0, -1.0, 1.5, -1.0]}
+        combined_df = pd.DataFrame(sample_data)
     
-group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
-
-if group_cols and 'r' in combined_df.columns and not combined_df['r'].isnull().all():
-    g = combined_df.dropna(subset=["r"]).groupby(group_cols)
-
-    res_data = []
-    for name, group in g:
-        wins_r = group[group['r'] > 0]['r']
-        losses_r = group[group['r'] < 0]['r']
-
-        winrate_calc = len(wins_r) / len(group) if len(group) > 0 else 0.0
-        avg_win_r = wins_r.mean() if not wins_r.empty else 0.0
-        avg_loss_r = abs(losses_r.mean()) if not losses_r.empty else 0.0
-
-        expectancy_calc = (winrate_calc * avg_win_r) - ((1 - winrate_calc) * avg_loss_r)
-        
-        res_data.append({
-            "Symbol": name if isinstance(name, str) else name[0],
-            "Trades": len(group),
-            "Win Rate (%)": winrate_calc * 100,
-            "Avg Win (R)": avg_win_r,
-            "Avg Loss (R)": avg_loss_r,
-            "Expectancy (R)": expectancy_calc
-        })
+    if "RR" in combined_df.columns:
+        combined_df['r'] = pd.to_numeric(combined_df['RR'], errors='coerce')
     
-    if res_data:
-        agg_df = pd.DataFrame(res_data).sort_values("Expectancy (R)", ascending=False).reset_index(drop=True)
+    if "Symbol" in combined_df.columns and 'r' in combined_df.columns and not combined_df['r'].isnull().all():
+        g = combined_df.dropna(subset=["r"]).groupby("Symbol")
+        res_data = []
+        for name, group in g:
+            wins_r = group[group['r'] > 0]['r']
+            losses_r = group[group['r'] < 0]['r']
+            winrate_calc = len(wins_r) / len(group) if len(group) > 0 else 0.0
+            avg_win_r = wins_r.mean() if not wins_r.empty else 0.0
+            avg_loss_r = abs(losses_r.mean()) if not losses_r.empty else 0.0
+            expectancy_calc = (winrate_calc * avg_win_r) - ((1 - winrate_calc) * avg_loss_r)
+            
+            res_data.append({
+                "Symbol": name, "Trades": len(group), "Win Rate (%)": winrate_calc * 100,
+                "Avg Win (R)": avg_win_r, "Avg Loss (R)": avg_loss_r, "Expectancy (R)": expectancy_calc
+            })
         
-        # Display key metrics using st.metric
-        c1, c2, c3 = st.columns(3)
-        best_performer = agg_df.iloc[0]
-        c1.metric("🚀 Best Performer", best_performer['Symbol'], f"{best_performer['Expectancy (R)']:.2f} R")
-        c2.metric("📈 Total Trades Logged", f"{agg_df['Trades'].sum()}")
-        c3.metric("📊 Average Win Rate", f"{agg_df['Win Rate (%)'].mean():.2f}%")
+        if res_data:
+            agg_df = pd.DataFrame(res_data).sort_values("Expectancy (R)", ascending=False).reset_index(drop=True)
+            
+            c1, c2, c3 = st.columns(3)
+            best_performer = agg_df.iloc[0]
+            c1.metric("🚀 Best Performer", best_performer['Symbol'], f"{best_performer['Expectancy (R)']:.2f} R")
+            c2.metric("📈 Total Trades Logged", f"{agg_df['Trades'].sum()}")
+            c3.metric("📊 Average Win Rate", f"{agg_df['Win Rate (%)'].mean():.2f}%")
 
-        # Display Data and Chart side-by-side
-        data_col, chart_col = st.columns([1.5, 1])
-
-        with data_col:
-            st.dataframe(
-                agg_df,
-                use_container_width=True,
-                column_config={
-                    "Win Rate (%)": st.column_config.ProgressColumn(format="%.2f%%", min_value=0, max_value=100),
-                    "Avg Win (R)": st.column_config.NumberColumn(format="%.2f R"),
-                    "Avg Loss (R)": st.column_config.NumberColumn(format="%.2f R"),
-                    "Expectancy (R)": st.column_config.NumberColumn(format="%.2f R"),
-                }
-            )
-
-        with chart_col:
-            fig = px.bar(
-                agg_df, 
-                x='Symbol', 
-                y='Expectancy (R)', 
-                color='Expectancy (R)',
-                color_continuous_scale=px.colors.sequential.RdBu,
-                title="Expectancy per Symbol"
-            )
-            fig.update_layout(
-                xaxis_title="Symbol",
-                yaxis_title="Expectancy (R-Multiple)",
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            data_col, chart_col = st.columns([1.5, 1])
+            with data_col:
+                st.dataframe(
+                    agg_df, use_container_width=True,
+                    column_config={
+                        "Win Rate (%)": st.column_config.ProgressColumn(format="%.2f%%", min_value=0, max_value=100),
+                        "Avg Win (R)": st.column_config.NumberColumn(format="%.2f R"),
+                        "Avg Loss (R)": st.column_config.NumberColumn(format="%.2f R"),
+                        "Expectancy (R)": st.column_config.NumberColumn(format="%.2f R"),
+                    }
+                )
+            with chart_col:
+                fig = px.bar(
+                    agg_df, x='Symbol', y='Expectancy (R)', color='Expectancy (R)',
+                    color_continuous_scale=px.colors.sequential.RdBu, title="Expectancy per Symbol"
+                )
+                fig.update_layout(xaxis_title="Symbol", yaxis_title="Expectancy (R-Multiple)", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Log more trades with symbols and outcomes/RR to evolve your playbook.")
     else:
-        st.info("Log more trades with symbols and outcomes/RR to evolve your playbook.")
-else:
-    st.info("Ensure your trade logs contain a numerical 'RR' (Risk/Reward) column to analyze your playbook.")
+        st.info("Ensure your trade logs contain a numerical 'RR' (Risk/Reward) column to analyze your playbook.")
 
 import streamlit as st
 import os
