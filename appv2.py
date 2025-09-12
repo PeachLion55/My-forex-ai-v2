@@ -24,6 +24,12 @@ import io
 import base64
 import calendar
 from datetime import datetime, date, timedelta
+# Add this import with your other imports at the top of the script
+import pytz
+
+# Add this with your other session state initializations
+if 'user_timezone' not in st.session_state:
+    st.session_state.user_timezone = 'UTC' # Default to UTC
 
 # Add this to the top of your main script with other initializations
 if 'session_timings' not in st.session_state:
@@ -3314,43 +3320,79 @@ if st.session_state.current_page == 'account':
     st.markdown("---")
 
     # --- SESSION TIMINGS SETTINGS ---
-    with st.expander("⚙️ Session Timings"):
-        st.subheader("Customize Market Session Timings (UTC)")
-        st.caption("Adjust the start and end hours for each market session. These timings will be reflected in the header across the application.")
+with st.expander("⚙️ Session Timings"):
+    st.subheader("Customize Market Session Timings (UTC)")
+    st.caption("Adjust the start and end hours for each market session. These timings will be reflected in the header across the application.")
 
-        with st.form("session_timings_form"):
-            # Use columns for a clean header row
-            col1, col2, col3 = st.columns([2, 1, 1])
-            col1.markdown("**Session**")
-            col2.markdown("**Start Hour (0-23)**")
-            col3.markdown("**End Hour (0-23)**")
+    with st.form("session_timings_form"):
+        # Use columns for a clean header row
+        col1, col2, col3 = st.columns([2, 1, 1])
+        col1.markdown("**Session**")
+        col2.markdown("**Start Hour (0-23)**")
+        col3.markdown("**End Hour (0-23)**")
 
-            # Create a dictionary to hold the new values submitted by the form
-            new_timings = {}
-            # Iterate through the sessions currently stored in the session state
-            for session_name, timings in st.session_state.session_timings.items():
-                with st.container():
-                    c1, c2, c3 = st.columns([2, 1, 1])
-                    c1.write(f"**{session_name}**")
-                    # Create number inputs for start and end times
-                    start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
-                    end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
-                    # Store the form's current values in our temporary dictionary
-                    new_timings[session_name] = {'start': start_time, 'end': end_time}
+        # Create a dictionary to hold the new values submitted by the form
+        new_timings = {}
+        # Iterate through the sessions currently stored in the session state
+        for session_name, timings in st.session_state.session_timings.items():
+            with st.container():
+                c1, c2, c3 = st.columns([2, 1, 1])
+                c1.write(f"**{session_name}**")
+                # Create number inputs for start and end times
+                start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                # Store the form's current values in our temporary dictionary
+                new_timings[session_name] = {'start': start_time, 'end': end_time}
 
-            submitted = st.form_submit_button("Save Session Timings", use_container_width=True)
-            if submitted:
-                # When the form is submitted, update the session_state with the new values
-                st.session_state.session_timings.update(new_timings)
-                st.success("Your session timings have been updated successfully!")
-                st.rerun()
+        submitted = st.form_submit_button("Save Session Timings", use_container_width=True)
+        if submitted:
+            # When the form is submitted, update the session_state with the new values
+            st.session_state.session_timings.update(new_timings)
+            st.success("Your session timings have been updated successfully!")
+            st.rerun()
 
-    # --- MANAGE ACCOUNT ---
-    with st.expander("⚙️ Manage Account"):
-        st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-        st.write("**Email**: `trader.pro@email.com` (example)")
-        if st.button("Log Out", key="logout_account_page", type="primary"):
-            handle_logout() # Ensure the handle_logout() function is defined elsewhere in your app
+# --- NEW ACCOUNT TIME SETTINGS ---
+with st.expander("🕒 Account Time"):
+    st.subheader("Set Your Local Timezone")
+    st.caption("Select your timezone to display times accurately across the application.")
+    
+    # Get a list of all available timezones
+    all_timezones = pytz.all_timezones
+    
+    # Find the index of the currently saved timezone to set as the default in the selectbox
+    try:
+        current_index = all_timezones.index(st.session_state.user_timezone)
+    except ValueError:
+        current_index = all_timezones.index('UTC') # Fallback to UTC if saved value is invalid
+
+    # Create a form for the timezone setting
+    with st.form("timezone_form"):
+        # The selectbox for choosing the timezone
+        selected_timezone = st.selectbox(
+            "Select your timezone",
+            options=all_timezones,
+            index=current_index,
+            key="timezone_selector"
+        )
+        
+        submitted = st.form_submit_button("Save Timezone", use_container_width=True)
+        if submitted:
+            # Update the session state with the new timezone
+            st.session_state.user_timezone = selected_timezone
+            st.success(f"Timezone successfully set to {selected_timezone}!")
+            st.rerun()
+
+    # Provide immediate feedback to the user
+    current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+    st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z%z')}**")
+
+
+# --- MANAGE ACCOUNT ---
+with st.expander("⚙️ Manage Account"):
+    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+    st.write("**Email**: `trader.pro@email.com` (example)")
+    if st.button("Log Out", key="logout_account_page", type="primary"):
+        handle_logout() # Ensure the handle_logout() function is defined elsewhere in your app
 import streamlit as st
 import os
 import io
