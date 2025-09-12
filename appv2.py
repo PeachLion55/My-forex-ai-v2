@@ -3872,6 +3872,27 @@ def image_to_base_64(path):
 # =========================================================
 # TRADING TOOLS PAGE
 # =========================================================
+import streamlit as st
+import os
+
+# Placeholder for image_to_base_64 function, assuming it exists elsewhere
+def image_to_base_64(path):
+    import base64
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+    except FileNotFoundError:
+        return None
+
+# MOCK Streamlit Session State for standalone execution
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'trading_tools'
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = 'TestUser'
+if 'user_nickname' not in st.session_state:
+    st.session_state.user_nickname = 'TraderJoe'
+
+
 if st.session_state.current_page == 'trading_tools':
     # --- RETAINED CONTENT: User Login Check ---
     if st.session_state.logged_in_user is None:
@@ -3880,7 +3901,6 @@ if st.session_state.current_page == 'trading_tools':
         st.rerun()
 
     # --- 1. Page-Specific Configuration ---
-    # The 'caption' is the short version for the header. The longer text is treated as page content.
     page_info = {
         'title': 'Trading Tools', 
         'icon': 'trading_tools.png', 
@@ -3906,6 +3926,13 @@ if st.session_state.current_page == 'trading_tools':
 
     # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
+    # Create a dummy icon file if it doesn't exist for testing
+    if not os.path.exists("icons"):
+        os.makedirs("icons")
+    if not os.path.exists(os.path.join("icons", page_info['icon'])):
+        with open(os.path.join("icons", page_info['icon']), "w") as f:
+            f.write("") # Create empty file
+            
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
@@ -3936,58 +3963,39 @@ if st.session_state.current_page == 'trading_tools':
     # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
     st.markdown("""
     Access a complete suite of utilities to optimize your trading. Features include a Profit/Loss Calculator, Price Alerts, Currency Correlation Heatmap, Risk Management Calculator, Trading Session Tracker, Drawdown Recovery Planner, Pre-Trade Checklist, and Pre-Market Checklist. Each tool is designed to help you manage risk, plan trades efficiently, and make data-driven decisions to maximize performance.
-    """, unsafe_allow_html=True)
+    """)
 
     # --- Universal Settings ---
     all_currency_pairs = [
-        # Majors
         "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD", "AUD/USD", "NZD/USD",
-        # Minors/Crosses
         "EUR/GBP", "EUR/AUD", "EUR/JPY", "EUR/CHF", "EUR/CAD", "EUR/NZD",
         "GBP/JPY", "GBP/CHF", "GBP/AUD", "GBP/CAD", "GBP/NZD",
         "AUD/JPY", "AUD/CAD", "AUD/CHF", "AUD/NZD",
-        "CAD/JPY", "CAD/CHF",
-        "CHF/JPY",
-        "NZD/JPY", "NZD/CHF", "NZD/CAD"
+        "CAD/JPY", "CAD/CHF", "CHF/JPY", "NZD/JPY", "NZD/CHF", "NZD/CAD"
     ]
     all_account_currencies = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "NZD"]
 
     st.markdown("""
     <style>
-    div[data-testid="stTabs"] div[role="tablist"] > div {
-        background-color: #5bb4b0 !important;
-    }
-    div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        color: #ffffff !important;
-        transition: all 0.3s ease !important;
-    }
-    div[data-testid="stTabs"] button[data-baseweb="tab"]:hover {
-        color: #5bb4b0 !important;
-        background-color: rgba(91, 180, 176, 0.2) !important;
-    }
-    div[data-testid="stTabs"] button[aria-selected="true"] {
-        color: #5bb4b0 !important;
-        font-weight: bold !important;
-    }
+    div[data-testid="stTabs"] div[role="tablist"] > div { background-color: #5bb4b0 !important; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] { color: #ffffff !important; transition: all 0.3s ease !important; }
+    div[data-testid="stTabs"] button[data-baseweb="tab"]:hover { color: #5bb4b0 !important; background-color: rgba(91, 180, 176, 0.2) !important; }
+    div[data-testid="stTabs"] button[aria-selected="true"] { color: #5bb4b0 !important; font-weight: bold !important; }
     </style>
     """, unsafe_allow_html=True)
+    
     tools_options = [
-        'Profit/Loss Calculator',
-        'Price Alerts',
-        'Currency Correlation Heatmap',
-        'Risk Management Calculator',
-        'Trading Session Tracker',
-        'Drawdown Recovery Planner',
-        'Pre-Trade Checklist',
-        'Pre-Market Checklist'
+        'Profit/Loss Calculator', 'Price Alerts', 'Currency Correlation Heatmap', 'Risk Management Calculator',
+        'Trading Session Tracker', 'Drawdown Recovery Planner', 'Pre-Trade Checklist', 'Pre-Market Checklist'
     ]
     tabs = st.tabs(tools_options)
+    
     # --------------------------
-    # PROFIT / LOSS CALCULATOR
+    # PROFIT / LOSS CALCULATOR (REFACTORED)
     # --------------------------
     with tabs[0]:
         st.header("💰 Profit / Loss Calculator")
-        st.markdown("Calculate your potential profit or loss for a trade. For an accurate calculation, you must provide the correct currency conversion rate.")
+        st.markdown("Calculate your potential profit or loss for a trade. The accuracy of the result in your account currency depends on the exchange rate you provide.")
         st.markdown('---')
         
         col1, col2, col3 = st.columns(3)
@@ -4003,33 +4011,61 @@ if st.session_state.current_page == 'trading_tools':
 
         base_ccy, quote_ccy = pl_pair.split('/')
         
-        # Add a manual conversion rate input if needed
+        # --- Smart Conversion Rate Logic ---
+        is_conversion_needed = quote_ccy != pl_account_currency
+        conversion_logic = None  # Will be 'multiply' or 'divide'
         pl_conversion_rate = 1.0
-        if quote_ccy != pl_account_currency:
-            st.info(f"Your trade's profit is calculated in {quote_ccy}. Please provide the current exchange rate to convert it to your account currency ({pl_account_currency}).")
-            pl_conversion_rate = st.number_input(f"Current Conversion Rate ({quote_ccy} to {pl_account_currency})", value=1.0, step=0.00001, format="%.5f", key="pl_conversion_rate")
-        
+
+        if is_conversion_needed:
+            # Conversion is needed from quote_ccy to pl_account_currency.
+            
+            # Case 1: The conversion pair has account_currency as BASE (e.g., USD/JPY). We DIVIDE the P/L by this rate.
+            direct_conv_pair = f"{pl_account_currency}/{quote_ccy}"
+            
+            # Case 2: The conversion pair has account_currency as QUOTE (e.g., EUR/USD). We MULTIPLY the P/L by this rate.
+            inverse_conv_pair = f"{quote_ccy}/{pl_account_currency}"
+
+            if direct_conv_pair in all_currency_pairs:
+                conversion_logic = 'divide'
+                st.info(f"Your profit is calculated in **{quote_ccy}**. To convert to **{pl_account_currency}**, please provide the current **{direct_conv_pair}** exchange rate.")
+                pl_conversion_rate = st.number_input(f"Current {direct_conv_pair} Rate", value=1.0, step=0.00001, format="%.5f", key="pl_conversion_rate_input")
+            
+            elif inverse_conv_pair in all_currency_pairs:
+                conversion_logic = 'multiply'
+                st.info(f"Your profit is calculated in **{quote_ccy}**. To convert to **{pl_account_currency}**, please provide the current **{inverse_conv_pair}** exchange rate.")
+                pl_conversion_rate = st.number_input(f"Current {inverse_conv_pair} Rate", value=1.0, step=0.00001, format="%.5f", key="pl_conversion_rate_input")
+            
+            else: # Fallback for complex cross rates
+                conversion_logic = 'multiply'
+                st.warning(f"A direct conversion rate from **{quote_ccy}** to **{pl_account_currency}** is required.")
+                pl_conversion_rate = st.number_input(f"Provide Rate (1 {quote_ccy} = X {pl_account_currency})", value=1.0, step=0.00001, format="%.5f", key="pl_conversion_rate_input")
+        else:
+            st.success(f"Profit is calculated directly in your account currency ({pl_account_currency}). No conversion needed.")
+
         if st.button("Calculate Profit/Loss"):
-            # Determine pip size (0.0001 for most, 0.01 for JPY pairs)
+            # Determine pip size for display purposes only
             pip_size = 0.01 if "JPY" in quote_ccy else 0.0001
             
-            # Calculate profit/loss in pips
-            pips_moved = (pl_close_price - pl_open_price) / pip_size
+            # Calculate price difference
+            price_difference = pl_close_price - pl_open_price
             if pl_trade_direction == "Short":
-                pips_moved = -pips_moved
+                price_difference *= -1
+            
+            pips_moved = price_difference / pip_size
+            
+            # Calculate P/L in the QUOTE currency using the direct contract size method for accuracy
+            contract_size = pl_position_size * 100000
+            profit_loss_quote_ccy = price_difference * contract_size
+            
+            # Convert to account currency using the predetermined logic
+            profit_loss_account_ccy = profit_loss_quote_ccy
+            if is_conversion_needed:
+                if conversion_logic == 'divide':
+                    # Avoid division by zero
+                    profit_loss_account_ccy = profit_loss_quote_ccy / pl_conversion_rate if pl_conversion_rate != 0 else 0
+                elif conversion_logic == 'multiply':
+                    profit_loss_account_ccy = profit_loss_quote_ccy * pl_conversion_rate
 
-            # Calculate value of a pip in the quote currency for one lot
-            pip_value_per_lot_quote_ccy = 100000 * pip_size
-            
-            # For pairs where the quote currency is not the same as the base, the calculation is (pip_size * 100,000) / quote_price
-            # However, for simplicity and to avoid another user input, we use the standard calculation which is accurate enough for most pairs.
-            
-            # Calculate total profit/loss in quote currency
-            profit_loss_quote_ccy = pips_moved * pip_value_per_lot_quote_ccy * pl_position_size
-            
-            # Convert to account currency
-            profit_loss_account_ccy = profit_loss_quote_ccy * pl_conversion_rate
-            
             st.markdown("---")
             st.subheader("Results")
             
