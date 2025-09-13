@@ -4591,7 +4591,6 @@ import logging
 # =========================================================
 # HELPER FUNCTIONS (These are assumed to be defined globally at the top of your main script)
 # =========================================================
-
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -4602,35 +4601,22 @@ def image_to_base_64(path):
         logging.warning(f"Warning: Image file not found at path: {path}")
         return None
 
-# --- FINAL, CORRECTED, PURE UTC get_active_market_sessions FUNCTION ---
 def get_active_market_sessions():
     """
     Determines active forex sessions by directly comparing the current UTC hour
-    against the session's defined UTC start/end hours. This is the most robust method
-    and is immune to Daylight Saving Time issues.
+    against the session's defined UTC start/end hours.
     """
-    # Get the universal session timings from session state, which are always in UTC.
-    sessions_utc = st.session_state.get('session_timings', {
-        "Sydney": {"start": 22, "end": 7},
-        "Tokyo": {"start": 0, "end": 9},
-        "London": {"start": 8, "end": 17},
-        "New York": {"start": 13, "end": 22}
-    })
-    
-    # Get the current time's hour directly in UTC.
+    sessions_utc = st.session_state.get('session_timings', {})
     current_utc_hour = datetime.now(pytz.utc).hour
     
     active_sessions = []
     for session_name, timings in sessions_utc.items():
         start, end = timings['start'], timings['end']
         
-        # Logic for overnight sessions (e.g., Sydney starts at 22:00 and ends at 07:00 UTC)
-        if start > end:
+        if start > end: # Overnight session
             if current_utc_hour >= start or current_utc_hour < end:
                 active_sessions.append(session_name)
-        # Logic for same-day sessions (e.g., London starts at 08:00 and ends at 17:00 UTC)
-        else:
-            # This check is true from 08 up to, but not including, 17.
+        else: # Same-day session
             if start <= current_utc_hour < end:
                 active_sessions.append(session_name)
 
@@ -4643,34 +4629,17 @@ def get_active_market_sessions():
 # =========================================================
 if st.session_state.current_page == "Zenvo Academy":
     
-    # --- Login Check to prevent "Welcome, None!" ---
     if st.session_state.get('logged_in_user') is None:
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
         st.rerun()
 
     # --- CSS fix to ensure sidebar is visible after login ---
-    st.markdown("""
-    <style>
-        [data-testid="stSidebar"] {
-            display: block !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
 
-    # --- 1. Page-Specific Configuration ---
-    page_info = {
-        'title': 'Zenvo Academy', 
-        'icon': 'zenvo_academy.png', 
-        'caption': 'Your journey to trading mastery starts here.'
-    }
-
-    # --- 2. Define CSS Styles for the Header ---
-    main_container_style = """
-        background-color: black; padding: 20px 25px; border-radius: 10px; 
-        display: flex; align-items: center; gap: 20px;
-        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-    """
+    # --- 1. Page Configuration and CSS ---
+    page_info = { 'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.' }
+    main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
     info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
@@ -4678,7 +4647,7 @@ if st.session_state.current_page == "Zenvo Academy":
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    # --- 3. Prepare Dynamic Parts of the Header ---
+    # --- 2. Dynamic Header Parts ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
@@ -4686,22 +4655,43 @@ if st.session_state.current_page == "Zenvo Academy":
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-    
-    # This now calls the simple and correct pure UTC function
     active_sessions_str = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
-    # --- 4. Build the HTML for the New Header ---
+    # --- 3. Build and Render Header ---
     header_html = (
         f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
             f'<div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div style="{info_tab_style}">{market_sessions_display}</div></div>'
         '</div>'
     )
-
-    # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
+
+    # ==============================================================
+    # --- TEMPORARY DIAGNOSTIC BOX ---
+    # This box will show us the exact values being used in the calculation.
+    # ==============================================================
+    with st.warning("Live Diagnostics (This is a temporary message for debugging)"):
+        # Get the variables again to show them
+        sessions_utc = st.session_state.get('session_timings', {})
+        current_utc_time = datetime.now(pytz.utc)
+        current_utc_hour = current_utc_time.hour
+        
+        st.markdown(f"**1. Current Server Time (UTC):** `{current_utc_time.strftime('%Y-%m-%d %H:%M:%S %Z')}`")
+        st.markdown(f"**2. UTC Hour Being Used for Calculation:** `{current_utc_hour}`")
+        st.markdown(f"**3. Session Timings Being Used (UTC):** `{sessions_utc}`")
+        
+        # Explicitly check the London session logic
+        london_timings = sessions_utc.get("London", {"start": "N/A", "end": "N/A"})
+        london_start = london_timings["start"]
+        london_end = london_timings["end"]
+        is_active = london_start <= current_utc_hour < london_end
+        
+        st.markdown("---")
+        st.markdown(f"**London Session Check:**")
+        st.markdown(f"- **Condition:** Is `{current_utc_hour}` (current hour) >= `{london_start}` and < `{london_end}`?")
+        st.markdown(f"- **Result:** `{is_active}`")
 
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
 
