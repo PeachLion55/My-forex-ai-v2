@@ -3344,7 +3344,7 @@ if st.session_state.current_page == 'account':
     # --- LOGGED-IN VIEW: DASHBOARD & SETTINGS ---
     # =========================================================
     else:
-        st.title("My Account")
+        
         
         # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
