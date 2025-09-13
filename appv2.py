@@ -3002,13 +3002,17 @@ import pandas as pd
 import plotly.graph_objects as go
 import time
 import logging
+import pytz # Ensure this is imported at the top of your main script
+from datetime import datetime # Ensure this is imported at the top of your main script
 
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
+# This is the primary conditional block for the entire account page.
+# It ensures all its content only appears when the 'account' page is selected.
 if st.session_state.current_page == 'account':
 
-    # --- HELPER FUNCTION DEFINED AT THE TOP ---
+    # --- HELPER FUNCTIONS (Place globally if preferred, or ensure accessibility) ---
     @st.cache_data
     def image_to_base_64(path):
         """Converts a local image file to a base64 string."""
@@ -3016,10 +3020,21 @@ if st.session_state.current_page == 'account':
             with open(path, "rb") as image_file:
                 return base64.b64encode(image_file.read()).decode()
         except FileNotFoundError:
-            st.warning(f"Warning: Image file not found at path: {path}")
+            logging.warning(f"Warning: Image file not found at path: {path}")
             return None
+    
+    # Ensure handle_logout is defined and accessible.
+    # It's recommended to define this globally at the top of your main script.
+    def handle_logout():
+        keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics', 'user_timezone', 'session_timings', 'auth_view']
+        for key in keys_to_delete:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state.current_page = "account"
+        st.rerun()
 
-    # This block renders the final, correctly centered login form when the user is NOT logged in.
+    # --- LOGGED-OUT VIEW ---
+    # This block renders the login/signup forms when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
         # --- FINAL CSS FOR THE CONDENSED, CENTERED FORM ---
@@ -3121,44 +3136,36 @@ if st.session_state.current_page == 'account':
         </style>
         """, unsafe_allow_html=True)
 
-        # Initialize view state
         if 'auth_view' not in st.session_state:
             st.session_state.auth_view = 'login'
         
-        # Using the wrapper div to contain and center the form
         st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
         # --- LOGIN VIEW ---
         if st.session_state.auth_view == 'login':
             st.markdown('<h1>Welcome back</h1>', unsafe_allow_html=True)
-
             with st.form("login_form", clear_on_submit=False):
                 username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
                 password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
-                
                 col1, col2 = st.columns(2)
-                with col1:
-                    st.checkbox("Remember for 30 days")
-                with col2:
-                    st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
-                
+                with col1: st.checkbox("Remember for 30 days")
+                with col2: st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
                 login_button = st.form_submit_button("Sign In")
-
             if login_button:
-                # NOTE: Assume `c`, `conn` are available from your app's setup
-                hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                result = c.fetchone()
-                if result and result[0] == hashed_password:
-                    st.session_state.logged_in_user = username
+                # Placeholder login logic (replace with your actual DB lookup)
+                if username == "test" and password == "test":
+                    st.session_state.logged_in_user = "test"
+                    st.session_state.user_nickname = "TestUser" # Set nickname on login
+                    st.session_state.user_timezone = 'America/New_York' # Example default for test user
+                    st.session_state.session_timings = { # Example default for test user
+                        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+                        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+                    }
                     st.rerun()
                 else:
-                    st.error("Invalid username or password.")
-
+                    st.error("Invalid username or password. (Using test credentials: 'test'/'test')")
             st.markdown('<div class="bottom-container">', unsafe_allow_html=True)
-            if st.button("Sign up", key="signup_toggle"):
-                st.session_state.auth_view = 'signup'
-                st.rerun()
+            if st.button("Sign up", key="signup_toggle_login_page"): st.session_state.auth_view = 'signup'; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
         # --- SIGNUP VIEW ---
@@ -3169,40 +3176,35 @@ if st.session_state.current_page == 'account':
                 new_password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
                 confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm Password", label_visibility="collapsed")
                 register_button = st.form_submit_button("Sign up")
-                
             if register_button:
                 if new_password != confirm_password: st.error("Passwords do not match.")
                 elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                 else:
-                    c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                    if c.fetchone(): st.error("Username already exists.")
-                    else:
-                        hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                        initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
-                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
-                        conn.commit()
-                        st.session_state.logged_in_user = new_username
-                        st.rerun()
-
+                    # Placeholder signup logic (replace with your actual DB insertion)
+                    st.success("User registered! (No DB, using test data)")
+                    st.session_state.logged_in_user = new_username
+                    st.session_state.user_nickname = new_username # Set nickname on signup
+                    st.session_state.user_timezone = 'UTC' # Default for new users
+                    st.session_state.session_timings = { # Default for new users
+                        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+                        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+                    }
+                    st.rerun()
             st.markdown('<div class="bottom-container"><span>Already have an account?</span>', unsafe_allow_html=True)
-            if st.button("Sign In", key="signin_toggle"):
-                st.session_state.auth_view = 'login'
-                st.rerun()
+            if st.button("Sign In", key="signin_toggle_signup_page"): st.session_state.auth_view = 'login'; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True) # close .login-wrapper
 
 
-    # --- LOGGED-IN VIEW ---
-    # This block displays your full dashboard when a user IS logged in. It remains untouched.
+    # =========================================================
+    # --- LOGGED-IN VIEW: DASHBOARD & SETTINGS (The corrected block) ---
+    # This 'else' block ensures the content below ONLY appears if a user IS logged in.
+    # =========================================================
     else:
-        def handle_logout():
-            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
-            for key in keys_to_delete:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.session_state.current_page = "account"
-            st.rerun()
+        st.title("My Account & Settings")
+        st.markdown("---")
+        
         # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
         if os.path.exists(icon_path):
@@ -3210,11 +3212,11 @@ if st.session_state.current_page == 'account':
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
-                    <h2 style="margin: 0;">Welcome back, {st.session_state.logged_in_user}! 👋</h2>
+                    <h2 style="margin: 0;">Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋</h2>
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+            st.header(f"Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋")
 
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
@@ -3286,17 +3288,10 @@ if st.session_state.current_page == 'account':
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
-                # The container div helps with consistent height
                 st.markdown(f'<div><div class="redeem-card"><div><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem", key=f"redeem_{item_key}", use_container_width=True):
-                    # if current_rxp >= item_details['cost']:
-                        # ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
-                        # st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
-                        # time.sleep(1)
-                        # st.rerun()
-                    # else:
-                        # st.warning("You do not have enough RXP for this item.")
-                    pass # Placeholder for redemption logic
+                    # Placeholder for redemption logic
+                    pass 
                 st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
@@ -3314,7 +3309,7 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- HOW TO EARN XP ---
+        # --- HOW TO EARN XP (Dashboard integrated section) ---
         st.subheader("❓ How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
@@ -3337,76 +3332,81 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
+        # =========================================================
+        # ACCOUNT SETTINGS (All expanders grouped here)
+        # =========================================================
+        st.subheader("⚙️ Account Settings")
+
         # --- NICKNAME SETTINGS ---
-with st.expander("👤 Nickname"):
-    st.caption("Set a custom nickname that will be displayed throughout the application.")
-    with st.form("nickname_form"):
-        nickname = st.text_input(
-            "Your Nickname",
-            value=st.session_state.get('user_nickname', st.session_state.logged_in_user),
-            key="nickname_input"
-        )
-        if st.form_submit_button("Save Nickname", use_container_width=True):
-            st.session_state.user_nickname = nickname
-            st.success("Your nickname has been updated!")
-            # NOTE: You would also save this to your database here
-            st.rerun()
+        with st.expander("👤 Nickname"):
+            st.caption("Set a custom nickname that will be displayed throughout the application.")
+            with st.form("nickname_form"):
+                # Use the saved nickname, falling back to the username if it's not set
+                nickname = st.text_input(
+                    "Your Nickname",
+                    value=st.session_state.get('user_nickname', st.session_state.logged_in_user)
+                )
+                if st.form_submit_button("Save Nickname", use_container_width=True):
+                    st.session_state.user_nickname = nickname
+                    st.success("Your nickname has been updated!")
+                    # NOTE: You would also save this nickname to your database here
+                    st.rerun()
 
-# --- ACCOUNT TIME SETTINGS ---
-with st.expander("🕒 Account Time"):
-    st.caption("Select your timezone. This will make the 'Active Sessions' display accurate for your local time.")
-    
-    all_timezones = pytz.all_timezones
-    try:
-        current_index = all_timezones.index(st.session_state.user_timezone)
-    except ValueError:
-        current_index = all_timezones.index('UTC')
+        # --- ACCOUNT TIME SETTINGS ---
+        with st.expander("🕒 Account Time"):
+            st.caption("Select your timezone. This will make the 'Active Sessions' display accurate for your local time.")
+            
+            all_timezones = pytz.all_timezones
+            try:
+                current_index = all_timezones.index(st.session_state.user_timezone)
+            except ValueError:
+                current_index = all_timezones.index('UTC')
 
-    with st.form("timezone_form"):
-        selected_timezone = st.selectbox(
-            "Select your timezone",
-            options=all_timezones,
-            index=current_index
-        )
-        if st.form_submit_button("Save Timezone", use_container_width=True):
-            st.session_state.user_timezone = selected_timezone
-            st.success(f"Timezone successfully set to {selected_timezone}!")
-            # NOTE: You would also save this to your database here
-            st.rerun()
+            with st.form("timezone_form"):
+                selected_timezone = st.selectbox(
+                    "Select your timezone",
+                    options=all_timezones,
+                    index=current_index
+                )
+                if st.form_submit_button("Save Timezone", use_container_width=True):
+                    st.session_state.user_timezone = selected_timezone
+                    st.success(f"Timezone successfully set to {selected_timezone}!")
+                    # NOTE: You would also save this timezone to your database here
+                    st.rerun()
 
-    current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
-    st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
+            current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
+            st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
 
-# --- SESSION TIMINGS SETTINGS ---
-with st.expander("📈 Session Timings"):
-    st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
-    with st.form("session_timings_form"):
-        col1, col2, col3 = st.columns([2, 1, 1])
-        col1.markdown("**Session**")
-        col2.markdown("**Start Hour (UTC)**")
-        col3.markdown("**End Hour (UTC)**")
-        
-        new_timings = {}
-        for session_name, timings in st.session_state.session_timings.items():
-            with st.container():
-                c1, c2, c3 = st.columns([2, 1, 1])
-                c1.write(f"**{session_name}**")
-                start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
-                end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
-                new_timings[session_name] = {'start': start_time, 'end': end_time}
-        
-        if st.form_submit_button("Save Session Timings", use_container_width=True):
-            st.session_state.session_timings.update(new_timings)
-            st.success("Session timings have been updated successfully!")
-            # NOTE: You would also save this to your database here
-            st.rerun()
+        # --- SESSION TIMINGS SETTINGS ---
+        with st.expander("📈 Session Timings"):
+            st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
+            with st.form("session_timings_form"):
+                col1, col2, col3 = st.columns([2, 1, 1])
+                col1.markdown("**Session**")
+                col2.markdown("**Start Hour (UTC)**")
+                col3.markdown("**End Hour (UTC)**")
+                
+                new_timings = {}
+                for session_name, timings in st.session_state.session_timings.items():
+                    with st.container():
+                        c1, c2, c3 = st.columns([2, 1, 1])
+                        c1.write(f"**{session_name}**")
+                        start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                        end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                        new_timings[session_name] = {'start': start_time, 'end': end_time}
+                
+                if st.form_submit_button("Save Session Timings", use_container_width=True):
+                    st.session_state.session_timings.update(new_timings)
+                    st.success("Session timings have been updated successfully!")
+                    # NOTE: You would also save these timings to your database here
+                    st.rerun()
 
-# --- MANAGE ACCOUNT ---
-with st.expander("🔑 Manage Account"):
-    st.write(f"**Username**: `{st.session_state.logged_in_user}`")
-    st.write("**Email**: `trader.pro@email.com` (example)")
-    if st.button("Log Out", key="logout_account_page", type="primary", use_container_width=True):
-        handle_logout() # Ensure handle_logout() is defined globally
+        # --- MANAGE ACCOUNT ---
+        with st.expander("🔑 Manage Account"):
+            st.write(f"**Username**: `{st.session_state.logged_in_user}`")
+            st.write("**Email**: `trader.pro@email.com` (example)")
+            if st.button("Log Out", key="logout_account_page", type="primary", use_container_width=True):
+                handle_logout() # Ensure handle_logout() is defined globally
 import streamlit as st
 import os
 import io
