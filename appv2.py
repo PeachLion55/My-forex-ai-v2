@@ -4589,7 +4589,7 @@ from datetime import datetime, timedelta
 import logging
 
 # =========================================================
-# HELPER FUNCTIONS (These are assumed to be defined globally at the top of your main script)
+# HELPER FUNCTIONS (Assumed to be defined globally at the top of your main script)
 # =========================================================
 @st.cache_data
 def image_to_base_64(path):
@@ -4617,7 +4617,7 @@ def get_active_market_sessions():
     
     # ==============================================================
     # --- TEMPORARY DEBUGGING OUTPUT ---
-    # This will print the critical variables to your sidebar to help diagnose the issue.
+    # This will now appear in the sidebar once it's visible.
     st.sidebar.markdown("---")
     st.sidebar.title("Live Diagnostics")
     st.sidebar.write(f"**Current UTC Time:** `{current_utc_time.strftime('%Y-%m-%d %H:%M:%S %Z')}`")
@@ -4630,12 +4630,10 @@ def get_active_market_sessions():
     for session_name, timings in sessions_utc.items():
         start, end = timings['start'], timings['end']
         
-        # Logic for overnight sessions (e.g., Sydney)
-        if start > end:
+        if start > end: # Overnight session
             if current_utc_hour >= start or current_utc_hour < end:
                 active_sessions.append(session_name)
-        # Logic for same-day sessions (e.g., London)
-        else:
+        else: # Same-day session
             if start <= current_utc_hour < end:
                 active_sessions.append(session_name)
 
@@ -4652,6 +4650,17 @@ if st.session_state.current_page == "Zenvo Academy":
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
         st.rerun()
+
+    # --- THIS IS THE FIX ---
+    # This CSS counteracts the "display: none" from the login page, making the sidebar visible again.
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] {
+            display: block !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    # --- END FIX ---
 
     # --- Page Configuration and CSS (No changes) ---
     page_info = { 'title': 'Zenvo Academy', 'icon': 'zenvo_academy.png', 'caption': 'Your journey to trading mastery starts here.' }
