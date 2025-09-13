@@ -1212,7 +1212,7 @@ if st.session_state.current_page == 'fundamentals':
                     unsafe_allow_html=True,
                 )
                 st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 📊 Major High-Impact Forex Events")
+    st.markdown("### 📊 Major High-Impact Forex Events Explained")
     forex_high_impact_events = [
         {
             "event": "Non-Farm Payrolls (NFP)",
