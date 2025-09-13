@@ -1156,7 +1156,7 @@ if st.session_state.current_page == 'fundamentals':
     st.markdown(header_html, unsafe_allow_html=True)
 
     st.markdown('---')
-    st.markdown("### Upcoming Economic Events")
+    st.markdown("### Upcoming Economic Events This Week")
 
     # (Your other Streamlit elements for this page go here...)
     uniq_ccy = sorted(set(list(econ_df["Currency"].unique()) + list(df_news["Currency"].unique())))
