@@ -4585,7 +4585,7 @@ import os
 import io
 import base64
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta # Make sure timedelta is imported
 import logging
 
 # =========================================================
@@ -4601,13 +4601,23 @@ def image_to_base_64(path):
         logging.warning(f"Warning: Image file not found at path: {path}")
         return None
 
+# --- FINAL, CORRECTED FUNCTION WITH SERVER TIME WORKAROUND ---
 def get_active_market_sessions():
     """
-    Determines active forex sessions by directly comparing the current UTC hour
+    Determines active forex sessions by comparing the current UTC hour
     against the session's defined UTC start/end hours.
+    Includes a 1-hour correction for the server's clock.
     """
-    sessions_utc = st.session_state.get('session_timings', {})
-    current_utc_hour = datetime.now(pytz.utc).hour
+    sessions_utc = st.session_state.get('session_timings', {
+        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+    })
+    
+    # --- THIS IS THE FIX ---
+    # Get the server's time in UTC and manually add one hour to correct for the server's clock being behind.
+    corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
+    current_utc_hour = corrected_utc_time.hour
+    # --- END FIX ---
     
     active_sessions = []
     for session_name, timings in sessions_utc.items():
@@ -4667,32 +4677,6 @@ if st.session_state.current_page == "Zenvo Academy":
     )
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-
-    # ==============================================================
-    # --- TEMPORARY DIAGNOSTIC BOX ---
-    # This box will show us the exact values being used in the calculation.
-    # ==============================================================
-    with st.warning("Live Diagnostics (This is a temporary message for debugging)"):
-        # Get the variables again to show them
-        sessions_utc = st.session_state.get('session_timings', {})
-        current_utc_time = datetime.now(pytz.utc)
-        current_utc_hour = current_utc_time.hour
-        
-        st.markdown(f"**1. Current Server Time (UTC):** `{current_utc_time.strftime('%Y-%m-%d %H:%M:%S %Z')}`")
-        st.markdown(f"**2. UTC Hour Being Used for Calculation:** `{current_utc_hour}`")
-        st.markdown(f"**3. Session Timings Being Used (UTC):** `{sessions_utc}`")
-        
-        # Explicitly check the London session logic
-        london_timings = sessions_utc.get("London", {"start": "N/A", "end": "N/A"})
-        london_start = london_timings["start"]
-        london_end = london_timings["end"]
-        is_active = london_start <= current_utc_hour < london_end
-        
-        st.markdown("---")
-        st.markdown(f"**London Session Check:**")
-        st.markdown(f"- **Condition:** Is `{current_utc_hour}` (current hour) >= `{london_start}` and < `{london_end}`?")
-        st.markdown(f"- **Result:** `{is_active}`")
-
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
 
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
