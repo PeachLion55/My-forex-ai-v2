@@ -1189,7 +1189,7 @@ if st.session_state.current_page == 'fundamentals':
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
@@ -1493,7 +1493,7 @@ if st.session_state.current_page == 'trading_journal':
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
@@ -2140,7 +2140,7 @@ if st.session_state.current_page == 'mt5':
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
@@ -3191,7 +3191,7 @@ if st.session_state.current_page == 'strategy':
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
@@ -3843,7 +3843,7 @@ if st.session_state.current_page == 'community':
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
@@ -4118,7 +4118,7 @@ if st.session_state.current_page == "Community Chatroom":
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
@@ -4534,7 +4534,7 @@ if st.session_state.current_page == 'trading_tools':
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 4. Build and Render Header ---
     header_html = (
