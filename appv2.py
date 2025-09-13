@@ -25,103 +25,6 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
-# GLOBAL SESSION STATE INITIALIZATION (MUST BE AT THE VERY TOP!)
-if 'logged_in_user' not in st.session_state: st.session_state.logged_in_user = None
-if 'current_page' not in st.session_state: st.session_state.current_page = 'account'
-if 'user_nickname' not in st.session_state: st.session_state.user_nickname = None
-if 'user_timezone' not in st.session_state: st.session_state.user_timezone = 'Europe/London' # Fixed default timezone
-if 'session_timings' not in st.session_state:
-    st.session_state.session_timings = { # Default UTC market session timings
-        "Sydney": {"start": 22, "end": 7},
-        "Tokyo": {"start": 0, "end": 9},
-        "London": {"start": 8, "end": 17},
-        "New York": {"start": 13, "end": 22}
-    }
-if 'auth_view' not in st.session_state: st.session_state.auth_view = 'login'
-# Add other global session state initializations your app needs (e.g., for XP, strategies, etc.)
-if 'xp' not in st.session_state: st.session_state.xp = 0
-if 'level' not in st.session_state: st.session_state.level = 0
-if 'badges' not in st.session_state: st.session_state.badges = []
-if 'streak' not in st.session_state: st.session_state.streak = 0
-if 'xp_log' not in st.session_state: st.session_state.xp_log = []
-if 'trade_journal' not in st.session_state: st.session_state.trade_journal = []
-# ... any other initializations from your provided code
-
-# (Your image_to_base_64 function here, as provided in previous prompts)
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string for embedding in HTML."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        logging.warning(f"Warning: Image file not found at path: {path}")
-        return None
-
-def handle_logout():
-    """Handles user logout by clearing all relevant session state variables."""
-    keys_to_clear = list(st.session_state.keys()) # Clear ALL session state
-    for key in keys_to_clear:
-        del st.session_state[key]
-    st.session_state.current_page = "account" # Redirect to login page
-    st.rerun()
-
-# --- FINAL, CORRECTED, TIMEZONE-AWARE get_active_market_sessions FUNCTION ---
-def get_active_market_sessions():
-    """
-    Determines active forex sessions by converting universal UTC session start/end times 
-    into the user's selected local timezone, and then comparing against the user's current local time.
-    This provides an accurate "local time" view of active sessions for the user.
-    """
-    # 1. Get the user's chosen display timezone from session state.
-    user_tz_str = st.session_state.get('user_timezone', 'UTC')
-    try:
-        user_timezone = pytz.timezone(user_tz_str)
-    except pytz.exceptions.UnknownTimeZoneError:
-        logging.error(f"Unknown timezone: {user_tz_str}. Falling back to UTC.")
-        user_timezone = pytz.utc
-        user_tz_str = 'UTC' 
-
-    # Get the current time in the user's local timezone
-    now_local = datetime.now(user_timezone)
-    
-    # 2. Get the universal session timings, which are ALWAYS defined in UTC.
-    sessions_utc_hours = st.session_state.get('session_timings', {
-        "Sydney": {"start": 22, "end": 7},  # 10 PM - 7 AM UTC
-        "Tokyo": {"start": 0, "end": 9},    # 12 AM - 9 AM UTC
-        "London": {"start": 8, "end": 17},  # 8 AM - 5 PM UTC
-        "New York": {"start": 13, "end": 22}# 1 PM - 10 PM UTC (ends at 21:59:59 UTC)
-    })
-    
-    active_sessions = []
-    now_utc_fixed = datetime.now(pytz.utc).replace(second=0, microsecond=0) # Current UTC to the minute
-
-    # 3. For each session, convert its UTC start/end times to the user's selected local timezone.
-    for session_name, timings in sessions_utc_hours.items():
-        start_utc_hour = timings['start']
-        end_utc_hour = timings['end']
-
-        # Create *today's* (in UTC) start and end datetime objects for the session
-        start_utc_dt = now_utc_fixed.replace(hour=start_utc_hour, minute=0, second=0, microsecond=0)
-        end_utc_dt = now_utc_fixed.replace(hour=end_utc_hour, minute=0, second=0, microsecond=0)
-        
-        # If an end time is earlier than a start time (e.g., Sydney 22:00-07:00),
-        # it means the end time is on the *next day*. Adjust end_utc_dt.
-        if start_utc_dt > end_utc_dt:
-            end_utc_dt += timedelta(days=1)
-
-        # Convert these UTC datetimes to the user's selected local timezone
-        start_local_dt = start_utc_dt.astimezone(user_timezone)
-        end_local_dt = end_utc_dt.astimezone(user_timezone)
-        
-        # 4. Compare the user's current local time against the session's converted local time.
-        if start_local_dt <= now_local < end_local_dt:
-            active_sessions.append(session_name)
-
-    if not active_sessions:
-        return "Markets Closed"
-    return ", ".join(active_sessions)
-
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
@@ -249,16 +152,37 @@ st.markdown(
     """, unsafe_allow_html=True)
 
 # =========================================================
-# LOGGING & DATABASE SETUP
+# 1. IMPORTS
+# =========================================================
+import streamlit as st
+import os
+import io
+import base64
+import logging
+import sqlite3
+import json
+import hashlib
+import pandas as pd
+import numpy as np # Often needed with pandas for NaN checks
+import plotly.graph_objects as go
+import time
+import pytz
+from datetime import datetime, timedelta
+
+# =========================================================
+# 2. LOGGING & DATABASE SETUP
 # =========================================================
 logging.basicConfig(filename='debug.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 DB_FILE = "users.db"
 
 class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder to handle datetime objects and NaN values."""
     def default(self, obj):
-        if isinstance(obj, (dt.datetime, dt.date)): return obj.isoformat()
-        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)): return None
+        if isinstance(obj, (datetime, pd.Timestamp)):
+            return obj.isoformat()
+        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)):
+            return None
         return super().default(obj)
 
 try:
@@ -272,6 +196,83 @@ except Exception as e:
     st.error("Fatal Error: Could not connect to the database.")
     logging.critical(f"Failed to initialize SQLite database: {str(e)}", exc_info=True)
     st.stop()
+
+# =========================================================
+# 3. GLOBAL SESSION STATE INITIALIZATION
+# =========================================================
+# This block runs once per session and ensures all keys exist to prevent AttributeErrors.
+if 'logged_in_user' not in st.session_state: st.session_state.logged_in_user = None
+if 'current_page' not in st.session_state: st.session_state.current_page = 'account'
+if 'user_nickname' not in st.session_state: st.session_state.user_nickname = None
+if 'user_timezone' not in st.session_state: st.session_state.user_timezone = 'Europe/London' # Fixed default timezone
+if 'session_timings' not in st.session_state:
+    st.session_state.session_timings = { # Default UTC market session timings
+        "Sydney": {"start": 22, "end": 7},
+        "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17},
+        "New York": {"start": 13, "end": 22}
+    }
+if 'auth_view' not in st.session_state: st.session_state.auth_view = 'login'
+# (Add any other global initializations your app needs for other pages)
+if 'strategies' not in st.session_state: st.session_state.strategies = pd.DataFrame()
+if 'trade_journal' not in st.session_state: st.session_state.trade_journal = []
+
+# =========================================================
+# 4. GLOBAL HELPER FUNCTIONS
+# =========================================================
+@st.cache_data
+def image_to_base_64(path):
+    """Converts a local image file to a base64 string."""
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        logging.warning(f"Warning: Image file not found at path: {path}")
+        return None
+
+def handle_logout():
+    """Handles user logout by clearing all session state variables."""
+    keys_to_clear = list(st.session_state.keys())
+    for key in keys_to_clear:
+        del st.session_state[key]
+    st.session_state.current_page = "account"
+    st.rerun()
+
+def get_active_market_sessions():
+    """
+    Determines active forex sessions by converting universal UTC session times 
+    into the user's selected local timezone for accurate comparison.
+    """
+    user_tz_str = st.session_state.get('user_timezone', 'Europe/London')
+    try:
+        user_timezone = pytz.timezone(user_tz_str)
+    except pytz.exceptions.UnknownTimeZoneError:
+        user_timezone = pytz.utc
+    
+    now_local = datetime.now(user_timezone)
+    sessions_utc_hours = st.session_state.get('session_timings', {})
+    
+    active_sessions = []
+    now_utc_fixed = datetime.now(pytz.utc)
+
+    for session_name, timings in sessions_utc_hours.items():
+        start_utc_dt = now_utc_fixed.replace(hour=timings['start'], minute=0, second=0, microsecond=0)
+        end_utc_dt = now_utc_fixed.replace(hour=timings['end'], minute=0, second=0, microsecond=0)
+        
+        if start_utc_dt > end_utc_dt:
+            end_utc_dt += timedelta(days=1)
+
+        start_local_dt = start_utc_dt.astimezone(user_timezone)
+        end_local_dt = end_utc_dt.astimezone(user_timezone)
+        
+        if start_local_dt <= now_local < end_local_dt:
+            active_sessions.append(session_name)
+
+    if not active_sessions:
+        return "Markets Closed"
+    return ", ".join(active_sessions)
+
+
 
 
 # =========================================================
@@ -3069,11 +3070,20 @@ import logging
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
-# This is the primary conditional block for the entire account page.
-# It ensures all its content only appears when the 'account' page is selected.
 if st.session_state.current_page == 'account':
 
-    # --- LOGGED-OUT VIEW (Login/Signup Forms) ---
+    # --- HELPER FUNCTION DEFINED AT THE TOP ---
+    @st.cache_data
+    def image_to_base_64(path):
+        """Converts a local image file to a base64 string."""
+        try:
+            with open(path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        except FileNotFoundError:
+            st.warning(f"Warning: Image file not found at path: {path}")
+            return None
+
+    # This block renders the final, correctly centered login form when the user is NOT logged in.
     if st.session_state.get('logged_in_user') is None:
 
         # --- FINAL CSS FOR THE CONDENSED, CENTERED FORM ---
@@ -3175,9 +3185,11 @@ if st.session_state.current_page == 'account':
         </style>
         """, unsafe_allow_html=True)
 
+        # Initialize view state
         if 'auth_view' not in st.session_state:
             st.session_state.auth_view = 'login'
         
+        # Using the wrapper div to contain and center the form
         st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
         # --- LOGIN VIEW ---
@@ -3189,46 +3201,26 @@ if st.session_state.current_page == 'account':
                 password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
                 
                 col1, col2 = st.columns(2)
-                with col1: st.checkbox("Remember for 30 days")
-                with col2: st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
+                with col1:
+                    st.checkbox("Remember for 30 days")
+                with col2:
+                    st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
                 
                 login_button = st.form_submit_button("Sign In")
 
             if login_button:
-                try:
-                    conn = sqlite3.connect('user.db') # Assuming global 'conn' not ideal in pages, safer here.
-                    c = conn.cursor()
-                    hashed_password = hashlib.sha256(password.encode()).hexdigest()
-                    c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
-                    result = c.fetchone()
-                    if result and result[0] == hashed_password:
-                        st.session_state.logged_in_user = username
-                        
-                        # --- CORRECTLY LOAD ALL USER DATA FROM DB ---
-                        user_data = json.loads(result[1])
-                        st.session_state.user_nickname = user_data.get('user_nickname', username)
-                        st.session_state.user_timezone = user_data.get('user_timezone', 'Europe/London') # Load, default to London
-                        st.session_state.session_timings = user_data.get('session_timings', st.session_state.session_timings) 
-                        st.session_state.xp = user_data.get('xp', 0)
-                        st.session_state.level = user_data.get('level', 0)
-                        st.session_state.badges = user_data.get('badges', [])
-                        st.session_state.streak = user_data.get('streak', 0)
-                        st.session_state.xp_log = user_data.get('xp_log', [])
-                        st.session_state.trade_journal = user_data.get('trade_journal', [])
-                        # --- END LOAD USER DATA ---
-
-                        st.success(f"Welcome back, {st.session_state.user_nickname}!")
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password.")
-                except Exception as e:
-                    st.error(f"Database error during login: {e}")
-                    logging.error(f"Login error: {e}")
-                finally:
-                    if 'conn' in locals() and conn: conn.close() # Close connection
+                # NOTE: Assume `c`, `conn` are available from your app's setup
+                hashed_password = hashlib.sha256(password.encode()).hexdigest()
+                c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
+                result = c.fetchone()
+                if result and result[0] == hashed_password:
+                    st.session_state.logged_in_user = username
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password.")
 
             st.markdown('<div class="bottom-container">', unsafe_allow_html=True)
-            if st.button("Sign up", key="signup_toggle_login_page"):
+            if st.button("Sign up", key="signup_toggle"):
                 st.session_state.auth_view = 'signup'
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -3246,55 +3238,18 @@ if st.session_state.current_page == 'account':
                 if new_password != confirm_password: st.error("Passwords do not match.")
                 elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                 else:
-                    try:
-                        conn = sqlite3.connect('user.db')
-                        c = conn.cursor()
-                        c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                        if c.fetchone():
-                            st.error("Username already exists.")
-                        else:
-                            hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                            
-                            # --- CORRECTLY INITIALIZE AND SAVE USER DATA ---
-                            initial_user_data = {
-                                "xp": 0, "level": 0, "badges": [], "streak": 0,
-                                "last_journal_date": None, "last_login_xp_date": None,
-                                "gamification_flags": {}, "drawings": [], "trade_journal": [],
-                                "strategies": [], "emotion_log": [], "reflection_log": [],
-                                "xp_log": [], 'chatroom_rules_accepted': False,
-                                'chatroom_nickname': None,
-                                'user_nickname': new_username, # Default nickname to username
-                                'user_timezone': 'Europe/London', # FIXED DEFAULT TIMEZONE
-                                'session_timings': { # Default market session timings in UTC
-                                    "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
-                                    "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
-                                }
-                            }
-                            c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, json.dumps(initial_user_data)))
-                            conn.commit()
-
-                            st.session_state.logged_in_user = new_username
-                            st.session_state.user_nickname = new_username
-                            st.session_state.user_timezone = initial_user_data['user_timezone']
-                            st.session_state.session_timings = initial_user_data['session_timings']
-                            st.session_state.xp = initial_user_data['xp']
-                            st.session_state.level = initial_user_data['level']
-                            st.session_state.badges = initial_user_data['badges']
-                            st.session_state.streak = initial_user_data['streak']
-                            st.session_state.xp_log = initial_user_data['xp_log']
-                            st.session_state.trade_journal = initial_user_data['trade_journal']
-
-                            st.success("Account created successfully! Logging you in...")
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Database error during signup: {e}")
-                        logging.error(f"Signup error: {e}")
-                    finally:
-                        if 'conn' in locals() and conn: conn.close() # Close connection
-
+                    c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
+                    if c.fetchone(): st.error("Username already exists.")
+                    else:
+                        hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
+                        initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
+                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                        conn.commit()
+                        st.session_state.logged_in_user = new_username
+                        st.rerun()
 
             st.markdown('<div class="bottom-container"><span>Already have an account?</span>', unsafe_allow_html=True)
-            if st.button("Sign In", key="signin_toggle_signup_page"):
+            if st.button("Sign In", key="signin_toggle"):
                 st.session_state.auth_view = 'login'
                 st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -3302,26 +3257,28 @@ if st.session_state.current_page == 'account':
         st.markdown('</div>', unsafe_allow_html=True) # close .login-wrapper
 
 
-    # =========================================================
-    # --- LOGGED-IN VIEW: DASHBOARD & SETTINGS ---
-    # This 'else' block ensures the content below ONLY appears if a user IS logged in.
-    # =========================================================
+    # --- LOGGED-IN VIEW ---
+    # This block displays your full dashboard when a user IS logged in. It remains untouched.
     else:
-        st.title("My Account & Settings")
-        st.markdown("---")
-        
-        # --- LOGGED-IN WELCOME HEADER (Uses nickname) ---
+        def handle_logout():
+            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
+            for key in keys_to_delete:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.session_state.current_page = "account"
+            st.rerun()
+        # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
         if os.path.exists(icon_path):
             icon_base64_welcome = image_to_base_64(icon_path)
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
-                    <h2 style="margin: 0;">Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋</h2>
+                    <h2 style="margin: 0;">Welcome back, {st.session_state.logged_in_user}! 👋</h2>
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.header(f"Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋")
+            st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
 
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
@@ -3393,10 +3350,17 @@ if st.session_state.current_page == 'account':
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
+                # The container div helps with consistent height
                 st.markdown(f'<div><div class="redeem-card"><div><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem", key=f"redeem_{item_key}", use_container_width=True):
-                    # Placeholder for redemption logic
-                    pass 
+                    # if current_rxp >= item_details['cost']:
+                        # ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
+                        # st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
+                        # time.sleep(1)
+                        # st.rerun()
+                    # else:
+                        # st.warning("You do not have enough RXP for this item.")
+                    pass # Placeholder for redemption logic
                 st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
@@ -3414,7 +3378,7 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- HOW TO EARN XP (Dashboard integrated section) ---
+        # --- HOW TO EARN XP ---
         st.subheader("❓ How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
@@ -3437,128 +3401,12 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # =========================================================
-        # ACCOUNT SETTINGS (All expanders grouped here)
-        # =========================================================
-        st.subheader("⚙️ Account Settings")
-
-        # --- NICKNAME SETTINGS ---
-        with st.expander("👤 Nickname"):
-            st.caption("Set a custom nickname that will be displayed throughout the application.")
-            with st.form("nickname_form_account_page"): # Unique key for form
-                nickname = st.text_input(
-                    "Your Nickname",
-                    value=st.session_state.get('user_nickname', st.session_state.logged_in_user),
-                    key="nickname_input_account_page" # Unique key for widget
-                )
-                if st.form_submit_button("Save Nickname", use_container_width=True, key="save_nickname_button"): # Unique key
-                    st.session_state.user_nickname = nickname
-                    st.success("Your nickname has been updated!")
-                    
-                    # --- SAVE NICKNAME TO DATABASE ---
-                    try:
-                        conn = sqlite3.connect('user.db')
-                        c = conn.cursor()
-                        c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.logged_in_user,))
-                        current_data = json.loads(c.fetchone()[0])
-                        current_data['user_nickname'] = nickname
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(current_data), st.session_state.logged_in_user))
-                        conn.commit()
-                        logging.info(f"Nickname updated for {st.session_state.logged_in_user} in DB.")
-                    except Exception as e:
-                        st.error(f"Failed to save nickname to database: {e}")
-                        logging.error(f"DB error updating nickname: {e}")
-                    finally:
-                        if conn: conn.close()
-                    # --- END SAVE ---
-                    st.rerun()
-
-        # --- ACCOUNT TIME SETTINGS (FIXED TO EUROPE/LONDON) ---
-        with st.expander("🕒 Account Time"):
-            st.caption("Your timezone is set to Europe/London to align with key trading hours.")
-            
-            fixed_timezone = 'Europe/London'
-            st.session_state.user_timezone = fixed_timezone # Force this into session state
-            
-            st.info(f"Your current selected timezone is: **{fixed_timezone}**")
-            
-            # Display current local time in London
-            london_tz = pytz.timezone(fixed_timezone)
-            current_london_time = datetime.now(london_tz)
-            st.info(f"Current time in London: **{current_london_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
-
-            # No form here, as it's fixed. You could add a hidden form to 'save' if needed for consistency.
-            # If you want to enable a 'Save' button even though it's fixed, uncomment the following block:
-            # with st.form("timezone_form_account_page"):
-            #     st.write(f"This setting is fixed to {fixed_timezone}.")
-            #     if st.form_submit_button("Acknowledge Timezone", use_container_width=True, key="acknowledge_timezone_button"):
-            #         # Optionally save the fixed timezone to DB for consistency on signup
-            #         try:
-            #             conn = sqlite3.connect('user.db')
-            #             c = conn.cursor()
-            #             c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.logged_in_user,))
-            #             current_data = json.loads(c.fetchone()[0])
-            #             current_data['user_timezone'] = fixed_timezone
-            #             c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(current_data), st.session_state.logged_in_user))
-            #             conn.commit()
-            #             logging.info(f"Timezone updated for {st.session_state.logged_in_user} in DB.")
-            #         except Exception as e:
-            #             st.error(f"Failed to save timezone to database: {e}")
-            #             logging.error(f"DB error updating timezone: {e}")
-            #         finally:
-            #             if conn: conn.close()
-            #         st.rerun()
-
-
-        # --- SESSION TIMINGS SETTINGS ---
-        with st.expander("📈 Session Timings"):
-            st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
-            with st.form("session_timings_form_account_page"): # Unique key for form
-                col1, col2, col3 = st.columns([2, 1, 1])
-                col1.markdown("**Session**")
-                col2.markdown("**Start Hour (UTC)**")
-                col3.markdown("**End Hour (UTC)**")
-                
-                new_timings = {}
-                # This loop will now work because of the global initialization
-                for session_name, timings in st.session_state.session_timings.items():
-                    with st.container():
-                        c1, c2, c3 = st.columns([2, 1, 1])
-                        c1.write(f"**{session_name}**")
-                        start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start_account", label_visibility="collapsed") # Unique key
-                        end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end_account", label_visibility="collapsed") # Unique key
-                        new_timings[session_name] = {'start': start_time, 'end': end_time}
-                
-                if st.form_submit_button("Save Session Timings", use_container_width=True, key="save_session_timings_button"): # Unique key
-                    st.session_state.session_timings.update(new_timings)
-                    st.success("Session timings have been updated successfully!")
-                    
-                    # --- SAVE SESSION TIMINGS TO DATABASE ---
-                    try:
-                        conn = sqlite3.connect('user.db')
-                        c = conn.cursor()
-                        c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.logged_in_user,))
-                        current_data = json.loads(c.fetchone()[0])
-                        current_data['session_timings'] = new_timings # Save the new_timings dict directly
-                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(current_data), st.session_state.logged_in_user))
-                        conn.commit()
-                        logging.info(f"Session timings updated for {st.session_state.logged_in_user} in DB.")
-                    except Exception as e:
-                        st.error(f"Failed to save session timings to database: {e}")
-                        logging.error(f"DB error updating session timings: {e}")
-                    finally:
-                        if conn: conn.close()
-                    # --- END SAVE ---
-                    st.rerun()
-
         # --- MANAGE ACCOUNT ---
-        with st.expander("🔑 Manage Account"):
+        with st.expander("⚙️ Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary", use_container_width=True):
-                handle_logout() # Ensure handle_logout() is defined globally
-    
-
+            if st.button("Log Out", key="logout_account_page", type="primary"):
+                handle_logout()
 import streamlit as st
 import os
 import io
@@ -4702,100 +4550,26 @@ import streamlit as st
 import os
 import io
 import base64
-import pytz # Required for timezone handling
-from datetime import datetime # Required for date and time operations
-import logging # Good practice for warnings/errors
 
 # =========================================================
-# HELPER FUNCTIONS (These should ideally be defined GLOBALLY at the very top of your main script file, e.g., app.py)
+# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
 # =========================================================
-
 @st.cache_data
 def image_to_base_64(path):
-    """Converts a local image file to a base64 string for embedding in HTML."""
+    """Converts a local image file to a base64 string."""
     try:
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        logging.warning(f"Warning: Image file not found at path: {path}")
+        print(f"Warning: Image file not found at path: {path}")
         return None
-
-# --- FINAL, CORRECTED, TIMEZONE-AWARE get_active_market_sessions FUNCTION ---
-def get_active_market_sessions():
-    """
-    Determines active forex sessions by converting universal UTC session start/end times 
-    into the user's selected local timezone, and then comparing against the user's current local time.
-    This provides an accurate "local time" view of active sessions for the user.
-    """
-    # 1. Get the user's chosen display timezone from session state. Default to 'UTC' if not set.
-    user_tz_str = st.session_state.get('user_timezone', 'UTC')
-    try:
-        user_timezone = pytz.timezone(user_tz_str)
-    except pytz.exceptions.UnknownTimeZoneError:
-        logging.error(f"Unknown timezone: {user_tz_str}. Falling back to UTC.")
-        user_timezone = pytz.utc
-        user_tz_str = 'UTC' # Update string to reflect fallback
-
-    # Get the current time in the user's local timezone
-    now_local = datetime.now(user_timezone)
-    
-    # 2. Get the universal session timings, which are ALWAYS defined in UTC (e.g., London opens 8 AM UTC).
-    # These are the *default* UTC hours, which can be overridden by user settings in Account page.
-    sessions_utc_hours = st.session_state.get('session_timings', {
-        "Sydney": {"start": 22, "end": 7},  # 10 PM - 7 AM UTC
-        "Tokyo": {"start": 0, "end": 9},    # 12 AM - 9 AM UTC
-        "London": {"start": 8, "end": 17},  # 8 AM - 5 PM UTC
-        "New York": {"start": 13, "end": 22}# 1 PM - 10 PM UTC (ends at 21:59:59 UTC)
-    })
-    
-    active_sessions = []
-    
-    # Get the current UTC datetime object for consistent conversions
-    now_utc_fixed = datetime.now(pytz.utc).replace(second=0, microsecond=0) # Fix to current minute
-
-    # 3. For each session, convert its UTC start/end times to the user's selected local timezone.
-    for session_name, timings in sessions_utc_hours.items():
-        start_utc_hour = timings['start']
-        end_utc_hour = timings['end']
-
-        # Create *today's* (in UTC) start and end datetime objects for the session
-        # This is robust against day changes and DST shifts when converting.
-        start_utc_dt = now_utc_fixed.replace(hour=start_utc_hour, minute=0, second=0, microsecond=0)
-        end_utc_dt = now_utc_fixed.replace(hour=end_utc_hour, minute=0, second=0, microsecond=0)
-        
-        # If an end time is earlier than a start time (e.g., Sydney 22:00-07:00),
-        # it means the end time is on the *next day*. Adjust the end_utc_dt.
-        if start_utc_dt > end_utc_dt:
-            end_utc_dt += timedelta(days=1)
-
-        # Convert these UTC datetimes to the user's selected local timezone
-        start_local_dt = start_utc_dt.astimezone(user_timezone)
-        end_local_dt = end_utc_dt.astimezone(user_timezone)
-        
-        # --- DEBUGGING LINES (Uncomment temporarily if issues persist) ---
-        # st.sidebar.write(f"DEBUG: Session: {session_name}")
-        # st.sidebar.write(f"  UTC Range: {start_utc_dt.strftime('%H:%M')} - {end_utc_dt.strftime('%H:%M')}")
-        # st.sidebar.write(f"  Local Range ({user_tz_str}): {start_local_dt.strftime('%H:%M')} - {end_local_dt.strftime('%H:%M')}")
-        # st.sidebar.write(f"  Now Local ({user_tz_str}): {now_local.strftime('%H:%M')}")
-        # --- END DEBUGGING LINES ---
-
-        # 4. Compare the user's current local time against the session's local start/end times.
-        if start_local_dt <= now_local < end_local_dt:
-            active_sessions.append(session_name)
-
-    if not active_sessions:
-        return "Markets Closed"
-    return ", ".join(active_sessions)
-
 
 # =========================================================
 # ZENVO ACADEMY PAGE
 # =========================================================
-# This 'if' block is CRUCIAL. It ensures this code ONLY runs when the
-# user is on the "Zenvo Academy" page.
 if st.session_state.current_page == "Zenvo Academy":
     
-    # --- THIS LOGIN CHECK IS CRUCIAL TO PREVENT "WELCOME NONE!" ---
+    # --- Login Check ---
     if st.session_state.get('logged_in_user') is None:
         st.warning("Please log in to access the Zenvo Academy.")
         st.session_state.current_page = 'account'
@@ -4804,7 +4578,7 @@ if st.session_state.current_page == "Zenvo Academy":
     # --- 1. Page-Specific Configuration ---
     page_info = {
         'title': 'Zenvo Academy', 
-        'icon': 'zenvo_academy.png', # Ensure this icon exists in an 'icons' subfolder
+        'icon': 'zenvo_academy.png',
         'caption': 'Your journey to trading mastery starts here.'
     }
 
