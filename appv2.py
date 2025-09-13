@@ -25,11 +25,39 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+import streamlit as st
+import os
+import io
+import base64
+import hashlib
+import json
+import pandas as pd
+import plotly.graph_objects as go
+import time
+import logging
 import pytz
 from datetime import datetime
 
+# =========================================================
+# GLOBAL SESSION STATE INITIALIZATION (MUST BE AT THE TOP!)
+# =========================================================
+# This block runs once per session and ensures all keys exist.
+
+if 'logged_in_user' not in st.session_state:
+    st.session_state.logged_in_user = None
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'account'
+if 'user_nickname' not in st.session_state:
+    st.session_state.user_nickname = None
 if 'user_timezone' not in st.session_state:
-    st.session_state.user_timezone = 'UTC' # Default to UTC
+    st.session_state.user_timezone = 'UTC'
+if 'session_timings' not in st.session_state:
+    st.session_state.session_timings = {
+        "Sydney": {"start": 22, "end": 7},
+        "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17},
+        "New York": {"start": 13, "end": 22}
+    }
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
