@@ -1312,29 +1312,26 @@ import streamlit as st
 import os
 import io
 import base64
+import pytz
+from datetime import datetime, timedelta
+import logging
 
-# =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
-# =========================================================
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
-        return None
+# NOTE: The helper functions (image_to_base_64, get_active_market_sessions) are assumed
+# to be defined globally at the very top of your main script (`appv2.py`).
 
 # =========================================================
 # TRADING JOURNAL PAGE
 # =========================================================
 if st.session_state.current_page == 'trading_journal':
-    # --- RETAINED CONTENT: User Login Check ---
-    if st.session_state.logged_in_user is None:
+
+    # --- THIS LOGIN CHECK IS CRUCIAL TO PREVENT "WELCOME NONE!" ---
+    if st.session_state.get('logged_in_user') is None:
         st.warning("Please log in to access your Trading Journal.")
         st.session_state.current_page = 'account'
         st.rerun()
+
+    # --- CSS fix to ensure sidebar is visible after login ---
+    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
 
     # --- 1. Page-Specific Configuration ---
     page_info = {
@@ -1343,7 +1340,7 @@ if st.session_state.current_page == 'trading_journal':
         'caption': 'A streamlined interface for professional trade analysis.'
     }
 
-    # --- 2. Define CSS Styles for the New Header ---
+    # --- 2. Define CSS Styles for the New Header (Matches Academy Page) ---
     main_container_style = """
         background-color: black; 
         padding: 20px 25px; 
@@ -1355,7 +1352,21 @@ if st.session_state.current_page == 'trading_journal':
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    # This style creates a vertical flex container to stack the two info tabs
+    right_column_style = """
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-end; 
+        gap: 8px;
+    """
+    # This is the style for each individual "glowing" tab
+    info_tab_style = """
+        background-color: #0E1117; border: 1px solid #2d4646; 
+        padding: 8px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif; 
+        font-size: 0.9rem; white-space: nowrap;
+    """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -1363,15 +1374,21 @@ if st.session_state.current_page == 'trading_journal':
     # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
+    # This assumes 'image_to_base_64' is a global helper function
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
+    # Reads the saved nickname, falling back to the username, preventing "Welcome, None!"
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    
+    # This calls the global, corrected helper function with the server time fix
+    active_sessions_str = get_active_market_sessions()
+    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -1379,15 +1396,20 @@ if st.session_state.current_page == 'trading_journal':
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
+            # The right column now stacks its two children vertically
             f'<div style="{right_column_style}">'
-                f'{welcome_message}'
+                # Welcome tab is first, so it appears on top
+                f'<div style="{info_tab_style}">{welcome_message}</div>'
+                # Sessions tab is second, appearing on the bottom
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
     )
 
     # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
-    st.markdown("---") # <-- ADDED AS REQUESTED
+    st.markdown("---")
+
 
     # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
     # The tab functionality from your original code is preserved and placed here.
