@@ -4877,7 +4877,7 @@ if st.session_state.current_page == "Zenvo Academy":
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
     # --- 3. Build and Render Header ---
     header_html = (
