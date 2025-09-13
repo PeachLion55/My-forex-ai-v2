@@ -1077,35 +1077,33 @@ import streamlit as st
 import os
 import io
 import base64
+import pytz
+from datetime import datetime, timedelta
+import logging
 
-# =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Using the new version)
-# =========================================================
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        # This provides a helpful warning in the console if the icon is missing.
-        print(f"Warning: Image file not found at path: {path}")
-        return None
+# NOTE: The helper functions (image_to_base_64, get_active_market_sessions) are assumed
+# to be defined globally at the top of your main script. If they are not, you must
+# include their definitions here for this page to work.
 
 # =========================================================
 # FUNDAMENTALS PAGE
 # =========================================================
 if st.session_state.current_page == 'fundamentals':
 
+    # --- THIS LOGIN CHECK IS CRUCIAL TO PREVENT "WELCOME NONE!" ---
+    if st.session_state.get('logged_in_user') is None:
+        st.warning("Please log in to access Forex Fundamentals.")
+        st.session_state.current_page = 'account'
+        st.rerun()
+
     # --- 1. Page-Specific Configuration ---
-    # We define the details for this page directly here instead of using a global dictionary.
     page_info = {
         'title': 'Forex Fundamentals', 
         'icon': 'forex_fundamentals.png', 
         'caption': 'Macro snapshot, calendar highlights, and policy rates.'
     }
 
-    # --- 2. Define CSS Styles for the New Header ---
+    # --- 2. Define CSS Styles for the New Header (Matches Academy Page) ---
     main_container_style = """
         background-color: black; 
         padding: 20px 25px; 
@@ -1117,7 +1115,21 @@ if st.session_state.current_page == 'fundamentals':
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    # This style creates a vertical flex container to stack the two info tabs
+    right_column_style = """
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-end; 
+        gap: 8px;
+    """
+    # This is the style for each individual "glowing" tab
+    info_tab_style = """
+        background-color: #0E1117; border: 1px solid #2d4646; 
+        padding: 8px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif; 
+        font-size: 0.9rem; white-space: nowrap;
+    """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -1125,16 +1137,21 @@ if st.session_state.current_page == 'fundamentals':
     # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
+    # This assumes 'image_to_base_64' is a global helper function
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    # This safely gets the user's name, with fallbacks.
+    # Reads the saved nickname, falling back to the username, preventing "Welcome, None!"
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    
+    # This calls the global, timezone-aware helper function to get the correct session status
+    active_sessions_str = get_active_market_sessions()
+    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -1142,23 +1159,20 @@ if st.session_state.current_page == 'fundamentals':
                     f'<p style="{caption_style}">{page_info["caption"]}</p>'
                 '</div>'
             '</div>'
+            # The right column now stacks its two children vertically
             f'<div style="{right_column_style}">'
-                f'{welcome_message}'
+                # Welcome tab is first, so it appears on top
+                f'<div style="{info_tab_style}">{welcome_message}</div>'
+                # Sessions tab is second, appearing on the bottom
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
     )
 
     # --- 5. Render the New Header ---
-    # This single line replaces the entire old header structure.
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # --- 6. RETAINED CONTENT FROM ORIGINAL PAGE ---
-    # The st.info box that was in the old column 2 is now placed below the new header.
-    
-
     st.markdown('---')
-    
-    # The rest of your page code follows here without any changes.
     st.markdown("### Upcoming Economic Events")
 
     # (Your other Streamlit elements for this page go here...)
