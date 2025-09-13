@@ -3309,48 +3309,76 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- ACCOUNT TIME SETTINGS (NEWLY ADDED) ---
+        # --- NICKNAME SETTINGS ---
+with st.expander("👤 Nickname"):
+    st.caption("Set a custom nickname that will be displayed throughout the application.")
+    with st.form("nickname_form"):
+        nickname = st.text_input(
+            "Your Nickname",
+            value=st.session_state.get('user_nickname', st.session_state.logged_in_user),
+            key="nickname_input"
+        )
+        if st.form_submit_button("Save Nickname", use_container_width=True):
+            st.session_state.user_nickname = nickname
+            st.success("Your nickname has been updated!")
+            # NOTE: You would also save this to your database here
+            st.rerun()
+
+# --- ACCOUNT TIME SETTINGS ---
 with st.expander("🕒 Account Time"):
-    st.caption("Select your timezone to display times accurately across the application.")
+    st.caption("Select your timezone. This will make the 'Active Sessions' display accurate for your local time.")
     
-    # Get a list of all available timezones from the pytz library
     all_timezones = pytz.all_timezones
-    
-    # Find the index of the currently saved timezone to set it as the default in the selectbox
     try:
         current_index = all_timezones.index(st.session_state.user_timezone)
     except ValueError:
-        current_index = all_timezones.index('UTC') # Fallback to UTC if the saved value is somehow invalid
+        current_index = all_timezones.index('UTC')
 
-    # Create a form to handle the setting change
     with st.form("timezone_form"):
         selected_timezone = st.selectbox(
             "Select your timezone",
             options=all_timezones,
-            index=current_index,
-            key="timezone_selector"
+            index=current_index
         )
-        
-        # Submit button to save the change
-        submitted = st.form_submit_button("Save Timezone", use_container_width=True)
-        if submitted:
-            # Update the session state with the user's new selection
+        if st.form_submit_button("Save Timezone", use_container_width=True):
             st.session_state.user_timezone = selected_timezone
             st.success(f"Timezone successfully set to {selected_timezone}!")
-            # It's good practice to save this to your database here
+            # NOTE: You would also save this to your database here
             st.rerun()
 
-    # Provide immediate feedback to the user by showing the current time in their selected timezone
     current_user_time = datetime.now(pytz.timezone(st.session_state.user_timezone))
     st.info(f"Your current selected time is: **{current_user_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
 
+# --- SESSION TIMINGS SETTINGS ---
+with st.expander("📈 Session Timings"):
+    st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
+    with st.form("session_timings_form"):
+        col1, col2, col3 = st.columns([2, 1, 1])
+        col1.markdown("**Session**")
+        col2.markdown("**Start Hour (UTC)**")
+        col3.markdown("**End Hour (UTC)**")
+        
+        new_timings = {}
+        for session_name, timings in st.session_state.session_timings.items():
+            with st.container():
+                c1, c2, c3 = st.columns([2, 1, 1])
+                c1.write(f"**{session_name}**")
+                start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start", label_visibility="collapsed")
+                end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end", label_visibility="collapsed")
+                new_timings[session_name] = {'start': start_time, 'end': end_time}
+        
+        if st.form_submit_button("Save Session Timings", use_container_width=True):
+            st.session_state.session_timings.update(new_timings)
+            st.success("Session timings have been updated successfully!")
+            # NOTE: You would also save this to your database here
+            st.rerun()
 
-# --- MANAGE ACCOUNT (Your original, untouched code) ---
-with st.expander("⚙️ Manage Account"):
+# --- MANAGE ACCOUNT ---
+with st.expander("🔑 Manage Account"):
     st.write(f"**Username**: `{st.session_state.logged_in_user}`")
     st.write("**Email**: `trader.pro@email.com` (example)")
-    if st.button("Log Out", key="logout_account_page", type="primary"):
-        handle_logout() # Ensure handle_logout() is defined in your app
+    if st.button("Log Out", key="logout_account_page", type="primary", use_container_width=True):
+        handle_logout() # Ensure handle_logout() is defined globally
 import streamlit as st
 import os
 import io
