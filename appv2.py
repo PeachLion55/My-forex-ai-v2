@@ -1180,7 +1180,7 @@ if st.session_state.current_page == 'fundamentals':
         return styles
     st.dataframe(econ_df.style.apply(highlight_currency, axis=1), use_container_width=True, height=360)
 
-    st.markdown("### 💹 Major Central Bank Interest Rates")
+    st.markdown("### 💹 Current Major Central Bank Interest Rates")
     st.markdown(""" Interest rates are a key driver in forex markets. Higher rates attract foreign capital, strengthening the currency. Lower rates can weaken it. Monitor changes and forward guidance from central banks for trading opportunities. Below are current rates, with details on recent changes, next meeting dates, and market expectations. """)
     interest_rates = [
         {"Currency": "USD", "Current": "3.78%", "Previous": "4.00%", "Changed": "2025-07-17", "Next Meeting": "2025-09-18"},
