@@ -163,7 +163,7 @@ import sqlite3
 import json
 import hashlib
 import pandas as pd
-import numpy as np # Often needed with pandas for NaN checks
+import numpy as np 
 import plotly.graph_objects as go
 import time
 import pytz
@@ -177,12 +177,9 @@ logging.basicConfig(filename='debug.log', level=logging.INFO, format='%(asctime)
 DB_FILE = "users.db"
 
 class CustomJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder to handle datetime objects and NaN values."""
     def default(self, obj):
-        if isinstance(obj, (datetime, pd.Timestamp)):
-            return obj.isoformat()
-        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)):
-            return None
+        if isinstance(obj, (datetime, pd.Timestamp)): return obj.isoformat()
+        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)): return None
         return super().default(obj)
 
 try:
@@ -200,13 +197,12 @@ except Exception as e:
 # =========================================================
 # 3. GLOBAL SESSION STATE INITIALIZATION
 # =========================================================
-# This block runs once per session and ensures all keys exist to prevent AttributeErrors.
 if 'logged_in_user' not in st.session_state: st.session_state.logged_in_user = None
 if 'current_page' not in st.session_state: st.session_state.current_page = 'account'
 if 'user_nickname' not in st.session_state: st.session_state.user_nickname = None
-if 'user_timezone' not in st.session_state: st.session_state.user_timezone = 'Europe/London' # Fixed default timezone
+if 'user_timezone' not in st.session_state: st.session_state.user_timezone = 'Europe/London'
 if 'session_timings' not in st.session_state:
-    st.session_state.session_timings = { # Default UTC market session timings
+    st.session_state.session_timings = {
         "Sydney": {"start": 22, "end": 7},
         "Tokyo": {"start": 0, "end": 9},
         "London": {"start": 8, "end": 17},
@@ -214,8 +210,6 @@ if 'session_timings' not in st.session_state:
     }
 if 'auth_view' not in st.session_state: st.session_state.auth_view = 'login'
 # (Add any other global initializations your app needs for other pages)
-if 'strategies' not in st.session_state: st.session_state.strategies = pd.DataFrame()
-if 'trade_journal' not in st.session_state: st.session_state.trade_journal = []
 
 # =========================================================
 # 4. GLOBAL HELPER FUNCTIONS
@@ -238,42 +232,29 @@ def handle_logout():
     st.session_state.current_page = "account"
     st.rerun()
 
+# --- FINAL, CORRECTED, PURE UTC get_active_market_sessions FUNCTION ---
 def get_active_market_sessions():
     """
-    Determines active forex sessions by converting universal UTC session times 
-    into the user's selected local timezone for accurate comparison.
+    Determines active forex sessions by directly comparing the current UTC hour
+    against the session's defined UTC start/end hours. This is the most robust method.
     """
-    user_tz_str = st.session_state.get('user_timezone', 'Europe/London')
-    try:
-        user_timezone = pytz.timezone(user_tz_str)
-    except pytz.exceptions.UnknownTimeZoneError:
-        user_timezone = pytz.utc
-    
-    now_local = datetime.now(user_timezone)
-    sessions_utc_hours = st.session_state.get('session_timings', {})
+    sessions_utc = st.session_state.get('session_timings', {})
+    current_utc_hour = datetime.now(pytz.utc).hour
     
     active_sessions = []
-    now_utc_fixed = datetime.now(pytz.utc)
-
-    for session_name, timings in sessions_utc_hours.items():
-        start_utc_dt = now_utc_fixed.replace(hour=timings['start'], minute=0, second=0, microsecond=0)
-        end_utc_dt = now_utc_fixed.replace(hour=timings['end'], minute=0, second=0, microsecond=0)
+    for session_name, timings in sessions_utc.items():
+        start, end = timings['start'], timings['end']
         
-        if start_utc_dt > end_utc_dt:
-            end_utc_dt += timedelta(days=1)
-
-        start_local_dt = start_utc_dt.astimezone(user_timezone)
-        end_local_dt = end_utc_dt.astimezone(user_timezone)
-        
-        if start_local_dt <= now_local < end_local_dt:
-            active_sessions.append(session_name)
+        if start > end: # Overnight session (e.g., Sydney)
+            if current_utc_hour >= start or current_utc_hour < end:
+                active_sessions.append(session_name)
+        else: # Same-day session (e.g., London)
+            if start <= current_utc_hour < end:
+                active_sessions.append(session_name)
 
     if not active_sessions:
         return "Markets Closed"
     return ", ".join(active_sessions)
-
-
-
 
 # =========================================================
 # JOURNAL SCHEMA & ROBUST DATA MIGRATION (GLOBAL)
@@ -4655,10 +4636,7 @@ if st.session_state.current_page == "Zenvo Academy":
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
-    # Reads the saved nickname, falling back to the username. This now works correctly.
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-    
-    # This calls the new, timezone-aware helper function
     active_sessions_str = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
@@ -4673,7 +4651,6 @@ if st.session_state.current_page == "Zenvo Academy":
     # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
 
     tab1, tab2, tab3 = st.tabs(["🎓 Learning Path", "📈 My Progress", "🛠️ Resources"])
