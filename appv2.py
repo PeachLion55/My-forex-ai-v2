@@ -3833,10 +3833,14 @@ import streamlit as st
 import os
 import io
 import base64
+import pytz
+from datetime import datetime, timedelta
+import logging
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES (Assumed to be defined globally)
+# HELPER FUNCTIONS (Included here for completeness, but should ideally be global)
 # =========================================================
+
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
@@ -3844,13 +3848,54 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        print(f"Warning: Image file not found at path: {path}")
+        logging.warning(f"Warning: Image file not found at path: {path}")
         return None
+
+# --- FINAL, CORRECTED FUNCTION WITH SERVER TIME WORKAROUND ---
+def get_active_market_sessions():
+    """
+    Determines active forex sessions by directly comparing the current UTC hour
+    against the session's defined UTC start/end hours, with a 1-hour correction
+    for the server's clock.
+    """
+    sessions_utc = st.session_state.get('session_timings', {
+        "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+        "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+    })
+    
+    # Get the server's time in UTC and manually add one hour to correct for the clock.
+    corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
+    current_utc_hour = corrected_utc_time.hour
+    
+    active_sessions = []
+    for session_name, timings in sessions_utc.items():
+        start, end = timings['start'], timings['end']
+        
+        if start > end: # Overnight session
+            if current_utc_hour >= start or current_utc_hour < end:
+                active_sessions.append(session_name)
+        else: # Same-day session
+            if start <= current_utc_hour < end:
+                active_sessions.append(session_name)
+
+    if not active_sessions:
+        return "Markets Closed"
+    return ", ".join(active_sessions)
 
 # =========================================================
 # COMMUNITY CHATROOM PAGE
 # =========================================================
 if st.session_state.current_page == "Community Chatroom":
+
+    # --- THIS LOGIN CHECK IS CRUCIAL TO PREVENT "WELCOME NONE!" ---
+    if st.session_state.get('logged_in_user') is None:
+        st.warning("Please log in to access the Community Chatroom.")
+        st.session_state.current_page = 'account'
+        st.rerun()
+
+    # --- CSS fix to ensure sidebar is visible after login ---
+    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
+
     # --- 1. Page-Specific Configuration ---
     page_info = {
         'title': 'Community Chatroom', 
@@ -3870,7 +3915,19 @@ if st.session_state.current_page == "Community Chatroom":
         box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; background-color: #0E1117; border: 1px solid #2d4646; padding: 12px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem;"
+    right_column_style = """
+        flex: 1; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: flex-end; 
+        gap: 8px;
+    """
+    info_tab_style = """
+        background-color: #0E1117; border: 1px solid #2d4646; 
+        padding: 8px 15px; border-radius: 8px; color: white; 
+        text-align: center; font-family: sans-serif; 
+        font-size: 0.9rem; white-space: nowrap;
+    """
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -3883,10 +3940,12 @@ if st.session_state.current_page == "Community Chatroom":
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    active_sessions_str = get_active_market_sessions()
+    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
     # --- 4. Build the HTML for the New Header ---
     header_html = (
-        f'<div style="{main_container_style.replace(" G", " ")}">'
+        f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">'
                 f'{icon_html}'
                 '<div>'
@@ -3895,7 +3954,8 @@ if st.session_state.current_page == "Community Chatroom":
                 '</div>'
             '</div>'
             f'<div style="{right_column_style}">'
-                f'{welcome_message}'
+                f'<div style="{info_tab_style}">{welcome_message}</div>'
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
     )
@@ -3903,7 +3963,6 @@ if st.session_state.current_page == "Community Chatroom":
     # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-
     # (The rest of your page code for the chatroom functionality goes here...)
 
     # --------------------------
