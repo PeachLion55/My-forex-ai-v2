@@ -1063,8 +1063,7 @@ from datetime import datetime, timedelta
 import logging
 
 # NOTE: The helper functions (image_to_base_64, get_active_market_sessions) are assumed
-# to be defined globally at the top of your main script. If they are not, you must
-# include their definitions here for this page to work.
+# to be defined globally at the very top of your main script (`appv2.py`).
 
 # =========================================================
 # FUNDAMENTALS PAGE
@@ -1076,6 +1075,9 @@ if st.session_state.current_page == 'fundamentals':
         st.warning("Please log in to access Forex Fundamentals.")
         st.session_state.current_page = 'account'
         st.rerun()
+
+    # --- CSS fix to ensure sidebar is visible after login ---
+    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
 
     # --- 1. Page-Specific Configuration ---
     page_info = {
@@ -1126,7 +1128,7 @@ if st.session_state.current_page == 'fundamentals':
     # Reads the saved nickname, falling back to the username, preventing "Welcome, None!"
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
     
-    # This calls the global, timezone-aware helper function to get the correct session status
+    # This calls the global, corrected helper function with the server time fix
     active_sessions_str = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
 
