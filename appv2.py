@@ -4753,6 +4753,7 @@ import base64
 import pytz
 from datetime import datetime, timedelta
 import logging
+import streamlit.components.v1 as components
 
 # =========================================================
 # HELPER FUNCTIONS (These are assumed to be defined globally at the top of your main script)
@@ -4791,11 +4792,11 @@ def get_active_market_sessions():
         return "Markets Closed", []
     return ", ".join(active_sessions), active_sessions
 
-# --- NEW, SIMPLER HELPER FUNCTION TO GET THE NEXT SESSION END TIME ---
+# --- NEW HELPER FUNCTION TO GET THE NEXT SESSION END TIME IN UTC ---
 def get_next_session_end_info(active_sessions_list):
     """
     Calculates which active session will end next and returns its name
-    and the remaining time as a formatted string (H:M:S).
+    and its exact end time as a UTC datetime object.
     """
     if not active_sessions_list:
         return None, None
@@ -4823,20 +4824,9 @@ def get_next_session_end_info(active_sessions_list):
         return None, None
         
     next_end_times.sort()
-    soonest_end_time, soonest_session_name = next_end_times[0]
+    soonest_end_time_utc, soonest_session_name = next_end_times[0]
     
-    # Calculate remaining time
-    remaining = soonest_end_time - now_utc
-    if remaining.total_seconds() < 0:
-        return soonest_session_name, "Closing..."
-
-    hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-    minutes, seconds = divmod(remainder, 60)
-    
-    # Format as HH:MM:SS
-    time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
-    
-    return soonest_session_name, time_str
+    return soonest_session_name, soonest_end_time_utc
 
 # =========================================================
 # ZENVO ACADEMY PAGE
@@ -4873,27 +4863,71 @@ if st.session_state.current_page == "Zenvo Academy":
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
     
-    # Get the timer string
-    next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
-    timer_display = ""
-    if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} ends in <b>{timer_str}</b></div>'
-
-    # --- 3. Build and Render Header ---
+    # --- 3. Build and Render Header (without the timer placeholder) ---
     header_html = (
         f'<div style="{main_container_style}">'
             f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
             f'<div style="{right_column_style}">'
                 f'<div style="{info_tab_style}">{welcome_message}</div>'
-                # Group the session tab and the timer text together
-                f'<div>'
-                    f'<div style="{info_tab_style}">{market_sessions_display}</div>'
-                    f'{timer_display}'
-                f'</div>'
+                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
             '</div>'
         '</div>'
     )
     st.markdown(header_html, unsafe_allow_html=True)
+    
+    # --- 4. Generate and Render the Live Timer Component ---
+    next_session_name, next_end_time_utc = get_next_session_end_info(active_sessions_list)
+
+    if next_session_name and next_end_time_utc:
+        # Pass the UTC end time to JavaScript as an ISO string
+        end_time_iso = f"{next_end_time_utc.isoformat().split('.')[0]}Z"
+        
+        # This HTML component contains the JavaScript for the live countdown
+        components.html(
+            f"""
+            <div id="countdown-container" style="{timer_style}"></div>
+            <script>
+                // Get the HTML element where we will display the timer
+                const countdownElement = document.getElementById('countdown-container');
+                // The end time is passed from Python
+                const endTime = new Date('{end_time_iso}').getTime();
+
+                function updateCountdown() {{
+                    // Get the current time in the user's browser
+                    const now = new Date().getTime();
+                    const distance = endTime - now;
+
+                    if (distance < 0) {{
+                        countdownElement.innerHTML = "{next_session_name} session closed";
+                        clearInterval(countdownInterval);
+                        // Optional: Reload the page a few seconds after the timer ends to update session status
+                        setTimeout(() => window.parent.location.reload(), 2000);
+                        return;
+                    }}
+
+                    // Calculate hours, minutes, and seconds
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    // Format the time with leading zeros
+                    const h_str = String(hours).padStart(2, '0');
+                    const m_str = String(minutes).padStart(2, '0');
+                    const s_str = String(seconds).padStart(2, '0');
+
+                    // Update the display
+                    countdownElement.innerHTML = `{next_session_name} ends in <b>${{h_str}}:${{m_str}}:${{s_str}}</b>`;
+                }}
+
+                // Set the function to run every second
+                const countdownInterval = setInterval(updateCountdown, 1000);
+                // Run it once immediately when the page loads
+                updateCountdown();
+            </script>
+            """,
+            height=25, # Allocate a small fixed height for the component
+        )
+
     st.markdown("---")
     # (The rest of your page code for courses, progress tracking, etc., goes here...)
 
