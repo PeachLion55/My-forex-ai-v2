@@ -3066,163 +3066,100 @@ import pandas as pd
 import plotly.graph_objects as go
 import time
 import logging
+import pytz # Necessary for timezone handling
+from datetime import datetime # Necessary for datetime objects
+
+# NOTE: The helper functions (image_to_base_64, handle_logout, get_active_market_sessions),
+# the global session_state initializations, and the database connection (conn, c)
+# MUST be defined at the very top of your main app script, outside any page-specific blocks.
+# This code assumes they are globally accessible.
 
 # =========================================================
 # ACCOUNT PAGE
 # =========================================================
+# This is the primary conditional block for the entire account page.
 if st.session_state.current_page == 'account':
 
-    # --- HELPER FUNCTION DEFINED AT THE TOP ---
-    @st.cache_data
-    def image_to_base_64(path):
-        """Converts a local image file to a base64 string."""
-        try:
-            with open(path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode()
-        except FileNotFoundError:
-            st.warning(f"Warning: Image file not found at path: {path}")
-            return None
-
-    # This block renders the final, correctly centered login form when the user is NOT logged in.
+    # --- LOGGED-OUT VIEW (Login/Signup Forms) ---
     if st.session_state.get('logged_in_user') is None:
 
         # --- FINAL CSS FOR THE CONDENSED, CENTERED FORM ---
         st.markdown("""
         <style>
-            /* --- HIDE STREAMLIT UI & PREPARE FULL-SCREEN CONTAINER --- */
-            [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] {
-                display: none !important;
-            }
-            div[data-testid="stAppViewContainer"] > .main {
-                background-image: linear-gradient(to bottom, #050505, #000000); /* Dark bg */
-            }
+            [data-testid="stSidebar"], [data-testid="stHeader"], [data-testid="stToolbar"] { display: none !important; }
+            div[data-testid="stAppViewContainer"] > .main { background-image: linear-gradient(to bottom, #050505, #000000); }
             div[data-testid="stAppViewContainer"] > .main .block-container {
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 0;
-                margin: 0;
-                width: 100%;
-                min-height: 100vh;
+                display: flex; flex-direction: column; justify-content: center; align-items: center;
+                padding: 0; margin: 0; width: 100%; min-height: 100vh;
             }
-
-            /* --- LOGIN FORM WRAPPER (THE KEY TO CONDENSING) --- */
             .login-wrapper {
-                background: transparent; /* Wrapper is invisible, only positions the form */
-                padding: 2.5rem 3rem;
-                border-radius: 1rem;
-                width: 470px; /* Fixed width for the form block */
-                max-width: 95%;
-                /* Using border instead of box-shadow to match the subtle look */
-                border: 1px solid rgba(255, 255, 255, 0.05);
+                background: transparent; padding: 2.5rem 3rem; border-radius: 1rem; width: 470px;
+                max-width: 95%; border: 1px solid rgba(255, 255, 255, 0.05);
             }
-            
-            /* --- TYPOGRAPHY --- */
             .login-wrapper h1 {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                font-size: 2.3rem; /* Slightly smaller to match image scale */
-                color: #FFFFFF;
-                font-weight: 700;
-                margin-top: 0; /* REMOVES THE BLACK BOX ABOVE */
-                margin-bottom: 35px;
+                font-size: 2.3rem; color: #FFFFFF; font-weight: 700; margin-top: 0; margin-bottom: 35px;
             }
-
-            /* --- INPUT FIELDS & CHECKBOX --- */
             .login-wrapper input[type="text"], .login-wrapper input[type="password"] {
-                background-color: #262730 !important; /* Dark input bg from image */
-                border: 1px solid #363741 !important;
-                border-radius: 8px !important;
-                color: #FFFFFF !important;
-                padding: 1.3rem 1rem !important;
-                margin-bottom: 0.75rem;
-                box-shadow: none !important;
-                transition: border 0.2s ease-in-out;
+                background-color: #262730 !important; border: 1px solid #363741 !important;
+                border-radius: 8px !important; color: #FFFFFF !important; padding: 1.3rem 1rem !important;
+                margin-bottom: 0.75rem; box-shadow: none !important; transition: border 0.2s ease-in-out;
             }
-            .login-wrapper input:focus {
-                border: 1px solid #4a5fe2 !important;
-            }
-            .login-wrapper .stCheckbox p {
-                color: #e0e0e0;
-                font-size: 0.95rem;
-            }
-
-            /* --- BUTTONS --- */
+            .login-wrapper input:focus { border: 1px solid #4a5fe2 !important; }
+            .login-wrapper .stCheckbox p { color: #e0e0e0; font-size: 0.95rem; }
             .login-wrapper .stButton>button {
-                background-color: #212229;
-                color: #e0e0e0;
-                border: 1px solid #363741;
-                border-radius: 8px;
-                padding: 0.75rem 1rem;
-                font-size: 1rem;
-                font-weight: 600;
+                background-color: #212229; color: #e0e0e0; border: 1px solid #363741;
+                border-radius: 8px; padding: 0.75rem 1rem; font-size: 1rem; font-weight: 600;
                 transition: all 0.2s ease;
             }
-            .login-wrapper .stButton>button:hover {
-                background-color: #2f303a;
-                border-color: #4a5fe2;
-                color: #FFFFFF;
-            }
-            
-            /* --- BOTTOM LINKS --- */
-            .login-wrapper a {
-                color: #4a5fe2;
-                text-decoration: none;
-                font-size: 0.95rem;
-                font-weight: 500;
-            }
-            .login-wrapper a:hover {
-                text-decoration: underline;
-            }
-            
-            /* Specific button positioning for view switcher */
-            .bottom-container {
-                display: flex;
-                justify-content: flex-start; /* Aligns button to the left */
-                margin-top: 2rem;
-            }
-
+            .login-wrapper .stButton>button:hover { background-color: #2f303a; border-color: #4a5fe2; color: #FFFFFF; }
+            .login-wrapper a { color: #4a5fe2; text-decoration: none; font-size: 0.95rem; font-weight: 500; }
+            .login-wrapper a:hover { text-decoration: underline; }
+            .bottom-container { display: flex; justify-content: flex-start; margin-top: 2rem; }
         </style>
         """, unsafe_allow_html=True)
 
-        # Initialize view state
         if 'auth_view' not in st.session_state:
             st.session_state.auth_view = 'login'
         
-        # Using the wrapper div to contain and center the form
         st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
         # --- LOGIN VIEW ---
         if st.session_state.auth_view == 'login':
             st.markdown('<h1>Welcome back</h1>', unsafe_allow_html=True)
-
             with st.form("login_form", clear_on_submit=False):
                 username = st.text_input("Username", placeholder="Username", label_visibility="collapsed")
                 password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
-                
                 col1, col2 = st.columns(2)
-                with col1:
-                    st.checkbox("Remember for 30 days")
-                with col2:
-                    st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
-                
+                with col1: st.checkbox("Remember for 30 days")
+                with col2: st.markdown('<div style="text-align: right; padding-top: 8px;"><a href="#" target="_self">Forgot password</a></div>', unsafe_allow_html=True)
                 login_button = st.form_submit_button("Sign In")
-
             if login_button:
-                # NOTE: Assume `c`, `conn` are available from your app's setup
                 hashed_password = hashlib.sha256(password.encode()).hexdigest()
                 c.execute("SELECT password, data FROM users WHERE username = ?", (username,))
                 result = c.fetchone()
                 if result and result[0] == hashed_password:
                     st.session_state.logged_in_user = username
+                    
+                    # --- CORRECTLY LOAD ALL USER DATA FROM DB ---
+                    user_data = json.loads(result[1])
+                    st.session_state.user_nickname = user_data.get('user_nickname', username)
+                    st.session_state.user_timezone = user_data.get('user_timezone', 'Europe/London')
+                    st.session_state.session_timings = user_data.get('session_timings', st.session_state.session_timings) # Use global default if not in DB
+                    st.session_state.xp = user_data.get('xp', 0)
+                    st.session_state.level = user_data.get('level', 0)
+                    st.session_state.badges = user_data.get('badges', [])
+                    st.session_state.streak = user_data.get('streak', 0)
+                    st.session_state.xp_log = user_data.get('xp_log', [])
+                    st.session_state.trade_journal = user_data.get('trade_journal', [])
+                    # --- END LOAD USER DATA ---
+                    
+                    st.success(f"Welcome back, {st.session_state.user_nickname}!")
                     st.rerun()
                 else:
                     st.error("Invalid username or password.")
-
             st.markdown('<div class="bottom-container">', unsafe_allow_html=True)
-            if st.button("Sign up", key="signup_toggle"):
-                st.session_state.auth_view = 'signup'
-                st.rerun()
+            if st.button("Sign up", key="signup_toggle_login_page"): st.session_state.auth_view = 'signup'; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
         # --- SIGNUP VIEW ---
@@ -3233,40 +3170,56 @@ if st.session_state.current_page == 'account':
                 new_password = st.text_input("Password", type="password", placeholder="Password", label_visibility="collapsed")
                 confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm Password", label_visibility="collapsed")
                 register_button = st.form_submit_button("Sign up")
-                
             if register_button:
                 if new_password != confirm_password: st.error("Passwords do not match.")
                 elif not new_username or not new_password: st.error("Username and password cannot be empty.")
                 else:
                     c.execute("SELECT username FROM users WHERE username = ?", (new_username,))
-                    if c.fetchone(): st.error("Username already exists.")
+                    if c.fetchone():
+                        st.error("Username already exists.")
                     else:
                         hashed_password = hashlib.sha256(new_password.encode()).hexdigest()
-                        initial_data = json.dumps({ "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None, "last_login_xp_date": None, "gamification_flags": {}, "drawings": [], "trade_journal": [], "strategies": [], "emotion_log": [], "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False, 'chatroom_nickname': None })
-                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, initial_data))
+                        
+                        # --- CORRECTLY INITIALIZE AND SAVE USER DATA ---
+                        initial_user_data = {
+                            "xp": 0, "level": 0, "badges": [], "streak": 0, "last_journal_date": None,
+                            "last_login_xp_date": None, "gamification_flags": {}, "drawings": [],
+                            "trade_journal": [], "strategies": [], "emotion_log": [],
+                            "reflection_log": [], "xp_log": [], 'chatroom_rules_accepted': False,
+                            'user_nickname': new_username, # Default nickname to username
+                            'user_timezone': 'Europe/London', # FIXED DEFAULT TIMEZONE
+                            'session_timings': { # Default UTC session timings
+                                "Sydney": {"start": 22, "end": 7}, "Tokyo": {"start": 0, "end": 9},
+                                "London": {"start": 8, "end": 17}, "New York": {"start": 13, "end": 22}
+                            }
+                        }
+                        c.execute("INSERT INTO users (username, password, data) VALUES (?, ?, ?)", (new_username, hashed_password, json.dumps(initial_user_data, cls=CustomJSONEncoder)))
                         conn.commit()
-                        st.session_state.logged_in_user = new_username
-                        st.rerun()
 
+                        # Set session state for the new user
+                        st.session_state.logged_in_user = new_username
+                        st.session_state.user_nickname = new_username
+                        st.session_state.user_timezone = initial_user_data['user_timezone']
+                        st.session_state.session_timings = initial_user_data['session_timings']
+                        st.session_state.xp = initial_user_data['xp']
+                        st.session_state.level = initial_user_data['level']
+                        # ... set other initial session state vars
+                        
+                        st.success("Account created successfully! Logging you in...")
+                        st.rerun()
             st.markdown('<div class="bottom-container"><span>Already have an account?</span>', unsafe_allow_html=True)
-            if st.button("Sign In", key="signin_toggle"):
-                st.session_state.auth_view = 'login'
-                st.rerun()
+            if st.button("Sign In", key="signin_toggle_signup_page"): st.session_state.auth_view = 'login'; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('</div>', unsafe_allow_html=True) # close .login-wrapper
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
-    # --- LOGGED-IN VIEW ---
-    # This block displays your full dashboard when a user IS logged in. It remains untouched.
+    # =========================================================
+    # --- LOGGED-IN VIEW: DASHBOARD & SETTINGS ---
+    # =========================================================
     else:
-        def handle_logout():
-            keys_to_delete = ['logged_in_user', 'current_subpage', 'show_tools_submenu', 'temp_journal', 'xp', 'level', 'badges', 'streak', 'last_journal_date', 'last_login_xp_date', 'gamification_flags', 'xp_log', 'chatroom_rules_accepted', 'user_nickname', 'forex_fundamentals_progress', 'edit_trade_metrics']
-            for key in keys_to_delete:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.session_state.current_page = "account"
-            st.rerun()
+        st.title("My Account")
+        
         # --- LOGGED-IN WELCOME HEADER ---
         icon_path = os.path.join("icons", "my_account.png")
         if os.path.exists(icon_path):
@@ -3274,11 +3227,11 @@ if st.session_state.current_page == 'account':
             st.markdown(f"""
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <img src="data:image/png;base64,{icon_base64_welcome}" width="100">
-                    <h2 style="margin: 0;">Welcome back, {st.session_state.logged_in_user}! 👋</h2>
+                    <h2 style="margin: 0;">Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋</h2>
                 </div>
             """, unsafe_allow_html=True)
         else:
-            st.header(f"Welcome back, {st.session_state.logged_in_user}! 👋")
+            st.header(f"Welcome back, {st.session_state.get('user_nickname', st.session_state.logged_in_user)}! 👋")
 
         st.markdown("This is your personal dashboard. Track your progress and manage your account.")
         st.markdown("---")
@@ -3350,17 +3303,10 @@ if st.session_state.current_page == 'account':
         redeem_cols = st.columns(len(items))
         for i, (item_key, item_details) in enumerate(items.items()):
             with redeem_cols[i]:
-                # The container div helps with consistent height
                 st.markdown(f'<div><div class="redeem-card"><div><h3>{item_details["icon"]}</h3><h5>{item_details["name"]}</h5><p>Cost: <strong>{item_details["cost"]:,} RXP</strong></p></div>', unsafe_allow_html=True)
                 if st.button(f"Redeem", key=f"redeem_{item_key}", use_container_width=True):
-                    # if current_rxp >= item_details['cost']:
-                        # ta_update_xp(st.session_state.logged_in_user, -item_details['cost'] * 2, f"Redeemed '{item_details['name']}' ({item_details['cost']} RXP)") # Assumed function
-                        # st.success(f"Successfully redeemed '{item_details['name']}'! Your RXP has been updated.")
-                        # time.sleep(1)
-                        # st.rerun()
-                    # else:
-                        # st.warning("You do not have enough RXP for this item.")
-                    pass # Placeholder for redemption logic
+                    # Placeholder for redemption logic
+                    pass 
                 st.markdown('</div></div>', unsafe_allow_html=True)
 
         st.markdown("---")
@@ -3378,7 +3324,7 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
-        # --- HOW TO EARN XP ---
+        # --- HOW TO EARN XP (Dashboard integrated section) ---
         st.subheader("❓ How to Earn XP") 
         st.markdown("""
         Earn Experience Points (XP) and unlock new badges as you progress in your trading journey!
@@ -3392,7 +3338,7 @@ if st.session_state.current_page == 'account':
         - **Performance Milestones**: Demonstrate trading skill for extra XP and recognition:
             * Maintain a Profit Factor of 2.0 or higher: **+30 XP**
             * Achieve an Average R:R of 1.5 or higher: **+25 XP**
-            * Reach a Win Rate of 60% or higher: **+20 XP**
+            * Reach a Win rate of 60% or higher: **+20 XP**
         - **Level Up!**: Every 100 XP earned levels up your Trader's Rank and rewards a new Level Badge.
         - **Daily Journaling Streak**: Maintain your journaling consistency for streak badges and XP bonuses every 7 days!
         
@@ -3401,12 +3347,105 @@ if st.session_state.current_page == 'account':
         
         st.markdown("---")
 
+        # =========================================================
+        # ACCOUNT SETTINGS (All expanders grouped here)
+        # =========================================================
+        st.subheader("⚙️ Account Settings")
+
+        # --- NICKNAME SETTINGS ---
+        with st.expander("👤 Nickname"):
+            st.caption("Set a custom nickname that will be displayed throughout the application.")
+            with st.form("nickname_form_account_page"): # Unique key for form
+                nickname = st.text_input(
+                    "Your Nickname",
+                    value=st.session_state.get('user_nickname', st.session_state.logged_in_user),
+                    key="nickname_input_account_page" # Unique key for widget
+                )
+                if st.form_submit_button("Save Nickname", use_container_width=True, key="save_nickname_button"): # Unique key
+                    st.session_state.user_nickname = nickname
+                    st.success("Your nickname has been updated!")
+                    
+                    # --- SAVE NICKNAME TO DATABASE ---
+                    try:
+                        conn = sqlite3.connect(DB_FILE)
+                        c = conn.cursor()
+                        c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.logged_in_user,))
+                        current_data = json.loads(c.fetchone()[0])
+                        current_data['user_nickname'] = nickname
+                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(current_data, cls=CustomJSONEncoder), st.session_state.logged_in_user))
+                        conn.commit()
+                        logging.info(f"Nickname updated for {st.session_state.logged_in_user} in DB.")
+                    except Exception as e:
+                        st.error(f"Failed to save nickname to database: {e}")
+                        logging.error(f"DB error updating nickname: {e}")
+                    finally:
+                        if conn: conn.close()
+                    # --- END SAVE ---
+                    st.rerun()
+
+        # --- ACCOUNT TIME SETTINGS (FIXED TO EUROPE/LONDON) ---
+        with st.expander("🕒 Account Time"):
+            st.caption("Your timezone is set to Europe/London to align with key trading hours.")
+            
+            fixed_timezone = 'Europe/London'
+            st.session_state.user_timezone = fixed_timezone # Force this into session state
+            
+            st.info(f"Your current selected timezone is: **{fixed_timezone}**")
+            
+            # Display current local time in London
+            london_tz = pytz.timezone(fixed_timezone)
+            current_london_time = datetime.now(london_tz)
+            st.info(f"Current time in London: **{current_london_time.strftime('%Y-%m-%d %H:%M:%S %Z')}**")
+            
+            # This section no longer needs a form as the value is fixed and not user-selectable.
+
+        # --- SESSION TIMINGS SETTINGS ---
+        with st.expander("📈 Session Timings"):
+            st.caption("Adjust the universal start and end hours (0-23) for each market session. These are always in UTC.")
+            with st.form("session_timings_form_account_page"): # Unique key for form
+                col1, col2, col3 = st.columns([2, 1, 1])
+                col1.markdown("**Session**")
+                col2.markdown("**Start Hour (UTC)**")
+                col3.markdown("**End Hour (UTC)**")
+                
+                new_timings = {}
+                # This loop will now work because of the global initialization
+                for session_name, timings in st.session_state.session_timings.items():
+                    with st.container():
+                        c1, c2, c3 = st.columns([2, 1, 1])
+                        c1.write(f"**{session_name}**")
+                        start_time = c2.number_input("Start", min_value=0, max_value=23, value=timings['start'], key=f"{session_name}_start_account", label_visibility="collapsed") # Unique key
+                        end_time = c3.number_input("End", min_value=0, max_value=23, value=timings['end'], key=f"{session_name}_end_account", label_visibility="collapsed") # Unique key
+                        new_timings[session_name] = {'start': start_time, 'end': end_time}
+                
+                if st.form_submit_button("Save Session Timings", use_container_width=True, key="save_session_timings_button"): # Unique key
+                    st.session_state.session_timings.update(new_timings)
+                    st.success("Session timings have been updated successfully!")
+                    
+                    # --- SAVE SESSION TIMINGS TO DATABASE ---
+                    try:
+                        conn = sqlite3.connect(DB_FILE)
+                        c = conn.cursor()
+                        c.execute("SELECT data FROM users WHERE username = ?", (st.session_state.logged_in_user,))
+                        current_data = json.loads(c.fetchone()[0])
+                        current_data['session_timings'] = new_timings # Save the new_timings dict directly
+                        c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(current_data, cls=CustomJSONEncoder), st.session_state.logged_in_user))
+                        conn.commit()
+                        logging.info(f"Session timings updated for {st.session_state.logged_in_user} in DB.")
+                    except Exception as e:
+                        st.error(f"Failed to save session timings to database: {e}")
+                        logging.error(f"DB error updating session timings: {e}")
+                    finally:
+                        if conn: conn.close()
+                    # --- END SAVE ---
+                    st.rerun()
+
         # --- MANAGE ACCOUNT ---
-        with st.expander("⚙️ Manage Account"):
+        with st.expander("🔑 Manage Account"):
             st.write(f"**Username**: `{st.session_state.logged_in_user}`")
             st.write("**Email**: `trader.pro@email.com` (example)")
-            if st.button("Log Out", key="logout_account_page", type="primary"):
-                handle_logout()
+            if st.button("Log Out", key="logout_account_page", type="primary", use_container_width=True):
+                handle_logout() # Ensure handle_logout() is defined globally
 import streamlit as st
 import os
 import io
