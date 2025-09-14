@@ -1001,6 +1001,7 @@ if 'current_page' not in st.session_state:
 # --- Navigation Items Definition (emojis removed from text) ---
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
+    ('watch list', 'My Watchlist'),
     ('trading_journal', 'Trading Journal'),
     ('mt5', 'Performance Dashboard'),
     ('trading_tools', 'Trading Tools'),
@@ -1008,7 +1009,6 @@ nav_items = [
     ('Community Chatroom', 'Community Chatroom'),
     ('Zenvo Academy', 'Zenvo Academy'),
     ('account', 'My Account'),
-    ('watch list', 'Watch List')
 ]
 
 # --- Map your page keys to the icon file names in the 'icons' folder ---
@@ -5252,12 +5252,12 @@ def get_next_session_end_info(active_sessions_list):
 # =========================================================
 # FOREX WATCHLIST PAGE
 # =========================================================
-if 'watchlist' not in st.session_state:
-    st.session_state.watchlist = []
+if 'My watchlist' not in st.session_state:
+    st.session_state.My watchlist = []
 if 'editing_item_id' not in st.session_state:
     st.session_state.editing_item_id = None
     
-if st.session_state.current_page in ('watch list', 'Watch List'):
+if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
     if st.session_state.get('logged_in_user') is None:
         st.warning("Please log in to manage your Forex Watchlist.")
