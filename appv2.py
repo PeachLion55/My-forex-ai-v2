@@ -5192,7 +5192,7 @@ if st.session_state.current_page == "Zenvo Academy":
         st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (Self-Contained with Syntax Correction)
+# FOREX WATCHLIST PAGE (Fully Self-Contained with All Helper Functions)
 # =================================================================================
 
 # Initialize session state variables for this page if they don't exist
@@ -5207,6 +5207,8 @@ if 'watchlist_loaded' not in st.session_state:
 if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
     # --- 1. LOCAL HELPER FUNCTIONS (Database, Header, etc.) ---
+    # All functions required for this page are now defined locally.
+
     @st.cache_data
     def image_to_base_64(path):
         """Converts a local image file to a base64 string for embedding."""
@@ -5341,12 +5343,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     new_item_data = {"id": datetime.now().isoformat(), "pair": new_pair.upper(), "timeframe": new_timeframe, "description": new_description, "image": new_image.getvalue() if new_image else None}
                     st.session_state.watchlist.insert(0, new_item_data)
                     user_data = load_user_data(current_user)
-                    current_xp = user_data.get('xp', 0)
-                    user_data['xp'] = current_xp + 5
                     user_data['watchlist'] = st.session_state.watchlist
                     save_user_data(current_user, user_data)
-                    st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
-                    st.balloons()
+                    st.toast(f"{new_item_data['pair']} added successfully!")
                     st.rerun()
                 else:
                     st.warning("Currency Pair and Notes are required.")
@@ -5368,39 +5367,23 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         c1, c2 = st.columns(2)
                         if c1.form_submit_button("✔️ Save Changes", use_container_width=True):
                             st.session_state.watchlist[index].update({'timeframe': updated_timeframe, 'description': updated_desc})
-                            if updated_img: 
-                                st.session_state.watchlist[index]['image'] = updated_img.getvalue()
-                            
-                            # Load, update, and save data
-                            user_data = load_user_data(current_user)
-                            user_data['watchlist'] = st.session_state.watchlist
-                            save_user_data(current_user, user_data)
-                            
+                            if updated_img: st.session_state.watchlist[index]['image'] = updated_img.getvalue()
+                            user_data = load_user_data(current_user); user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
                             st.session_state.editing_item_id = None
                             st.toast("Item updated!")
                             st.rerun()
                         if c2.form_submit_button("❌ Cancel", use_container_width=True):
-                            st.session_state.editing_item_id = None
-                            st.rerun()
+                            st.session_state.editing_item_id = None; st.rerun()
             else:
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
                     st.markdown(item.get('description', '').replace('\n', '  \n'))
-                    if item.get('image'): 
-                        st.image(item.get('image'), use_column_width=True)
+                    if item.get('image'): st.image(item.get('image'), use_column_width=True)
                     c1, c2 = st.columns(2)
                     if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
-                        st.session_state.editing_item_id = item_id
-                        st.rerun()
+                        st.session_state.editing_item_id = item_id; st.rerun()
                     if c2.button("🗑️ Delete", key=f"delete_{item_id}", use_container_width=True):
-                        deleted_pair = item.get('pair', 'Item')
-                        del st.session_state.watchlist[index]
-
-                        # Load, update, and save data
-                        user_data = load_user_data(current_user)
-                        user_data['watchlist'] = st.session_state.watchlist
-                        save_user_data(current_user, user_data)
-
-                        st.toast(f"Deleted {deleted_pair} from watchlist.")
-                        st.rerun()
+                        deleted_pair = item.get('pair', 'Item'); del st.session_state.watchlist[index]
+                        user_data = load_user_data(current_user); user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
+                        st.toast(f"Deleted {deleted_pair} from watchlist."); st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
