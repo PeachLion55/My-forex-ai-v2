@@ -5252,7 +5252,7 @@ def get_next_session_end_info(active_sessions_list):
 # =========================================================
 # FOREX WATCHLIST PAGE
 # =========================================================
-if 'My watchlist' not in st.session_state:
+if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 if 'editing_item_id' not in st.session_state:
     st.session_state.editing_item_id = None
