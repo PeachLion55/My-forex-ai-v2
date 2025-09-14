@@ -5197,7 +5197,7 @@ if 'watchlist' not in st.session_state:
     st.session_state.watchlist = [] # Initialize as an empty list
     
 # =========================================================
-# FOREX WATCHLIST PAGE (Refined UX with Edit Functionality)
+# FOREX WATCHLIST PAGE (Final Refined UX)
 # =========================================================
 elif st.session_state.current_page in ('watch list', 'Watch List'):
 
@@ -5207,12 +5207,10 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- CSS fix to ensure sidebar is visible after login ---
-    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
-    
-    # --- Custom CSS for High-Quality Card Layout ---
+    # --- CSS fix & Custom Card Styling ---
     st.markdown("""
     <style>
+        [data-testid="stSidebar"] { display: block !important; }
         .watchlist-card {
             background-color: #0E1117; border-radius: 10px; padding: 1.25rem;
             margin-bottom: 1rem; border: 1px solid #2d4646;
@@ -5270,9 +5268,14 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
     # =========================================================
     col1, col2 = st.columns([1, 1.5])
 
-    # --- COLUMN 1: Add New Watchlist Item ---
+    # --- Place Subheaders in columns to align them ---
     with col1:
         st.subheader("➕ Add New Pair")
+    with col2:
+        st.subheader("👀 Your Watchlist")
+        
+    # --- COLUMN 1: Add New Watchlist Item Form ---
+    with col1:
         with st.form("watchlist_form", clear_on_submit=True):
             pair = st.text_input("Currency Pair*", placeholder="e.g., EURUSD, GBPJPY")
             timeframe = st.selectbox("Timeframe*", ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"])
@@ -5298,8 +5301,6 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
 
     # --- COLUMN 2: Display Existing Watchlist Items ---
     with col2:
-        st.subheader("👀 Your Watchlist")
-        
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a currency pair to start monitoring setups.")
         else:
@@ -5315,6 +5316,8 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
                     btn_col1, btn_col2 = st.columns(2)
                     if btn_col1.button("Edit", key=f"edit_{item['id']}", use_container_width=True):
                         st.session_state.editing_item_id = item['id']
+                        st.rerun() # Rerun to trigger the dialog
+                    
                     if btn_col2.button("🗑️", key=f"del_{item['id']}", use_container_width=True):
                         st.session_state.watchlist.pop(i)
                         st.success(f"{item['pair']} removed from watchlist.")
@@ -5330,12 +5333,10 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
                 if item.get("description"):
                     st.markdown(f"<div class='description'>{item['description']}</div>", unsafe_allow_html=True)
                 
-                st.markdown(f'</div>', unsafe_allow_html=True)
+                st.markdown(f'</div>', unsafe_allow_html=True) # Close the card div
 
     # --- EDITING DIALOG (MODAL) ---
-    # This part runs outside the main display loop but is triggered by the "Edit" button
     if 'editing_item_id' in st.session_state and st.session_state.editing_item_id:
-        # Find the full item details to pre-fill the dialog
         item_to_edit = next((item for item in st.session_state.watchlist if item['id'] == st.session_state.editing_item_id), None)
         
         if item_to_edit:
@@ -5347,23 +5348,26 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
                 except ValueError:
                     tf_index = 0
                 
-                # Using unique keys for widgets inside the dialog
                 st.text_input("Currency Pair", value=item_to_edit['pair'], key="edit_modal_pair")
                 st.selectbox("Timeframe", options=timeframe_options, index=tf_index, key="edit_modal_tf")
                 st.text_area("Analysis & Description", value=item_to_edit['description'], height=200, key="edit_modal_desc")
                 
-                if st.button("Save Changes", use_container_width=True, type="primary"):
-                    # Find and update the original item in the main watchlist list
+                # Using columns for Save and Cancel buttons
+                save_col, cancel_col = st.columns(2)
+                
+                if save_col.button("Save Changes", use_container_width=True, type="primary"):
                     for item in st.session_state.watchlist:
                         if item['id'] == st.session_state.editing_item_id:
                             item['pair'] = st.session_state.edit_modal_pair.upper()
                             item['timeframe'] = st.session_state.edit_modal_tf
                             item['description'] = st.session_state.edit_modal_desc
                             break
-                    
-                    st.session_state.editing_item_id = None # Clear the editing flag
+                    st.session_state.editing_item_id = None # Clear the flag
                     # --- SAVE TO DB ---
                     st.rerun()
 
-            # Call the dialog function to make it appear
+                if cancel_col.button("Cancel", use_container_width=True):
+                    st.session_state.editing_item_id = None # Clear the flag
+                    st.rerun()
+
             edit_item_dialog()
