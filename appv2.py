@@ -5189,3 +5189,117 @@ if st.session_state.current_page == "Zenvo Academy":
     with tab3:
         st.markdown("### 🧰 Trading Resources")
         st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
+
+# =========================================================
+# FOREX WATCHLIST PAGE
+# =========================================================
+if 'watchlist' not in st.session_state:
+    st.session_state.watchlist = [] # Initialize as an empty list
+    
+if st.session_state.current_page in ('watch list', 'Watch List'):
+
+    # --- Login Check ---
+    if st.session_state.get('logged_in_user') is None:
+        st.warning("Please log in to manage your Forex Watchlist.")
+        st.session_state.current_page = 'account'
+        st.rerun()
+
+    # --- CSS fix to ensure sidebar is visible after login ---
+    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
+
+    # --- Page Header ---
+    st.title("Forex Watchlist")
+    st.caption("Track potential trade setups and monitor key currency pairs.")
+    st.markdown("---")
+
+    # --- Main Layout (Two Columns) ---
+    col1, col2 = st.columns([1, 1.5]) # Left column is narrower, right is wider
+
+    # --- COLUMN 1: Add New Watchlist Item ---
+    with col1:
+        st.subheader("➕ Add New Pair")
+        with st.form("watchlist_form", clear_on_submit=True):
+            # Input fields for the new watchlist item
+            pair = st.text_input("Currency Pair*", placeholder="e.g., EURUSD, GBPJPY")
+            timeframe = st.selectbox(
+                "Timeframe*",
+                options=[
+                    "1 Minute", "5 Minutes", "15 Minutes", "30 Minutes",
+                    "1 Hour", "4 Hours", "Daily", "Weekly", "Monthly"
+                ]
+            )
+            screenshot = st.file_uploader("Upload Chart Screenshot", type=['png', 'jpg', 'jpeg'])
+            description = st.text_area("Analysis & Description", height=200, placeholder="Enter your trade thesis, key levels, and potential entry/exit points...")
+            
+            submitted = st.form_submit_button("Add to Watchlist", use_container_width=True)
+
+            if submitted:
+                if not pair or not timeframe:
+                    st.warning("Currency Pair and Timeframe are required fields.")
+                else:
+                    # Process the uploaded screenshot
+                    screenshot_b64 = None
+                    if screenshot is not None:
+                        # Convert the uploaded file to a base64 string for storage
+                        image_bytes = screenshot.getvalue()
+                        screenshot_b64 = base64.b64encode(image_bytes).decode()
+
+                    # Create a dictionary for the new item
+                    new_item = {
+                        "id": f"{pair}_{time.time()}", # Unique ID for the delete button key
+                        "pair": pair.upper(),
+                        "timeframe": timeframe,
+                        "description": description,
+                        "screenshot": screenshot_b64, # Can be None
+                        "date_added": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+
+                    # Add the new item to the start of the list in session state
+                    st.session_state.watchlist.insert(0, new_item)
+                    
+                    # NOTE: Here you would also save the updated st.session_state.watchlist to your database
+                    # For example:
+                    # user_data['watchlist'] = st.session_state.watchlist
+                    # c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), st.session_state.logged_in_user))
+                    # conn.commit()
+                    
+                    st.success(f"{pair.upper()} on the {timeframe} timeframe added to your watchlist!")
+                    st.rerun()
+
+    # --- COLUMN 2: Display Existing Watchlist Items ---
+    with col2:
+        st.subheader("👀 Your Watchlist")
+        
+        if not st.session_state.watchlist:
+            st.info("Your watchlist is empty. Add a currency pair on the left to start monitoring setups.")
+        else:
+            # Iterate through a copy of the list to allow safe deletion
+            for i, item in enumerate(st.session_state.watchlist[:]):
+                with st.container(border=True):
+                    # Display the screenshot if it exists
+                    if item.get("screenshot"):
+                        st.image(
+                            base64.b64decode(item["screenshot"]),
+                            use_column_width=True
+                        )
+                    
+                    # Display the details
+                    st.markdown(f"#### {item['pair']}")
+                    st.caption(f"Timeframe: **{item['timeframe']}** | Added: {item.get('date_added', 'N/A')}")
+                    
+                    if item.get("description"):
+                        # Use an expander for longer descriptions to keep the UI clean
+                        with st.expander("Show Analysis"):
+                            st.markdown(item["description"].replace("\n", "<br>"), unsafe_allow_html=True)
+                    
+                    # Delete button for the item
+                    if st.button("Delete Item", key=f"delete_{item['id']}", use_container_width=True, type="secondary"):
+                        # Remove the item from the list
+                        st.session_state.watchlist.pop(i)
+                        
+                        # NOTE: Here you would also save the updated list to your database
+                        
+                        st.success(f"{item['pair']} removed from watchlist.")
+                        st.rerun()
+
+                st.markdown("---") # Visual separator between items
