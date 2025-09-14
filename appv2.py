@@ -5308,17 +5308,30 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     )
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
+    
+    # =========================================================
+    # COLUMN HEADERS
+    # =========================================================
+    header_col1, header_col2 = st.columns([1, 2], gap="large")
+    with header_col1:
+        st.header("➕ Add New Pair")
+    with header_col2:
+        st.header("👀 Your Watchlist")
 
     # =========================================================
-    # NEW 2-COLUMN MAIN LAYOUT
+    # 2-COLUMN MAIN LAYOUT
     # =========================================================
-    add_col, display_col = st.columns([1, 2], gap="large") # Give more space to the display column
+    add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR ---
     with add_col:
-        st.header("➕ Add New Pair")
         with st.form("new_item_form", clear_on_submit=True):
             new_pair = st.text_input("Currency Pair (e.g., EUR/USD)")
+            
+            # --- NEW: Timeframe Selector ---
+            timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
+            new_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=4) # Default to 1H
+
             new_description = st.text_area("Notes / Analysis", height=150)
             new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
             
@@ -5328,20 +5341,18 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                     new_item_data = {
                         "id": datetime.now().isoformat(),
                         "pair": new_pair.upper(),
+                        "timeframe": new_timeframe, # Save the timeframe
                         "description": new_description,
                         "image": new_image.getvalue() if new_image else None
                     }
-                    # Prepend to the list so new items appear at the top
-                    st.session_state.watchlist.insert(0, new_item_data) 
-                    st.toast(f"{new_pair.upper()} added successfully!")
+                    st.session_state.watchlist.insert(0, new_item_data)
+                    st.toast(f"{new_item_data['pair']} added successfully!")
                     st.rerun()
                 else:
                     st.warning("Currency Pair and Notes are required.")
 
     # --- COLUMN 2: YOUR WATCHLIST ---
     with display_col:
-        st.header("👀 Your Watchlist")
-
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a new pair using the form on the left.")
 
@@ -5352,13 +5363,19 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
             if st.session_state.editing_item_id == item_id:
                 with st.container(border=True):
                      with st.form(f"edit_form_{item_id}", clear_on_submit=False):
-                        st.subheader(f"Editing {item['pair']}")
-                        updated_desc = st.text_area("Notes / Analysis", value=item['description'], key=f"desc_{item_id}")
+                        st.subheader(f"Editing {item.get('pair', '')}")
+                        
+                        # --- EDIT: Timeframe Selector ---
+                        current_tf_index = timeframe_options.index(item.get('timeframe')) if item.get('timeframe') in timeframe_options else 4
+                        updated_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=current_tf_index, key=f"tf_{item_id}")
+                        
+                        updated_desc = st.text_area("Notes / Analysis", value=item.get('description', ''), key=f"desc_{item_id}", height=150)
                         updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
                         
                         col_save, col_cancel = st.columns(2)
                         with col_save:
                             if st.form_submit_button("✔️ Save Changes", use_container_width=True):
+                                st.session_state.watchlist[index]['timeframe'] = updated_timeframe
                                 st.session_state.watchlist[index]['description'] = updated_desc
                                 if updated_img:
                                     st.session_state.watchlist[index]['image'] = updated_img.getvalue()
@@ -5373,8 +5390,11 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
             # Display the item normally
             else:
                 with st.container(border=True):
-                    st.subheader(item['pair'])
-                    st.write(item['description'])
+                    # --- DISPLAY: Show pair AND timeframe ---
+                    st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
+                    
+                    # --- DISPLAY: Use markdown to preserve newlines ---
+                    st.markdown(item.get('description', ''))
                     
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
@@ -5386,9 +5406,9 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                             st.rerun()
                     with btn_col2:
                         if st.button("🗑️ Delete", key=f"delete_{item_id}", use_container_width=True):
-                             deleted_pair = st.session_state.watchlist[index]['pair']
+                             deleted_pair = item.get('pair', 'Item')
                              del st.session_state.watchlist[index]
                              st.toast(f"Deleted {deleted_pair} from watchlist.")
                              st.rerun()
 
-                st.markdown("<br>", unsafe_allow_html=True) # Vertical space between items
+                st.markdown("<br>", unsafe_allow_html=True)
