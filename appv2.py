@@ -5207,14 +5207,13 @@ import sqlite3
 # These imports are here for completeness but should likely already be in your app's main file.
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (Fully Restored Multi-Timeframe, Corrected & Self-Contained)
+# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - NameError Fix)
 # =================================================================================
 
 # This 'if' block is crucial for ensuring the page only appears when selected in your sidebar/navigation.
 if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
     # --- 1. INITIALIZE SESSION STATE VARIABLES (Encapsulated within this page) ---
-    # These must be within the page's conditional block to avoid affecting other pages
     if 'watchlist' not in st.session_state: st.session_state.watchlist = []
     if 'editing_item_id' not in st.session_state: st.session_state.editing_item_id = None
     if 'watchlist_loaded' not in st.session_state: st.session_state.watchlist_loaded = False
@@ -5225,7 +5224,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     if 'temp_analysis_tf_input_val' not in st.session_state: st.session_state.temp_analysis_tf_input_val = "1H"
     if 'temp_analysis_desc_input_val' not in st.session_state: st.session_state.temp_analysis_desc_input_val = ""
 
-    # --- CRITICAL FIX for TypeError: Ensure session_timings is always initialized as a dict ---
+    # --- CRITICAL FIX: Ensure session_timings is always initialized as a dict ---
     if 'session_timings' not in st.session_state:
         st.session_state.session_timings = {} 
     
@@ -5382,7 +5381,10 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     header_icon_style = "width: 130px; height: auto;"; header_caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size:1rem;"
     
     icon_path = os.path.join("icons", page_info['icon']); icon_base64 = image_to_base_64(icon_path)
-    icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_icon_style}">' if icon_base64 else ""
+    
+    # --- FIX for NameError: Changed `icon_icon_style` to `header_icon_style` ---
+    icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{header_icon_style}">' if icon_base64 else ""
+    
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
@@ -5549,7 +5551,6 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                             save_user_data(current_user, user_data)
                             
                             st.session_state.editing_item_id = None
-                            # Clean up temporary edit states
                             if f'temp_edit_analyses_{item_id}' in st.session_state: del st.session_state[f'temp_edit_analyses_{item_id}']
                             if f'temp_delete_flags_{item_id}' in st.session_state: del st.session_state[f'temp_delete_flags_{item_id}']
                             if f'{f"edit_form_{item_id}"}_loaded' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_loaded']
@@ -5557,7 +5558,6 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
                         elif cancel_edit_submitted:
                             st.session_state.editing_item_id = None
-                            # Clean up temporary edit states
                             if f'temp_edit_analyses_{item_id}' in st.session_state: del st.session_state[f'temp_edit_analyses_{item_id}']
                             if f'temp_delete_flags_{item_id}' in st.session_state: del st.session_state[f'temp_delete_flags_{item_id}']
                             if f'{f"edit_form_{item_id}"}_loaded' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_loaded']
