@@ -3150,13 +3150,11 @@ def get_next_session_end_info(active_sessions_list):
 # =========================================================
 if st.session_state.current_page == 'strategy':
 
-    # --- THIS LOGIN CHECK IS CRUCIAL TO PREVENT "WELCOME NONE!" ---
     if st.session_state.get('logged_in_user') is None:
         st.warning("Please log in to manage your strategies.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- CSS fix to ensure sidebar is visible after login ---
     st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
 
     # --- 1. Page-Specific Configuration ---
@@ -3168,29 +3166,14 @@ if st.session_state.current_page == 'strategy':
 
     # --- 2. Define CSS Styles for the New Header ---
     main_container_style = """
-        background-color: black; 
-        padding: 20px 25px; 
-        border-radius: 10px; 
-        display: flex; 
-        align-items: center; 
-        gap: 20px;
-        border: 1px solid #2d4646;
-        box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
+        background-color: black; padding: 20px 25px; border-radius: 10px; 
+        display: flex; align-items: center; gap: 20px;
+        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = """
-        flex: 1; 
-        display: flex; 
-        flex-direction: column; 
-        align-items: flex-end; 
-        gap: 8px;
-    """
-    info_tab_style = """
-        background-color: #0E1117; border: 1px solid #2d4646; 
-        padding: 8px 15px; border-radius: 8px; color: white; 
-        text-align: center; font-family: sans-serif; 
-        font-size: 0.9rem; white-space: nowrap;
-    """
+    right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
+    info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
+    timer_style = "font-family: sans-serif; font-size: 0.8rem; color: #808495; text-align: right; margin-top: 4px;"
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
@@ -3203,30 +3186,29 @@ if st.session_state.current_page == 'strategy':
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-    active_sessions_str = get_active_market_sessions()
+    active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
+    
+    next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
+    timer_display = ""
+    if next_session_name and timer_str:
+        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
 
-    # --- 4. Build the HTML for the New Header ---
+    # --- 4. Build and Render Header ---
     header_html = (
         f'<div style="{main_container_style}">'
-            f'<div style="{left_column_style}">'
-                f'{icon_html}'
-                '<div>'
-                    f'<h1 style="{title_style}">{page_info["title"]}</h1>'
-                    f'<p style="{caption_style}">{page_info["caption"]}</p>'
-                '</div>'
-            '</div>'
+            f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
             f'<div style="{right_column_style}">'
                 f'<div style="{info_tab_style}">{welcome_message}</div>'
-                f'<div style="{info_tab_style}">{market_sessions_display}</div>'
+                f'<div>'
+                    f'<div style="{info_tab_style}">{market_sessions_display}</div>'
+                    f'{timer_display}'
+                f'</div>'
             '</div>'
         '</div>'
     )
-
-    # --- 5. Render the New Header and Divider ---
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-
     # (The rest of your page code for managing strategies goes here...)
     st.subheader("➕ Add New Strategy")
     with st.form("strategy_form"):
@@ -3336,6 +3318,7 @@ if st.session_state.current_page == 'strategy':
         st.dataframe(agg)
     else:
         st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
+
 
 
 import streamlit as st
