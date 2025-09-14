@@ -5207,7 +5207,7 @@ import sqlite3
 # These imports are here for completeness but should likely already be in your app's main file.
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - TypeError Fix)
+# FOREX WATCHLIST PAGE (Fully Restored Multi-Timeframe, Corrected & Self-Contained)
 # =================================================================================
 
 # This 'if' block is crucial for ensuring the page only appears when selected in your sidebar/navigation.
@@ -5218,17 +5218,17 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     if 'watchlist' not in st.session_state: st.session_state.watchlist = []
     if 'editing_item_id' not in st.session_state: st.session_state.editing_item_id = None
     if 'watchlist_loaded' not in st.session_state: st.session_state.watchlist_loaded = False
-    if 'new_analyses' not in st.session_state: st.session_state.new_analyses = []
     
-    # --- FIX for TypeError: Ensure session_timings is always initialized ---
-    if 'session_timings' not in st.session_state:
-        st.session_state.session_timings = {} # Initialize as an empty dict
-
-    # States for input resilience when clear_on_submit is False
+    # --- For multi-timeframe analysis form (Add New Pair) ---
+    if 'new_analyses' not in st.session_state: st.session_state.new_analyses = []
     if 'new_pair_input_val' not in st.session_state: st.session_state.new_pair_input_val = ""
     if 'temp_analysis_tf_input_val' not in st.session_state: st.session_state.temp_analysis_tf_input_val = "1H"
     if 'temp_analysis_desc_input_val' not in st.session_state: st.session_state.temp_analysis_desc_input_val = ""
 
+    # --- CRITICAL FIX for TypeError: Ensure session_timings is always initialized as a dict ---
+    if 'session_timings' not in st.session_state:
+        st.session_state.session_timings = {} 
+    
     # --- 2. LOCAL HELPER FUNCTIONS (Encapsulated within this page) ---
     @st.cache_data
     def image_to_base_64(path):
@@ -5239,22 +5239,25 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             logging.warning(f"Warning: Header icon file not found at path: {path}"); return None
     
     def get_active_market_sessions():
-        """Determines active forex sessions and returns a display string AND a list of active sessions."""
+        """
+        Determines active forex sessions and returns a display string AND a list of active sessions.
+        Includes robust error checking for session_timings.
+        """
         sessions_utc = st.session_state.get('session_timings', {}) # This should now reliably be a dict
         
-        # --- Add defensive checks here if sessions_utc could somehow become invalid during execution ---
         if not isinstance(sessions_utc, dict):
-            logging.error(f"session_timings in session_state is not a dict: {type(sessions_utc)}")
-            return "Markets Closed (Config Error)", [] # Provide explicit error message
+            logging.error(f"Error: st.session_state.session_timings is not a dict: {type(sessions_utc)}. Defaulting to closed.")
+            return "Markets Closed (Config Error)", []
         
         corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
         current_utc_hour = corrected_utc_time.hour
         active_sessions = []
+        
         for session_name, timings in sessions_utc.items():
             if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings:
-                logging.warning(f"Skipping malformed session '{session_name}': {timings}")
-                continue # Skip to next session if this one is malformed
-
+                logging.warning(f"Skipping malformed session config for '{session_name}': {timings}")
+                continue # Skip to the next session if config is invalid
+            
             start, end = timings['start'], timings['end']
             if not isinstance(start, int) or not isinstance(end, int):
                 logging.warning(f"Skipping session '{session_name}': start/end times are not integers: {timings}")
@@ -5266,63 +5269,88 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             else: # Session within the same day
                 if start <= current_utc_hour < end:
                     active_sessions.append(session_name)
+        
         if not active_sessions: return "Markets Closed", []; return ", ".join(active_sessions), active_sessions
 
     def get_next_session_end_info(active_sessions_list):
         """Calculates the time remaining for the next session to close."""
-        if not active_sessions_list: return None, None
+        if not active_sessions_list:
+            return None, None
+            
         sessions_utc_hours = st.session_state.get('session_timings', {})
         if not isinstance(sessions_utc_hours, dict):
-             logging.error(f"session_timings in session_state for next_session_end is not a dict: {type(sessions_utc_hours)}")
+             logging.error(f"Error: st.session_state.session_timings (for next end time) is not a dict: {type(sessions_utc_hours)}")
              return None, None # Fail gracefully
              
         now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Apply server clock correction
         next_end_times = []
-        for sn in active_sessions_list:
-            if sn in sessions_utc_hours:
-                timings = sessions_utc_hours[sn]
+        
+        for session_name in active_sessions_list:
+            if session_name in sessions_utc_hours:
+                timings = sessions_utc_hours[session_name]
                 if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings: continue
                 if not isinstance(timings['start'], int) or not isinstance(timings['end'], int): continue
 
-                e_hr, s_hr = timings['end'], timings['start']
-                e_time = now_utc.replace(hour=e_hr, minute=0, second=0, microsecond=0)
-                if (s_hr > e_hr and now_utc.hour >= e_hr) or (now_utc > e_time): e_time += timedelta(days=1)
-                next_end_times.append((e_time, sn))
-        if not next_end_times: return None, None
-        e_time, sn = min(next_end_times)
-        rem = e_time - now_utc
-        if rem.total_seconds() < 0: return sn, "Closing..."
-        h, rem = divmod(int(rem.total_seconds()), 3600); m, s = divmod(rem, 60); return sn, f"{h:02}:{m:02}:{s:02}"
+                end_hour = timings['end']
+                start_hour = timings['start'] # Needed for cross-midnight logic
+                
+                end_time_candidate = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+                
+                if start_hour > end_hour and now_utc.hour >= end_hour:
+                    end_time_candidate += timedelta(days=1)
+                elif now_utc > end_time_candidate:
+                    end_time_candidate += timedelta(days=1)
+                
+                next_end_times.append((end_time_candidate, session_name))
+        
+        if not next_end_times:
+            return None, None
+        
+        soonest_end_time, soonest_session_name = min(next_end_times)
+        remaining = soonest_end_time - now_utc
+        
+        if remaining.total_seconds() < 0:
+            return soonest_session_name, "Closing..." # Should not happen, but safe fallback
+        
+        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return soonest_session_name, f"{hours:02}:{minutes:02}:{seconds:02}"
 
     def load_user_data(username):
-        """Fetches a user's data blob from the database and decodes it from JSON."""
+        """Fetches a user's data from the DB and decodes it from JSON."""
         try:
+            # 'c' is assumed to be initialized globally
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
-            res = c.fetchone()
-            if res and res[0]: return json.loads(res[0])
-            return {} # Return an empty dict if no data or user found
-        except (json.JSONDecodeError, sqlite3.Error, Exception) as e: # Catch broader exceptions
-            logging.error(f"Error loading data for {username}: {e}", exc_info=True); return {}
+            result = c.fetchone()
+            if result and result[0]:
+                return json.loads(result[0])
+            return {}
+        except (json.JSONDecodeError, sqlite3.Error) as e:
+            logging.error(f"Error loading data for user {username}: {e}")
+            return {}
 
     def save_user_data(username, user_data):
         """Encodes user data to JSON and saves it to the DB."""
         try:
+            # 'c' and 'conn' are assumed to be initialized globally
             json_data = json.dumps(user_data)
             c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
-            conn.commit(); return True
-        except (sqlite3.Error, Exception) as e: # Catch broader exceptions
-            logging.error(f"Error saving data for {username}: {e}", exc_info=True); return False
+            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            logging.error(f"Error saving data for user {username}: {e}")
+            return False
 
     def format_datestamp(iso_string):
         """Converts an ISO date string to a more readable format, e.g., 'Sunday 14th September 2025'."""
         if not iso_string: return "an unknown date"
         try:
-            dt = datetime.fromisoformat(iso_string)
-            day = dt.day; suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-            return dt.strftime(f"%A {day}{suffix} %B %Y")
-        except (ValueError, TypeError, Exception) as e: # Catch broader errors for robustness
-            logging.error(f"Error formatting datestamp '{iso_string}': {e}", exc_info=True)
-            return iso_string.split('T')[0] # Fallback on error
+            dt_object = datetime.fromisoformat(iso_string)
+            day = dt_object.day
+            if 11 <= day <= 13: suffix = "th"
+            else: suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+            return dt_object.strftime(f"%A {day}{suffix} %B %Y")
+        except (ValueError, TypeError): return iso_string.split('T')[0]
 
     # --- 3. LOGIN CHECK & DATA LOADING ---
     current_user = st.session_state.get('logged_in_user')
@@ -5354,7 +5382,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     header_icon_style = "width: 130px; height: auto;"; header_caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size:1rem;"
     
     icon_path = os.path.join("icons", page_info['icon']); icon_base64 = image_to_base_64(icon_path)
-    icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{header_icon_style}">' if icon_base64 else ""
+    icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_icon_style}">' if icon_base64 else ""
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
@@ -5390,7 +5418,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     with col_an_del:
                         if st.form_submit_button("🗑️", key=f"temp_delete_analysis_{idx}", help="Remove this analysis"):
                             del st.session_state.new_analyses[idx]
-                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Persist pair name
+                            # When a submit button is pressed, the form re-executes.
+                            # Need to ensure other inputs don't lose value explicitly when not using default `clear_on_submit=True` behavior.
+                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input 
                             st.rerun() 
                 st.write("") # Just some spacing
 
@@ -5452,8 +5482,6 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     st.session_state.new_pair_input_val = ""
                     st.session_state.temp_analysis_tf_input_val = "1H"
                     st.session_state.temp_analysis_desc_input_val = ""
-                    # For uploader and text_input in clear_on_submit=False forms,
-                    # explicitly re-assigning empty/None and rerunning is necessary to clear their display.
                     st.session_state.final_new_pair_input = ""
                     st.session_state.final_new_image_input = None 
                     
@@ -5521,6 +5549,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                             save_user_data(current_user, user_data)
                             
                             st.session_state.editing_item_id = None
+                            # Clean up temporary edit states
                             if f'temp_edit_analyses_{item_id}' in st.session_state: del st.session_state[f'temp_edit_analyses_{item_id}']
                             if f'temp_delete_flags_{item_id}' in st.session_state: del st.session_state[f'temp_delete_flags_{item_id}']
                             if f'{f"edit_form_{item_id}"}_loaded' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_loaded']
@@ -5528,6 +5557,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
                         elif cancel_edit_submitted:
                             st.session_state.editing_item_id = None
+                            # Clean up temporary edit states
                             if f'temp_edit_analyses_{item_id}' in st.session_state: del st.session_state[f'temp_edit_analyses_{item_id}']
                             if f'temp_delete_flags_{item_id}' in st.session_state: del st.session_state[f'temp_delete_flags_{item_id}']
                             if f'{f"edit_form_{item_id}"}_loaded' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_loaded']
