@@ -5287,16 +5287,12 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: block !important; }
-        .watchlist-card {
-            background-color: #0E1117; border-radius: 10px; padding: 1.25rem;
-            margin-bottom: 1rem; border: 1px solid #2d4646;
-        }
         /* ... (add other custom styles here if needed) ... */
     </style>
     """, unsafe_allow_html=True)
 
     # =========================================================
-    # HEADER (Standardized to match Academy Page)
+    # HEADER
     # =========================================================
     page_info = {'title': 'Forex Watchlist', 'icon': 'watchlist_icon.png', 'caption': 'Track potential trade setups and monitor key currency pairs.'}
     main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
@@ -5333,13 +5329,13 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
         st.header("👀 Your Watchlist")
     with col2:
         if st.button("➕ Add New Pair", use_container_width=True):
-            st.session_state.editing_item_id = 'new' # Set state to show the 'add new' form
+            st.session_state.editing_item_id = 'new'
+            st.rerun()
 
     st.markdown("---")
 
     # =========================================================
     # 'ADD NEW' FORM
-    # This form will only appear when the 'Add New Pair' button is clicked.
     # =========================================================
     if st.session_state.editing_item_id == 'new':
         with st.container(border=True):
@@ -5354,20 +5350,20 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                     if st.form_submit_button("Save to Watchlist", use_container_width=True):
                         if new_pair and new_description:
                             new_item_data = {
-                                "id": datetime.now().isoformat(),  # Unique ID
+                                "id": datetime.now().isoformat(),
                                 "pair": new_pair,
                                 "description": new_description,
                                 "image": new_image.getvalue() if new_image else None
                             }
                             st.session_state.watchlist.append(new_item_data)
-                            st.session_state.editing_item_id = None # CRITICAL: Reset state
+                            st.session_state.editing_item_id = None
                             st.success(f"{new_pair} added successfully!")
                             st.rerun()
                         else:
                             st.warning("Currency Pair and Notes are required.")
                 with col_cancel:
                     if st.form_submit_button("Cancel", use_container_width=True):
-                        st.session_state.editing_item_id = None # CRITICAL: Reset state
+                        st.session_state.editing_item_id = None
                         st.rerun()
     
     # =========================================================
@@ -5390,22 +5386,21 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                     col_save, col_del, col_cancel = st.columns(3)
                     with col_save:
                         if st.form_submit_button("✔️ Save", use_container_width=True):
-                            # Update the item in the list
                             st.session_state.watchlist[index]['description'] = updated_desc
                             if updated_img:
                                 st.session_state.watchlist[index]['image'] = updated_img.getvalue()
-                            st.session_state.editing_item_id = None # CRITICAL: Reset state
+                            st.session_state.editing_item_id = None
                             st.success("Item updated!")
                             st.rerun()
                     with col_del:
                         if st.form_submit_button("🗑️ Delete", use_container_width=True):
                              del st.session_state.watchlist[index]
-                             st.session_state.editing_item_id = None # CRITICAL: Reset state
+                             st.session_state.editing_item_id = None
                              st.warning("Item deleted.")
                              st.rerun()
                     with col_cancel:
                         if st.form_submit_button("❌ Cancel", use_container_width=True):
-                            st.session_state.editing_item_id = None # CRITICAL: Reset state
+                            st.session_state.editing_item_id = None
                             st.rerun()
         
         # Display the item normally
@@ -5413,11 +5408,14 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
             with st.container(border=True):
                 st.subheader(item['pair'])
                 st.write(item['description'])
-                if item.get('image'):  # <-- The fix
-    st.image(item.get('image'), use_column_width=True)
+                
+                # <-- CORRECTED LINE
+                if item.get('image'):
+                    # <-- CORRECTED LINE (also applied here for safety)
+                    st.image(item.get('image'), use_column_width=True)
 
                 if st.button("✏️ Edit Item", key=f"edit_{item_id}", use_container_width=True):
-                    st.session_state.editing_item_id = item_id # Set state to THIS item's ID
+                    st.session_state.editing_item_id = item_id
                     st.rerun()
 
-            st.markdown("<br>", unsafe_allow_html=True) # Adds a little space between items
+            st.markdown("<br>", unsafe_allow_html=True)
