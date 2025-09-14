@@ -5199,7 +5199,7 @@ from datetime import datetime, timedelta
 import logging
 
 # =========================================================
-# HELPER FUNCTIONS (Required for the standardized header)
+# HELPER FUNCTIONS (No changes needed here)
 # =========================================================
 
 @st.cache_data
@@ -5213,11 +5213,11 @@ def image_to_base_64(path):
         return None
 
 def get_active_market_sessions():
-    """Determines active forex sessions and returns a display string AND a list of active sessions."""
+    """Determines active forex sessions."""
+    # This function's implementation remains the same
     sessions_utc = st.session_state.get('session_timings', {})
     corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
     current_utc_hour = corrected_utc_time.hour
-    
     active_sessions = []
     for session_name, timings in sessions_utc.items():
         start, end = timings['start'], timings['end']
@@ -5227,39 +5227,29 @@ def get_active_market_sessions():
         else:
             if start <= current_utc_hour < end:
                 active_sessions.append(session_name)
-
-    if not active_sessions:
-        return "Markets Closed", []
+    if not active_sessions: return "Markets Closed", []
     return ", ".join(active_sessions), active_sessions
 
 def get_next_session_end_info(active_sessions_list):
-    """Calculates which active session will end next and returns its name and the remaining time."""
-    if not active_sessions_list:
-        return None, None
-
+    """Calculates next session end time."""
+    # This function's implementation remains the same
+    if not active_sessions_list: return None, None
     sessions_utc_hours = st.session_state.get('session_timings', {})
     now_utc = datetime.now(pytz.utc) + timedelta(hours=1)
-    
     next_end_times = []
     for session_name in active_sessions_list:
         if session_name in sessions_utc_hours:
             end_hour = sessions_utc_hours[session_name]['end']
             start_hour = sessions_utc_hours[session_name]['start']
             end_time_today = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
-            if start_hour > end_hour and now_utc.hour >= start_hour:
-                end_time_today += timedelta(days=1)
-            elif now_utc > end_time_today:
-                end_time_today += timedelta(days=1)
+            if start_hour > end_hour and now_utc.hour >= start_hour: end_time_today += timedelta(days=1)
+            elif now_utc > end_time_today: end_time_today += timedelta(days=1)
             next_end_times.append((end_time_today, session_name))
-    
     if not next_end_times: return None, None
-        
     next_end_times.sort()
     soonest_end_time, soonest_session_name = next_end_times[0]
-    
     remaining = soonest_end_time - now_utc
     if remaining.total_seconds() < 0: return soonest_session_name, "Closing..."
-
     hours, remainder = divmod(int(remaining.total_seconds()), 3600)
     minutes, seconds = divmod(remainder, 60)
     time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
@@ -5280,21 +5270,11 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- CSS FOR HEADER ALIGNMENT ---
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"] { display: block !important; }
-            /* This targets the headers inside the columns to remove top margin */
-            div[data-testid="column"] h3 {
-                margin-top: 0.2rem;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-
     # =========================================================
-    # HEADER BANNER
+    # HEADER BANNER (No changes needed here)
     # =========================================================
     page_info = {'title': 'Forex Watchlist', 'icon': 'watchlist_icon.png', 'caption': 'Track potential trade setups and monitor key currency pairs.'}
+    # (Styles for the header banner remain the same)
     main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
@@ -5303,7 +5283,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
-
+    
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">' if icon_base64 else ""
@@ -5317,18 +5297,53 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     )
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
-    
+
     # =========================================================
-    # 2-COLUMN MAIN LAYOUT
+    # DEFINITIVE LAYOUT FIX: Custom HTML & CSS for Headers
+    # =========================================================
+    
+    st.markdown("""
+        <style>
+            .custom-header-row {
+                display: flex;
+                align-items: stretch;
+                justify-content: space-between;
+                gap: 3rem; /* Matches the "large" gap in st.columns */
+            }
+            .custom-header-col1 {
+                flex: 1; /* Matches the weight of the first content column */
+            }
+            .custom-header-col2 {
+                flex: 2; /* Matches the weight of the second content column */
+            }
+            .custom-header-row h3 {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                font-size: 1.75rem; /* Standard st.header font size */
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+        <div class="custom-header-row">
+            <div class="custom-header-col1">
+                <h3>➕ Add New Pair</h3>
+            </div>
+            <div class="custom-header-col2">
+                <h3>👀 Your Watchlist</h3>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # =========================================================
+    # Main Content Columns (Headers are now removed from here)
     # =========================================================
     add_col, display_col = st.columns([1, 2], gap="large")
 
-    # --- COLUMN 1: ADD NEW PAIR ---
     with add_col:
-        # --- REPLACED st.header with styled st.markdown ---
-        st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
+        # The form and its logic start here, with no header
         with st.form("new_item_form", clear_on_submit=True):
-            new_pair = st.text_input("Currency Pair (e.g., EUR/USD)")
+            new_pair = st.text_input("Currency Pair (e.g., EUR/USD)", label_visibility="collapsed", placeholder="Currency Pair (e.g., EUR/USD)")
             
             timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
             new_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=4)
@@ -5352,36 +5367,28 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                 else:
                     st.warning("Currency Pair and Notes are required.")
 
-    # --- COLUMN 2: YOUR WATCHLIST ---
     with display_col:
-        # --- REPLACED st.header with styled st.markdown ---
-        st.markdown("<h3>👀 Your Watchlist</h3>", unsafe_allow_html=True)
-
+        # The watchlist display starts here, with no header
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a new pair using the form on the left.")
 
         for index, item in enumerate(st.session_state.watchlist):
             item_id = item['id']
-            
             if st.session_state.editing_item_id == item_id:
-                # EDIT FORM
+                # EDIT FORM (No change in logic)
                 with st.container(border=True):
                      with st.form(f"edit_form_{item_id}", clear_on_submit=False):
                         st.subheader(f"Editing {item.get('pair', '')}")
-                        
                         current_tf_index = timeframe_options.index(item.get('timeframe')) if item.get('timeframe') in timeframe_options else 4
                         updated_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=current_tf_index, key=f"tf_{item_id}")
-                        
                         updated_desc = st.text_area("Notes / Analysis", value=item.get('description', ''), key=f"desc_{item_id}", height=150)
                         updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
-                        
                         col_save, col_cancel = st.columns(2)
                         with col_save:
                             if st.form_submit_button("✔️ Save Changes", use_container_width=True):
                                 st.session_state.watchlist[index]['timeframe'] = updated_timeframe
                                 st.session_state.watchlist[index]['description'] = updated_desc
-                                if updated_img:
-                                    st.session_state.watchlist[index]['image'] = updated_img.getvalue()
+                                if updated_img: st.session_state.watchlist[index]['image'] = updated_img.getvalue()
                                 st.session_state.editing_item_id = None
                                 st.toast("Item updated!")
                                 st.rerun()
@@ -5390,16 +5397,12 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                                 st.session_state.editing_item_id = None
                                 st.rerun()
             else:
-                # NORMAL DISPLAY
+                # NORMAL DISPLAY (No change in logic)
                 with st.container(border=True):
-                    st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
-                    
+                    st.subheader(f"{item.get('pair', 'N/A')} ({item.get('time-frame', 'N/A')})")
                     formatted_description = item.get('description', '').replace('\n', '  \n')
                     st.markdown(formatted_description)
-                    
-                    if item.get('image'):
-                        st.image(item.get('image'), use_column_width=True)
-
+                    if item.get('image'): st.image(item.get('image'), use_column_width=True)
                     btn_col1, btn_col2 = st.columns(2)
                     with btn_col1:
                         if st.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
@@ -5411,5 +5414,4 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                              del st.session_state.watchlist[index]
                              st.toast(f"Deleted {deleted_pair} from watchlist.")
                              st.rerun()
-
                 st.markdown("<br>", unsafe_allow_html=True)
