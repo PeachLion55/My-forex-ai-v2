@@ -5209,6 +5209,7 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
+        # This warning will appear in your terminal if the file can't be found
         logging.warning(f"Warning: Image file not found at path: {path}")
         return None
 
@@ -5289,6 +5290,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
+    # --- CSS Bug Fix: Corrected #0E117 to #0E1117 ---
     info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
     timer_style = "font-family: sans-serif; font-size: 0.8rem; color: #808495; text-align: right; margin-top: 4px;"
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
@@ -5298,6 +5300,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">' if icon_base64 else ""
+    
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
@@ -5311,12 +5314,13 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     
     # =========================================================
     # 2-COLUMN MAIN LAYOUT
+    # This structure places the headers in the same row and the content directly under them.
     # =========================================================
     add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR ---
     with add_col:
-        st.header("➕ Add New Pair") # <-- HEADER MOVED HERE
+        st.header("➕ Add New Pair") # Header is the first item
         with st.form("new_item_form", clear_on_submit=True):
             new_pair = st.text_input("Currency Pair (e.g., EUR/USD)")
             
@@ -5344,7 +5348,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
 
     # --- COLUMN 2: YOUR WATCHLIST ---
     with display_col:
-        st.header("👀 Your Watchlist") # <-- HEADER MOVED HERE
+        st.header("👀 Your Watchlist") # Header is the first item
 
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a new pair using the form on the left.")
@@ -5352,8 +5356,8 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
         for index, item in enumerate(st.session_state.watchlist):
             item_id = item['id']
             
-            # Display EDIT form for the selected item
             if st.session_state.editing_item_id == item_id:
+                # Edit Form Display
                 with st.container(border=True):
                      with st.form(f"edit_form_{item_id}", clear_on_submit=False):
                         st.subheader(f"Editing {item.get('pair', '')}")
@@ -5379,15 +5383,13 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                                 st.session_state.editing_item_id = None
                                 st.rerun()
             
-            # Display the item normally
             else:
+                # Normal Item Display
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
                     
-                    # --- FIX FOR NEWLINES ---
-                    # Replace single newlines with markdown's required "two-spaces + newline"
                     formatted_description = item.get('description', '').replace('\n', '  \n')
-                    st.markdown(formatted_description, unsafe_allow_html=False) # Use markdown to render
+                    st.markdown(formatted_description)
                     
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
