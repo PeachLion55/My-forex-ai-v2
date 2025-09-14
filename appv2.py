@@ -1005,7 +1005,6 @@ nav_items = [
     ('mt5', 'Performance Dashboard'),
     ('trading_tools', 'Trading Tools'),
     ('strategy', 'Manage My Strategy'),
-    ('community', 'Community Trade Ideas'),
     ('Community Chatroom', 'Community Chatroom'),
     ('Zenvo Academy', 'Zenvo Academy'),
     ('account', 'My Account'),
