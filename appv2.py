@@ -5193,13 +5193,13 @@ if st.session_state.current_page == "Zenvo Academy":
 import streamlit as st
 import os
 import io
-import base64  # <-- Required import
-import logging # <-- Required import
+import base64
 import pytz
 from datetime import datetime, timedelta
+import logging
 
 # =========================================================
-# HELPER FUNCTIONS (These should be accessible to this page)
+# HELPER FUNCTIONS (Required for the standardized header)
 # =========================================================
 
 @st.cache_data
@@ -5209,18 +5209,11 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        # This will show a warning in your terminal if the file is not found
-        logging.warning(f"Warning: Header icon not found at path: {path}")
+        logging.warning(f"Warning: Image file not found at path: {path}")
         return None
 
-# --- Assume these functions are also globally available or defined here ---
-# (Including them for completeness)
-
 def get_active_market_sessions():
-    """
-    Determines active forex sessions and returns a display string AND a list of active sessions.
-    Includes a 1-hour correction for the server's clock.
-    """
+    """Determines active forex sessions and returns a display string AND a list of active sessions."""
     sessions_utc = st.session_state.get('session_timings', {})
     corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
     current_utc_hour = corrected_utc_time.hour
@@ -5240,15 +5233,12 @@ def get_active_market_sessions():
     return ", ".join(active_sessions), active_sessions
 
 def get_next_session_end_info(active_sessions_list):
-    """
-    Calculates which active session will end next and returns its name
-    and the remaining time as a formatted string (H:M:S).
-    """
+    """Calculates which active session will end next and returns its name and the remaining time."""
     if not active_sessions_list:
         return None, None
 
     sessions_utc_hours = st.session_state.get('session_timings', {})
-    now_utc = datetime.now(pytz.utc) + timedelta(hours=1) 
+    now_utc = datetime.now(pytz.utc) + timedelta(hours=1)
     
     next_end_times = []
     for session_name in active_sessions_list:
@@ -5256,51 +5246,59 @@ def get_next_session_end_info(active_sessions_list):
             end_hour = sessions_utc_hours[session_name]['end']
             start_hour = sessions_utc_hours[session_name]['start']
             end_time_today = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
-            if start_hour > end_hour and now_utc.hour >= end_hour:
+            if start_hour > end_hour and now_utc.hour >= start_hour:
                 end_time_today += timedelta(days=1)
             elif now_utc > end_time_today:
                 end_time_today += timedelta(days=1)
             next_end_times.append((end_time_today, session_name))
     
-    if not next_end_times:
-        return None, None
+    if not next_end_times: return None, None
         
     next_end_times.sort()
     soonest_end_time, soonest_session_name = next_end_times[0]
     
     remaining = soonest_end_time - now_utc
-    if remaining.total_seconds() < 0:
-        return soonest_session_name, "Closing..."
+    if remaining.total_seconds() < 0: return soonest_session_name, "Closing..."
 
     hours, remainder = divmod(int(remaining.total_seconds()), 3600)
     minutes, seconds = divmod(remainder, 60)
-    
     time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
     return soonest_session_name, time_str
 
 # =========================================================
 # FOREX WATCHLIST PAGE
 # =========================================================
+# --- Initialize session state variables if they don't exist
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
+if 'editing_item_id' not in st.session_state:
+    st.session_state.editing_item_id = None
+    
+# --- Page Render Logic
+if st.session_state.current_page in ('watch list', 'Watch List'):
 
-elif st.session_state.current_page in ('watch list', 'Watch List'):
+    # --- Login Check ---
     if st.session_state.get('logged_in_user') is None:
         st.warning("Please log in to manage your Forex Watchlist.")
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- Custom Styling ---
-    st.markdown("""<style>...</style>""", unsafe_allow_html=True) # (Your CSS here)
+    # --- Custom CSS Styling ---
+    st.markdown("""
+    <style>
+        [data-testid="stSidebar"] { display: block !important; }
+        .watchlist-card {
+            background-color: #0E1117; border-radius: 10px; padding: 1.25rem;
+            margin-bottom: 1rem; border: 1px solid #2d4646;
+        }
+        /* ... (add other custom styles here if needed) ... */
+    </style>
+    """, unsafe_allow_html=True)
 
     # =========================================================
-    # HEADER (This section is now corrected)
+    # HEADER (Standardized to match Academy Page)
     # =========================================================
-    page_info = {
-        'title': 'Forex Watchlist', 
-        'icon': 'watchlist_icon.png', 
-        'caption': 'Track potential trade setups and monitor key currency pairs.'
-    }
+    page_info = {'title': 'Forex Watchlist', 'icon': 'watchlist_icon.png', 'caption': 'Track potential trade setups and monitor key currency pairs.'}
     main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
@@ -5310,136 +5308,116 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
 
-    icon_html = ""
     icon_path = os.path.join("icons", page_info['icon'])
-    
-    # This function call will now work correctly
     icon_base64 = image_to_base_64(icon_path)
-    if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
+    icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">' if icon_base64 else ""
     
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
+    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
     
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
-    timer_display = ""
-    if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
+    timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>' if next_session_name and timer_str else ""
 
     header_html = (
-        f'<div style="{main_container_style}">'
-            f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
-            f'<div style="{right_column_style}">'
-                f'<div style="{info_tab_style}">{welcome_message}</div>'
-                f'<div>'
-                    f'<div style="{info_tab_style}">{market_sessions_display}</div>'
-                    f'{timer_display}'
-                f'</div>'
-            '</div>'
-        '</div>'
+        f'<div style="{main_container_style}"><div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div><div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div><div style="{info_tab_style}">{market_sessions_display}</div>{timer_display}</div></div></div>'
     )
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
 
-    # --- Rest of your watchlist page code continues here ---
+    # =========================================================
+    # WATCHLIST TITLE AND 'ADD NEW' BUTTON
+    # =========================================================
+    col1, col2 = st.columns([3, 1.2])
+    with col1:
+        st.header("👀 Your Watchlist")
+    with col2:
+        if st.button("➕ Add New Pair", use_container_width=True):
+            st.session_state.editing_item_id = 'new' # Set state to show the 'add new' form
+
+    st.markdown("---")
+
+    # =========================================================
+    # 'ADD NEW' FORM
+    # This form will only appear when the 'Add New Pair' button is clicked.
+    # =========================================================
+    if st.session_state.editing_item_id == 'new':
+        with st.container(border=True):
+            with st.form("new_item_form", clear_on_submit=True):
+                st.subheader("Add New Watchlist Item")
+                new_pair = st.text_input("Currency Pair (e.g., EUR/USD)", key="new_pair")
+                new_description = st.text_area("Notes / Analysis", key="new_desc")
+                new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'], key="new_img")
+                
+                col_save, col_cancel = st.columns(2)
+                with col_save:
+                    if st.form_submit_button("Save to Watchlist", use_container_width=True):
+                        if new_pair and new_description:
+                            new_item_data = {
+                                "id": datetime.now().isoformat(),  # Unique ID
+                                "pair": new_pair,
+                                "description": new_description,
+                                "image": new_image.getvalue() if new_image else None
+                            }
+                            st.session_state.watchlist.append(new_item_data)
+                            st.session_state.editing_item_id = None # CRITICAL: Reset state
+                            st.success(f"{new_pair} added successfully!")
+                            st.rerun()
+                        else:
+                            st.warning("Currency Pair and Notes are required.")
+                with col_cancel:
+                    if st.form_submit_button("Cancel", use_container_width=True):
+                        st.session_state.editing_item_id = None # CRITICAL: Reset state
+                        st.rerun()
     
     # =========================================================
-    # Main Page Content
+    # DISPLAY EXISTING WATCHLIST ITEMS
     # =========================================================
-    col1, col2 = st.columns([1, 1.5])
+    if not st.session_state.watchlist:
+        st.info("Your watchlist is empty. Add a new pair to get started!")
 
-    # --- Column Headers (Aligned using Markdown) ---
-    with col1:
-        st.markdown("<h2>➕ Add New Pair</h2>", unsafe_allow_html=True)
-    with col2:
-        st.markdown("<h2>👀 Your Watchlist</h2>", unsafe_allow_html=True)
+    for index, item in enumerate(st.session_state.watchlist):
+        item_id = item['id']
         
-    # --- COLUMN 1: Add New Watchlist Item Form ---
-    with col1:
-        with st.form("watchlist_form", clear_on_submit=True):
-            pair = st.text_input("Currency Pair*", placeholder="e.g., EURUSD, GBPJPY")
-            timeframe = st.selectbox("Timeframe*", ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"])
-            screenshot = st.file_uploader("Upload Chart Screenshot", type=['png', 'jpg', 'jpeg'])
-            description = st.text_area("Analysis & Description", height=200, placeholder="Enter your trade thesis, key levels, etc...")
-            
-            if st.form_submit_button("Add to Watchlist", use_container_width=True, type="primary"):
-                if not pair or not timeframe:
-                    st.warning("Currency Pair and Timeframe are required.")
-                else:
-                    screenshot_b64 = None
-                    if screenshot:
-                        screenshot_b64 = base64.b64encode(screenshot.getvalue()).decode()
-                    new_item = {
-                        "id": f"{pair.upper()}_{time.time()}", "pair": pair.upper(),
-                        "timeframe": timeframe, "description": description,
-                        "screenshot": screenshot_b64, "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
-                    }
-                    st.session_state.watchlist.insert(0, new_item)
-                    # --- SAVE TO DB ---
-                    st.success(f"{new_item['pair']} added to watchlist!")
+        # Display EDIT form for the selected item
+        if st.session_state.editing_item_id == item_id:
+            with st.container(border=True):
+                 with st.form(f"edit_form_{item_id}", clear_on_submit=False):
+                    st.subheader(f"Editing {item['pair']}")
+                    updated_desc = st.text_area("Notes / Analysis", value=item['description'], key=f"desc_{item_id}")
+                    updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
+
+                    col_save, col_del, col_cancel = st.columns(3)
+                    with col_save:
+                        if st.form_submit_button("✔️ Save", use_container_width=True):
+                            # Update the item in the list
+                            st.session_state.watchlist[index]['description'] = updated_desc
+                            if updated_img:
+                                st.session_state.watchlist[index]['image'] = updated_img.getvalue()
+                            st.session_state.editing_item_id = None # CRITICAL: Reset state
+                            st.success("Item updated!")
+                            st.rerun()
+                    with col_del:
+                        if st.form_submit_button("🗑️ Delete", use_container_width=True):
+                             del st.session_state.watchlist[index]
+                             st.session_state.editing_item_id = None # CRITICAL: Reset state
+                             st.warning("Item deleted.")
+                             st.rerun()
+                    with col_cancel:
+                        if st.form_submit_button("❌ Cancel", use_container_width=True):
+                            st.session_state.editing_item_id = None # CRITICAL: Reset state
+                            st.rerun()
+        
+        # Display the item normally
+        else:
+            with st.container(border=True):
+                st.subheader(item['pair'])
+                st.write(item['description'])
+                if item['image']:
+                    st.image(item['image'], use_column_width=True)
+
+                if st.button("✏️ Edit Item", key=f"edit_{item_id}", use_container_width=True):
+                    st.session_state.editing_item_id = item_id # Set state to THIS item's ID
                     st.rerun()
 
-    # --- COLUMN 2: Display Existing Watchlist Items ---
-    with col2:
-        if not st.session_state.watchlist:
-            st.info("Your watchlist is empty. Add a currency pair to start monitoring setups.")
-        else:
-            # Check for an item to edit *before* rendering the list
-            item_to_edit_id = st.session_state.get('editing_item_id')
-            
-            # If an item is flagged for editing, immediately call the dialog
-            if item_to_edit_id:
-                item_to_edit = next((item for item in st.session_state.watchlist if item['id'] == item_to_edit_id), None)
-                if item_to_edit:
-                    @st.dialog(f"Editing {item_to_edit['pair']}")
-                    def edit_item_dialog():
-                        timeframe_options = ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"]
-                        try: tf_index = timeframe_options.index(item_to_edit['timeframe'])
-                        except ValueError: tf_index = 0
-                        
-                        st.text_input("Currency Pair", value=item_to_edit['pair'], key="edit_modal_pair")
-                        st.selectbox("Timeframe", options=timeframe_options, index=tf_index, key="edit_modal_tf")
-                        st.text_area("Analysis & Description", value=item_to_edit['description'], height=200, key="edit_modal_desc")
-                        
-                        save_col, cancel_col = st.columns(2)
-                        if save_col.button("Save Changes", use_container_width=True, type="primary"):
-                            for item in st.session_state.watchlist:
-                                if item['id'] == st.session_state.editing_item_id:
-                                    item['pair'] = st.session_state.edit_modal_pair.upper()
-                                    item['timeframe'] = st.session_state.edit_modal_tf
-                                    item['description'] = st.session_state.edit_modal_desc
-                                    break
-                            del st.session_state['editing_item_id'] # Clear flag
-                            # --- SAVE TO DB ---
-                            st.rerun()
-                        if cancel_col.button("Cancel", use_container_width=True):
-                            del st.session_state['editing_item_id'] # Clear flag
-                            st.rerun()
-                    edit_item_dialog()
-
-            # Display the list of watchlist items
-            for i, item in enumerate(st.session_state.watchlist):
-                st.markdown(f'<div class="watchlist-card">', unsafe_allow_html=True)
-                
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    st.markdown(f"<h4>{item['pair']}</h4>", unsafe_allow_html=True)
-                    st.markdown(f"<p class='caption'>Timeframe: {item['timeframe']} | Added: {item.get('date_added')}</p>", unsafe_allow_html=True)
-                with c2:
-                    btn_col1, btn_col2 = st.columns(2)
-                    if btn_col1.button("Edit", key=f"edit_{item['id']}", use_container_width=True):
-                        st.session_state.editing_item_id = item['id']
-                        st.rerun() # Rerun to trigger the dialog check at the top
-                    if btn_col2.button("🗑️", key=f"del_{item['id']}", use_container_width=True):
-                        st.session_state.watchlist.pop(i)
-                        st.success(f"{item['pair']} removed from watchlist.")
-                        # --- SAVE TO DB ---
-                        st.rerun()
-
-                if item.get("screenshot"):
-                    with st.expander("Show Chart Screenshot"):
-                        st.image(base64.b64decode(item["screenshot"]), use_column_width='always')
-                if item.get("description"):
-                    st.markdown(f"<div class='description'>{item['description']}</div>", unsafe_allow_html=True)
-                st.markdown(f'</div>', unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True) # Adds a little space between items
