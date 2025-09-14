@@ -1008,7 +1008,8 @@ nav_items = [
     ('community', 'Community Trade Ideas'),
     ('Community Chatroom', 'Community Chatroom'),
     ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account')
+    ('account', 'My Account'),
+    ('watch list', 'Watch List')
 ]
 
 # --- Map your page keys to the icon file names in the 'icons' folder ---
