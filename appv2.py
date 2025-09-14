@@ -5204,33 +5204,22 @@ from datetime import datetime, timedelta
 import pytz
 import json
 import sqlite3
+import pandas as pd # Required for CustomJSONEncoder if used generally
+import numpy as np # Required for CustomJSONEncoder if used generally
 
-# Assume 'conn' and 'c' are defined globally or passed into functions where needed.
-# For this self-contained snippet, we'll mock them or assume they are available from the main app.
-# In a real Streamlit app, these would typically be initialized once at the top level
-# or managed via st.session_state if they are unique per user session.
-# For demonstration purposes within this snippet, we'll add placeholder definitions.
+# --- GLOBAL DATABASE CONNECTION (Assumed to be defined in the main app) ---
+# The 'conn' and 'c' objects must be globally available from your main application's setup.
+# Do NOT define them again here if they are already defined at the top level of your Streamlit app.
+# The previous placeholder definition has been removed to ensure the global objects are used.
 
-# --- Placeholder for DB connection (REMOVE if already defined in your app) ---
-try:
-    conn = sqlite3.connect('forex_app.db', check_same_thread=False)
-    c = conn.cursor()
-    # Create users table if it doesn't exist, to support load/save_user_data
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY,
-            password TEXT,
-            nickname TEXT,
-            data TEXT,
-            xp INTEGER DEFAULT 0
-        )
-    ''')
-    conn.commit()
-except Exception as e:
-    st.error(f"Database connection error: {e}")
-    conn = None
-    c = None
-# --- End Placeholder ---
+# If CustomJSONEncoder is used throughout your application for all data storage,
+# ensure it's imported and potentially used in json.dumps.
+# Based on your provided database context, it is defined.
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, pd.Timestamp)): return obj.isoformat()
+        if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)): return None
+        return super().default(obj)
 
 # Initialize session state variables for this page if they don't exist
 # Note: 'current_page' and 'logged_in_user' are assumed to be set elsewhere in the app.
@@ -5243,10 +5232,10 @@ if 'watchlist_loaded' not in st.session_state:
 
 
 # Main conditional check to render the watchlist page
-if st.session_state.get('current_page') in ('watch list', 'My Watchlist'): # Use .get() for safety
+if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
 
     # Initialize a temporary list in session state for the new pair's analyses
-    # MOVED INSIDE THE PAGE RENDER CONDITION
+    # This block is correctly placed inside the page rendering condition.
     if 'new_analyses' not in st.session_state:
         st.session_state.new_analyses = []
 
@@ -5320,7 +5309,10 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'): # Use
 
     def load_user_data(username):
         """Fetches a user's data from the DB and decodes it from JSON."""
-        if not c: return {} # Handle case where DB connection failed
+        # Ensure 'c' (cursor) is globally accessible from the main app's DB setup
+        if 'c' not in globals() or c is None:
+            logging.error("Database cursor 'c' not found or is None in load_user_data.")
+            return {}
         try:
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
             result = c.fetchone()
@@ -5332,9 +5324,14 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'): # Use
 
     def save_user_data(username, user_data):
         """Encodes user data to JSON and saves it to the DB."""
-        if not conn or not c: return False # Handle case where DB connection failed
+        # Ensure 'conn' and 'c' (connection and cursor) are globally accessible
+        if 'conn' not in globals() or conn is None or 'c' not in globals() or c is None:
+            logging.error("Database connection 'conn' or cursor 'c' not found or is None in save_user_data.")
+            return False
         try:
-            json_data = json.dumps(user_data)
+            # Use CustomJSONEncoder if needed for broader data types, otherwise default dumps is fine
+            # For watchlist, created_at is already isoformat, so default dumps should work.
+            json_data = json.dumps(user_data, cls=CustomJSONEncoder) 
             c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
             conn.commit()
             return True
@@ -5398,7 +5395,7 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'): # Use
     st.markdown("---")
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
-    # MOVED INSIDE THE PAGE RENDER CONDITION
+    # These columns and their content are correctly placed inside the page rendering condition.
     add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR FORM ---
@@ -5443,7 +5440,8 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'): # Use
                 st.session_state.watchlist.insert(0, new_item_data)
                 
                 user_data = load_user_data(current_user)
-                current_xp = user_data.get('xp', 0)
+                # It's good practice to initialize 'xp' if it doesn't exist
+                current_xp = user_data.get('xp', 0) 
                 user_data['xp'] = current_xp + 5
                 user_data['watchlist'] = st.session_state.watchlist
                 save_user_data(current_user, user_data)
