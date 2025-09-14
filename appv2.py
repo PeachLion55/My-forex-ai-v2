@@ -5197,7 +5197,7 @@ if 'watchlist' not in st.session_state:
     st.session_state.watchlist = [] # Initialize as an empty list
     
 # =========================================================
-# FOREX WATCHLIST PAGE (Final Refined UX)
+# FOREX WATCHLIST PAGE (Final Version)
 # =========================================================
 elif st.session_state.current_page in ('watch list', 'Watch List'):
 
@@ -5207,7 +5207,7 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
         st.session_state.current_page = 'account'
         st.rerun()
 
-    # --- CSS fix & Custom Card Styling ---
+    # --- CSS fix for sidebar & custom styling ---
     st.markdown("""
     <style>
         [data-testid="stSidebar"] { display: block !important; }
@@ -5224,6 +5224,11 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
         .watchlist-card .description {
             font-size: 0.9rem; color: #FAFAFA; margin-bottom: 1rem; white-space: pre-wrap;
         }
+        /* Style to align the subheaders */
+        h2 {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -5232,10 +5237,9 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
     # =========================================================
     page_info = {
         'title': 'Forex Watchlist', 
-        'icon': 'watchlist_icon.png',
+        'icon': 'watchlist_icon.png', # Use a unique icon for this page
         'caption': 'Track potential trade setups and monitor key currency pairs.'
     }
-    # (Assuming header styles are defined globally or are inherited)
     main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
     right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
@@ -5268,11 +5272,11 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
     # =========================================================
     col1, col2 = st.columns([1, 1.5])
 
-    # --- Place Subheaders in columns to align them ---
+    # --- Column Headers (Aligned using Markdown) ---
     with col1:
-        st.subheader("➕ Add New Pair")
+        st.markdown("<h2>➕ Add New Pair</h2>", unsafe_allow_html=True)
     with col2:
-        st.subheader("👀 Your Watchlist")
+        st.markdown("<h2>👀 Your Watchlist</h2>", unsafe_allow_html=True)
         
     # --- COLUMN 1: Add New Watchlist Item Form ---
     with col1:
@@ -5304,10 +5308,43 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a currency pair to start monitoring setups.")
         else:
+            # Check for an item to edit *before* rendering the list
+            item_to_edit_id = st.session_state.get('editing_item_id')
+            
+            # If an item is flagged for editing, immediately call the dialog
+            if item_to_edit_id:
+                item_to_edit = next((item for item in st.session_state.watchlist if item['id'] == item_to_edit_id), None)
+                if item_to_edit:
+                    @st.dialog(f"Editing {item_to_edit['pair']}")
+                    def edit_item_dialog():
+                        timeframe_options = ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"]
+                        try: tf_index = timeframe_options.index(item_to_edit['timeframe'])
+                        except ValueError: tf_index = 0
+                        
+                        st.text_input("Currency Pair", value=item_to_edit['pair'], key="edit_modal_pair")
+                        st.selectbox("Timeframe", options=timeframe_options, index=tf_index, key="edit_modal_tf")
+                        st.text_area("Analysis & Description", value=item_to_edit['description'], height=200, key="edit_modal_desc")
+                        
+                        save_col, cancel_col = st.columns(2)
+                        if save_col.button("Save Changes", use_container_width=True, type="primary"):
+                            for item in st.session_state.watchlist:
+                                if item['id'] == st.session_state.editing_item_id:
+                                    item['pair'] = st.session_state.edit_modal_pair.upper()
+                                    item['timeframe'] = st.session_state.edit_modal_tf
+                                    item['description'] = st.session_state.edit_modal_desc
+                                    break
+                            del st.session_state['editing_item_id'] # Clear flag
+                            # --- SAVE TO DB ---
+                            st.rerun()
+                        if cancel_col.button("Cancel", use_container_width=True):
+                            del st.session_state['editing_item_id'] # Clear flag
+                            st.rerun()
+                    edit_item_dialog()
+
+            # Display the list of watchlist items
             for i, item in enumerate(st.session_state.watchlist):
                 st.markdown(f'<div class="watchlist-card">', unsafe_allow_html=True)
                 
-                # --- Card Header & Action Buttons ---
                 c1, c2 = st.columns([3, 1])
                 with c1:
                     st.markdown(f"<h4>{item['pair']}</h4>", unsafe_allow_html=True)
@@ -5316,58 +5353,16 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
                     btn_col1, btn_col2 = st.columns(2)
                     if btn_col1.button("Edit", key=f"edit_{item['id']}", use_container_width=True):
                         st.session_state.editing_item_id = item['id']
-                        st.rerun() # Rerun to trigger the dialog
-                    
+                        st.rerun() # Rerun to trigger the dialog check at the top
                     if btn_col2.button("🗑️", key=f"del_{item['id']}", use_container_width=True):
                         st.session_state.watchlist.pop(i)
                         st.success(f"{item['pair']} removed from watchlist.")
                         # --- SAVE TO DB ---
                         st.rerun()
 
-                # --- Screenshot in an Expander ---
                 if item.get("screenshot"):
                     with st.expander("Show Chart Screenshot"):
                         st.image(base64.b64decode(item["screenshot"]), use_column_width='always')
-
-                # --- Description ---
                 if item.get("description"):
                     st.markdown(f"<div class='description'>{item['description']}</div>", unsafe_allow_html=True)
-                
-                st.markdown(f'</div>', unsafe_allow_html=True) # Close the card div
-
-    # --- EDITING DIALOG (MODAL) ---
-    if 'editing_item_id' in st.session_state and st.session_state.editing_item_id:
-        item_to_edit = next((item for item in st.session_state.watchlist if item['id'] == st.session_state.editing_item_id), None)
-        
-        if item_to_edit:
-            @st.dialog(f"Editing {item_to_edit['pair']}")
-            def edit_item_dialog():
-                timeframe_options = ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"]
-                try:
-                    tf_index = timeframe_options.index(item_to_edit['timeframe'])
-                except ValueError:
-                    tf_index = 0
-                
-                st.text_input("Currency Pair", value=item_to_edit['pair'], key="edit_modal_pair")
-                st.selectbox("Timeframe", options=timeframe_options, index=tf_index, key="edit_modal_tf")
-                st.text_area("Analysis & Description", value=item_to_edit['description'], height=200, key="edit_modal_desc")
-                
-                # Using columns for Save and Cancel buttons
-                save_col, cancel_col = st.columns(2)
-                
-                if save_col.button("Save Changes", use_container_width=True, type="primary"):
-                    for item in st.session_state.watchlist:
-                        if item['id'] == st.session_state.editing_item_id:
-                            item['pair'] = st.session_state.edit_modal_pair.upper()
-                            item['timeframe'] = st.session_state.edit_modal_tf
-                            item['description'] = st.session_state.edit_modal_desc
-                            break
-                    st.session_state.editing_item_id = None # Clear the flag
-                    # --- SAVE TO DB ---
-                    st.rerun()
-
-                if cancel_col.button("Cancel", use_container_width=True):
-                    st.session_state.editing_item_id = None # Clear the flag
-                    st.rerun()
-
-            edit_item_dialog()
+                st.markdown(f'</div>', unsafe_allow_html=True)
