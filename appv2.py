@@ -1002,7 +1002,7 @@ if 'current_page' not in st.session_state:
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
-    ('trading_journal', 'Trading Journal'),
+    ('trading_journal', 'My Trading Journal'),
     ('mt5', 'Performance Dashboard'),
     ('trading_tools', 'Trading Tools'),
     ('strategy', 'Manage My Strategy'),
@@ -1461,7 +1461,7 @@ if st.session_state.current_page == 'trading_journal':
 
     # --- 1. Page-Specific Configuration ---
     page_info = {
-        'title': 'Trading Journal', 
+        'title': 'My Trading Journal', 
         'icon': 'trading_journal.png', 
         'caption': 'A streamlined interface for professional trade analysis.'
     }
