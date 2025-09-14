@@ -5196,6 +5196,9 @@ if st.session_state.current_page == "Zenvo Academy":
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = [] # Initialize as an empty list
     
+# =========================================================
+# FOREX WATCHLIST PAGE (1000x Better Version)
+# =========================================================
 if st.session_state.current_page in ('watch list', 'Watch List'):
 
     # --- Login Check ---
@@ -5206,100 +5209,204 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
 
     # --- CSS fix to ensure sidebar is visible after login ---
     st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
+    
+    # --- Custom CSS for High-Quality Card Layout ---
+    st.markdown("""
+    <style>
+        .watchlist-card {
+            background-color: #0E1117;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #2d4646;
+        }
+        .watchlist-card h4 {
+            margin-top: 0;
+            margin-bottom: 0.25rem;
+            color: #FFFFFF;
+        }
+        .watchlist-card .caption {
+            font-size: 0.8rem;
+            color: #808495;
+            margin-bottom: 1rem;
+        }
+        .watchlist-card .description {
+            font-size: 0.9rem;
+        }
+        .context-links a {
+            background-color: #262730;
+            color: #FAFAFA;
+            padding: 4px 8px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            transition: background-color 0.2s;
+        }
+        .context-links a:hover {
+            background-color: #40414a;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
     # --- Page Header ---
     st.title("Forex Watchlist")
-    st.caption("Track potential trade setups and monitor key currency pairs.")
+    
+    # --- Live Ticker Widget from TradingView ---
+    components.html(
+        """
+        <!-- TradingView Ticker Tape Widget BEGIN -->
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+          {
+          "symbols": [
+            { "description": "EUR/USD", "proName": "FX:EURUSD" },
+            { "description": "GBP/USD", "proName": "FX:GBPUSD" },
+            { "description": "USD/JPY", "proName": "FX:USDJPY" },
+            { "description": "AUD/USD", "proName": "FX:AUDUSD" },
+            { "description": "GOLD", "proName": "OANDA:XAUUSD" },
+            { "description": "US OIL", "proName": "TVC:USOIL" }
+          ],
+          "showSymbolLogo": true,
+          "colorTheme": "dark",
+          "isTransparent": true,
+          "displayMode": "adaptive",
+          "locale": "en"
+        }
+          </script>
+        </div>
+        <!-- TradingView Ticker Tape Widget END -->
+        """,
+        height=75
+    )
     st.markdown("---")
-
-    # --- Main Layout (Two Columns) ---
-    col1, col2 = st.columns([1, 1.5]) # Left column is narrower, right is wider
-
-    # --- COLUMN 1: Add New Watchlist Item ---
-    with col1:
-        st.subheader("➕ Add New Pair")
+    
+    # --- Add New Pair Form (in an expander) ---
+    with st.expander("➕ Add New Pair to Watchlist"):
         with st.form("watchlist_form", clear_on_submit=True):
-            # Input fields for the new watchlist item
-            pair = st.text_input("Currency Pair*", placeholder="e.g., EURUSD, GBPJPY")
-            timeframe = st.selectbox(
-                "Timeframe*",
-                options=[
-                    "1 Minute", "5 Minutes", "15 Minutes", "30 Minutes",
-                    "1 Hour", "4 Hours", "Daily", "Weekly", "Monthly"
-                ]
-            )
-            screenshot = st.file_uploader("Upload Chart Screenshot", type=['png', 'jpg', 'jpeg'])
-            description = st.text_area("Analysis & Description", height=200, placeholder="Enter your trade thesis, key levels, and potential entry/exit points...")
+            c1, c2, c3 = st.columns(3)
+            pair = c1.text_input("Currency Pair*", placeholder="e.g., EURUSD")
+            timeframe = c2.selectbox("Timeframe*", ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"])
+            bias = c3.selectbox("Bias*", ["⚪️ Neutral", "🟢 Bullish", "🔴 Bearish"])
             
-            submitted = st.form_submit_button("Add to Watchlist", use_container_width=True)
+            description = st.text_area("Analysis / Trade Thesis", height=150, placeholder="Key levels, market structure, fundamental drivers, entry/exit criteria...")
+            screenshot = st.file_uploader("Upload Chart Screenshot (.png, .jpg)", type=['png', 'jpg', 'jpeg'])
 
-            if submitted:
-                if not pair or not timeframe:
-                    st.warning("Currency Pair and Timeframe are required fields.")
+            if st.form_submit_button("Add to Watchlist", use_container_width=True, type="primary"):
+                if not pair or not timeframe or not bias:
+                    st.warning("Please fill in all required fields.")
                 else:
-                    # Process the uploaded screenshot
                     screenshot_b64 = None
-                    if screenshot is not None:
-                        # Convert the uploaded file to a base64 string for storage
-                        image_bytes = screenshot.getvalue()
-                        screenshot_b64 = base64.b64encode(image_bytes).decode()
-
-                    # Create a dictionary for the new item
+                    if screenshot:
+                        screenshot_b64 = base64.b64encode(screenshot.getvalue()).decode()
+                    
                     new_item = {
-                        "id": f"{pair}_{time.time()}", # Unique ID for the delete button key
+                        "id": f"{pair.upper()}_{time.time()}",
                         "pair": pair.upper(),
                         "timeframe": timeframe,
+                        "bias": bias,
                         "description": description,
-                        "screenshot": screenshot_b64, # Can be None
-                        "date_added": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        "screenshot": screenshot_b64,
+                        "status": "Watching",
+                        "date_added": datetime.now().strftime("%Y-%m-%d %H:%M")
                     }
-
-                    # Add the new item to the start of the list in session state
                     st.session_state.watchlist.insert(0, new_item)
-                    
-                    # NOTE: Here you would also save the updated st.session_state.watchlist to your database
-                    # For example:
-                    # user_data['watchlist'] = st.session_state.watchlist
-                    # c.execute("UPDATE users SET data = ? WHERE username = ?", (json.dumps(user_data), st.session_state.logged_in_user))
-                    # conn.commit()
-                    
-                    st.success(f"{pair.upper()} on the {timeframe} timeframe added to your watchlist!")
+                    st.success(f"{new_item['pair']} added to 'Watching' tab.")
+                    # --- SAVE TO DB ---
+                    # Here you would save the entire st.session_state.watchlist to your database
                     st.rerun()
 
-    # --- COLUMN 2: Display Existing Watchlist Items ---
-    with col2:
-        st.subheader("👀 Your Watchlist")
-        
-        if not st.session_state.watchlist:
-            st.info("Your watchlist is empty. Add a currency pair on the left to start monitoring setups.")
-        else:
-            # Iterate through a copy of the list to allow safe deletion
-            for i, item in enumerate(st.session_state.watchlist[:]):
-                with st.container(border=True):
-                    # Display the screenshot if it exists
-                    if item.get("screenshot"):
-                        st.image(
-                            base64.b64decode(item["screenshot"]),
-                            use_column_width=True
-                        )
-                    
-                    # Display the details
-                    st.markdown(f"#### {item['pair']}")
-                    st.caption(f"Timeframe: **{item['timeframe']}** | Added: {item.get('date_added', 'N/A')}")
-                    
-                    if item.get("description"):
-                        # Use an expander for longer descriptions to keep the UI clean
-                        with st.expander("Show Analysis"):
-                            st.markdown(item["description"].replace("\n", "<br>"), unsafe_allow_html=True)
-                    
-                    # Delete button for the item
-                    if st.button("Delete Item", key=f"delete_{item['id']}", use_container_width=True, type="secondary"):
-                        # Remove the item from the list
-                        st.session_state.watchlist.pop(i)
+    # --- Main Watchlist Display with Status Tabs ---
+    tabs = st.tabs(["👀 Watching", "🔔 Triggered", " Vetted"])
+    statuses = ["Watching", "Triggered", "Vetted"]
+
+    for i, status in enumerate(statuses):
+        with tabs[i]:
+            items_in_status = [item for item in st.session_state.watchlist if item.get('status') == status]
+            
+            if not items_in_status:
+                st.info(f"No pairs currently in the '{status}' stage. Add a new pair to get started!", icon=" L")
+            
+            for item_index, item in enumerate(items_in_status):
+                item_id = item['id']
+                
+                # Check if this specific item is in "edit mode"
+                is_editing = st.session_state.get('editing_item_id') == item_id
+
+                if is_editing:
+                    with st.form(key=f"edit_form_{item_id}"):
+                        st.subheader(f"Editing {item['pair']}")
+                        ec1, ec2, ec3 = st.columns(3)
+                        new_pair = ec1.text_input("Pair", value=item['pair'], key=f"edit_pair_{item_id}")
+                        new_tf = ec2.selectbox("Timeframe", ["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"], index=["1H", "4H", "Daily", "Weekly", "15M", "5M", "1M", "Monthly"].index(item['timeframe']), key=f"edit_tf_{item_id}")
+                        new_bias = ec3.selectbox("Bias", ["⚪️ Neutral", "🟢 Bullish", "🔴 Bearish"], index=["⚪️ Neutral", "🟢 Bullish", "🔴 Bearish"].index(item['bias']), key=f"edit_bias_{item_id}")
+                        new_desc = st.text_area("Description", value=item['description'], height=150, key=f"edit_desc_{item_id}")
                         
-                        # NOTE: Here you would also save the updated list to your database
+                        save_col, cancel_col = st.columns(2)
+                        if save_col.form_submit_button("Save Changes", use_container_width=True, type="primary"):
+                            # Find the original item and update it
+                            for original_item in st.session_state.watchlist:
+                                if original_item['id'] == item_id:
+                                    original_item['pair'] = new_pair.upper()
+                                    original_item['timeframe'] = new_tf
+                                    original_item['bias'] = new_bias
+                                    original_item['description'] = new_desc
+                                    break
+                            st.session_state.editing_item_id = None
+                            st.success("Watchlist item updated.")
+                            # --- SAVE TO DB ---
+                            st.rerun()
+
+                        if cancel_col.form_submit_button("Cancel", use_container_width=True):
+                            st.session_state.editing_item_id = None
+                            st.rerun()
+
+                else: # --- Default Display Mode ---
+                    st.markdown(f'<div class="watchlist-card">', unsafe_allow_html=True)
+                    
+                    disp_col1, disp_col2 = st.columns([1, 2])
+                    with disp_col1:
+                        if item.get("screenshot"):
+                            st.image(base64.b64decode(item["screenshot"]), use_column_width='always')
+                        else:
+                            st.markdown(f"<div style='height: 150px; display: flex; align-items: center; justify-content: center; background-color: #1a1a1e; border-radius: 8px; color: #808495;'>No Screenshot</div>", unsafe_allow_html=True)
+
+                    with disp_col2:
+                        st.markdown(f"<h4>{item['bias']} {item['pair']}</h4>", unsafe_allow_html=True)
+                        st.markdown(f"<p class='caption'>Timeframe: {item['timeframe']} | Added: {item.get('date_added')}</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p class='description'>{item.get('description', 'No description provided.')[:200] + ('...' if len(item.get('description', '')) > 200 else '')}</p>", unsafe_allow_html=True) # Truncate long descriptions
                         
+                        # Contextual Links
+                        tv_link = f"https://www.tradingview.com/chart/?symbol=FX%3A{item['pair'].replace('/', '')}"
+                        news_link = f"https://news.google.com/search?q=forex%20{item['pair']}"
+                        st.markdown(f"<div class='context-links'><a href='{tv_link}' target='_blank'>Live Chart</a> <a href='{news_link}' target='_blank'>News</a></div>", unsafe_allow_html=True)
+
+                    # Action Buttons and Status Changer
+                    st.markdown("---")
+                    act_col1, act_col2, act_col3, act_col4 = st.columns([2, 2, 3, 1])
+
+                    if act_col1.button("Edit", key=f"edit_{item_id}", use_container_width=True):
+                        st.session_state.editing_item_id = item_id
+                        st.rerun()
+                    
+                    if act_col2.button("Delete", key=f"del_{item_id}", use_container_width=True):
+                        st.session_state.watchlist = [i for i in st.session_state.watchlist if i['id'] != item_id]
                         st.success(f"{item['pair']} removed from watchlist.")
+                        # --- SAVE TO DB ---
                         st.rerun()
 
-                st.markdown("---") # Visual separator between items
+                    # Find index for the status selectbox
+                    current_status_index = statuses.index(item['status'])
+                    new_status = act_col3.selectbox("Change Status", options=statuses, index=current_status_index, label_visibility="collapsed", key=f"status_{item_id}")
+                    if new_status != item['status']:
+                        # Find original item and update status
+                        for original_item in st.session_state.watchlist:
+                            if original_item['id'] == item_id:
+                                original_item['status'] = new_status
+                                break
+                        st.success(f"{item['pair']} moved to '{new_status}'.")
+                        # --- SAVE TO DB ---
+                        st.rerun()
+
+                    st.markdown(f'</div>', unsafe_allow_html=True)
