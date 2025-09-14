@@ -5207,28 +5207,29 @@ import sqlite3
 # These imports are here for completeness but should likely already be in your app's main file.
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - with inner form submit)
+# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - TypeError Fix)
 # =================================================================================
 
 # This 'if' block is crucial for ensuring the page only appears when selected in your sidebar/navigation.
 if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
-    # --- 1. LOCAL HELPER FUNCTIONS (Encapsulated within this page) ---
-    # These functions are now local to this page and will not affect other pages.
-
-    # Initializing Streamlit session states here for this page, ensures they exist when needed.
-    # Note: Using distinct keys for inputs because clear_on_submit=False on the main form.
+    # --- 1. INITIALIZE SESSION STATE VARIABLES (Encapsulated within this page) ---
+    # These must be within the page's conditional block to avoid affecting other pages
     if 'watchlist' not in st.session_state: st.session_state.watchlist = []
     if 'editing_item_id' not in st.session_state: st.session_state.editing_item_id = None
     if 'watchlist_loaded' not in st.session_state: st.session_state.watchlist_loaded = False
     if 'new_analyses' not in st.session_state: st.session_state.new_analyses = []
     
-    # Persistent states for inputs of the 'Add New Pair' form and its nested analysis addition
+    # --- FIX for TypeError: Ensure session_timings is always initialized ---
+    if 'session_timings' not in st.session_state:
+        st.session_state.session_timings = {} # Initialize as an empty dict
+
+    # States for input resilience when clear_on_submit is False
     if 'new_pair_input_val' not in st.session_state: st.session_state.new_pair_input_val = ""
-    # image uploader value is naturally persisted if key is consistent, but will reset visually if needed.
-    if 'temp_analysis_tf_input_val' not in st.session_state: st.session_state.temp_analysis_tf_input_val = "1H" # Store selected TF value
+    if 'temp_analysis_tf_input_val' not in st.session_state: st.session_state.temp_analysis_tf_input_val = "1H"
     if 'temp_analysis_desc_input_val' not in st.session_state: st.session_state.temp_analysis_desc_input_val = ""
 
+    # --- 2. LOCAL HELPER FUNCTIONS (Encapsulated within this page) ---
     @st.cache_data
     def image_to_base_64(path):
         """Converts a local image file to a base64 string for embedding."""
@@ -5239,25 +5240,51 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     
     def get_active_market_sessions():
         """Determines active forex sessions and returns a display string AND a list of active sessions."""
-        sessions_utc = st.session_state.get('session_timings', {})
+        sessions_utc = st.session_state.get('session_timings', {}) # This should now reliably be a dict
+        
+        # --- Add defensive checks here if sessions_utc could somehow become invalid during execution ---
+        if not isinstance(sessions_utc, dict):
+            logging.error(f"session_timings in session_state is not a dict: {type(sessions_utc)}")
+            return "Markets Closed (Config Error)", [] # Provide explicit error message
+        
         corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
         current_utc_hour = corrected_utc_time.hour
         active_sessions = []
-        for sn, t in sessions_utc.items():
-            s, e = t['start'], t['end']
-            if s > e and (current_utc_hour >= s or current_utc_hour < e) or (s <= current_utc_hour < e):
-                active_sessions.append(sn)
+        for session_name, timings in sessions_utc.items():
+            if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings:
+                logging.warning(f"Skipping malformed session '{session_name}': {timings}")
+                continue # Skip to next session if this one is malformed
+
+            start, end = timings['start'], timings['end']
+            if not isinstance(start, int) or not isinstance(end, int):
+                logging.warning(f"Skipping session '{session_name}': start/end times are not integers: {timings}")
+                continue
+
+            if start > end: # Session crosses midnight
+                if current_utc_hour >= start or current_utc_hour < end:
+                    active_sessions.append(session_name)
+            else: # Session within the same day
+                if start <= current_utc_hour < end:
+                    active_sessions.append(session_name)
         if not active_sessions: return "Markets Closed", []; return ", ".join(active_sessions), active_sessions
 
     def get_next_session_end_info(active_sessions_list):
         """Calculates the time remaining for the next session to close."""
         if not active_sessions_list: return None, None
         sessions_utc_hours = st.session_state.get('session_timings', {})
+        if not isinstance(sessions_utc_hours, dict):
+             logging.error(f"session_timings in session_state for next_session_end is not a dict: {type(sessions_utc_hours)}")
+             return None, None # Fail gracefully
+             
         now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Apply server clock correction
         next_end_times = []
         for sn in active_sessions_list:
             if sn in sessions_utc_hours:
-                e_hr, s_hr = sessions_utc_hours[sn]['end'], sessions_utc_hours[sn]['start']
+                timings = sessions_utc_hours[sn]
+                if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings: continue
+                if not isinstance(timings['start'], int) or not isinstance(timings['end'], int): continue
+
+                e_hr, s_hr = timings['end'], timings['start']
                 e_time = now_utc.replace(hour=e_hr, minute=0, second=0, microsecond=0)
                 if (s_hr > e_hr and now_utc.hour >= e_hr) or (now_utc > e_time): e_time += timedelta(days=1)
                 next_end_times.append((e_time, sn))
@@ -5270,23 +5297,21 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     def load_user_data(username):
         """Fetches a user's data blob from the database and decodes it from JSON."""
         try:
-            # Assumes 'c' (sqlite3 cursor) is available globally from appv2.py setup
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
             res = c.fetchone()
             if res and res[0]: return json.loads(res[0])
             return {} # Return an empty dict if no data or user found
-        except Exception as e:
-            logging.error(f"Error loading data for {username}: {e}"); return {}
+        except (json.JSONDecodeError, sqlite3.Error, Exception) as e: # Catch broader exceptions
+            logging.error(f"Error loading data for {username}: {e}", exc_info=True); return {}
 
     def save_user_data(username, user_data):
         """Encodes user data to JSON and saves it to the DB."""
         try:
-            # Assumes 'c' and 'conn' (sqlite3 cursor and connection) are available globally
             json_data = json.dumps(user_data)
             c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
             conn.commit(); return True
-        except Exception as e:
-            logging.error(f"Error saving data for {username}: {e}"); return False
+        except (sqlite3.Error, Exception) as e: # Catch broader exceptions
+            logging.error(f"Error saving data for {username}: {e}", exc_info=True); return False
 
     def format_datestamp(iso_string):
         """Converts an ISO date string to a more readable format, e.g., 'Sunday 14th September 2025'."""
@@ -5295,9 +5320,11 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             dt = datetime.fromisoformat(iso_string)
             day = dt.day; suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
             return dt.strftime(f"%A {day}{suffix} %B %Y")
-        except Exception: return iso_string.split('T')[0] # Catch broader errors
+        except (ValueError, TypeError, Exception) as e: # Catch broader errors for robustness
+            logging.error(f"Error formatting datestamp '{iso_string}': {e}", exc_info=True)
+            return iso_string.split('T')[0] # Fallback on error
 
-    # --- 2. LOGIN CHECK & DATA LOADING ---
+    # --- 3. LOGIN CHECK & DATA LOADING ---
     current_user = st.session_state.get('logged_in_user')
     if not current_user:
         st.warning("Please log in to manage your Forex Watchlist."); st.session_state.current_page = 'account'
@@ -5307,7 +5334,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         user_data = load_user_data(current_user); st.session_state.watchlist = user_data.get('watchlist', [])
         st.session_state.watchlist_loaded = True; st.rerun()
 
-    # --- 3. GLOBAL CSS STYLING FOR THIS PAGE ---
+    # --- 4. GLOBAL CSS STYLING FOR THIS PAGE ---
     st.markdown("""
         <style>
             [data-testid="stSidebar"] { display: block !important; }
@@ -5316,7 +5343,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         </style>
         """, unsafe_allow_html=True)
 
-    # --- 4. HEADER BANNER ---
+    # --- 5. HEADER BANNER ---
     page_info = {'title': 'My Watchlist', 'icon': 'watchlist_icon.png', 'caption': 'Track potential trade setups and monitor key currency pairs.'}
     header_main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45,70,70,0.5);"
     header_left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
@@ -5338,7 +5365,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         f'<div><h1 style="{header_title_style}">{page_info["title"]}</h1><p style="{header_caption_style}">{page_info["caption"]}</p></div></div><div style="{header_right_column_style}"><div style="{header_info_tab_style}">{welcome_message}</div><div><div style="{header_info_tab_style}">{market_sessions_display}</div>{timer_display}</div></div></div>')
     st.markdown(header_html, unsafe_allow_html=True); st.markdown("---")
     
-    # --- 5. MAIN 2-COLUMN LAYOUT FOR CONTENT ---
+    # --- 6. MAIN 2-COLUMN LAYOUT FOR CONTENT ---
     add_col, display_col = st.columns([1, 2], gap="large")
 
     with add_col:
@@ -5348,8 +5375,6 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         # Set clear_on_submit to False because we manage individual inputs and temporary analyses.
         with st.form("new_pair_main_form", clear_on_submit=False): 
             new_pair = st.text_input("Currency Pair", value=st.session_state.new_pair_input_val, placeholder="e.g., EUR/USD", key="final_new_pair_input")
-            # st.session_state.new_pair_input_val = new_pair # Update state if input changes
-
             new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'], key="final_new_image_input")
             
             st.markdown("---")
@@ -5365,9 +5390,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     with col_an_del:
                         if st.form_submit_button("🗑️", key=f"temp_delete_analysis_{idx}", help="Remove this analysis"):
                             del st.session_state.new_analyses[idx]
-                            # When a submit button is pressed, the form re-executes.
-                            # We might need to ensure other inputs don't lose value depending on ST version.
-                            # For simplicity, rerun here is acceptable to update the displayed list.
+                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Persist pair name
                             st.rerun() 
                 st.write("") # Just some spacing
 
@@ -5382,18 +5405,17 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                 "Timeframe",
                 options=timeframe_options,
                 index=temp_analysis_tf_selector_idx,
-                key="analysis_tf_selector" # Unique key for the selectbox
+                key="analysis_tf_selector"
             )
-            st.session_state.temp_analysis_tf_input_val = selected_tf_in_form # Update state immediately
+            st.session_state.temp_analysis_tf_input_val = selected_tf_in_form
             
             entered_desc_in_form = st.text_area(
                 "Notes / Analysis",
                 value=st.session_state.temp_analysis_desc_input_val,
                 height=100,
-                key="analysis_desc_area" # Unique key for the text area
+                key="analysis_desc_area"
             )
-            st.session_state.temp_analysis_desc_input_val = entered_desc_in_form # Update state immediately
-
+            st.session_state.temp_analysis_desc_input_val = entered_desc_in_form
 
             add_analysis_submitted = st.form_submit_button("➕ Add This Analysis", use_container_width=True)
             final_save_submitted = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
@@ -5405,47 +5427,38 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         "timeframe": st.session_state.temp_analysis_tf_input_val,
                         "description": st.session_state.temp_analysis_desc_input_val
                     })
-                    # Reset temporary analysis input states for next entry
-                    st.session_state.temp_analysis_tf_input_val = "1H" 
-                    st.session_state.temp_analysis_desc_input_val = ""
-                    # Keep the main new_pair_input_val updated for resilience
-                    st.session_state.new_pair_input_val = st.session_state.final_new_pair_input
-                    # st.session_state.final_new_image_input is handled by Streamlit automatically for its own type
-
+                    st.session_state.temp_analysis_tf_input_val = "1H" # Reset for next entry
+                    st.session_state.temp_analysis_desc_input_val = "" # Reset for next entry
+                    st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Persist pair name
                     st.rerun() # Rerun to update the displayed temporary analyses and reset input fields
                 else:
                     st.warning("Please add notes for the timeframe before adding the analysis.")
             
-            elif final_save_submitted: # Only execute if 'Save Pair' was clicked
-                # Make sure the current new_pair_input_val reflects the latest text_input value
-                st.session_state.new_pair_input_val = st.session_state.final_new_pair_input
+            elif final_save_submitted:
+                st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Ensure up-to-date value
 
                 if st.session_state.new_pair_input_val and st.session_state.new_analyses:
                     new_item_data = {
-                        "id": datetime.now().isoformat(),
-                        "created_at": datetime.now().isoformat(),
-                        "pair": st.session_state.new_pair_input_val.upper(),
-                        "analyses": st.session_state.new_analyses, # List of analyses
-                        "image": st.session_state.final_new_image_input.getvalue() if st.session_state.final_new_image_input else None # Access directly via state
+                        "id": datetime.now().isoformat(), "created_at": datetime.now().isoformat(),
+                        "pair": st.session_state.new_pair_input_val.upper(), "analyses": st.session_state.new_analyses,
+                        "image": st.session_state.final_new_image_input.getvalue() if st.session_state.final_new_image_input else None
                     }
                     st.session_state.watchlist.insert(0, new_item_data)
+                    user_data = load_user_data(current_user); user_data['xp'] = user_data.get('xp', 0) + 5
+                    user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
                     
-                    user_data = load_user_data(current_user)
-                    user_data['xp'] = user_data.get('xp', 0) + 5
-                    user_data['watchlist'] = st.session_state.watchlist
-                    save_user_data(current_user, user_data)
-                    
-                    # --- Manual clearing of ALL form inputs on final save ---
-                    st.session_state.new_analyses = [] 
+                    # Manual clearing of all inputs on final save
+                    st.session_state.new_analyses = []
                     st.session_state.new_pair_input_val = ""
-                    st.session_state.final_new_pair_input = "" # Clear text_input display
-                    st.session_state.final_new_image_input = None # Clear uploader widget
                     st.session_state.temp_analysis_tf_input_val = "1H"
                     st.session_state.temp_analysis_desc_input_val = ""
+                    # For uploader and text_input in clear_on_submit=False forms,
+                    # explicitly re-assigning empty/None and rerunning is necessary to clear their display.
+                    st.session_state.final_new_pair_input = ""
+                    st.session_state.final_new_image_input = None 
                     
                     st.toast(f"{new_item_data['pair']} added! You gained 5 XP! ⭐", icon="📈")
-                    st.balloons()
-                    st.rerun() # Rerun to refresh display and clear form
+                    st.balloons(); st.rerun()
                 else:
                     st.warning("Currency Pair and at least one timeframe analysis are required to save the pair.")
         
@@ -5466,15 +5479,10 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         st.markdown("<h6>Update notes or mark analyses for deletion.</h6>", unsafe_allow_html=True)
                         
                         # Prepare temporary session state keys for current edits within the form
-                        # Initialize if not present OR if the form was just cancelled/submitted,
-                        # to load the original values cleanly
-                        if f'temp_edit_analyses_{item_id}' not in st.session_state or \
-                           st.session_state.get(f'{f"edit_form_{item_id}"}_submitted_true', False) is False :
+                        if f'temp_edit_analyses_{item_id}' not in st.session_state or not st.session_state.get(f'{f"edit_form_{item_id}"}_loaded', False):
                              st.session_state[f'temp_edit_analyses_{item_id}'] = [{'timeframe': a['timeframe'], 'description': a['description']} for a in original_analyses]
                              st.session_state[f'temp_delete_flags_{item_id}'] = [False] * len(original_analyses)
-                             # Flag to ensure these states are only loaded once per edit session.
-                             st.session_state[f'{f"edit_form_{item_id}"}_submitted_true'] = True
-
+                             st.session_state[f'{f"edit_form_{item_id}"}_loaded'] = True # Flag to load once
 
                         for i, analysis in enumerate(st.session_state[f'temp_edit_analyses_{item_id}']):
                             st.markdown(f"**{analysis['timeframe']}**")
@@ -5483,11 +5491,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                                 current_desc_for_edit = st.text_area(
                                     f"Notes for {analysis['timeframe']}",
                                     value=analysis.get('description', ''),
-                                    key=f"edit_desc_{item_id}_{i}_live", # Key for live updates
-                                    label_visibility="collapsed",
-                                    height=100
+                                    key=f"edit_desc_{item_id}_{i}_live",
+                                    label_visibility="collapsed", height=100
                                 )
-                                # Update the temporary state on change
                                 st.session_state[f'temp_edit_analyses_{item_id}'][i]['description'] = current_desc_for_edit
 
                             with col2:
@@ -5504,7 +5510,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         if save_changes_submitted:
                             final_updated_analyses_list = []
                             for i, analysis_data in enumerate(st.session_state[f'temp_edit_analyses_{item_id}']):
-                                if not st.session_state[f'temp_delete_flags_{item_id}'][i]: # If not marked for deletion
+                                if not st.session_state[f'temp_delete_flags_{item_id}'][i]:
                                     final_updated_analyses_list.append(analysis_data)
                             
                             st.session_state.watchlist[index]['analyses'] = final_updated_analyses_list
@@ -5515,42 +5521,34 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                             save_user_data(current_user, user_data)
                             
                             st.session_state.editing_item_id = None
-                            # Clean up temporary edit states
                             if f'temp_edit_analyses_{item_id}' in st.session_state: del st.session_state[f'temp_edit_analyses_{item_id}']
                             if f'temp_delete_flags_{item_id}' in st.session_state: del st.session_state[f'temp_delete_flags_{item_id}']
-                            if f'{f"edit_form_{item_id}"}_submitted_true' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_submitted_true']
+                            if f'{f"edit_form_{item_id}"}_loaded' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_loaded']
                             st.toast("Item updated!"); st.rerun()
 
                         elif cancel_edit_submitted:
                             st.session_state.editing_item_id = None
-                            # Clean up temporary edit states
                             if f'temp_edit_analyses_{item_id}' in st.session_state: del st.session_state[f'temp_edit_analyses_{item_id}']
                             if f'temp_delete_flags_{item_id}' in st.session_state: del st.session_state[f'temp_delete_flags_{item_id}']
-                            if f'{f"edit_form_{item_id}"}_submitted_true' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_submitted_true']
+                            if f'{f"edit_form_{item_id}"}_loaded' in st.session_state: del st.session_state[f'{f"edit_form_{item_id}"}_loaded']
                             st.rerun()
             else:
-                # Normal display of a watchlist item
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')}")
                     st.caption(f"Added on: {format_datestamp(item.get('created_at'))}")
-                    
                     for analysis in item.get('analyses', []):
                         tf = analysis.get('timeframe', 'N/A')
                         desc = analysis.get('description', '').replace('\n', '  \n')
                         st.markdown(f"**{tf}:** {desc}")
-                    
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
-                    
                     c1, c2 = st.columns(2)
                     if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
                         st.session_state.editing_item_id = item_id; st.rerun()
                     if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True):
                         deleted_pair = item.get('pair', 'Item')
                         del st.session_state.watchlist[index]
-                        user_data = load_user_data(current_user)
-                        user_data['watchlist'] = st.session_state.watchlist
-                        save_user_data(current_user, user_data)
+                        user_data = load_user_data(current_user); user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
                         st.toast(f"Deleted {deleted_pair} from watchlist."); st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
 
