@@ -5192,7 +5192,7 @@ if st.session_state.current_page == "Zenvo Academy":
         st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (Fully Self-Contained with All Helper Functions)
+# FOREX WATCHLIST PAGE (Self-Contained with Database Logic & XP Feature)
 # =================================================================================
 
 # Initialize session state variables for this page if they don't exist
@@ -5207,8 +5207,6 @@ if 'watchlist_loaded' not in st.session_state:
 if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
     # --- 1. LOCAL HELPER FUNCTIONS (Database, Header, etc.) ---
-    # All functions required for this page are now defined locally.
-
     @st.cache_data
     def image_to_base_64(path):
         """Converts a local image file to a base64 string for embedding."""
@@ -5340,12 +5338,28 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
             if st.form_submit_button("Save to Watchlist", use_container_width=True):
                 if new_pair and new_description:
+                    # Create the new item data
                     new_item_data = {"id": datetime.now().isoformat(), "pair": new_pair.upper(), "timeframe": new_timeframe, "description": new_description, "image": new_image.getvalue() if new_image else None}
+                    
+                    # Update local session state first
                     st.session_state.watchlist.insert(0, new_item_data)
+                    
+                    # --- START: XP LOGIC ---
                     user_data = load_user_data(current_user)
+                    current_xp = user_data.get('xp', 0)  # Safely get current XP, default to 0
+                    user_data['xp'] = current_xp + 5      # Add 5 XP
+                    # --- END: XP LOGIC ---
+
+                    # Add the updated watchlist and new XP to the user_data object
                     user_data['watchlist'] = st.session_state.watchlist
+                    
+                    # Save everything back to the database
                     save_user_data(current_user, user_data)
-                    st.toast(f"{new_item_data['pair']} added successfully!")
+                    
+                    # --- Enhanced User Feedback ---
+                    st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
+                    st.balloons()
+                    
                     st.rerun()
                 else:
                     st.warning("Currency Pair and Notes are required.")
@@ -5386,4 +5400,4 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         deleted_pair = item.get('pair', 'Item'); del st.session_state.watchlist[index]
                         user_data = load_user_data(current_user); user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
                         st.toast(f"Deleted {deleted_pair} from watchlist."); st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)```
