@@ -5284,12 +5284,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
         st.rerun()
 
     # --- Custom CSS Styling ---
-    st.markdown("""
-    <style>
-        [data-testid="stSidebar"] { display: block !important; }
-        /* ... (add other custom styles here if needed) ... */
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
 
     # =========================================================
     # HEADER
@@ -5383,21 +5378,16 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                     updated_desc = st.text_area("Notes / Analysis", value=item['description'], key=f"desc_{item_id}")
                     updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
 
-                    col_save, col_del, col_cancel = st.columns(3)
+                    # --- CHANGE: REVERTED TO 2-COLUMN LAYOUT FOR SAVE/CANCEL ---
+                    col_save, col_cancel = st.columns(2)
                     with col_save:
-                        if st.form_submit_button("✔️ Save", use_container_width=True):
+                        if st.form_submit_button("✔️ Save Changes", use_container_width=True):
                             st.session_state.watchlist[index]['description'] = updated_desc
                             if updated_img:
                                 st.session_state.watchlist[index]['image'] = updated_img.getvalue()
                             st.session_state.editing_item_id = None
                             st.success("Item updated!")
                             st.rerun()
-                    with col_del:
-                        if st.form_submit_button("🗑️ Delete", use_container_width=True):
-                             del st.session_state.watchlist[index]
-                             st.session_state.editing_item_id = None
-                             st.warning("Item deleted.")
-                             st.rerun()
                     with col_cancel:
                         if st.form_submit_button("❌ Cancel", use_container_width=True):
                             st.session_state.editing_item_id = None
@@ -5409,13 +5399,19 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                 st.subheader(item['pair'])
                 st.write(item['description'])
                 
-                # <-- CORRECTED LINE
                 if item.get('image'):
-                    # <-- CORRECTED LINE (also applied here for safety)
                     st.image(item.get('image'), use_column_width=True)
 
-                if st.button("✏️ Edit Item", key=f"edit_{item_id}", use_container_width=True):
-                    st.session_state.editing_item_id = item_id
-                    st.rerun()
+                # --- CHANGE: CREATED 2-COLUMN LAYOUT FOR EDIT/DELETE BUTTONS ---
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
+                        st.session_state.editing_item_id = item_id
+                        st.rerun()
+                with btn_col2:
+                    if st.button("🗑️ Delete", key=f"delete_{item_id}", use_container_width=True):
+                         del st.session_state.watchlist[index]
+                         st.warning(f"Deleted {item['pair']} from watchlist.")
+                         st.rerun()
 
             st.markdown("<br>", unsafe_allow_html=True)
