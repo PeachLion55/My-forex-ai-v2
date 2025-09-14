@@ -5207,7 +5207,7 @@ import sqlite3
 # These imports are here for completeness but should likely already be in your app's main file.
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - NameError Fix)
+# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - Definitive TypeError Fix)
 # =================================================================================
 
 # This 'if' block is crucial for ensuring the page only appears when selected in your sidebar/navigation.
@@ -5240,80 +5240,88 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     def get_active_market_sessions():
         """
         Determines active forex sessions and returns a display string AND a list of active sessions.
-        Includes robust error checking for session_timings.
+        Includes a robust try-except to guarantee a tuple return.
         """
-        sessions_utc = st.session_state.get('session_timings', {}) # This should now reliably be a dict
-        
-        if not isinstance(sessions_utc, dict):
-            logging.error(f"Error: st.session_state.session_timings is not a dict: {type(sessions_utc)}. Defaulting to closed.")
-            return "Markets Closed (Config Error)", []
-        
-        corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
-        current_utc_hour = corrected_utc_time.hour
-        active_sessions = []
-        
-        for session_name, timings in sessions_utc.items():
-            if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings:
-                logging.warning(f"Skipping malformed session config for '{session_name}': {timings}")
-                continue # Skip to the next session if config is invalid
+        try:
+            sessions_utc = st.session_state.get('session_timings', {})
             
-            start, end = timings['start'], timings['end']
-            if not isinstance(start, int) or not isinstance(end, int):
-                logging.warning(f"Skipping session '{session_name}': start/end times are not integers: {timings}")
-                continue
+            if not isinstance(sessions_utc, dict):
+                logging.error(f"Error: st.session_state.session_timings is not a dict: {type(sessions_utc)}. Defaulting to closed.")
+                return "Markets Closed (Config Error)", []
+            
+            corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
+            current_utc_hour = corrected_utc_time.hour
+            active_sessions = []
+            
+            for session_name, timings in sessions_utc.items():
+                if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings:
+                    logging.warning(f"Skipping malformed session config for '{session_name}': {timings}")
+                    continue # Skip to the next session if config is invalid
+                
+                start, end = timings['start'], timings['end']
+                if not isinstance(start, int) or not isinstance(end, int):
+                    logging.warning(f"Skipping session '{session_name}': start/end times are not integers: {timings}")
+                    continue
 
-            if start > end: # Session crosses midnight
-                if current_utc_hour >= start or current_utc_hour < end:
-                    active_sessions.append(session_name)
-            else: # Session within the same day
-                if start <= current_utc_hour < end:
-                    active_sessions.append(session_name)
-        
-        if not active_sessions: return "Markets Closed", []; return ", ".join(active_sessions), active_sessions
+                if start > end: # Session crosses midnight
+                    if current_utc_hour >= start or current_utc_hour < end:
+                        active_sessions.append(session_name)
+                else: # Session within the same day
+                    if start <= current_utc_hour < end:
+                        active_sessions.append(session_name)
+            
+            if not active_sessions: return "Markets Closed", []; return ", ".join(active_sessions), active_sessions
+        except Exception as e:
+            logging.critical(f"CRITICAL ERROR in get_active_market_sessions: {e}", exc_info=True)
+            return "Markets Closed (Critical Runtime Error)", [] # Guaranteed tuple return
 
     def get_next_session_end_info(active_sessions_list):
-        """Calculates the time remaining for the next session to close."""
-        if not active_sessions_list:
-            return None, None
+        """Calculates the time remaining for the next session to close, with guaranteed tuple return."""
+        try:
+            if not active_sessions_list: return None, None
+                
+            sessions_utc_hours = st.session_state.get('session_timings', {})
+            if not isinstance(sessions_utc_hours, dict):
+                logging.error(f"Error: st.session_state.session_timings (for next end time) is not a dict: {type(sessions_utc_hours)}")
+                return None, None # Fail gracefully with tuple
+                
+            now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Apply server clock correction
+            next_end_times = []
             
-        sessions_utc_hours = st.session_state.get('session_timings', {})
-        if not isinstance(sessions_utc_hours, dict):
-             logging.error(f"Error: st.session_state.session_timings (for next end time) is not a dict: {type(sessions_utc_hours)}")
-             return None, None # Fail gracefully
-             
-        now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Apply server clock correction
-        next_end_times = []
-        
-        for session_name in active_sessions_list:
-            if session_name in sessions_utc_hours:
-                timings = sessions_utc_hours[session_name]
-                if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings: continue
-                if not isinstance(timings['start'], int) or not isinstance(timings['end'], int): continue
+            for session_name in active_sessions_list:
+                if session_name in sessions_utc_hours:
+                    timings = sessions_utc_hours[session_name]
+                    if not isinstance(timings, dict) or 'start' not in timings or 'end' not in timings: continue
+                    if not isinstance(timings['start'], int) or not isinstance(timings['end'], int): continue
 
-                end_hour = timings['end']
-                start_hour = timings['start'] # Needed for cross-midnight logic
-                
-                end_time_candidate = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
-                
-                if start_hour > end_hour and now_utc.hour >= end_hour:
-                    end_time_candidate += timedelta(days=1)
-                elif now_utc > end_time_candidate:
-                    end_time_candidate += timedelta(days=1)
-                
-                next_end_times.append((end_time_candidate, session_name))
-        
-        if not next_end_times:
-            return None, None
-        
-        soonest_end_time, soonest_session_name = min(next_end_times)
-        remaining = soonest_end_time - now_utc
-        
-        if remaining.total_seconds() < 0:
-            return soonest_session_name, "Closing..." # Should not happen, but safe fallback
-        
-        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        return soonest_session_name, f"{hours:02}:{minutes:02}:{seconds:02}"
+                    end_hour = timings['end']
+                    start_hour = timings['start'] # Needed for cross-midnight logic
+                    
+                    end_time_candidate = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+                    
+                    if start_hour > end_hour and now_utc.hour >= end_hour:
+                        end_time_candidate += timedelta(days=1)
+                    elif now_utc > end_time_candidate:
+                        end_time_candidate += timedelta(days=1)
+                    
+                    next_end_times.append((end_time_candidate, session_name))
+            
+            if not next_end_times:
+                return None, None
+            
+            soonest_end_time, soonest_session_name = min(next_end_times)
+            remaining = soonest_end_time - now_utc
+            
+            if remaining.total_seconds() < 0:
+                return soonest_session_name, "Closing..." # Safe fallback
+            
+            hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            return soonest_session_name, f"{hours:02}:{minutes:02}:{seconds:02}"
+        except Exception as e:
+            logging.critical(f"CRITICAL ERROR in get_next_session_end_info: {e}", exc_info=True)
+            return "Timer Error", "N/A" # Guaranteed tuple return on critical failure
+
 
     def load_user_data(username):
         """Fetches a user's data from the DB and decodes it from JSON."""
@@ -5321,8 +5329,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             # 'c' is assumed to be initialized globally
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
             result = c.fetchone()
-            if result and result[0]:
-                return json.loads(result[0])
+            if result and result[0]: return json.loads(result[0])
             return {}
         except (json.JSONDecodeError, sqlite3.Error) as e:
             logging.error(f"Error loading data for user {username}: {e}")
@@ -5382,7 +5389,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     
     icon_path = os.path.join("icons", page_info['icon']); icon_base64 = image_to_base_64(icon_path)
     
-    # --- FIX for NameError: Changed `icon_icon_style` to `header_icon_style` ---
+    # --- NameError Fix: Changed `icon_icon_style` to `header_icon_style` ---
     icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{header_icon_style}">' if icon_base64 else ""
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
@@ -5420,9 +5427,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     with col_an_del:
                         if st.form_submit_button("🗑️", key=f"temp_delete_analysis_{idx}", help="Remove this analysis"):
                             del st.session_state.new_analyses[idx]
-                            # When a submit button is pressed, the form re-executes.
-                            # Need to ensure other inputs don't lose value explicitly when not using default `clear_on_submit=True` behavior.
-                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input 
+                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Persist pair name
                             st.rerun() 
                 st.write("") # Just some spacing
 
