@@ -5270,7 +5270,7 @@ def get_next_session_end_info(active_sessions_list):
 # =========================================================
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
-if 'editing_item_id' not st.session_state:
+if 'editing_item_id' not in st.session_state:
     st.session_state.editing_item_id = None
     
 if st.session_state.current_page in ('watch list', 'Watch List'):
