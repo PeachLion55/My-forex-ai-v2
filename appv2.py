@@ -1014,6 +1014,7 @@ nav_items = [
 # --- Map your page keys to the icon file names in the 'icons' folder ---
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
+    'watch list': 'watchlist_icon.png',
     'fundamentals': 'forex_fundamentals.png',
     'mt5': 'performance_dashboard.png',
     'account': 'my_account.png',
