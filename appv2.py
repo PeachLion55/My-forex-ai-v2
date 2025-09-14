@@ -5196,8 +5196,44 @@ if st.session_state.current_page == "Zenvo Academy":
 # =================================================================================
 # FOREX WATCHLIST PAGE (Fully Self-Contained with All Helper Functions)
 # =================================================================================
+import streamlit as st
+import base64
+import os
+import logging
+from datetime import datetime, timedelta
+import pytz
+import json
+import sqlite3
+
+# Assume 'conn' and 'c' are defined globally or passed into functions where needed.
+# For this self-contained snippet, we'll mock them or assume they are available from the main app.
+# In a real Streamlit app, these would typically be initialized once at the top level
+# or managed via st.session_state if they are unique per user session.
+# For demonstration purposes within this snippet, we'll add placeholder definitions.
+
+# --- Placeholder for DB connection (REMOVE if already defined in your app) ---
+try:
+    conn = sqlite3.connect('forex_app.db', check_same_thread=False)
+    c = conn.cursor()
+    # Create users table if it doesn't exist, to support load/save_user_data
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password TEXT,
+            nickname TEXT,
+            data TEXT,
+            xp INTEGER DEFAULT 0
+        )
+    ''')
+    conn.commit()
+except Exception as e:
+    st.error(f"Database connection error: {e}")
+    conn = None
+    c = None
+# --- End Placeholder ---
 
 # Initialize session state variables for this page if they don't exist
+# Note: 'current_page' and 'logged_in_user' are assumed to be set elsewhere in the app.
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 if 'editing_item_id' not in st.session_state:
@@ -5205,8 +5241,14 @@ if 'editing_item_id' not in st.session_state:
 if 'watchlist_loaded' not in st.session_state:
     st.session_state.watchlist_loaded = False
 
+
 # Main conditional check to render the watchlist page
-if st.session_state.current_page in ('watch list', 'My Watchlist'):
+if st.session_state.get('current_page') in ('watch list', 'My Watchlist'): # Use .get() for safety
+
+    # Initialize a temporary list in session state for the new pair's analyses
+    # MOVED INSIDE THE PAGE RENDER CONDITION
+    if 'new_analyses' not in st.session_state:
+        st.session_state.new_analyses = []
 
     # --- 1. LOCAL HELPER FUNCTIONS (Database, Header, etc.) ---
     # All functions required for this page are now defined locally.
@@ -5224,16 +5266,20 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     def get_active_market_sessions():
         """Determines active forex sessions."""
         sessions_utc = st.session_state.get('session_timings', {})
+        # Ensure we're working with timezone-aware datetime for robustness
         corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
         current_utc_hour = corrected_utc_time.hour
         active_sessions = []
         for session_name, timings in sessions_utc.items():
             start, end = timings['start'], timings['end']
-            if start > end:
-                if current_utc_hour >= start or current_utc_hour < end: active_sessions.append(session_name)
-            else:
-                if start <= current_utc_hour < end: active_sessions.append(session_name)
-        if not active_sessions: return "Markets Closed", []
+            if start > end: # Session crosses midnight UTC
+                if current_utc_hour >= start or current_utc_hour < end:
+                    active_sessions.append(session_name)
+            else: # Session within a single UTC day
+                if start <= current_utc_hour < end:
+                    active_sessions.append(session_name)
+        if not active_sessions:
+            return "Markets Closed", []
         return ", ".join(active_sessions), active_sessions
 
     def get_next_session_end_info(active_sessions_list):
@@ -5245,22 +5291,36 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         for session_name in active_sessions_list:
             if session_name in sessions_utc_hours:
                 end_hour = sessions_utc_hours[session_name]['end']
-                start_hour = sessions_utc_hours[session_name]['start']
+                start_hour = sessions_utc_hours[session_name]['start'] # Needed for cross-midnight logic
+                
+                # Calculate today's end time, assuming it's in the future
                 end_time_today = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
-                if start_hour > end_hour and now_utc.hour >= start_hour: end_time_today += timedelta(days=1)
-                elif now_utc > end_time_today: end_time_today += timedelta(days=1)
+                
+                # Adjust for sessions crossing midnight or already passed today
+                if start_hour > end_hour: # Session crosses midnight
+                    if now_utc.hour >= start_hour: # If current time is in the 'start day' part
+                        end_time_today += timedelta(days=1) # End is tomorrow
+                elif now_utc > end_time_today: # If current time is past today's end time for a non-crossing session
+                    end_time_today += timedelta(days=1) # End is tomorrow
+                
                 next_end_times.append((end_time_today, session_name))
+        
         if not next_end_times: return None, None
-        next_end_times.sort()
+        
+        next_end_times.sort() # Sort to find the soonest ending session
         soonest_end_time, soonest_session_name = next_end_times[0]
+        
         remaining = soonest_end_time - now_utc
-        if remaining.total_seconds() < 0: return soonest_session_name, "Closing..."
+        if remaining.total_seconds() < 0: # Should not happen with above logic, but as a safeguard
+            return soonest_session_name, "Closing..."
+        
         hours, remainder = divmod(int(remaining.total_seconds()), 3600)
         minutes, seconds = divmod(remainder, 60)
         return soonest_session_name, f"{hours:02}:{minutes:02}:{seconds:02}"
 
     def load_user_data(username):
         """Fetches a user's data from the DB and decodes it from JSON."""
+        if not c: return {} # Handle case where DB connection failed
         try:
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
             result = c.fetchone()
@@ -5272,6 +5332,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
     def save_user_data(username, user_data):
         """Encodes user data to JSON and saves it to the DB."""
+        if not conn or not c: return False # Handle case where DB connection failed
         try:
             json_data = json.dumps(user_data)
             c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
@@ -5280,6 +5341,13 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         except sqlite3.Error as e:
             logging.error(f"Error saving data for user {username}: {e}")
             return False
+
+    # Helper function for ordinal numbers (e.g., 1st, 2nd, 3rd)
+    def ordinal(n):
+        if 10 <= n % 100 <= 20:
+            return str(n) + 'th'
+        else:
+            return str(n) + {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
 
     # --- 2. LOGIN CHECK & DATA LOADING ---
     current_user = st.session_state.get('logged_in_user')
@@ -5330,160 +5398,165 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     st.markdown("---")
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
+    # MOVED INSIDE THE PAGE RENDER CONDITION
+    add_col, display_col = st.columns([1, 2], gap="large")
 
-# Initialize a temporary list in session state for the new pair's analyses
-if 'new_analyses' not in st.session_state:
-    st.session_state.new_analyses = []
+    # --- COLUMN 1: ADD NEW PAIR FORM ---
+    with add_col:
+        st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
+        new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
+        new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
+        st.markdown("---")
 
-add_col, display_col = st.columns([1, 2], gap="large")
-
-# --- COLUMN 1: ADD NEW PAIR FORM ---
-with add_col:
-    st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
-    new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
-    new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
-    st.markdown("---")
-
-    st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
-    
-    # Display analyses that have been temporarily added for the new pair
-    for analysis in st.session_state.new_analyses:
-        with st.container(border=True):
-            st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
-    
-    # Input fields for a new analysis entry
-    timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
-    analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf")
-    analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc")
-
-    if st.button("➕ Add Timeframe Analysis", use_container_width=True):
-        if analysis_desc:
-            st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
-            st.rerun()
-        else:
-            st.warning("Please add notes for the timeframe.")
-    
-    st.markdown("---")
-    
-    if st.button("💾 Save Pair to Watchlist", use_container_width=True, type="primary"):
-        if new_pair and st.session_state.new_analyses:
-            # Construct the new item, now including the 'created_at' timestamp
-            new_item_data = {
-                "id": datetime.now().isoformat(),
-                "created_at": datetime.now().isoformat(), # ADDED TIMESTAMP
-                "pair": new_pair.upper(),
-                "analyses": st.session_state.new_analyses,
-                "image": new_image.getvalue() if new_image else None
-            }
-            
-            st.session_state.watchlist.insert(0, new_item_data)
-            
-            user_data = load_user_data(current_user)
-            current_xp = user_data.get('xp', 0)
-            user_data['xp'] = current_xp + 5
-            user_data['watchlist'] = st.session_state.watchlist
-            save_user_data(current_user, user_data)
-            
-            st.session_state.new_analyses = []
-            st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
-            st.balloons()
-            st.rerun()
-        else:
-            st.warning("Currency Pair and at least one timeframe analysis are required.")
-
-# --- COLUMN 2: DISPLAY WATCHLIST ---
-with display_col:
-    st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
-    if not st.session_state.watchlist:
-        st.info("Your watchlist is empty. Add a new pair using the form on the left.")
+        st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
         
-    for index, item in enumerate(st.session_state.watchlist):
-        item_id = item['id']
-        if st.session_state.editing_item_id == item_id:
-            # Edit form now includes deletion checkboxes
+        # Display analyses that have been temporarily added for the new pair
+        for analysis in st.session_state.new_analyses:
             with st.container(border=True):
-                with st.form(f"edit_form_{item_id}"):
-                    st.subheader(f"Editing {item.get('pair', '')}")
-                    
-                    # Store original analyses to work with inside the form
-                    original_analyses = item.get('analyses', [])
-                    
-                    st.markdown("<h6>Mark any analysis for deletion and click Save.</h6>", unsafe_allow_html=True)
-                    
-                    for i, analysis in enumerate(original_analyses):
-                        col1, col2 = st.columns([4, 1])
-                        with col1:
-                            st.markdown(f"**Notes for {analysis['timeframe']}**")
-                            new_desc = st.text_area(
-                                f"desc_{i}", value=analysis['description'], key=f"edit_desc_{item_id}_{i}",
-                                label_visibility="collapsed"
-                            )
-                        with col2:
-                            st.markdown("&nbsp;", unsafe_allow_html=True) # Spacer
-                            st.checkbox("Delete", key=f"delete_flag_{item_id}_{i}")
+                st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
+        
+        # Input fields for a new analysis entry
+        timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
+        analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf")
+        analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc")
 
-                    updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
-                    c1, c2 = st.columns(2)
-                    if c1.form_submit_button("✔️ Save Changes", use_container_width=True):
+        if st.button("➕ Add Timeframe Analysis", use_container_width=True):
+            if analysis_desc:
+                st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
+                st.rerun()
+            else:
+                st.warning("Please add notes for the timeframe.")
+        
+        st.markdown("---")
+        
+        if st.button("💾 Save Pair to Watchlist", use_container_width=True, type="primary"):
+            if new_pair and st.session_state.new_analyses:
+                # Construct the new item, now including the 'created_at' timestamp
+                new_item_data = {
+                    "id": datetime.now().isoformat(),
+                    "created_at": datetime.now().isoformat(), # ADDED TIMESTAMP
+                    "pair": new_pair.upper(),
+                    "analyses": st.session_state.new_analyses,
+                    "image": new_image.getvalue() if new_image else None
+                }
+                
+                st.session_state.watchlist.insert(0, new_item_data)
+                
+                user_data = load_user_data(current_user)
+                current_xp = user_data.get('xp', 0)
+                user_data['xp'] = current_xp + 5
+                user_data['watchlist'] = st.session_state.watchlist
+                save_user_data(current_user, user_data)
+                
+                st.session_state.new_analyses = []
+                st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
+                st.balloons()
+                st.rerun()
+            else:
+                st.warning("Currency Pair and at least one timeframe analysis are required.")
+
+    # --- COLUMN 2: DISPLAY WATCHLIST ---
+    with display_col:
+        st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
+        if not st.session_state.watchlist:
+            st.info("Your watchlist is empty. Add a new pair using the form on the left.")
+            
+        for index, item in enumerate(st.session_state.watchlist):
+            item_id = item['id']
+            if st.session_state.editing_item_id == item_id:
+                # Edit form now includes deletion checkboxes
+                with st.container(border=True):
+                    with st.form(f"edit_form_{item_id}"):
+                        st.subheader(f"Editing {item.get('pair', '')}")
                         
-                        # --- Logic to handle deletions and updates ---
-                        updated_analyses = []
+                        # Store original analyses to work with inside the form
+                        original_analyses = item.get('analyses', [])
+                        
+                        st.markdown("<h6>Mark any analysis for deletion and click Save.</h6>", unsafe_allow_html=True)
+                        
                         for i, analysis in enumerate(original_analyses):
-                            # Check the state of the checkbox to decide if we keep this analysis
-                            delete_this = st.session_state[f"delete_flag_{item_id}_{i}"]
-                            if not delete_this:
-                                # Get the updated description from its corresponding text_area
-                                updated_description = st.session_state[f"edit_desc_{item_id}_{i}"]
-                                updated_analyses.append({
-                                    "timeframe": analysis['timeframe'],
-                                    "description": updated_description
-                                })
+                            col1, col2 = st.columns([4, 1])
+                            with col1:
+                                st.markdown(f"**Notes for {analysis['timeframe']}**")
+                                new_desc = st.text_area(
+                                    f"desc_{i}", value=analysis['description'], key=f"edit_desc_{item_id}_{i}",
+                                    label_visibility="collapsed"
+                                )
+                            with col2:
+                                st.markdown("&nbsp;", unsafe_allow_html=True) # Spacer
+                                st.checkbox("Delete", key=f"delete_flag_{item_id}_{i}")
+
+                        updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
+                        c1, c2 = st.columns(2)
+                        if c1.form_submit_button("✔️ Save Changes", use_container_width=True):
+                            
+                            # --- Logic to handle deletions and updates ---
+                            updated_analyses = []
+                            for i, analysis in enumerate(original_analyses):
+                                # Check the state of the checkbox to decide if we keep this analysis
+                                delete_this = st.session_state[f"delete_flag_{item_id}_{i}"]
+                                if not delete_this:
+                                    # Get the updated description from its corresponding text_area
+                                    updated_description = st.session_state[f"edit_desc_{item_id}_{i}"]
+                                    updated_analyses.append({
+                                        "timeframe": analysis['timeframe'],
+                                        "description": updated_description
+                                    })
+                            
+                            # Update the watchlist item with the filtered/updated analyses
+                            st.session_state.watchlist[index]['analyses'] = updated_analyses
+                            
+                            if updated_img: 
+                                st.session_state.watchlist[index]['image'] = updated_img.getvalue()
+                            
+                            user_data = load_user_data(current_user)
+                            user_data['watchlist'] = st.session_state.watchlist
+                            save_user_data(current_user, user_data)
+                            
+                            st.session_state.editing_item_id = None
+                            st.toast("Item updated!")
+                            st.rerun()
+                        if c2.form_submit_button("❌ Cancel", use_container_width=True):
+                            st.session_state.editing_item_id = None
+                            st.rerun()
+            else:
+                # Normal item display now includes the datestamp
+                with st.container(border=True):
+                    st.subheader(f"{item.get('pair', 'N/A')}")
+                    
+                    # Display the added date with the new format
+                    created_at_iso = item.get('created_at')
+                    if created_at_iso and created_at_iso != 'unknown date':
+                        try:
+                            created_datetime = datetime.fromisoformat(created_at_iso)
+                            day_with_ordinal = ordinal(created_datetime.day)
+                            formatted_date = created_datetime.strftime(f"%A {day_with_ordinal} %B %Y")
+                            st.caption(f"Added on: {formatted_date}")
+                        except ValueError:
+                            st.caption("Added on: invalid date format")
+                    else:
+                        st.caption("Added on: unknown date")
+                    
+                    for analysis in item.get('analyses', []):
+                        tf = analysis.get('timeframe', 'N/A')
+                        desc = analysis.get('description', '').replace('\n', '  \n')
+                        st.markdown(f"**{tf}:** {desc}")
+
+                    if item.get('image'): 
+                        st.image(item.get('image'), use_column_width=True)
                         
-                        # Update the watchlist item with the filtered/updated analyses
-                        st.session_state.watchlist[index]['analyses'] = updated_analyses
-                        
-                        if updated_img: 
-                            st.session_state.watchlist[index]['image'] = updated_img.getvalue()
+                    c1, c2 = st.columns(2)
+                    if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
+                        st.session_state.editing_item_id = item_id
+                        st.rerun()
+                    if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True): # Renamed button for clarity
+                        deleted_pair = item.get('pair', 'Item')
+                        del st.session_state.watchlist[index]
                         
                         user_data = load_user_data(current_user)
                         user_data['watchlist'] = st.session_state.watchlist
                         save_user_data(current_user, user_data)
                         
-                        st.session_state.editing_item_id = None
-                        st.toast("Item updated!")
+                        st.toast(f"Deleted {deleted_pair} from watchlist.")
                         st.rerun()
-                    if c2.form_submit_button("❌ Cancel", use_container_width=True):
-                        st.session_state.editing_item_id = None
-                        st.rerun()
-        else:
-            # Normal item display now includes the datestamp
-            with st.container(border=True):
-                st.subheader(f"{item.get('pair', 'N/A')}")
-                
-                # Display the added date
-                date_str = item.get('created_at', 'unknown date').split('T')[0]
-                st.caption(f"Added on: {date_str}")
-                
-                for analysis in item.get('analyses', []):
-                    tf = analysis.get('timeframe', 'N/A')
-                    desc = analysis.get('description', '').replace('\n', '  \n')
-                    st.markdown(f"**{tf}:** {desc}")
-
-                if item.get('image'): 
-                    st.image(item.get('image'), use_column_width=True)
-                    
-                c1, c2 = st.columns(2)
-                if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
-                    st.session_state.editing_item_id = item_id
-                    st.rerun()
-                if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True): # Renamed button for clarity
-                    deleted_pair = item.get('pair', 'Item')
-                    del st.session_state.watchlist[index]
-                    
-                    user_data = load_user_data(current_user)
-                    user_data['watchlist'] = st.session_state.watchlist
-                    save_user_data(current_user, user_data)
-                    
-                    st.toast(f"Deleted {deleted_pair} from watchlist.")
-                    st.rerun()
-            st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)
