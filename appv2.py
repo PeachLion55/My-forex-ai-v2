@@ -5335,43 +5335,23 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
 if 'new_analyses' not in st.session_state:
     st.session_state.new_analyses = []
 
-# --- Local Helper Function for Date Formatting ---
-def format_datestamp(iso_string):
-    """Converts an ISO date string to a more readable format, e.g., 'Sunday 14th September 2025'."""
-    if not iso_string:
-        return "an unknown date"
-    try:
-        dt_object = datetime.fromisoformat(iso_string)
-        day = dt_object.day
-        # Logic for day suffix (st, nd, rd, th)
-        if 4 <= day <= 20 or 24 <= day <= 30:
-            suffix = "th"
-        else:
-            suffix = ["st", "nd", "rd"][day % 10 - 1]
-        
-        return dt_object.strftime(f"%A {day}{suffix} %B %Y")
-    except (ValueError, TypeError):
-        return iso_string.split('T')[0] # Fallback for any unexpected format
-
 add_col, display_col = st.columns([1, 2], gap="large")
 
 # --- COLUMN 1: ADD NEW PAIR FORM ---
 with add_col:
     st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
     new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
-    
-    # Place file uploader in columns to control its width
-    uploader_cols = st.columns([2, 1])
-    with uploader_cols[0]:
-        new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
-    
+    new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
     st.markdown("---")
+
     st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
     
+    # Display analyses that have been temporarily added for the new pair
     for analysis in st.session_state.new_analyses:
         with st.container(border=True):
             st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
     
+    # Input fields for a new analysis entry
     timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
     analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf")
     analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc")
@@ -5387,17 +5367,20 @@ with add_col:
     
     if st.button("💾 Save Pair to Watchlist", use_container_width=True, type="primary"):
         if new_pair and st.session_state.new_analyses:
+            # Construct the new item, now including the 'created_at' timestamp
             new_item_data = {
                 "id": datetime.now().isoformat(),
-                "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now().isoformat(), # ADDED TIMESTAMP
                 "pair": new_pair.upper(),
                 "analyses": st.session_state.new_analyses,
                 "image": new_image.getvalue() if new_image else None
             }
             
             st.session_state.watchlist.insert(0, new_item_data)
+            
             user_data = load_user_data(current_user)
-            current_xp = user_data.get('xp', 0); user_data['xp'] = current_xp + 5
+            current_xp = user_data.get('xp', 0)
+            user_data['xp'] = current_xp + 5
             user_data['watchlist'] = st.session_state.watchlist
             save_user_data(current_user, user_data)
             
@@ -5417,37 +5400,50 @@ with display_col:
     for index, item in enumerate(st.session_state.watchlist):
         item_id = item['id']
         if st.session_state.editing_item_id == item_id:
+            # Edit form now includes deletion checkboxes
             with st.container(border=True):
                 with st.form(f"edit_form_{item_id}"):
                     st.subheader(f"Editing {item.get('pair', '')}")
+                    
+                    # Store original analyses to work with inside the form
                     original_analyses = item.get('analyses', [])
+                    
                     st.markdown("<h6>Mark any analysis for deletion and click Save.</h6>", unsafe_allow_html=True)
                     
                     for i, analysis in enumerate(original_analyses):
                         col1, col2 = st.columns([4, 1])
                         with col1:
                             st.markdown(f"**Notes for {analysis['timeframe']}**")
-                            st.text_area(f"desc_{i}", value=analysis['description'], key=f"edit_desc_{item_id}_{i}", label_visibility="collapsed")
+                            new_desc = st.text_area(
+                                f"desc_{i}", value=analysis['description'], key=f"edit_desc_{item_id}_{i}",
+                                label_visibility="collapsed"
+                            )
                         with col2:
-                            st.markdown("&nbsp;", unsafe_allow_html=True)
+                            st.markdown("&nbsp;", unsafe_allow_html=True) # Spacer
                             st.checkbox("Delete", key=f"delete_flag_{item_id}_{i}")
 
-                    edit_uploader_cols = st.columns([2, 1])
-                    with edit_uploader_cols[0]:
-                        updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
-                    
+                    updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
                     c1, c2 = st.columns(2)
                     if c1.form_submit_button("✔️ Save Changes", use_container_width=True):
+                        
+                        # --- Logic to handle deletions and updates ---
                         updated_analyses = []
                         for i, analysis in enumerate(original_analyses):
-                            if not st.session_state[f"delete_flag_{item_id}_{i}"]:
+                            # Check the state of the checkbox to decide if we keep this analysis
+                            delete_this = st.session_state[f"delete_flag_{item_id}_{i}"]
+                            if not delete_this:
+                                # Get the updated description from its corresponding text_area
+                                updated_description = st.session_state[f"edit_desc_{item_id}_{i}"]
                                 updated_analyses.append({
                                     "timeframe": analysis['timeframe'],
-                                    "description": st.session_state[f"edit_desc_{item_id}_{i}"]
+                                    "description": updated_description
                                 })
                         
+                        # Update the watchlist item with the filtered/updated analyses
                         st.session_state.watchlist[index]['analyses'] = updated_analyses
-                        if updated_img: st.session_state.watchlist[index]['image'] = updated_img.getvalue()
+                        
+                        if updated_img: 
+                            st.session_state.watchlist[index]['image'] = updated_img.getvalue()
                         
                         user_data = load_user_data(current_user)
                         user_data['watchlist'] = st.session_state.watchlist
@@ -5460,12 +5456,13 @@ with display_col:
                         st.session_state.editing_item_id = None
                         st.rerun()
         else:
+            # Normal item display now includes the datestamp
             with st.container(border=True):
                 st.subheader(f"{item.get('pair', 'N/A')}")
                 
-                # Use the new formatting function for the date
-                formatted_date = format_datestamp(item.get('created_at'))
-                st.caption(f"Added on: {formatted_date}")
+                # Display the added date
+                date_str = item.get('created_at', 'unknown date').split('T')[0]
+                st.caption(f"Added on: {date_str}")
                 
                 for analysis in item.get('analyses', []):
                     tf = analysis.get('timeframe', 'N/A')
@@ -5479,7 +5476,7 @@ with display_col:
                 if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
                     st.session_state.editing_item_id = item_id
                     st.rerun()
-                if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True):
+                if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True): # Renamed button for clarity
                     deleted_pair = item.get('pair', 'Item')
                     del st.session_state.watchlist[index]
                     
