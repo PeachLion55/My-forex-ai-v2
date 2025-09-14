@@ -5192,7 +5192,7 @@ if st.session_state.current_page == "Zenvo Academy":
         st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (Self-Contained with Database Logic)
+# FOREX WATCHLIST PAGE (Fully Self-Contained with All Helper Functions)
 # =================================================================================
 
 # Initialize session state variables for this page if they don't exist
@@ -5206,18 +5206,64 @@ if 'watchlist_loaded' not in st.session_state:
 # Main conditional check to render the watchlist page
 if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
-    # --- 1. LOCAL HELPER FUNCTIONS (Database Interaction) ---
-    # These functions are defined here to be self-contained within this page's logic.
-    # They assume 'c' and 'conn' (your DB cursor and connection) are available globally.
+    # --- 1. LOCAL HELPER FUNCTIONS (Database, Header, etc.) ---
+    # All functions required for this page are now defined locally.
+
+    @st.cache_data
+    def image_to_base_64(path):
+        """Converts a local image file to a base64 string for embedding."""
+        try:
+            with open(path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        except FileNotFoundError:
+            logging.warning(f"Warning: Header icon file not found at path: {path}")
+            return None
     
+    def get_active_market_sessions():
+        """Determines active forex sessions."""
+        sessions_utc = st.session_state.get('session_timings', {})
+        corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
+        current_utc_hour = corrected_utc_time.hour
+        active_sessions = []
+        for session_name, timings in sessions_utc.items():
+            start, end = timings['start'], timings['end']
+            if start > end:
+                if current_utc_hour >= start or current_utc_hour < end: active_sessions.append(session_name)
+            else:
+                if start <= current_utc_hour < end: active_sessions.append(session_name)
+        if not active_sessions: return "Markets Closed", []
+        return ", ".join(active_sessions), active_sessions
+
+    def get_next_session_end_info(active_sessions_list):
+        """Calculates the time remaining for the next session to close."""
+        if not active_sessions_list: return None, None
+        sessions_utc_hours = st.session_state.get('session_timings', {})
+        now_utc = datetime.now(pytz.utc) + timedelta(hours=1)
+        next_end_times = []
+        for session_name in active_sessions_list:
+            if session_name in sessions_utc_hours:
+                end_hour = sessions_utc_hours[session_name]['end']
+                start_hour = sessions_utc_hours[session_name]['start']
+                end_time_today = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+                if start_hour > end_hour and now_utc.hour >= start_hour: end_time_today += timedelta(days=1)
+                elif now_utc > end_time_today: end_time_today += timedelta(days=1)
+                next_end_times.append((end_time_today, session_name))
+        if not next_end_times: return None, None
+        next_end_times.sort()
+        soonest_end_time, soonest_session_name = next_end_times[0]
+        remaining = soonest_end_time - now_utc
+        if remaining.total_seconds() < 0: return soonest_session_name, "Closing..."
+        hours, remainder = divmod(int(remaining.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return soonest_session_name, f"{hours:02}:{minutes:02}:{seconds:02}"
+
     def load_user_data(username):
         """Fetches a user's data from the DB and decodes it from JSON."""
         try:
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
             result = c.fetchone()
-            if result and result[0]:
-                return json.loads(result[0])
-            return {}  # Return empty dict for new users or if no data
+            if result and result[0]: return json.loads(result[0])
+            return {}
         except (json.JSONDecodeError, sqlite3.Error) as e:
             logging.error(f"Error loading data for user {username}: {e}")
             return {}
@@ -5238,10 +5284,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     if not current_user:
         st.warning("Please log in to manage your Forex Watchlist.")
         st.session_state.current_page = 'account'
-        st.session_state.watchlist_loaded = False  # Reset flag on logout
+        st.session_state.watchlist_loaded = False
         st.rerun()
 
-    # Load data from the database ONLY ONCE when the page is first loaded for a user.
     if not st.session_state.watchlist_loaded:
         user_data = load_user_data(current_user)
         st.session_state.watchlist = user_data.get('watchlist', [])
@@ -5249,16 +5294,11 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         st.rerun()
 
     # --- 3. CSS STYLING ---
-    # Includes the definitive fix for top-aligning the columns.
     st.markdown("""
         <style>
             [data-testid="stSidebar"] { display: block !important; }
-            div[data-testid="stHorizontalBlock"] {
-                align-items: flex-start;
-            }
-            div[data-testid="column"] h3 {
-                margin-top: 0.2rem;
-            }
+            div[data-testid="stHorizontalBlock"] { align-items: flex-start; }
+            div[data-testid="column"] h3 { margin-top: 0.2rem; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -5272,24 +5312,24 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
     icon_style = "width: 130px; height: auto;"
     caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
+    
     icon_path = os.path.join("icons", page_info['icon'])
     icon_base64 = image_to_base_64(icon_path)
     icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">' if icon_base64 else ""
+    
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>' if next_session_name and timer_str else ""
-    header_html = (
-        f'<div style="{main_container_style}"><div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div><div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div><div style="{info_tab_style}">{market_sessions_display}</div>{timer_display}</div></div></div>'
-    )
+    
+    header_html = ( f'<div style="{main_container_style}"><div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div><div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div><div style="{info_tab_style}">{market_sessions_display}</div>{timer_display}</div></div></div>' )
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
     add_col, display_col = st.columns([1, 2], gap="large")
 
-    # --- COLUMN 1: ADD NEW PAIR FORM ---
     with add_col:
         st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
         with st.form("new_item_form", clear_on_submit=True):
@@ -5310,7 +5350,6 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                 else:
                     st.warning("Currency Pair and Notes are required.")
 
-    # --- COLUMN 2: DISPLAY WATCHLIST ---
     with display_col:
         st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
         if not st.session_state.watchlist:
@@ -5318,7 +5357,6 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         for index, item in enumerate(st.session_state.watchlist):
             item_id = item['id']
             if st.session_state.editing_item_id == item_id:
-                # Show the Edit Form for the selected item
                 with st.container(border=True):
                     with st.form(f"edit_form_{item_id}"):
                         st.subheader(f"Editing {item.get('pair', '')}")
@@ -5328,36 +5366,24 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
                         c1, c2 = st.columns(2)
                         if c1.form_submit_button("✔️ Save Changes", use_container_width=True):
-                            st.session_state.watchlist[index]['timeframe'] = updated_timeframe
-                            st.session_state.watchlist[index]['description'] = updated_desc
+                            st.session_state.watchlist[index].update({'timeframe': updated_timeframe, 'description': updated_desc})
                             if updated_img: st.session_state.watchlist[index]['image'] = updated_img.getvalue()
-                            user_data = load_user_data(current_user)
-                            user_data['watchlist'] = st.session_state.watchlist
-                            save_user_data(current_user, user_data)
+                            user_data = load_user_data(current_user); user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
                             st.session_state.editing_item_id = None
                             st.toast("Item updated!")
                             st.rerun()
                         if c2.form_submit_button("❌ Cancel", use_container_width=True):
-                            st.session_state.editing_item_id = None
-                            st.rerun()
+                            st.session_state.editing_item_id = None; st.rerun()
             else:
-                # Show the normal display for the item
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
-                    formatted_description = item.get('description', '').replace('\n', '  \n')
-                    st.markdown(formatted_description)
-                    if item.get('image'):
-                        st.image(item.get('image'), use_column_width=True)
+                    st.markdown(item.get('description', '').replace('\n', '  \n'))
+                    if item.get('image'): st.image(item.get('image'), use_column_width=True)
                     c1, c2 = st.columns(2)
                     if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
-                        st.session_state.editing_item_id = item_id
-                        st.rerun()
+                        st.session_state.editing_item_id = item_id; st.rerun()
                     if c2.button("🗑️ Delete", key=f"delete_{item_id}", use_container_width=True):
-                        deleted_pair = item.get('pair', 'Item')
-                        del st.session_state.watchlist[index]
-                        user_data = load_user_data(current_user)
-                        user_data['watchlist'] = st.session_state.watchlist
-                        save_user_data(current_user, user_data)
-                        st.toast(f"Deleted {deleted_pair} from watchlist.")
-                        st.rerun()
+                        deleted_pair = item.get('pair', 'Item'); del st.session_state.watchlist[index]
+                        user_data = load_user_data(current_user); user_data['watchlist'] = st.session_state.watchlist; save_user_data(current_user, user_data)
+                        st.toast(f"Deleted {deleted_pair} from watchlist."); st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
