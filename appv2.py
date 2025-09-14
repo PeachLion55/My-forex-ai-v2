@@ -5339,7 +5339,7 @@ elif st.session_state.current_page in ('watch list', 'Watch List'):
             '</div>'
         '</div>'
     )
-    st.markdown(header_html, unsafe_alltowa_html=True)
+    st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
 
     # --- Rest of your watchlist page code continues here ---
