@@ -5413,8 +5413,8 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
             with st.container(border=True):
                 st.subheader(item['pair'])
                 st.write(item['description'])
-                if item['image']:
-                    st.image(item['image'], use_column_width=True)
+                if item.get('image'):  # <-- The fix
+    st.image(item.get('image'), use_column_width=True)
 
                 if st.button("✏️ Edit Item", key=f"edit_{item_id}", use_container_width=True):
                     st.session_state.editing_item_id = item_id # Set state to THIS item's ID
