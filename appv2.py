@@ -5270,7 +5270,7 @@ def get_next_session_end_info(active_sessions_list):
 # =========================================================
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
-if 'editing_item_id' not in st.session_state:
+if 'editing_item_id' not st.session_state:
     st.session_state.editing_item_id = None
     
 if st.session_state.current_page in ('watch list', 'Watch List'):
@@ -5310,27 +5310,18 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
     st.markdown("---")
     
     # =========================================================
-    # COLUMN HEADERS
-    # =========================================================
-    header_col1, header_col2 = st.columns([1, 2], gap="large")
-    with header_col1:
-        st.header("➕ Add New Pair")
-    with header_col2:
-        st.header("👀 Your Watchlist")
-
-    # =========================================================
     # 2-COLUMN MAIN LAYOUT
     # =========================================================
     add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR ---
     with add_col:
+        st.header("➕ Add New Pair") # <-- HEADER MOVED HERE
         with st.form("new_item_form", clear_on_submit=True):
             new_pair = st.text_input("Currency Pair (e.g., EUR/USD)")
             
-            # --- NEW: Timeframe Selector ---
             timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
-            new_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=4) # Default to 1H
+            new_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=4)
 
             new_description = st.text_area("Notes / Analysis", height=150)
             new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
@@ -5341,7 +5332,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                     new_item_data = {
                         "id": datetime.now().isoformat(),
                         "pair": new_pair.upper(),
-                        "timeframe": new_timeframe, # Save the timeframe
+                        "timeframe": new_timeframe,
                         "description": new_description,
                         "image": new_image.getvalue() if new_image else None
                     }
@@ -5353,6 +5344,8 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
 
     # --- COLUMN 2: YOUR WATCHLIST ---
     with display_col:
+        st.header("👀 Your Watchlist") # <-- HEADER MOVED HERE
+
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a new pair using the form on the left.")
 
@@ -5365,7 +5358,6 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
                      with st.form(f"edit_form_{item_id}", clear_on_submit=False):
                         st.subheader(f"Editing {item.get('pair', '')}")
                         
-                        # --- EDIT: Timeframe Selector ---
                         current_tf_index = timeframe_options.index(item.get('timeframe')) if item.get('timeframe') in timeframe_options else 4
                         updated_timeframe = st.selectbox("Timeframe", options=timeframe_options, index=current_tf_index, key=f"tf_{item_id}")
                         
@@ -5390,11 +5382,12 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
             # Display the item normally
             else:
                 with st.container(border=True):
-                    # --- DISPLAY: Show pair AND timeframe ---
                     st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
                     
-                    # --- DISPLAY: Use markdown to preserve newlines ---
-                    st.markdown(item.get('description', ''))
+                    # --- FIX FOR NEWLINES ---
+                    # Replace single newlines with markdown's required "two-spaces + newline"
+                    formatted_description = item.get('description', '').replace('\n', '  \n')
+                    st.markdown(formatted_description, unsafe_allow_html=False) # Use markdown to render
                     
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
