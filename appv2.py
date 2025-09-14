@@ -5207,7 +5207,7 @@ import sqlite3
 # These imports are here for completeness but should likely already be in your app's main file.
 
 # =================================================================================
-# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - Definitive TypeError Fix)
+# FOREX WATCHLIST PAGE (FULLY CORRECTED AND SELF-CONTAINED - Multi-Timeframe Restored)
 # =================================================================================
 
 # This 'if' block is crucial for ensuring the page only appears when selected in your sidebar/navigation.
@@ -5221,7 +5221,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     # --- For multi-timeframe analysis form (Add New Pair) ---
     if 'new_analyses' not in st.session_state: st.session_state.new_analyses = []
     if 'new_pair_input_val' not in st.session_state: st.session_state.new_pair_input_val = ""
-    if 'temp_analysis_tf_input_val' not in st.session_state: st.session_state.temp_analysis_tf_input_val = "1H"
+    if 'temp_analysis_tf_input_val' not in st.session_state: st.session_state.temp_analysis_tf_input_val = "1H" # Default value for the selectbox
     if 'temp_analysis_desc_input_val' not in st.session_state: st.session_state.temp_analysis_desc_input_val = ""
 
     # --- CRITICAL FIX: Ensure session_timings is always initialized as a dict ---
@@ -5282,9 +5282,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                 
             sessions_utc_hours = st.session_state.get('session_timings', {})
             if not isinstance(sessions_utc_hours, dict):
-                logging.error(f"Error: st.session_state.session_timings (for next end time) is not a dict: {type(sessions_utc_hours)}")
-                return None, None # Fail gracefully with tuple
-                
+                 logging.error(f"Error: st.session_state.session_timings (for next end time) is not a dict: {type(sessions_utc_hours)}")
+                 return None, None # Fail gracefully with tuple
+                 
             now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Apply server clock correction
             next_end_times = []
             
@@ -5329,7 +5329,8 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             # 'c' is assumed to be initialized globally
             c.execute("SELECT data FROM users WHERE username = ?", (username,))
             result = c.fetchone()
-            if result and result[0]: return json.loads(result[0])
+            if result and result[0]:
+                return json.loads(result[0])
             return {}
         except (json.JSONDecodeError, sqlite3.Error) as e:
             logging.error(f"Error loading data for user {username}: {e}")
@@ -5389,7 +5390,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     
     icon_path = os.path.join("icons", page_info['icon']); icon_base64 = image_to_base_64(icon_path)
     
-    # --- NameError Fix: Changed `icon_icon_style` to `header_icon_style` ---
+    # Corrected variable name: header_icon_style
     icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{header_icon_style}">' if icon_base64 else ""
     
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", "Guest")}</b>!'
@@ -5425,9 +5426,11 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     with col_an_display:
                         st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
                     with col_an_del:
-                        if st.form_submit_button("🗑️", key=f"temp_delete_analysis_{idx}", help="Remove this analysis"):
+                        # Ensure key is unique within the form
+                        if st.form_submit_button("🗑️", key=f"temp_delete_analysis_in_form_{idx}", help="Remove this analysis"):
                             del st.session_state.new_analyses[idx]
-                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Persist pair name
+                            # Persist the pair name before rerun
+                            st.session_state.new_pair_input_val = st.session_state.final_new_pair_input
                             st.rerun() 
                 st.write("") # Just some spacing
 
@@ -5442,18 +5445,21 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                 "Timeframe",
                 options=timeframe_options,
                 index=temp_analysis_tf_selector_idx,
-                key="analysis_tf_selector"
+                key="analysis_tf_selector_add" # Unique key within the form
             )
+            # Update state with selected value
             st.session_state.temp_analysis_tf_input_val = selected_tf_in_form
             
             entered_desc_in_form = st.text_area(
                 "Notes / Analysis",
                 value=st.session_state.temp_analysis_desc_input_val,
                 height=100,
-                key="analysis_desc_area"
+                key="analysis_desc_area_add" # Unique key within the form
             )
+            # Update state with entered value
             st.session_state.temp_analysis_desc_input_val = entered_desc_in_form
 
+            # Both 'Add Analysis' and 'Save Pair' are submit buttons for this single form.
             add_analysis_submitted = st.form_submit_button("➕ Add This Analysis", use_container_width=True)
             final_save_submitted = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
 
@@ -5464,15 +5470,18 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                         "timeframe": st.session_state.temp_analysis_tf_input_val,
                         "description": st.session_state.temp_analysis_desc_input_val
                     })
-                    st.session_state.temp_analysis_tf_input_val = "1H" # Reset for next entry
-                    st.session_state.temp_analysis_desc_input_val = "" # Reset for next entry
-                    st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Persist pair name
+                    # Reset temporary analysis input states for next entry
+                    st.session_state.temp_analysis_tf_input_val = "1H" 
+                    st.session_state.temp_analysis_desc_input_val = "" 
+                    # Persist main pair input before rerun
+                    st.session_state.new_pair_input_val = st.session_state.final_new_pair_input 
                     st.rerun() # Rerun to update the displayed temporary analyses and reset input fields
                 else:
                     st.warning("Please add notes for the timeframe before adding the analysis.")
             
             elif final_save_submitted:
-                st.session_state.new_pair_input_val = st.session_state.final_new_pair_input # Ensure up-to-date value
+                # Ensure new_pair_input_val is updated from the text_input before using
+                st.session_state.new_pair_input_val = st.session_state.final_new_pair_input 
 
                 if st.session_state.new_pair_input_val and st.session_state.new_analyses:
                     new_item_data = {
@@ -5489,8 +5498,8 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     st.session_state.new_pair_input_val = ""
                     st.session_state.temp_analysis_tf_input_val = "1H"
                     st.session_state.temp_analysis_desc_input_val = ""
-                    st.session_state.final_new_pair_input = ""
-                    st.session_state.final_new_image_input = None 
+                    st.session_state.final_new_pair_input = "" # Clear displayed input
+                    st.session_state.final_new_image_input = None # Clear uploader display
                     
                     st.toast(f"{new_item_data['pair']} added! You gained 5 XP! ⭐", icon="📈")
                     st.balloons(); st.rerun()
@@ -5529,6 +5538,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                                     key=f"edit_desc_{item_id}_{i}_live",
                                     label_visibility="collapsed", height=100
                                 )
+                                # Update the temporary state on change
                                 st.session_state[f'temp_edit_analyses_{item_id}'][i]['description'] = current_desc_for_edit
 
                             with col2:
