@@ -5190,58 +5190,65 @@ if st.session_state.current_page == "Zenvo Academy":
         st.markdown("### 🧰 Trading Resources")
         st.info("This section is under development. Soon you will find helpful tools, articles, and more to aid your trading journey!")
 
-import streamlit as st
-import os
-import io
-import base64
-import pytz
-from datetime import datetime, timedelta
-import logging
-# Make sure these are imported if not already
-import json
-import sqlite3
+# =================================================================================
+# FOREX WATCHLIST PAGE (Self-Contained with Database Logic)
+# =================================================================================
 
-# =========================================================
-# HELPER FUNCTIONS (Place the new DB functions here)
-# =========================================================
-@st.cache_data
-def image_to_base_64(path):
-    # ... (function is unchanged)
-    pass
-# ... (your other helper functions like get_active_market_sessions, etc.) ...
-
-# =========================================================
-# FOREX WATCHLIST PAGE
-# =========================================================
+# Initialize session state variables for this page if they don't exist
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 if 'editing_item_id' not in st.session_state:
     st.session_state.editing_item_id = None
-# --- CHANGE 1: Add a flag to prevent reloading data on every rerun ---
 if 'watchlist_loaded' not in st.session_state:
     st.session_state.watchlist_loaded = False
-    
+
+# Main conditional check to render the watchlist page
 if st.session_state.current_page in ('watch list', 'My Watchlist'):
 
-    # --- Login & Data Loading Section ---
-    if st.session_state.get('logged_in_user') is None:
+    # --- 1. LOCAL HELPER FUNCTIONS (Database Interaction) ---
+    # These functions are defined here to be self-contained within this page's logic.
+    # They assume 'c' and 'conn' (your DB cursor and connection) are available globally.
+    
+    def load_user_data(username):
+        """Fetches a user's data from the DB and decodes it from JSON."""
+        try:
+            c.execute("SELECT data FROM users WHERE username = ?", (username,))
+            result = c.fetchone()
+            if result and result[0]:
+                return json.loads(result[0])
+            return {}  # Return empty dict for new users or if no data
+        except (json.JSONDecodeError, sqlite3.Error) as e:
+            logging.error(f"Error loading data for user {username}: {e}")
+            return {}
+
+    def save_user_data(username, user_data):
+        """Encodes user data to JSON and saves it to the DB."""
+        try:
+            json_data = json.dumps(user_data)
+            c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
+            conn.commit()
+            return True
+        except sqlite3.Error as e:
+            logging.error(f"Error saving data for user {username}: {e}")
+            return False
+
+    # --- 2. LOGIN CHECK & DATA LOADING ---
+    current_user = st.session_state.get('logged_in_user')
+    if not current_user:
         st.warning("Please log in to manage your Forex Watchlist.")
         st.session_state.current_page = 'account'
-        # Reset the loaded flag if user logs out
-        st.session_state.watchlist_loaded = False 
+        st.session_state.watchlist_loaded = False  # Reset flag on logout
         st.rerun()
 
-    # --- CHANGE 2: Load watchlist from DB only once per session ---
-    if not st.session_state.watchlist_loaded and st.session_state.get('logged_in_user'):
-        username = st.session_state.get('logged_in_user')
-        user_data = load_user_data(username)
-        # Safely get the watchlist, default to empty list if not found
+    # Load data from the database ONLY ONCE when the page is first loaded for a user.
+    if not st.session_state.watchlist_loaded:
+        user_data = load_user_data(current_user)
         st.session_state.watchlist = user_data.get('watchlist', [])
         st.session_state.watchlist_loaded = True
-        st.rerun() # Rerun once to ensure the page renders with the loaded data
+        st.rerun()
 
-    # ... (Your CSS and Header Banner code remains the same, no changes needed there) ...
-    # --- CSS FOR ALIGNMENT ---
+    # --- 3. CSS STYLING ---
+    # Includes the definitive fix for top-aligning the columns.
     st.markdown("""
         <style>
             [data-testid="stSidebar"] { display: block !important; }
@@ -5253,7 +5260,8 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
             }
         </style>
         """, unsafe_allow_html=True)
-    # (Header Banner HTML)
+
+    # --- 4. HEADER BANNER ---
     page_info = {'title': 'Forex Watchlist', 'icon': 'watchlist_icon.png', 'caption': 'Track potential trade setups and monitor key currency pairs.'}
     main_container_style = "background-color: black; padding: 20px 25px; border-radius: 10px; display: flex; align-items: center; gap: 20px; border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);"
     left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
@@ -5277,11 +5285,10 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
     st.markdown(header_html, unsafe_allow_html=True)
     st.markdown("---")
     
-    # =========================================================
-    # 2-COLUMN MAIN LAYOUT
-    # =========================================================
+    # --- 5. MAIN 2-COLUMN LAYOUT ---
     add_col, display_col = st.columns([1, 2], gap="large")
 
+    # --- COLUMN 1: ADD NEW PAIR FORM ---
     with add_col:
         st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
         with st.form("new_item_form", clear_on_submit=True):
@@ -5294,18 +5301,15 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                 if new_pair and new_description:
                     new_item_data = {"id": datetime.now().isoformat(), "pair": new_pair.upper(), "timeframe": new_timeframe, "description": new_description, "image": new_image.getvalue() if new_image else None}
                     st.session_state.watchlist.insert(0, new_item_data)
-
-                    # --- CHANGE 3: Save updated data to DB after adding ---
-                    username = st.session_state.get('logged_in_user')
-                    user_data = load_user_data(username) # Load existing data
-                    user_data['watchlist'] = st.session_state.watchlist # Update the watchlist part
-                    save_user_data(username, user_data) # Save all data back
-
+                    user_data = load_user_data(current_user)
+                    user_data['watchlist'] = st.session_state.watchlist
+                    save_user_data(current_user, user_data)
                     st.toast(f"{new_item_data['pair']} added successfully!")
                     st.rerun()
                 else:
                     st.warning("Currency Pair and Notes are required.")
 
+    # --- COLUMN 2: DISPLAY WATCHLIST ---
     with display_col:
         st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
         if not st.session_state.watchlist:
@@ -5313,7 +5317,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
         for index, item in enumerate(st.session_state.watchlist):
             item_id = item['id']
             if st.session_state.editing_item_id == item_id:
-                # Edit form
+                # Show the Edit Form for the selected item
                 with st.container(border=True):
                     with st.form(f"edit_form_{item_id}"):
                         st.subheader(f"Editing {item.get('pair', '')}")
@@ -5326,13 +5330,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                             st.session_state.watchlist[index]['timeframe'] = updated_timeframe
                             st.session_state.watchlist[index]['description'] = updated_desc
                             if updated_img: st.session_state.watchlist[index]['image'] = updated_img.getvalue()
-                            
-                            # --- CHANGE 4: Save updated data to DB after editing ---
-                            username = st.session_state.get('logged_in_user')
-                            user_data = load_user_data(username)
+                            user_data = load_user_data(current_user)
                             user_data['watchlist'] = st.session_state.watchlist
-                            save_user_data(username, user_data)
-                            
+                            save_user_data(current_user, user_data)
                             st.session_state.editing_item_id = None
                             st.toast("Item updated!")
                             st.rerun()
@@ -5340,7 +5340,7 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                             st.session_state.editing_item_id = None
                             st.rerun()
             else:
-                # Normal display
+                # Show the normal display for the item
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')} ({item.get('timeframe', 'N/A')})")
                     formatted_description = item.get('description', '').replace('\n', '  \n')
@@ -5354,13 +5354,9 @@ if st.session_state.current_page in ('watch list', 'My Watchlist'):
                     if c2.button("🗑️ Delete", key=f"delete_{item_id}", use_container_width=True):
                         deleted_pair = item.get('pair', 'Item')
                         del st.session_state.watchlist[index]
-
-                        # --- CHANGE 5 (Bonus): Save updated data to DB after deleting ---
-                        username = st.session_state.get('logged_in_user')
-                        user_data = load_user_data(username)
+                        user_data = load_user_data(current_user)
                         user_data['watchlist'] = st.session_state.watchlist
-                        save_user_data(username, user_data)
-                        
+                        save_user_data(current_user, user_data)
                         st.toast(f"Deleted {deleted_pair} from watchlist.")
                         st.rerun()
                 st.markdown("<br>", unsafe_allow_html=True)
