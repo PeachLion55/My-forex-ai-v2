@@ -5330,7 +5330,7 @@ if st.session_state.current_page in ('watch list', 'Watch List'):
 
     with display_col:
         # Header is back inside the column
-        st.markdown("<h3>👀 Your Watchlist</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
         if not st.session_state.watchlist:
             st.info("Your watchlist is empty. Add a new pair using the form on the left.")
         for index, item in enumerate(st.session_state.watchlist):
