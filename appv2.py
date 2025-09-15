@@ -5402,59 +5402,68 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
     st.markdown("---")
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
-    # This block, along with its content, is now correctly indented.
     add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR FORM ---
     with add_col:
         st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
-        
-        st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
 
-        # Display analyses that have been temporarily added for the new pair
-        for analysis in st.session_state.new_analyses:
-            with st.container(border=True):
-                st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
-
-        # Input fields for a new analysis entry
+        # Input fields for a new analysis entry (these accumulate, not part of the main form to reset on final submit)
+        # They should reset when "Add Timeframe Analysis" button is clicked.
         timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
         analysis_tf = st.selectbox("Timeframe", options=timeframe_options, 
-                                   index=st.session_state.analysis_tf_index, key="analysis_tf_select")
+                                   index=st.session_state.analysis_tf_index, key="analysis_tf_select_input") # Distinct key
         analysis_desc = st.text_area("Notes / Analysis", height=100, 
-                                     value=st.session_state.analysis_desc_value, key="analysis_desc_text")
+                                     value=st.session_state.analysis_desc_value, key="analysis_desc_text_input") # Distinct key
 
         if st.button("➕ Add Timeframe Analysis", use_container_width=True, key="add_tf_analysis_button"):
-            if st.session_state.analysis_desc_text: # Check the value from the actual widget key
+            if st.session_state.analysis_desc_text_input: # Use the key of the individual text_area
                 st.session_state.new_analyses.append({
-                    "timeframe": st.session_state.analysis_tf_select, # Get value from actual widget key
-                    "description": st.session_state.analysis_desc_text
+                    "timeframe": st.session_state.analysis_tf_select_input, # Use the key of the individual selectbox
+                    "description": st.session_state.analysis_desc_text_input
                 })
-                st.session_state.analysis_desc_value = "" # Reset the text area
-                st.session_state.analysis_tf_index = 4   # Reset the selectbox to 4H
+                # Manually reset for the next individual analysis entry
+                st.session_state.analysis_desc_value = ""
+                st.session_state.analysis_tf_index = 4 # Reset to 4H
                 st.rerun()
             else:
                 st.warning("Please add notes for the timeframe.")
 
+        st.markdown("---") # Separator after individual analysis input
+
+        # Display analyses that have been temporarily added for the new pair.
+        # This section is now below the input for adding analyses but above the main form for saving the pair.
+        st.markdown("<h5>Current Timeframe Analyses for New Pair:</h5>", unsafe_allow_html=True)
+        if st.session_state.new_analyses:
+            for analysis in st.session_state.new_analyses:
+                with st.container(border=True):
+                    st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
+        else:
+            st.info("No analyses added yet. Use the fields above to add one.")
+        
         st.markdown("---")
 
-        # --- Main form for saving the pair, now wrapped in st.form with clear_on_submit ---
+        # Start the main form for the pair details (currency, image, entry/exit, save button)
+        # This form uses clear_on_submit=True to reset its specific fields.
         with st.form("save_pair_form", clear_on_submit=True):
-            # These inputs are now part of the main form and will reset on submit
-            new_pair_form = st.text_input("Currency Pair", placeholder="e.g., EUR/USD", key="main_form_new_pair")
-            new_image_form = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'], key="main_form_new_image")
+            # 1. Currency Pair and Upload Image (now first inside the form)
+            new_pair_form = st.text_input("Currency Pair", placeholder="e.g., EUR/USD", key="main_form_new_pair_final")
+            new_image_form = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'], key="main_form_new_image_final")
             
             st.markdown("---")
+
+            # 2. When to enter and When to exit
             st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
-            when_to_enter_form = st.text_area("When to enter", height=100, key="main_form_when_to_enter")
-            when_to_exit_form = st.text_area("When to exit", height=100, key="main_form_when_to_exit")
+            when_to_enter_form = st.text_area("When to enter", height=100, key="main_form_when_to_enter_final")
+            when_to_exit_form = st.text_area("When to exit", height=100, key="main_form_when_to_exit_final")
+
             st.markdown("---")
 
-            # This is the submit button for the 'save_pair_form'
+            # 3. Save button
             submitted = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
 
-            if submitted: # Check if the form was submitted
+            if submitted:
                 if new_pair_form and st.session_state.new_analyses:
-                    # Construct the new item, now including the 'created_at' timestamp and entry/exit points
                     new_item_data = {
                         "id": datetime.now().isoformat(),
                         "created_at": datetime.now().isoformat(),
@@ -5466,17 +5475,20 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                     }
 
                     st.session_state.watchlist.insert(0, new_item_data)
-
                     user_data = load_user_data(current_user)
                     current_xp = user_data.get('xp', 0)
                     user_data['xp'] = current_xp + 5
                     user_data['watchlist'] = st.session_state.watchlist
                     save_user_data(current_user, user_data)
 
-                    st.session_state.new_analyses = [] # Clear temporary analyses after saving
+                    st.session_state.new_analyses = [] # Clear temporary analyses after saving the pair
+                    # Reset individual analysis inputs just in case (though rerunning should handle it)
+                    st.session_state.analysis_desc_value = ""
+                    st.session_state.analysis_tf_index = 4
+                    
                     st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
                     st.balloons()
-                    st.rerun() # Rerun to update the display and ensure a clean state
+                    st.rerun()
                 else:
                     st.warning("Currency Pair and at least one timeframe analysis are required.")
 
