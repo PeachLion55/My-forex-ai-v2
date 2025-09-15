@@ -5527,7 +5527,8 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                     if created_at_iso and created_at_iso != 'unknown date':
                         try:
                             created_datetime = datetime.fromisoformat(created_at_iso)
-                            day_with_ordinal = ordinal(created_datetime.day)
+                            # Assuming 'ordinal' function is defined elsewhere (e.g., in utils.py)
+                            day_with_ordinal = ordinal(created_datetime.day) 
                             formatted_date = created_datetime.strftime(f"%A {day_with_ordinal} %B %Y")
                             st.caption(f"Added on: {formatted_date}")
                         except ValueError:
@@ -5538,7 +5539,20 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                     for analysis in item.get('analyses', []):
                         tf = analysis.get('timeframe', 'N/A')
                         desc = analysis.get('description', '').replace('\n', '  \n')
-                        st.markdown(f"**{tf}:** {desc}")
+                        
+                        # Create two columns for timeframe and description
+                        # Adjusted column ratio for better visual balance
+                        tf_display_col, desc_display_col = st.columns([0.2, 0.8], gap="small") 
+
+                        with tf_display_col:
+                            # Display timeframe in a bordered container (box)
+                            with st.container(border=True):
+                                # Center the text inside the box for better appearance
+                                st.markdown(f"<div style='text-align: center; line-height: 1;'>**{tf}**</div>", unsafe_allow_html=True)
+                        
+                        with desc_display_col:
+                            # Display description
+                            st.markdown(f"{desc}")
 
                     if item.get('image'): 
                         st.image(item.get('image'), use_column_width=True)
@@ -5557,4 +5571,4 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                         
                         st.toast(f"Deleted {deleted_pair} from watchlist.")
                         st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)```
