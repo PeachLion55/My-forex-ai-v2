@@ -5457,17 +5457,6 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                 user_data = load_user_data(current_user)
                 user_data['xp'] = user_data.get('xp', 0) + 5
                 user_data['watchlist'] = st.session_state.watchlist
-                
-                # --- START FIX: Add XP transaction to xp_log ---
-                xp_log = user_data.get('xp_log', [])
-                xp_log.append({
-                    "timestamp": datetime.now(pytz.utc).isoformat(),
-                    "amount": 5,
-                    "reason": f"Logged new pair: {new_pair.upper()}"
-                })
-                user_data['xp_log'] = xp_log
-                # --- END FIX ---
-
                 save_user_data(current_user, user_data)
                 st.session_state.new_analyses = []
                 st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
