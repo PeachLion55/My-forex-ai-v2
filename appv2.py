@@ -5571,4 +5571,4 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                         
                         st.toast(f"Deleted {deleted_pair} from watchlist.")
                         st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)```
+                st.markdown("<br>", unsafe_allow_html=True)
