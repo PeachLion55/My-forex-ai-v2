@@ -5409,6 +5409,7 @@ add_col, display_col = st.columns([1, 2], gap="large")
 with add_col:
     st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
 
+    # Wrap the entire input area in a form for the clear_on_submit functionality
     with st.form("new_pair_form", clear_on_submit=True):
         new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
         new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
@@ -5418,61 +5419,71 @@ with add_col:
 
         # Input fields for a new analysis entry
         timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
-        analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf")
-        analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc")
+        analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4)
+        analysis_desc = st.text_area("Notes / Analysis", height=100)
 
-        if st.form_submit_button("➕ Add Timeframe Analysis", use_container_width=True):
-            if analysis_desc:
-                st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
-                # No rerun here to keep the form state
-            else:
-                st.warning("Please add notes for the timeframe.")
+        # This button is now part of the main form, but its logic is handled separately
+        add_analysis_button = st.form_submit_button("➕ Add Timeframe Analysis", use_container_width=True)
 
-        # Display analyses that have been temporarily added for the new pair
+        st.markdown("---")
+
+        # --- NEW FORM SECTION: WHEN TO ENTER AND EXIT ---
+        st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
+        when_to_enter = st.text_area("When to enter", height=100)
+        when_to_exit = st.text_area("When to exit", height=100)
+
+        st.markdown("---")
+
+        # Main submit button for the form
+        save_button = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
+
+    # --- LOGIC TO HANDLE BUTTON CLICKS (OUTSIDE THE FORM DEFINITION) ---
+
+    # Logic for adding a temporary analysis
+    if add_analysis_button:
+        if analysis_desc:
+            st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
+            st.rerun() # Rerun to show the added analysis and clear the input fields
+        else:
+            st.warning("Please add notes for the timeframe.")
+
+    # Display analyses that have been temporarily added for the new pair
+    if st.session_state.new_analyses:
+        st.markdown("<h6>Pending Analyses</h6>", unsafe_allow_html=True)
         for analysis in st.session_state.new_analyses:
             with st.container(border=True):
                 # Replace newline characters with <br> for HTML rendering
                 display_desc = analysis['description'].replace('\n', '<br>')
                 st.markdown(f"**{analysis['timeframe']}:**<br>{display_desc}", unsafe_allow_html=True)
 
-        st.markdown("---")
+    # Logic for saving the entire pair to the watchlist
+    if save_button:
+        if new_pair and st.session_state.new_analyses:
+            new_item_data = {
+                "id": datetime.now().isoformat(),
+                "created_at": datetime.now().isoformat(),
+                "pair": new_pair.upper(),
+                "analyses": st.session_state.new_analyses,
+                "image": new_image.getvalue() if new_image else None,
+                "when_to_enter": when_to_enter,
+                "when_to_exit": when_to_exit
+            }
 
-        # --- NEW FORM SECTION: WHEN TO ENTER AND EXIT ---
-        st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
-        when_to_enter = st.text_area("When to enter", height=100, key="when_to_enter")
-        when_to_exit = st.text_area("When to exit", height=100, key="when_to_exit")
+            st.session_state.watchlist.insert(0, new_item_data)
 
-        st.markdown("---")
+            user_data = load_user_data(current_user)
+            current_xp = user_data.get('xp', 0)
+            user_data['xp'] = current_xp + 5
+            user_data['watchlist'] = st.session_state.watchlist
+            save_user_data(current_user, user_data)
 
-        submitted = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
-        if submitted:
-            if new_pair and st.session_state.new_analyses:
-                # Construct the new item, now including the 'created_at' timestamp and entry/exit points
-                new_item_data = {
-                    "id": datetime.now().isoformat(),
-                    "created_at": datetime.now().isoformat(), # ADDED TIMESTAMP
-                    "pair": new_pair.upper(),
-                    "analyses": st.session_state.new_analyses,
-                    "image": new_image.getvalue() if new_image else None,
-                    "when_to_enter": when_to_enter,
-                    "when_to_exit": when_to_exit
-                }
+            st.session_state.new_analyses = []
+            st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
+            st.balloons()
+            st.rerun()
+        else:
+            st.warning("Currency Pair and at least one timeframe analysis are required.")
 
-                st.session_state.watchlist.insert(0, new_item_data)
-
-                user_data = load_user_data(current_user)
-                # It's good practice to initialize 'xp' if it doesn't exist
-                current_xp = user_data.get('xp', 0)
-                user_data['xp'] = current_xp + 5
-                user_data['watchlist'] = st.session_state.watchlist
-                save_user_data(current_user, user_data)
-
-                st.session_state.new_analyses = []
-                st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
-                st.balloons()
-                st.rerun()
-            else:
-                st.warning("Currency Pair and at least one timeframe analysis are required.")
 
 # --- COLUMN 2: DISPLAY WATCHLIST ---
 with display_col:
@@ -5559,13 +5570,14 @@ with display_col:
 
                     for analysis in item.get('analyses', []):
                         tf = analysis.get('timeframe', 'N/A')
-                        # Replace newline characters with HTML line breaks
+                        # Replace newline characters with HTML line breaks for correct rendering
                         desc = analysis.get('description', '').replace('\n', '<br>')
 
+                        # CORRECTED: Changed align-items to 'center' for proper vertical alignment
                         st.markdown(f"""
-                            <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                                 <div style="
-                                    border: 1px solid var(--border-color);
+                                    border: 1px solid #444;
                                     border-radius: 4px;
                                     width: 40px;
                                     height: 40px;
@@ -5582,19 +5594,18 @@ with display_col:
                             </div>
                         """, unsafe_allow_html=True)
 
-                    enter_point = item.get('when_to_enter', '')
-                    exit_point = item.get('when_to_exit', '')
+                    # Replace newlines with Markdown's "two spaces and a newline" for rendering
+                    enter_point = item.get('when_to_enter', '').replace('\n', '  \n')
+                    exit_point = item.get('when_to_exit', '').replace('\n', '  \n')
 
                     if enter_point or exit_point:
                         st.markdown("---")
                         if enter_point:
                             st.markdown("**When to enter:**")
-                            # Replace newlines for display
-                            st.success(enter_point.replace('\n', '  \n'))
+                            st.success(enter_point)
                         if exit_point:
                             st.markdown("**When to exit:**")
-                            # Replace newlines for display
-                            st.error(exit_point.replace('\n', '  \n'))
+                            st.error(exit_point)
 
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
