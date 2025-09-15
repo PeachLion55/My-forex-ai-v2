@@ -5568,7 +5568,10 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
 
                     if item.get('image'): 
                         st.image(item.get('image'), use_column_width=True)
-                        
+                    
+                    # Add a line break to move the buttons slightly lower
+                    st.markdown("<br>", unsafe_allow_html=True) 
+
                     c1, c2 = st.columns(2)
                     if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
                         st.session_state.editing_item_id = item_id
@@ -5583,4 +5586,4 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                         
                         st.toast(f"Deleted {deleted_pair} from watchlist.")
                         st.rerun()
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<br>", unsafe_allow_html=True)```
