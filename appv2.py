@@ -5396,12 +5396,14 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
 # These columns and their content are correctly placed inside the page rendering condition.
-add_col, display_col = st.columns([1, 2], gap="large")
+# MODIFIED: Changed ratio from [1, 2] to [1, 2.5] to make the display column wider.
+add_col, display_col = st.columns([1, 2.5], gap="large")
 
 # --- COLUMN 1: ADD NEW PAIR FORM ---
 with add_col:
     st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
-    new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
+    # MODIFIED: Added key to enable programmatic reset.
+    new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD", key="new_pair_input")
     new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
     st.markdown("---")
 
@@ -5420,6 +5422,8 @@ with add_col:
     if st.button("➕ Add Timeframe Analysis", use_container_width=True):
         if analysis_desc:
             st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
+            # MODIFIED: Clear the analysis description box after adding.
+            st.session_state.analysis_desc = ""
             st.rerun()
         else:
             st.warning("Please add notes for the timeframe.")
@@ -5428,8 +5432,9 @@ with add_col:
 
     # --- NEW FORM SECTION: WHEN TO ENTER AND EXIT ---
     st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
-    when_to_enter = st.text_area("When to enter", height=100, key="when_to_enter")
-    when_to_exit = st.text_area("When to exit", height=100, key="when_to_exit")
+    # MODIFIED: Added keys to enable programmatic reset.
+    when_to_enter = st.text_area("When to enter", height=100, key="when_to_enter_input")
+    when_to_exit = st.text_area("When to exit", height=100, key="when_to_exit_input")
 
     st.markdown("---")
 
@@ -5449,13 +5454,18 @@ with add_col:
             st.session_state.watchlist.insert(0, new_item_data)
 
             user_data = load_user_data(current_user)
-            # It's good practice to initialize 'xp' if it doesn't exist
             current_xp = user_data.get('xp', 0)
             user_data['xp'] = current_xp + 5
             user_data['watchlist'] = st.session_state.watchlist
             save_user_data(current_user, user_data)
 
+            # --- MODIFIED: Reset all form fields ---
             st.session_state.new_analyses = []
+            st.session_state.new_pair_input = ""
+            st.session_state.when_to_enter_input = ""
+            st.session_state.when_to_exit_input = ""
+            # The file uploader and selectbox reset automatically on rerun.
+
             st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
             st.balloons()
             st.rerun()
@@ -5471,8 +5481,6 @@ with display_col:
     for index, item in enumerate(st.session_state.watchlist):
         item_id = item['id']
         
-        # MODIFIED: Each item is now in an st.expander (dropdown)
-        # The expander will be open by default if the item is being edited.
         is_editing = st.session_state.editing_item_id == item_id
         with st.expander(f"**{item.get('pair', 'N/A')}**", expanded=is_editing):
 
@@ -5511,10 +5519,8 @@ with display_col:
                             # --- Logic to handle deletions and updates ---
                             updated_analyses = []
                             for i, analysis in enumerate(original_analyses):
-                                # Check the state of the checkbox to decide if we keep this analysis
                                 delete_this = st.session_state[f"delete_flag_{item_id}_{i}"]
                                 if not delete_this:
-                                    # Get the updated description from its corresponding text_area
                                     updated_description = st.session_state[f"edit_desc_{item_id}_{i}"]
                                     updated_analyses.append({
                                         "timeframe": analysis['timeframe'],
@@ -5540,10 +5546,8 @@ with display_col:
                             st.session_state.editing_item_id = None
                             st.rerun()
             else:
-                # Normal item display now includes the datestamp and entry/exit points
+                # Normal item display
                 with st.container(border=True):
-                    st.subheader(f"{item.get('pair', 'N/A')}")
-
                     # Display the added date with the new format
                     created_at_iso = item.get('created_at')
                     if created_at_iso and created_at_iso != 'unknown date':
@@ -5561,11 +5565,9 @@ with display_col:
                         tf = analysis.get('timeframe', 'N/A')
                         desc = analysis.get('description', '').replace('\n', '  \n')
                         
-                        # Create two columns for timeframe and description
                         tf_display_col, desc_display_col = st.columns([0.1, 0.9], gap="small") 
 
                         with tf_display_col:
-                            # Display timeframe in a bordered square box using inline CSS
                             st.markdown(f"""
                                 <div style="
                                     border: 1px solid var(--border-color);
@@ -5584,10 +5586,8 @@ with display_col:
                             """, unsafe_allow_html=True)
                         
                         with desc_display_col:
-                            # Display description, with a small top margin to align it vertically with the box
                             st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True)
                     
-                    # --- DISPLAY WHEN TO ENTER AND EXIT ---
                     enter_point = item.get('when_to_enter', '')
                     exit_point = item.get('when_to_exit', '')
 
@@ -5600,11 +5600,9 @@ with display_col:
                             st.markdown("**When to exit:**")
                             st.error(exit_point)
 
-
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
 
-                    # Add a line break to move the buttons slightly lower
                     st.markdown("<div style='height: 11px;'></div>", unsafe_allow_html=True)
 
                     c1, c2 = st.columns(2)
