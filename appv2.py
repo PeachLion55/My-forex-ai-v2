@@ -5547,24 +5547,24 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                             # Display timeframe in a bordered square box using inline CSS
                             st.markdown(f"""
                                 <div style="
-                                    border: 1px solid var(--border-color); /* Use Streamlit's default border color */
-                                    border-radius: 4px; /* Optional: slight round corners */
-                                    width: 40px; /* Fixed width for a square box */
-                                    height: 40px; /* Fixed height for a square box */
+                                    border: 1px solid var(--border-color);
+                                    border-radius: 4px;
+                                    width: 40px;
+                                    height: 40px;
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
                                     font-weight: bold;
-                                    font-size: 0.9em; /* Adjust font size for compactness */
-                                    margin-bottom: 0.25rem; /* Small margin below the box */
+                                    font-size: 0.9em;
+                                    margin-bottom: 0.25rem;
                                 ">
                                     {tf}
                                 </div>
-                            """, unsafe_allow_html=True) [1, 2, 4, 5, 6]
+                            """, unsafe_allow_html=True)
                         
                         with desc_display_col:
                             # Display description, with a small top margin to align it vertically with the box
-                            st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True) [6]
+                            st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True)
 
                     if item.get('image'): 
                         st.image(item.get('image'), use_column_width=True)
