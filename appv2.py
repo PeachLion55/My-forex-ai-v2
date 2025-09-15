@@ -5408,77 +5408,67 @@ add_col, display_col = st.columns([1, 2], gap="large")
 # --- COLUMN 1: ADD NEW PAIR FORM ---
 with add_col:
     st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
-    
-    # Using st.form to group inputs for a single submission action
+
+    # Use a single form for all inputs to ensure proper reset on submission.
     with st.form("new_pair_form", clear_on_submit=True):
         new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
         new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
         st.markdown("---")
 
-        st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
-
-        # --- MOVED: Display pending analyses above the input fields ---
+        # --- CORRECTED LAYOUT: PENDING ANALYSES NOW ON TOP ---
         if st.session_state.new_analyses:
             st.markdown("<h6>Pending Analyses to be Saved:</h6>", unsafe_allow_html=True)
             for analysis in st.session_state.new_analyses:
                 with st.container(border=True):
+                    # Use HTML <br> for line breaks in this temporary view
                     display_desc = analysis['description'].replace('\n', '<br>')
                     st.markdown(f"**{analysis['timeframe']}:**<br>{display_desc}", unsafe_allow_html=True)
             st.markdown("---")
 
-
+        st.markdown("<h5>Add Timeframe Analysis</h5>", unsafe_allow_html=True)
+        
         # Input fields for a new analysis entry
         timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
         analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4)
         analysis_desc = st.text_area("Notes / Analysis", height=100)
 
-        # This button is now part of the form, but its logic is handled outside the main save
+        # Button to add analysis to the pending list (does not save the pair)
         add_analysis_button = st.form_submit_button("➕ Add Timeframe Analysis", use_container_width=True)
 
         st.markdown("---")
 
-        # --- NEW FORM SECTION: WHEN TO ENTER AND EXIT ---
         st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
         when_to_enter = st.text_area("When to enter", height=100)
         when_to_exit = st.text_area("When to exit", height=100)
 
         st.markdown("---")
 
-        # The main submit button for the form
+        # Main button to save the entire pair and all pending analyses
         save_button = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
 
-    # --- LOGIC TO HANDLE BUTTON CLICKS (Placed after the form definition) ---
+    # --- LOGIC TO HANDLE BUTTON CLICKS (Must be outside the 'with st.form' block) ---
 
-    # Logic for adding a temporary analysis without saving the pair
     if add_analysis_button:
         if analysis_desc:
             st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
-            st.rerun() # Rerun to show the new pending analysis and clear the form fields
+            st.rerun() # Rerun to display the new pending item and clear the inputs
         else:
             st.warning("Please add notes for the timeframe.")
 
-    # Logic for saving the entire pair to the watchlist
     if save_button:
         if new_pair and st.session_state.new_analyses:
             new_item_data = {
-                "id": datetime.now().isoformat(),
-                "created_at": datetime.now().isoformat(),
-                "pair": new_pair.upper(),
-                "analyses": st.session_state.new_analyses,
+                "id": datetime.now().isoformat(), "created_at": datetime.now().isoformat(),
+                "pair": new_pair.upper(), "analyses": st.session_state.new_analyses,
                 "image": new_image.getvalue() if new_image else None,
-                "when_to_enter": when_to_enter,
-                "when_to_exit": when_to_exit
+                "when_to_enter": when_to_enter, "when_to_exit": when_to_exit
             }
-
             st.session_state.watchlist.insert(0, new_item_data)
-
             user_data = load_user_data(current_user)
             user_data['xp'] = user_data.get('xp', 0) + 5
             user_data['watchlist'] = st.session_state.watchlist
             save_user_data(current_user, user_data)
-
-            # Clear the temporary list for the next entry
-            st.session_state.new_analyses = []
+            st.session_state.new_analyses = [] # Clear pending list
             st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
             st.balloons()
             st.rerun()
@@ -5493,15 +5483,13 @@ with display_col:
 
     for index, item in enumerate(st.session_state.watchlist):
         item_id = item['id']
-        
         is_editing = st.session_state.editing_item_id == item_id
         with st.expander(f"**{item.get('pair', 'N/A')}**", expanded=is_editing):
             if is_editing:
-                # --- EDIT FORM ---
+                # --- EDIT FORM (remains unchanged) ---
                 with st.container(border=True):
                     with st.form(f"edit_form_{item_id}"):
                         st.subheader(f"Editing {item.get('pair', '')}")
-                        # ... (Edit form code remains the same as your original)
                         original_analyses = item.get('analyses', [])
                         st.markdown("<h6>Mark any analysis for deletion and click Save.</h6>", unsafe_allow_html=True)
                         for i, analysis in enumerate(original_analyses):
@@ -5522,8 +5510,7 @@ with display_col:
                             updated_analyses = []
                             for i, analysis in enumerate(original_analyses):
                                 if not st.session_state[f"delete_flag_{item_id}_{i}"]:
-                                    updated_description = st.session_state[f"edit_desc_{item_id}_{i}"]
-                                    updated_analyses.append({"timeframe": analysis['timeframe'], "description": updated_description})
+                                    updated_analyses.append({"timeframe": analysis['timeframe'], "description": st.session_state[f"edit_desc_{item_id}_{i}"]})
                             st.session_state.watchlist[index]['analyses'] = updated_analyses
                             st.session_state.watchlist[index]['when_to_enter'] = edit_enter
                             st.session_state.watchlist[index]['when_to_exit'] = edit_exit
@@ -5538,7 +5525,7 @@ with display_col:
                             st.session_state.editing_item_id = None
                             st.rerun()
             else:
-                # --- NORMAL DISPLAY ---
+                # --- NORMAL ITEM DISPLAY ---
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')}")
                     created_at_iso = item.get('created_at')
@@ -5554,21 +5541,13 @@ with display_col:
                         tf = analysis.get('timeframe', 'N/A')
                         desc = analysis.get('description', '').replace('\n', '<br>')
                         
-                        # --- DEFINITIVE ALIGNMENT FIX USING FLOAT ---
+                        # --- DEFINITIVE ALIGNMENT FIX USING CSS GRID ---
                         st.markdown(f"""
-                            <div style="margin-bottom: 10px; overflow: auto;">
+                            <div style="display: grid; grid-template-columns: 40px auto; align-items: start; gap: 10px; margin-bottom: 10px;">
                                 <div style="
-                                    float: left;
-                                    border: 1px solid #444;
-                                    border-radius: 4px;
-                                    width: 40px;
-                                    height: 40px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-weight: bold;
-                                    font-size: 0.9em;
-                                    margin-right: 10px;
+                                    border: 1px solid #444; border-radius: 4px; width: 40px; height: 40px;
+                                    display: flex; align-items: center; justify-content: center;
+                                    font-weight: bold; font-size: 0.9em;
                                 ">
                                     {tf}
                                 </div>
@@ -5576,30 +5555,24 @@ with display_col:
                             </div>
                         """, unsafe_allow_html=True)
                     
-                    # For st.success/error, use markdown's double space for line breaks
                     enter_point = item.get('when_to_enter', '').replace('\n', '  \n')
                     exit_point = item.get('when_to_exit', '').replace('\n', '  \n')
-
                     if enter_point or exit_point:
                         st.markdown("---")
                         if enter_point:
-                            st.markdown("**When to enter:**")
-                            st.success(enter_point)
+                            st.markdown("**When to enter:**"); st.success(enter_point)
                         if exit_point:
-                            st.markdown("**When to exit:**")
-                            st.error(exit_point)
+                            st.markdown("**When to exit:**"); st.error(exit_point)
 
                     if item.get('image'): st.image(item.get('image'), use_column_width=True)
                     st.markdown("<div style='height: 11px;'></div>", unsafe_allow_html=True)
                     c1, c2 = st.columns(2)
                     if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
-                        st.session_state.editing_item_id = item_id
-                        st.rerun()
+                        st.session_state.editing_item_id = item_id; st.rerun()
                     if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True):
                         deleted_pair = item.get('pair', 'Item')
                         del st.session_state.watchlist[index]
                         user_data = load_user_data(current_user)
                         user_data['watchlist'] = st.session_state.watchlist
                         save_user_data(current_user, user_data)
-                        st.toast(f"Deleted {deleted_pair} from watchlist.")
-                        st.rerun()
+                        st.toast(f"Deleted {deleted_pair} from watchlist."); st.rerun()
