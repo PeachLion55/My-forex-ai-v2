@@ -5220,8 +5220,8 @@ class CustomJSONEncoder(json.JSONEncoder):
         if pd.isna(obj) or (isinstance(obj, float) and np.isnan(obj)): return None
         return super().default(obj)
 
-# --- Initialize ALL session state variables for this page at the top ---
-# This ensures they are consistently available and initialized regardless of the current page.
+# --- Initialize ALL session state variables at the very top ---
+# This ensures consistent state across reruns and different pages.
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 if 'editing_item_id' not in st.session_state:
@@ -5230,10 +5230,6 @@ if 'watchlist_loaded' not in st.session_state:
     st.session_state.watchlist_loaded = False
 if 'new_analyses' not in st.session_state: # Temporary list for adding new analyses
     st.session_state.new_analyses = []
-if 'analysis_tf_index' not in st.session_state: # For resetting selectbox
-    st.session_state.analysis_tf_index = 4 # Default to 4H
-if 'analysis_desc_value' not in st.session_state: # For resetting textarea
-    st.session_state.analysis_desc_value = ""
 
 
 # Main conditional check to render the watchlist page
@@ -5329,8 +5325,6 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
             logging.error("Database connection 'conn' or cursor 'c' not found or is None in save_user_data.")
             return False
         try:
-            # Use CustomJSONEncoder if needed for broader data types, otherwise default dumps is fine
-            # For watchlist, created_at is already isoformat, so default dumps should work.
             json_data = json.dumps(user_data, cls=CustomJSONEncoder) 
             c.execute("UPDATE users SET data = ? WHERE username = ?", (json_data, username))
             conn.commit()
@@ -5363,12 +5357,11 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
     # --- 3. CSS STYLING ---
     st.markdown("""
         <style>
-            /* Ensure sidebar is visible only on relevant pages if needed */
-            /* [data-testid="stSidebar"] { display: block !important; } */
-            /* Remove the problematic display: flex on horizontal block if it interferes */
-            /* div[data-testid="stHorizontalBlock"] { align-items: flex-start; } */ 
+            /* Ensure the parent container of st.columns aligns items to the start (top) */
+            div[data-testid="stHorizontalBlock"] {
+                align-items: start; /* THIS IS CRUCIAL FOR TOP ALIGNMENT OF COLUMNS */
+            }
             div[data-testid="column"] h3 { margin-top: 0.2rem; }
-            /* This CSS is only applied when this page is rendered */
         </style>
         """, unsafe_allow_html=True)
 
@@ -5395,9 +5388,9 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
     
     header_html = ( f'<div style="{main_container_style}"><div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div><div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div><div style="{info_tab_style}">{market_sessions_display}</div>{timer_display}</div></div></div>' )
     st.markdown(header_html, unsafe_allow_html=True)
-    st.markdown("---")
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
+    # The st.markdown("---") has been moved to after the columns to prevent it from pushing them down.
     add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR FORM ---
@@ -5538,6 +5531,7 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                             tf = analysis.get('timeframe', 'N/A')
                             desc = analysis.get('description', '').replace('\n', '<br>')
                             
+                            # --- CSS GRID for robust alignment of box and description ---
                             st.markdown(f"""
                                 <div style="display: grid; grid-template-columns: 40px auto; align-items: start; gap: 10px; margin-bottom: 10px;">
                                     <div style="
@@ -5577,3 +5571,6 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                             save_user_data(current_user, user_data)
                             st.toast(f"Deleted {deleted_pair} from watchlist.")
                             st.rerun()
+    
+    # Place the horizontal rule after the columns
+    st.markdown("---") 
