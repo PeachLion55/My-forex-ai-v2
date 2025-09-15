@@ -5389,8 +5389,10 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
     header_html = ( f'<div style="{main_container_style}"><div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div><div style="{right_column_style}"><div style="{info_tab_style}">{welcome_message}</div><div><div style="{info_tab_style}">{market_sessions_display}</div>{timer_display}</div></div></div>' )
     st.markdown(header_html, unsafe_allow_html=True)
     
-    # --- 5. MAIN 2-COLUMN LAYOUT ---
-    # The st.markdown("---") has been moved to after the columns to prevent it from pushing them down.
+        # --- 5. MAIN 2-COLUMN LAYOUT ---
+    # The horizontal rule below pushes the entire 2-column layout down from the header.
+    st.markdown("---")
+    
     add_col, display_col = st.columns([1, 2], gap="large")
 
     # --- COLUMN 1: ADD NEW PAIR FORM ---
