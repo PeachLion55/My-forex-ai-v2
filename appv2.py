@@ -5442,8 +5442,8 @@ with add_col:
                 "pair": new_pair.upper(),
                 "analyses": st.session_state.new_analyses,
                 "image": new_image.getvalue() if new_image else None,
-                "when_to_enter": when_to_enter, # ADDED
-                "when_to_exit": when_to_exit    # ADDED
+                "when_to_enter": when_to_enter,
+                "when_to_exit": when_to_exit
             }
 
             st.session_state.watchlist.insert(0, new_item_data)
@@ -5518,8 +5518,8 @@ with display_col:
 
                         # Update the watchlist item with the filtered/updated analyses and entry/exit points
                         st.session_state.watchlist[index]['analyses'] = updated_analyses
-                        st.session_state.watchlist[index]['when_to_enter'] = edit_enter # UPDATE
-                        st.session_state.watchlist[index]['when_to_exit'] = edit_exit   # UPDATE
+                        st.session_state.watchlist[index]['when_to_enter'] = edit_enter
+                        st.session_state.watchlist[index]['when_to_exit'] = edit_exit
 
                         if updated_img:
                             st.session_state.watchlist[index]['image'] = updated_img.getvalue()
@@ -5555,10 +5555,9 @@ with display_col:
                 for analysis in item.get('analyses', []):
                     tf = analysis.get('timeframe', 'N/A')
                     desc = analysis.get('description', '').replace('\n', '  \n')
-
+                    
                     # Create two columns for timeframe and description
-                    # Adjusted column ratio for a compact timeframe box (0.1 for timeframe, 0.9 for description)
-                    tf_display_col, desc_display_col = st.columns([0.1, 0.9], gap="small")
+                    tf_display_col, desc_display_col = st.columns([0.1, 0.9], gap="small") 
 
                     with tf_display_col:
                         # Display timeframe in a bordered square box using inline CSS
@@ -5578,7 +5577,7 @@ with display_col:
                                 {tf}
                             </div>
                         """, unsafe_allow_html=True)
-
+                    
                     with desc_display_col:
                         # Display description, with a small top margin to align it vertically with the box
                         st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True)
@@ -5591,10 +5590,10 @@ with display_col:
                     st.markdown("---")
                     if enter_point:
                         st.markdown("**When to enter:**")
-                        st.info(enter_point, icon="▶️")
+                        st.success(enter_point) # MODIFIED for green highlight
                     if exit_point:
                         st.markdown("**When to exit:**")
-                        st.info(exit_point, icon="⏹️")
+                        st.error(exit_point) # MODIFIED for red highlight
 
 
                 if item.get('image'):
@@ -5607,7 +5606,7 @@ with display_col:
                 if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
                     st.session_state.editing_item_id = item_id
                     st.rerun()
-                if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True): # Renamed button for clarity
+                if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True):
                     deleted_pair = item.get('pair', 'Item')
                     del st.session_state.watchlist[index]
 
