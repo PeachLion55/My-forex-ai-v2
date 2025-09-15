@@ -5402,38 +5402,34 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
     st.markdown("---")
     
     # --- 5. MAIN 2-COLUMN LAYOUT ---
-# These columns and their content are correctly placed inside the page rendering condition.
-add_col, display_col = st.columns([1, 2], gap="large")
+    # These columns and their content are correctly placed inside the page rendering condition.
+    add_col, display_col = st.columns([1, 2], gap="large")
 
-# --- COLUMN 1: ADD NEW PAIR FORM ---
-with add_col:
-    st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
-
-    with st.form("new_pair_form", clear_on_submit=True):
+    # --- COLUMN 1: ADD NEW PAIR FORM ---
+    with add_col:
+        st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
         new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
         new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
         st.markdown("---")
 
         st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
 
+        # Display analyses that have been temporarily added for the new pair
+        for analysis in st.session_state.new_analyses:
+            with st.container(border=True):
+                st.markdown(f"**{analysis['timeframe']}:** {analysis['description']}")
+
         # Input fields for a new analysis entry
         timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
         analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf")
         analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc")
 
-        if st.form_submit_button("➕ Add Timeframe Analysis", use_container_width=True):
+        if st.button("➕ Add Timeframe Analysis", use_container_width=True):
             if analysis_desc:
                 st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
-                # No rerun here to keep the form state
+                st.rerun()
             else:
                 st.warning("Please add notes for the timeframe.")
-
-        # Display analyses that have been temporarily added for the new pair
-        for analysis in st.session_state.new_analyses:
-            with st.container(border=True):
-                # Replace newline characters with <br> for HTML rendering
-                display_desc = analysis['description'].replace('\n', '<br>')
-                st.markdown(f"**{analysis['timeframe']}:**<br>{display_desc}", unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -5444,8 +5440,7 @@ with add_col:
 
         st.markdown("---")
 
-        submitted = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
-        if submitted:
+        if st.button("💾 Save Pair to Watchlist", use_container_width=True, type="primary"):
             if new_pair and st.session_state.new_analyses:
                 # Construct the new item, now including the 'created_at' timestamp and entry/exit points
                 new_item_data = {
@@ -5474,24 +5469,23 @@ with add_col:
             else:
                 st.warning("Currency Pair and at least one timeframe analysis are required.")
 
-# --- COLUMN 2: DISPLAY WATCHLIST ---
-with display_col:
-    st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
-    if not st.session_state.watchlist:
-        st.info("Your watchlist is empty. Add a new pair using the form on the left.")
+    # --- COLUMN 2: DISPLAY WATCHLIST ---
+    with display_col:
+        st.markdown("<h3>Your Watchlist This Week</h3>", unsafe_allow_html=True)
+        if not st.session_state.watchlist:
+            st.info("Your watchlist is empty. Add a new pair using the form on the left.")
 
-    for index, item in enumerate(st.session_state.watchlist):
-        item_id = item['id']
-
-        is_editing = st.session_state.editing_item_id == item_id
-        with st.expander(f"**{item.get('pair', 'N/A')}**", expanded=is_editing):
-
-            if is_editing:
+        for index, item in enumerate(st.session_state.watchlist):
+            item_id = item['id']
+            if st.session_state.editing_item_id == item_id:
+                # Edit form now includes deletion checkboxes and entry/exit points
                 with st.container(border=True):
                     with st.form(f"edit_form_{item_id}"):
                         st.subheader(f"Editing {item.get('pair', '')}")
 
+                        # Store original analyses to work with inside the form
                         original_analyses = item.get('analyses', [])
+
                         st.markdown("<h6>Mark any analysis for deletion and click Save.</h6>", unsafe_allow_html=True)
 
                         for i, analysis in enumerate(original_analyses):
@@ -5503,27 +5497,33 @@ with display_col:
                                     label_visibility="collapsed"
                                 )
                             with col2:
-                                st.markdown("&nbsp;", unsafe_allow_html=True)
+                                st.markdown("&nbsp;", unsafe_allow_html=True) # Spacer
                                 st.checkbox("Delete", key=f"delete_flag_{item_id}_{i}")
-
+                        
                         st.markdown("---")
                         st.markdown("<h6>Edit Entry and Exit Points</h6>", unsafe_allow_html=True)
                         edit_enter = st.text_area("When to enter", value=item.get('when_to_enter', ''), key=f"edit_enter_{item_id}")
                         edit_exit = st.text_area("When to exit", value=item.get('when_to_exit', ''), key=f"edit_exit_{item_id}")
 
+
                         updated_img = st.file_uploader("Upload New Chart", type=['png', 'jpg', 'jpeg'], key=f"img_{item_id}")
                         c1, c2 = st.columns(2)
                         if c1.form_submit_button("✔️ Save Changes", use_container_width=True):
+
+                            # --- Logic to handle deletions and updates ---
                             updated_analyses = []
                             for i, analysis in enumerate(original_analyses):
+                                # Check the state of the checkbox to decide if we keep this analysis
                                 delete_this = st.session_state[f"delete_flag_{item_id}_{i}"]
                                 if not delete_this:
+                                    # Get the updated description from its corresponding text_area
                                     updated_description = st.session_state[f"edit_desc_{item_id}_{i}"]
                                     updated_analyses.append({
                                         "timeframe": analysis['timeframe'],
                                         "description": updated_description
                                     })
 
+                            # Update the watchlist item with the filtered/updated analyses and entry/exit points
                             st.session_state.watchlist[index]['analyses'] = updated_analyses
                             st.session_state.watchlist[index]['when_to_enter'] = edit_enter
                             st.session_state.watchlist[index]['when_to_exit'] = edit_exit
@@ -5542,9 +5542,11 @@ with display_col:
                             st.session_state.editing_item_id = None
                             st.rerun()
             else:
+                # Normal item display now includes the datestamp and entry/exit points
                 with st.container(border=True):
                     st.subheader(f"{item.get('pair', 'N/A')}")
 
+                    # Display the added date with the new format
                     created_at_iso = item.get('created_at')
                     if created_at_iso and created_at_iso != 'unknown date':
                         try:
@@ -5559,11 +5561,14 @@ with display_col:
 
                     for analysis in item.get('analyses', []):
                         tf = analysis.get('timeframe', 'N/A')
-                        # Replace newline characters with HTML line breaks
-                        desc = analysis.get('description', '').replace('\n', '<br>')
+                        desc = analysis.get('description', '').replace('\n', '  \n')
+                        
+                        # Create two columns for timeframe and description
+                        tf_display_col, desc_display_col = st.columns([0.1, 0.9], gap="small") 
 
-                        st.markdown(f"""
-                            <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                        with tf_display_col:
+                            # Display timeframe in a bordered square box using inline CSS
+                            st.markdown(f"""
                                 <div style="
                                     border: 1px solid var(--border-color);
                                     border-radius: 4px;
@@ -5574,14 +5579,17 @@ with display_col:
                                     justify-content: center;
                                     font-weight: bold;
                                     font-size: 0.9em;
-                                    flex-shrink: 0;
+                                    margin-bottom: 0.25rem;
                                 ">
                                     {tf}
                                 </div>
-                                <div>{desc}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
+                            """, unsafe_allow_html=True)
+                        
+                        with desc_display_col:
+                            # Display description, with a small top margin to align it vertically with the box
+                            st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True)
+                    
+                    # --- DISPLAY WHEN TO ENTER AND EXIT ---
                     enter_point = item.get('when_to_enter', '')
                     exit_point = item.get('when_to_exit', '')
 
@@ -5589,16 +5597,16 @@ with display_col:
                         st.markdown("---")
                         if enter_point:
                             st.markdown("**When to enter:**")
-                            # Replace newlines for display
-                            st.success(enter_point.replace('\n', '  \n'))
+                            st.success(enter_point) # MODIFIED for green highlight
                         if exit_point:
                             st.markdown("**When to exit:**")
-                            # Replace newlines for display
-                            st.error(exit_point.replace('\n', '  \n'))
+                            st.error(exit_point) # MODIFIED for red highlight
+
 
                     if item.get('image'):
                         st.image(item.get('image'), use_column_width=True)
 
+                    # Add a line break to move the buttons slightly lower
                     st.markdown("<div style='height: 11px;'></div>", unsafe_allow_html=True)
 
                     c1, c2 = st.columns(2)
@@ -5615,3 +5623,4 @@ with display_col:
 
                         st.toast(f"Deleted {deleted_pair} from watchlist.")
                         st.rerun()
+                st.markdown("<br>", unsafe_allow_html=True)
