@@ -5408,75 +5408,76 @@ add_col, display_col = st.columns([1, 2], gap="large")
 # --- COLUMN 1: ADD NEW PAIR FORM ---
 with add_col:
     st.markdown("<h3>➕ Add New Pair</h3>", unsafe_allow_html=True)
+    # Add a unique key to each input for manual reset
+    new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD", key="new_pair_input")
+    new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'], key="new_image_uploader")
+    st.markdown("---")
 
-    # We use a form to group inputs and clear them all on successful submission.
-    with st.form("new_pair_form", clear_on_submit=True):
-        new_pair = st.text_input("Currency Pair", placeholder="e.g., EUR/USD")
-        new_image = st.file_uploader("Upload Chart Image (Optional)", type=['png', 'jpg', 'jpeg'])
-        st.markdown("---")
+    st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
 
-        st.markdown("<h5>Timeframe Analyses</h5>", unsafe_allow_html=True)
+    # Display analyses that have been temporarily added for the new pair
+    for analysis in st.session_state.new_analyses:
+        with st.container(border=True):
+            # Use HTML <br> for line breaks in this temporary view
+            display_desc = analysis['description'].replace('\n', '<br>')
+            st.markdown(f"**{analysis['timeframe']}:**<br>{display_desc}", unsafe_allow_html=True)
 
-        # Temporary display for analyses being added to the new pair
-        for analysis in st.session_state.new_analyses:
-            with st.container(border=True):
-                # Use st.markdown with HTML for line breaks
-                display_desc = analysis['description'].replace('\n', '<br>')
-                st.markdown(f"**{analysis['timeframe']}:**<br>{display_desc}", unsafe_allow_html=True)
+    # Input fields for a new analysis entry
+    timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
+    analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf_select")
+    analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc_input")
 
-        # Input fields for a new analysis entry
-        timeframe_options = ["1m", "5m", "15m", "30m", "1H", "4H", "1D", "1W", "1M"]
-        analysis_tf = st.selectbox("Timeframe", options=timeframe_options, index=4, key="analysis_tf")
-        analysis_desc = st.text_area("Notes / Analysis", height=100, key="analysis_desc")
+    if st.button("➕ Add Timeframe Analysis", use_container_width=True):
+        if analysis_desc:
+            st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
+            # Clear the description box for the next entry
+            st.session_state.analysis_desc_input = ""
+            st.rerun()
+        else:
+            st.warning("Please add notes for the timeframe.")
 
-        # This button adds to a temporary list without submitting the whole form yet
-        if st.form_submit_button("➕ Add Timeframe Analysis", use_container_width=True):
-            if analysis_desc:
-                st.session_state.new_analyses.append({"timeframe": analysis_tf, "description": analysis_desc})
-                # We don't rerun here, to allow adding more analyses before saving.
-            else:
-                st.warning("Please add notes for the timeframe.")
+    st.markdown("---")
 
-        st.markdown("---")
+    # --- NEW FORM SECTION: WHEN TO ENTER AND EXIT ---
+    st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
+    when_to_enter = st.text_area("When to enter", height=100, key="when_to_enter_input")
+    when_to_exit = st.text_area("When to exit", height=100, key="when_to_exit_input")
 
-        # --- NEW FORM SECTION: WHEN TO ENTER AND EXIT ---
-        st.markdown("<h5>When to enter and When to exit:</h5>", unsafe_allow_html=True)
-        when_to_enter = st.text_area("When to enter", height=100, key="when_to_enter")
-        when_to_exit = st.text_area("When to exit", height=100, key="when_to_exit")
+    st.markdown("---")
 
-        st.markdown("---")
+    if st.button("💾 Save Pair to Watchlist", use_container_width=True, type="primary"):
+        if new_pair and st.session_state.new_analyses:
+            # Construct the new item
+            new_item_data = {
+                "id": datetime.now().isoformat(),
+                "created_at": datetime.now().isoformat(),
+                "pair": new_pair.upper(),
+                "analyses": st.session_state.new_analyses,
+                "image": new_image.getvalue() if new_image else None,
+                "when_to_enter": when_to_enter,
+                "when_to_exit": when_to_exit
+            }
 
-        # The main submit button for the form
-        submitted = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
-        if submitted:
-            if new_pair and st.session_state.new_analyses:
-                # Construct the new item
-                new_item_data = {
-                    "id": datetime.now().isoformat(),
-                    "created_at": datetime.now().isoformat(),
-                    "pair": new_pair.upper(),
-                    "analyses": st.session_state.new_analyses,
-                    "image": new_image.getvalue() if new_image else None,
-                    "when_to_enter": when_to_enter,
-                    "when_to_exit": when_to_exit
-                }
+            st.session_state.watchlist.insert(0, new_item_data)
 
-                st.session_state.watchlist.insert(0, new_item_data)
+            user_data = load_user_data(current_user)
+            current_xp = user_data.get('xp', 0)
+            user_data['xp'] = current_xp + 5
+            user_data['watchlist'] = st.session_state.watchlist
+            save_user_data(current_user, user_data)
 
-                # Save data and award XP
-                user_data = load_user_data(current_user)
-                current_xp = user_data.get('xp', 0)
-                user_data['xp'] = current_xp + 5
-                user_data['watchlist'] = st.session_state.watchlist
-                save_user_data(current_user, user_data)
-
-                # Reset the temporary list for the next entry
-                st.session_state.new_analyses = []
-                st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
-                st.balloons()
-                st.rerun()
-            else:
-                st.warning("Currency Pair and at least one timeframe analysis are required.")
+            # --- MANUAL FORM RESET ---
+            st.session_state.new_analyses = []
+            st.session_state.new_pair_input = ""
+            st.session_state.when_to_enter_input = ""
+            st.session_state.when_to_exit_input = ""
+            # Note: Resetting file_uploader is best-effort via rerun
+            
+            st.toast(f"{new_item_data['pair']} added! You gained 5 XP!", icon="⭐")
+            st.balloons()
+            st.rerun()
+        else:
+            st.warning("Currency Pair and at least one timeframe analysis are required.")
 
 # --- COLUMN 2: DISPLAY WATCHLIST ---
 with display_col:
@@ -5486,7 +5487,7 @@ with display_col:
 
     for index, item in enumerate(st.session_state.watchlist):
         item_id = item['id']
-
+        
         is_editing = st.session_state.editing_item_id == item_id
         with st.expander(f"**{item.get('pair', 'N/A')}**", expanded=is_editing):
 
@@ -5501,11 +5502,12 @@ with display_col:
                             col1, col2 = st.columns([4, 1])
                             with col1:
                                 st.markdown(f"**Notes for {analysis['timeframe']}**")
-                                new_desc = st.text_area(f"desc_{i}", value=analysis['description'], key=f"edit_desc_{item_id}_{i}", label_visibility="collapsed")
+                                # The key here is critical for Streamlit to identify the widget
+                                new_desc = st.text_area("desc", value=analysis['description'], key=f"edit_desc_{item_id}_{i}", label_visibility="collapsed")
                             with col2:
                                 st.markdown("&nbsp;", unsafe_allow_html=True)
                                 st.checkbox("Delete", key=f"delete_flag_{item_id}_{i}")
-
+                        
                         st.markdown("---")
                         st.markdown("<h6>Edit Entry and Exit Points</h6>", unsafe_allow_html=True)
                         edit_enter = st.text_area("When to enter", value=item.get('when_to_enter', ''), key=f"edit_enter_{item_id}")
@@ -5551,13 +5553,14 @@ with display_col:
 
                     for analysis in item.get('analyses', []):
                         tf = analysis.get('timeframe', 'N/A')
+                        # Replace Python's newline with HTML's <br> for rendering
                         desc = analysis.get('description', '').replace('\n', '<br>')
-
-                        # --- THIS IS THE CORRECTED PART ---
-                        # Changed 'align-items: center' to 'align-items: flex-start'
-                        # This ensures the box always aligns with the top of the description text block.
+                        
+                        # --- ALIGNMENT FIX ---
+                        # Use 'align-items: baseline' to align the text, not the container.
+                        # This keeps the box aligned with the first line of the description.
                         st.markdown(f"""
-                            <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+                            <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;">
                                 <div style="
                                     border: 1px solid #444;
                                     border-radius: 4px;
@@ -5575,7 +5578,7 @@ with display_col:
                                 <div>{desc}</div>
                             </div>
                         """, unsafe_allow_html=True)
-
+                    
                     # For st.success/error, markdown requires two spaces for a line break
                     enter_point = item.get('when_to_enter', '').replace('\n', '  \n')
                     exit_point = item.get('when_to_exit', '').replace('\n', '  \n')
@@ -5601,7 +5604,7 @@ with display_col:
                     if c2.button("🗑️ Delete Pair", key=f"delete_{item_id}", use_container_width=True):
                         deleted_pair = item.get('pair', 'Item')
                         del st.session_state.watchlist[index]
-
+                        
                         user_data = load_user_data(current_user)
                         user_data['watchlist'] = st.session_state.watchlist
                         save_user_data(current_user, user_data)
