@@ -5527,7 +5527,6 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                     if created_at_iso and created_at_iso != 'unknown date':
                         try:
                             created_datetime = datetime.fromisoformat(created_at_iso)
-                            # Assuming 'ordinal' function is defined elsewhere (e.g., in utils.py)
                             day_with_ordinal = ordinal(created_datetime.day) 
                             formatted_date = created_datetime.strftime(f"%A {day_with_ordinal} %B %Y")
                             st.caption(f"Added on: {formatted_date}")
@@ -5541,18 +5540,31 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                         desc = analysis.get('description', '').replace('\n', '  \n')
                         
                         # Create two columns for timeframe and description
-                        # Adjusted column ratio for better visual balance
-                        tf_display_col, desc_display_col = st.columns([0.2, 0.8], gap="small") 
+                        # Adjusted column ratio for a compact timeframe box (0.1 for timeframe, 0.9 for description)
+                        tf_display_col, desc_display_col = st.columns([0.1, 0.9], gap="small") 
 
                         with tf_display_col:
-                            # Display timeframe in a bordered container (box)
-                            with st.container(border=True):
-                                # Center the text inside the box for better appearance
-                                st.markdown(f"<div style='text-align: center; line-height: 1;'>**{tf}**</div>", unsafe_allow_html=True)
+                            # Display timeframe in a bordered square box using inline CSS
+                            st.markdown(f"""
+                                <div style="
+                                    border: 1px solid var(--border-color); /* Use Streamlit's default border color */
+                                    border-radius: 4px; /* Optional: slight round corners */
+                                    width: 40px; /* Fixed width for a square box */
+                                    height: 40px; /* Fixed height for a square box */
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-weight: bold;
+                                    font-size: 0.9em; /* Adjust font size for compactness */
+                                    margin-bottom: 0.25rem; /* Small margin below the box */
+                                ">
+                                    {tf}
+                                </div>
+                            """, unsafe_allow_html=True) [1, 2, 4, 5, 6]
                         
                         with desc_display_col:
-                            # Display description
-                            st.markdown(f"{desc}")
+                            # Display description, with a small top margin to align it vertically with the box
+                            st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True) [6]
 
                     if item.get('image'): 
                         st.image(item.get('image'), use_column_width=True)
