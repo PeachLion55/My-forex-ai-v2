@@ -5540,6 +5540,7 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                         desc = analysis.get('description', '').replace('\n', '  \n')
                         
                         # Create two columns for timeframe and description
+                        # Adjusted column ratio for a compact timeframe box (0.1 for timeframe, 0.9 for description)
                         tf_display_col, desc_display_col = st.columns([0.1, 0.9], gap="small") 
 
                         with tf_display_col:
@@ -5555,24 +5556,19 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                                     justify-content: center;
                                     font-weight: bold;
                                     font-size: 0.9em;
+                                    margin-bottom: 0.25rem;
                                 ">
                                     {tf}
                                 </div>
                             """, unsafe_allow_html=True)
                         
                         with desc_display_col:
-                            # Display description, removing the margin-top to bring it closer
-                            st.markdown(f"<div>{desc}</div>", unsafe_allow_html=True)
-                        
-                        # Add a small gap after each timeframe description
-                        st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
-
+                            # Display description, with a small top margin to align it vertically with the box
+                            st.markdown(f"<div style='margin-top: 0.25rem;'>{desc}</div>", unsafe_allow_html=True)
 
                     if item.get('image'): 
                         st.image(item.get('image'), use_column_width=True)
-                    
-                    # Add a break before the buttons for better separation
-                    st.markdown("<br>", unsafe_allow_html=True) 
+                        
                     c1, c2 = st.columns(2)
                     if c1.button("✏️ Edit", key=f"edit_{item_id}", use_container_width=True):
                         st.session_state.editing_item_id = item_id
