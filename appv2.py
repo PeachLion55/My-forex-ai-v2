@@ -5354,7 +5354,7 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
         st.session_state.watchlist_loaded = True
         st.rerun()
 
-            # --- 3. CSS STYLING ---
+    # --- 3. CSS STYLING ---
     st.markdown("""
         <style>
             /* Ensure the parent container of st.columns aligns items to the start (top) */
@@ -5362,14 +5362,6 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                 align-items: start; /* THIS IS CRUCIAL FOR TOP ALIGNMENT OF COLUMNS */
             }
             div[data-testid="column"] h3 { margin-top: 0.2rem; }
-
-            /* --- START: Custom style for the primary save button --- */
-            .custom-save-button .stButton button.primary {
-                background-color: #5ab6b3 !important; /* Your desired color */
-                border-color: #5ab6b3 !important;     /* Make border match */
-                color: white !important;              /* Ensure text remains readable */
-            }
-            /* --- END: Custom style for the primary save button --- */
         </style>
         """, unsafe_allow_html=True)
 
@@ -5440,9 +5432,7 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
             st.markdown("---")
             
             # Main submit button for the form
-            st.markdown('<div class="custom-save-button">', unsafe_allow_html=True)
             save_button = st.form_submit_button("💾 Save Pair to Watchlist", use_container_width=True, type="primary")
-            st.markdown('</div>', unsafe_allow_html=True)
 
         # --- LOGIC FOR HANDLING FORM BUTTONS (must be outside the 'with st.form' block) ---
         if add_analysis_button:
