@@ -5354,7 +5354,7 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
         st.session_state.watchlist_loaded = True
         st.rerun()
 
-    # --- 3. CSS STYLING ---
+        # --- 3. CSS STYLING ---
     st.markdown("""
         <style>
             /* Ensure the parent container of st.columns aligns items to the start (top) */
@@ -5362,6 +5362,13 @@ if st.session_state.get('current_page') in ('watch list', 'My Watchlist'):
                 align-items: start; /* THIS IS CRUCIAL FOR TOP ALIGNMENT OF COLUMNS */
             }
             div[data-testid="column"] h3 { margin-top: 0.2rem; }
+
+            /* Custom style for the primary save button */
+            div.stButton button.primary {
+                background-color: #5ab6b3 !important; /* Your desired color */
+                border-color: #5ab6b3 !important; /* Make border match */
+                color: white !important; /* Ensure text remains readable */
+            }
         </style>
         """, unsafe_allow_html=True)
 
