@@ -2416,7 +2416,7 @@ with st.sidebar:
     
     # Use st.radio for page navigation
     page_options = {
-        'Account Login': 'account',
+        'Myfxbook Login': 'account',
         'Performance Dashboard': 'mt5' # Reusing 'mt5' for Myfxbook Dashboard
     }
     
@@ -2442,18 +2442,18 @@ with st.sidebar:
 
 # --- Main Page Rendering ---
 if st.session_state.current_page == 'account':
-    st.title("Myfxbook Account Login")
-    st.write("Please enter your Myfxbook credentials to view your trading performance.")
+    st.title("Myfxbook Login / Account Management")
+    st.write("Enter your Myfxbook email and password below to sign in and view your trading performance dashboard.")
 
     with st.form("myfxbook_login_form"):
         email = st.text_input("Myfxbook Email", key="login_email")
         password = st.text_input("Myfxbook Password", type="password", key="login_password")
         
-        login_button = st.form_submit_button("Login", key="myfxbook_form_login_button")
+        login_button = st.form_submit_button("Sign in to Myfxbook", key="myfxbook_form_login_button")
 
         if login_button:
             if email and password:
-                with st.spinner("Logging in and fetching data..."):
+                with st.spinner("Signing in and fetching data from Myfxbook..."):
                     success, message = myfxbook_login(email, password)
                     if success:
                         st.success(message)
@@ -2466,18 +2466,18 @@ if st.session_state.current_page == 'account':
                             st.session_state.current_page = 'mt5' # Navigate to dashboard on success
                             st.rerun()
                     else:
-                        st.error(f"Login failed: {message}")
+                        st.error(f"Sign in failed: {message}")
             else:
-                st.warning("Please enter both email and password.")
+                st.warning("Please enter both your Myfxbook email and password.")
         
     if st.session_state.myfxbook_session:
-        st.success(f"You are currently logged in as {st.session_state.logged_in_user}.")
-        st.write("You can now navigate to the 'Performance Dashboard' using the sidebar.")
+        st.success(f"You are currently signed in as {st.session_state.logged_in_user}.")
+        st.write("You can now navigate to the 'Performance Dashboard' using the sidebar to view your metrics.")
 
 elif st.session_state.current_page == 'mt5': # This page will now handle Myfxbook data too
 
     if st.session_state.get('myfxbook_session') is None:
-        st.warning("Please log in to your Myfxbook account to access the Performance Dashboard.")
+        st.warning("Please sign in to your Myfxbook account to access the Performance Dashboard.")
         st.session_state.current_page = 'account'
         st.rerun()
 
@@ -2990,7 +2990,7 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
             else:
                 st.info("No open trades available.")
     else:
-        st.info("No Myfxbook data loaded. Please log in.")
+        st.info("No Myfxbook data loaded. Please sign in.")
 
 
 
