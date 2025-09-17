@@ -2146,12 +2146,13 @@ def format_metric_value(value, decimal_places=2, suffix=""):
     Applies suffix if the value is numeric.
     """
     if isinstance(value, (int, float)):
+        # Special handling for infinite profit factor
+        if value == float('inf'):
+            return "∞"
         return f"{value:.{decimal_places}f}{suffix}"
     return str(value) # Return as string if not numeric
 
 # --- Global/App-wide Session State Initialization ---
-# This ensures that 'mt5_df' and 'selected_calendar_month' always have a default
-# even if the user hasn't loaded data yet.
 if 'DEFAULT_APP_STATE' not in st.session_state:
     st.session_state.DEFAULT_APP_STATE = {
         'mt5_df': pd.DataFrame(columns=["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time", "Trade Duration"]),
@@ -2167,6 +2168,10 @@ st.session_state.setdefault('myfxbook_account_id', None)
 st.session_state.setdefault('myfxbook_account_data', {})
 st.session_state.setdefault('myfxbook_open_trades_df', pd.DataFrame())
 st.session_state.setdefault('myfxbook_history_df', pd.DataFrame())
+
+# Set default page if not already set
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'account' # Default page is now 'account'
 
 
 # =========================================================
@@ -2384,7 +2389,6 @@ def calculate_myfxbook_metrics(account_data, history_df):
                 metrics['Most Profitable Symbol'] = symbol_profits.idxmax()
     
     # Max Drawdown from account_data
-    # Ensure drawdown is a float if available, otherwise 'N/A'
     drawdown_val = account_data.get('drawdown')
     if drawdown_val is not None:
         metrics['Max Drawdown'] = float(drawdown_val)
@@ -2403,32 +2407,40 @@ def calculate_myfxbook_metrics(account_data, history_df):
     return metrics
 
 # =========================================================
-# PERFORMANCE DASHBOARD PAGE (MT5 / MYFXBOOK)
+# Streamlit App Layout
 # =========================================================
 
-# Placeholder for account login page logic
-# This part assumes st.session_state.current_page is set by a navigation mechanism
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'account' # Default page
+# --- Sidebar Navigation ---
+with st.sidebar:
+    st.header("Navigation")
+    if st.button("Account Login", key="nav_account"):
+        st.session_state.current_page = 'account'
+        st.rerun()
+    if st.button("Performance Dashboard", key="nav_dashboard"):
+        st.session_state.current_page = 'mt5' # Reusing 'mt5' for Myfxbook Dashboard
+        st.rerun()
+    
+    st.markdown("---")
+    if st.session_state.myfxbook_session:
+        st.markdown(f"**Logged in as:** {st.session_state.logged_in_user}")
+        if st.button("Logout from Myfxbook", key="sidebar_logout"):
+            message = myfxbook_logout()
+            st.info(message)
+            st.session_state.current_page = 'account' # Go back to login after logout
+            st.rerun()
+    else:
+        st.info("Not logged in to Myfxbook.")
 
+# --- Main Page Rendering ---
 if st.session_state.current_page == 'account':
-    st.title("Account Login")
-    st.write("Please log in to your Myfxbook account.")
+    st.title("Myfxbook Account Login")
+    st.write("Please enter your Myfxbook credentials to view your trading performance.")
 
     with st.form("myfxbook_login_form"):
-        email = st.text_input("Myfxbook Email")
-        password = st.text_input("Myfxbook Password", type="password")
+        email = st.text_input("Myfxbook Email", key="login_email")
+        password = st.text_input("Myfxbook Password", type="password", key="login_password")
         
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            login_button = st.form_submit_button("Login to Myfxbook")
-        with col2:
-            logout_button = False
-            if st.session_state.myfxbook_session:
-                logout_button = st.form_submit_button("Logout from Myfxbook")
-            else:
-                st.write("") # Keep the column layout even if no button
-                
+        login_button = st.form_submit_button("Login")
 
         if login_button:
             if email and password:
@@ -2449,10 +2461,9 @@ if st.session_state.current_page == 'account':
             else:
                 st.warning("Please enter both email and password.")
         
-        if logout_button:
-            message = myfxbook_logout()
-            st.info(message)
-            st.rerun()
+    if st.session_state.myfxbook_session:
+        st.success(f"You are currently logged in as {st.session_state.logged_in_user}.")
+        st.write("You can now navigate to the 'Performance Dashboard' using the sidebar.")
 
 elif st.session_state.current_page == 'mt5': # This page will now handle Myfxbook data too
 
@@ -2923,12 +2934,10 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_3[1]:
-            # Handle infinite profit factor display
-            profit_factor_display = "∞" if metrics['Profit Factor'] == float('inf') else format_metric_value(metrics['Profit Factor'])
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Profit Factor</strong>
-                <span class="metric-value">{profit_factor_display}</span>
+                <span class="metric-value">{format_metric_value(metrics['Profit Factor'])}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_3[2]:
@@ -2973,269 +2982,6 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
                 st.info("No open trades available.")
     else:
         st.info("No Myfxbook data loaded. Please log in.")
-
-
-import streamlit as st
-import os
-import io
-import base64
-import pytz
-from datetime import datetime, timedelta
-import logging
-
-# =========================================================
-# HELPER FUNCTIONS (Included here for completeness, but should ideally be global)
-# =========================================================
-
-@st.cache_data
-def image_to_base_64(path):
-    """Converts a local image file to a base64 string."""
-    try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        logging.warning(f"Warning: Image file not found at path: {path}")
-        return None
-
-def get_active_market_sessions():
-    """
-    Determines active forex sessions and returns a display string AND a list of active sessions.
-    Includes a 1-hour correction for the server's clock.
-    """
-    sessions_utc = st.session_state.get('session_timings', {})
-    corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
-    current_utc_hour = corrected_utc_time.hour
-    
-    active_sessions = []
-    for session_name, timings in sessions_utc.items():
-        start, end = timings['start'], timings['end']
-        if start > end:
-            if current_utc_hour >= start or current_utc_hour < end:
-                active_sessions.append(session_name)
-        else:
-            if start <= current_utc_hour < end:
-                active_sessions.append(session_name)
-
-    if not active_sessions:
-        return "Markets Closed", []
-    return ", ".join(active_sessions), active_sessions
-
-def get_next_session_end_info(active_sessions_list):
-    """
-    Calculates which active session will end next and returns its name
-    and the remaining time as a formatted string (H:M:S).
-    """
-    if not active_sessions_list:
-        return None, None
-
-    sessions_utc_hours = st.session_state.get('session_timings', {})
-    now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Use corrected time
-    
-    next_end_times = []
-
-    for session_name in active_sessions_list:
-        if session_name in sessions_utc_hours:
-            end_hour = sessions_utc_hours[session_name]['end']
-            start_hour = sessions_utc_hours[session_name]['start']
-            
-            end_time_today = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
-
-            if start_hour > end_hour and now_utc.hour >= end_hour:
-                end_time_today += timedelta(days=1)
-            elif now_utc > end_time_today:
-                end_time_today += timedelta(days=1)
-
-            next_end_times.append((end_time_today, session_name))
-    
-    if not next_end_times:
-        return None, None
-        
-    next_end_times.sort()
-    soonest_end_time, soonest_session_name = next_end_times[0]
-    
-    remaining = soonest_end_time - now_utc
-    if remaining.total_seconds() < 0:
-        return soonest_session_name, "Closing..."
-
-    hours, remainder = divmod(int(remaining.total_seconds()), 3600)
-    minutes, seconds = divmod(remainder, 60)
-    
-    time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
-    return soonest_session_name, time_str
-
-# =========================================================
-# MANAGE MY STRATEGY PAGE
-# =========================================================
-if st.session_state.current_page == 'strategy':
-
-    if st.session_state.get('logged_in_user') is None:
-        st.warning("Please log in to manage your strategies.")
-        st.session_state.current_page = 'account'
-        st.rerun()
-
-    st.markdown("""<style>[data-testid="stSidebar"] { display: block !important; }</style>""", unsafe_allow_html=True)
-
-    # --- 1. Page-Specific Configuration ---
-    page_info = {
-        'title': 'Manage My Strategy', 
-        'icon': 'manage_my_strategy.png', 
-        'caption': 'Define, refine, and track your trading strategies.'
-    }
-
-    # --- 2. Define CSS Styles for the New Header ---
-    main_container_style = """
-        background-color: black; padding: 20px 25px; border-radius: 10px; 
-        display: flex; align-items: center; gap: 20px;
-        border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
-    """
-    left_column_style = "flex: 3; display: flex; align-items: center; gap: 20px;"
-    right_column_style = "flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;"
-    info_tab_style = "background-color: #0E1117; border: 1px solid #2d4646; padding: 8px 15px; border-radius: 8px; color: white; text-align: center; font-family: sans-serif; font-size: 0.9rem; white-space: nowrap;"
-    timer_style = "font-family: sans-serif; font-size: 0.8rem; color: #808495; text-align: right; margin-top: 4px;"
-    title_style = "color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;"
-    icon_style = "width: 130px; height: auto;"
-    caption_style = "color: #808495; margin: -15px 0 0 0; font-family: sans-serif; font-size: 1rem;"
-
-    # --- 3. Prepare Dynamic Parts of the Header ---
-    icon_html = ""
-    icon_path = os.path.join("icons", page_info['icon'])
-    icon_base64 = image_to_base_64(icon_path)
-    if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-    
-    welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
-    active_sessions_str, active_sessions_list = get_active_market_sessions()
-    market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
-    
-    next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
-    timer_display = ""
-    if next_session_name and timer_str:
-        timer_display = f'<div style="{timer_style}">{next_session_name} session ends in <b>{timer_str}</b></div>'
-
-    # --- 4. Build and Render Header ---
-    header_html = (
-        f'<div style="{main_container_style}">'
-            f'<div style="{left_column_style}">{icon_html}<div><h1 style="{title_style}">{page_info["title"]}</h1><p style="{caption_style}">{page_info["caption"]}</p></div></div>'
-            f'<div style="{right_column_style}">'
-                f'<div style="{info_tab_style}">{welcome_message}</div>'
-                f'<div>'
-                    f'<div style="{info_tab_style}">{market_sessions_display}</div>'
-                    f'{timer_display}'
-                f'</div>'
-            '</div>'
-        '</div>'
-    )
-    st.markdown(header_html, unsafe_allow_html=True)
-    st.markdown("---")
-    # (The rest of your page code for managing strategies goes here...)
-    st.subheader("➕ Add New Strategy")
-    with st.form("strategy_form"):
-        strategy_name = st.text_input("Strategy Name")
-        description = st.text_area("Strategy Description")
-        entry_rules = st.text_area("Entry Rules")
-        exit_rules = st.text_area("Exit Rules")
-        risk_management = st.text_area("Risk Management Rules")
-        submit_strategy = st.form_submit_button("Save Strategy")
-        if submit_strategy:
-            strategy_data = {
-                "Name": strategy_name,
-                "Description": description,
-                "Entry Rules": entry_rules,
-                "Exit Rules": exit_rules,
-                "Risk Management": risk_management,
-                "Date Added": dt.datetime.now().strftime("%Y-%m-%d")
-            }
-            st.session_state.strategies = pd.concat([st.session_state.strategies, pd.DataFrame([strategy_data])], ignore_index=True)
-            if st.session_state.logged_in_user is not None:
-                username = st.session_state.logged_in_user
-                try:
-                    save_user_data(username)
-                    st.success("Strategy saved to your account!")
-                    logging.info(f"Strategy saved for {username}: {strategy_name}")
-                except Exception as e:
-                    st.error(f"Failed to save strategy: {str(e)}")
-                    logging.error(f"Error saving strategy for {username}: {str(e)}")
-            st.success(f"Strategy '{strategy_name}' added successfully!")
-
-    if not st.session_state.strategies.empty:
-        st.subheader("Your Strategies")
-        for idx, row in st.session_state.strategies.iterrows():
-            with st.expander(f"Strategy: {row['Name']} (Added: {row['Date Added']})"):
-                st.markdown(f"Description: {row['Description']}")
-                st.markdown(f"Entry Rules: {row['Entry Rules']}")
-                st.markdown(f"Exit Rules: {row['Exit Rules']}")
-                st.markdown(f"Risk Management: {row['Risk Management']}")
-                if st.button("Delete Strategy", key=f"delete_strategy_{idx}"):
-                    st.session_state.strategies = st.session_state.strategies.drop(idx).reset_index(drop=True)
-                    if st.session_state.logged_in_user is not None:
-                        username = st.session_state.logged_in_user
-                        try:
-                            save_user_data(username)
-                            st.success("Strategy deleted and account updated!")
-                            logging.info(f"Strategy deleted for {username}")
-                        except Exception as e:
-                            st.error(f"Failed to delete strategy: {str(e)}")
-                            logging.error(f"Error deleting strategy for {username}: {str(e)}")
-                    st.rerun()
-    else:
-        st.info("No strategies defined yet. Add one above.")
-    
-    st.subheader("📖 Evolving Playbook")
-    journal_df = st.session_state.trade_journal
-    mt5_df = st.session_state.mt5_df
-
-    combined_df = journal_df.copy()
-    
-    if not mt5_df.empty and 'Profit' in mt5_df.columns:
-        mt5_temp = pd.DataFrame()
-        mt5_temp['Date'] = pd.to_datetime(mt5_df['Close Time'], errors='coerce')
-        mt5_temp['PnL'] = pd.to_numeric(mt5_df['Profit'], errors='coerce').fillna(0.0)
-        mt5_temp['Symbol'] = mt5_df['Symbol']
-        mt5_temp['Outcome'] = mt5_df['Profit'].apply(lambda x: 'Win' if x > 0 else ('Loss' if x < 0 else 'Breakeven'))
-        if 'Open Price' in mt5_df.columns and 'StopLoss' in mt5_df.columns and 'Close Time' in mt5_df.columns: # Fixed to use mt5_df
-             mt5_temp['RR'] = mt5_df.apply(lambda row: (row['Profit'] / abs(row['Open Price'] - row['StopLoss'])) if abs(row['Open Price'] - row['StopLoss']) > 0 else 0, axis=1)
-        else:
-            mt5_temp['RR'] = 0.0
-        
-        for col in journal_cols:
-            if col not in mt5_temp.columns:
-                mt5_temp[col] = pd.Series(dtype=journal_dtypes.get(col))
-
-        combined_df = pd.concat([combined_df, mt5_temp[journal_cols]], ignore_index=True)
-
-    if "RR" in combined_df.columns:
-        combined_df['r'] = pd.to_numeric(combined_df['RR'], errors='coerce')
-    
-    group_cols = ["Symbol"] if "Symbol" in combined_df.columns else []
-
-    if group_cols and 'r' in combined_df.columns and not combined_df['r'].isnull().all():
-        g = combined_df.dropna(subset=["r"]).groupby(group_cols)
-
-        res_data = []
-        for name, group in g:
-            wins_r = group[group['r'] > 0]['r']
-            losses_r = group[group['r'] < 0]['r']
-
-            winrate_calc = len(wins_r) / len(group) if len(group) > 0 else 0.0
-            avg_win_r = wins_r.mean() if not wins_r.empty else 0.0
-            avg_loss_r = abs(losses_r.mean()) if not losses_r.empty else 0.0
-
-            expectancy_calc = (winrate_calc * avg_win_r) - ((1 - winrate_calc) * avg_loss_r)
-            
-            res_data.append({
-                "Symbol": name if isinstance(name, str) else name[0],
-                "trades": len(group),
-                "winrate": winrate_calc,
-                "avg_win_R": avg_win_r,
-                "avg_loss_R": avg_loss_r,
-                "expectancy_R": expectancy_calc
-            })
-        
-        agg = pd.DataFrame(res_data).sort_values("expectancy_R", ascending=False)
-        st.write("Your refined edge profile based on logged trades:")
-        st.dataframe(agg)
-    else:
-        st.info("Log more trades with symbols and outcomes/RR to evolve your playbook. Ensure 'RR' column has numerical data.")
 
 
 
