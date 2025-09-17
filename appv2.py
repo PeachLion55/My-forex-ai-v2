@@ -2246,7 +2246,7 @@ if st.session_state.current_page == 'mt5':
             line-height: 1;
             padding-bottom: 5px;
         }
-        .metric-box .day-info { /* Renamed from .day-info to .trade-info for clarity */
+        .metric-box .trade-info { /* Renamed for clarity, from .day-info */
             font-size: 0.85em;
             line-height: 1.2;
             flex-grow: 1;
@@ -2451,32 +2451,30 @@ if st.session_state.current_page == 'mt5':
 
         /* Streamlit Expander Styling */
         .streamlit-expanderHeader {
-            background-color: #1a1a1a; /* Dark background for expander header */
-            color: #ffffff; /* White text */
+            background-color: #1a1a1a;
+            color: #ffffff;
             padding: 10px 15px;
             border-radius: 8px;
             border: 1px solid #2d4646;
             cursor: pointer;
             transition: all 0.2s ease-in-out;
             font-weight: bold;
-            margin-bottom: 10px; /* Space below expander */
+            margin-bottom: 10px;
         }
 
         .streamlit-expanderHeader:hover,
         .streamlit-expanderHeader:focus,
         .streamlit-expanderHeader:active {
-            color: #58b3b1 !important; /* Brighter accent color for hover/focus */
+            color: #58b3b1 !important;
         }
 
-        /* Custom expander content styling */
         .streamlit-expanderContent {
-            background-color: #262730; /* Darker background for content */
+            background-color: #262730;
             border-top: 1px solid #3d3d4b;
             padding: 15px 20px;
-            border-radius: 0 0 8px 8px; /* Rounded corners only at the bottom */
+            border-radius: 0 0 8px 8px;
         }
 
-        /* Styling for tables inside expanders */
         .streamlit-expanderContent .stDataFrame {
             background-color: transparent;
         }
@@ -2501,7 +2499,8 @@ if st.session_state.current_page == 'mt5':
     icon_html = ""
     icon_base64 = image_to_base_64(page_info['icon'])
     if icon_base64:
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" class="{icon_style}">' # Used class for consistency
+        # FIX: Corrected from class="{icon_style}" to style="{icon_style}"
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">' 
 
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
@@ -3079,7 +3078,6 @@ if st.session_state.current_page == 'mt5':
             with col7:
                 best_trade_profit_formatted = _ta_human_num_mt5(best_trade_profit)
                 if best_trade_profit > 0 and best_trade_symbol != "N/A":
-                    # Changed .day-info to .trade-info in CSS too for semantic accuracy
                     trade_info_text = f"{best_trade_symbol} with profit of <span style='color: #5cb85c;'>${best_trade_profit_formatted}</span>."
                 else:
                     trade_info_text = "No winning trades."
@@ -3343,8 +3341,8 @@ if st.session_state.current_page == 'mt5':
 
         st.markdown("---")
         if st.button("📄 Generate Performance Report"):
-            df_for_report = st.session_state.mt5_df.copy() # Start with a copy
-            df_for_report = df_for_report[df_for_report['Symbol'].notna()].copy() # Ensure only symbols for report
+            df_for_report = st.session_state.mt5_df.copy()
+            df_for_report = df_for_report[df_for_report['Symbol'].notna()].copy()
 
             total_trades = len(df_for_report)
             wins_df = df_for_report[df_for_report["Profit"] > 0]
