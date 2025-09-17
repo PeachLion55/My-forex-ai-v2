@@ -2140,6 +2140,14 @@ def get_next_session_end_info(active_sessions_list):
     time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
     return soonest_session_name, time_str
 
+def format_metric_value(value, decimal_places=2, suffix=""):
+    """
+    Safely formats a metric value, handling cases where it might be non-numeric (e.g., 'N/A').
+    Applies suffix if the value is numeric.
+    """
+    if isinstance(value, (int, float)):
+        return f"{value:.{decimal_places}f}{suffix}"
+    return str(value) # Return as string if not numeric
 
 # --- Global/App-wide Session State Initialization ---
 # This ensures that 'mt5_df' and 'selected_calendar_month' always have a default
@@ -2304,7 +2312,7 @@ def calculate_myfxbook_metrics(account_data, history_df):
     metrics = {
         'Average R:R': 'N/A',
         'Win Rate': 'N/A',
-        'Trading Score': 'N/A',
+        'Trading Score': 0, # Default to 0 for score
         'Hit Rate': 'N/A',
         'Total Trades': 0,
         'Average Win': 'N/A',
@@ -2335,7 +2343,6 @@ def calculate_myfxbook_metrics(account_data, history_df):
         
         if metrics['Total Trades'] > 0:
             metrics['Win Rate'] = f"{num_winning_trades / metrics['Total Trades'] * 100:.2f}%"
-            # Hit Rate - typically same as win rate for profit-based trades, or based on pips
             metrics['Hit Rate'] = f"{num_winning_trades / metrics['Total Trades'] * 100:.2f}%"
 
         if num_winning_trades > 0:
@@ -2353,19 +2360,21 @@ def calculate_myfxbook_metrics(account_data, history_df):
         gross_loss = abs(losing_trades['Profit'].sum())
         if gross_loss > 0:
             metrics['Profit Factor'] = gross_profit / gross_loss
+        elif gross_profit > 0:
+            metrics['Profit Factor'] = float('inf') # Infinite profit factor if no losses and profitable
         else:
-            metrics['Profit Factor'] = gross_profit if gross_profit > 0 else 0.0 # If no losses, profit factor is infinite, or gross profit if profitable
+            metrics['Profit Factor'] = 0.0 # No profit and no losses, or only losses
 
         # R:R (Risk-Reward Ratio)
-        if metrics.get('Average Loss') is not None and metrics.get('Average Loss') < 0 and metrics.get('Average Win') is not None and metrics.get('Average Win') > 0:
-            metrics['Average R:R'] = f"{abs(metrics['Average Win'] / metrics['Average Loss']):.2f}"
+        if isinstance(metrics['Average Loss'], (int, float)) and metrics['Average Loss'] < 0 and \
+           isinstance(metrics['Average Win'], (int, float)) and metrics['Average Win'] > 0:
+            metrics['Average R:R'] = abs(metrics['Average Win'] / metrics['Average Loss'])
 
         # Expectancy
-        if metrics['Total Trades'] > 0 and metrics.get('Average Win') is not None and metrics.get('Average Loss') is not None:
+        if metrics['Total Trades'] > 0 and isinstance(metrics['Average Win'], (int, float)) and \
+           isinstance(metrics['Average Loss'], (int, float)):
             win_probability = num_winning_trades / metrics['Total Trades']
             loss_probability = num_losing_trades / metrics['Total Trades']
-            # Expectancy = (Win Probability * Average Win) - (Loss Probability * Average Loss)
-            # Note: Average Loss is already negative, so we use abs() or subtract a positive value
             metrics['Expectancy'] = (win_probability * metrics['Average Win']) + (loss_probability * metrics['Average Loss'])
 
         # Most Profitable Symbol
@@ -2375,12 +2384,19 @@ def calculate_myfxbook_metrics(account_data, history_df):
                 metrics['Most Profitable Symbol'] = symbol_profits.idxmax()
     
     # Max Drawdown from account_data
-    metrics['Max Drawdown'] = account_data.get('drawdown', 'N/A')
+    # Ensure drawdown is a float if available, otherwise 'N/A'
+    drawdown_val = account_data.get('drawdown')
+    if drawdown_val is not None:
+        metrics['Max Drawdown'] = float(drawdown_val)
+    else:
+        metrics['Max Drawdown'] = 'N/A'
+
 
     # Trading Score is a custom metric, for now, let's just make it up or base it on profit factor
-    # For now, a simplified Trading Score based on Profit Factor (example)
-    if isinstance(metrics['Profit Factor'], (int, float)) and metrics['Profit Factor'] != 'N/A':
+    if isinstance(metrics['Profit Factor'], (int, float)) and metrics['Profit Factor'] != 'N/A' and metrics['Profit Factor'] != float('inf'):
         metrics['Trading Score'] = min(max(metrics['Profit Factor'] * 10, 0), 100) # Scale it, max 100
+    elif metrics['Profit Factor'] == float('inf'):
+        metrics['Trading Score'] = 100 # Perfect score if infinite profit factor
     else:
         metrics['Trading Score'] = 0
 
@@ -2407,10 +2423,12 @@ if st.session_state.current_page == 'account':
         with col1:
             login_button = st.form_submit_button("Login to Myfxbook")
         with col2:
+            logout_button = False
             if st.session_state.myfxbook_session:
                 logout_button = st.form_submit_button("Logout from Myfxbook")
             else:
-                logout_button = False # No logout button if not logged in
+                st.write("") # Keep the column layout even if no button
+                
 
         if login_button:
             if email and password:
@@ -2811,6 +2829,7 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
     # --- 5. Display Myfxbook Metrics ---
     if st.session_state.myfxbook_df_loaded:
         metrics = calculate_myfxbook_metrics(st.session_state.myfxbook_account_data, st.session_state.myfxbook_history_df)
+        currency_symbol = st.session_state.myfxbook_account_data.get('currency', '')
         
         st.subheader("Account Performance Metrics")
 
@@ -2837,15 +2856,17 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Average R:R</strong>
-                <span class="metric-value">{metrics['Average R:R']}</span>
+                <span class="metric-value">{format_metric_value(metrics['Average R:R'])}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_1[3]:
+            # Ensure Trading Score is always numeric for the bar
+            score_value = metrics['Trading Score'] if isinstance(metrics['Trading Score'], (int, float)) else 0
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Trading Score</strong>
-                <span class="metric-value">{metrics['Trading Score']:.0f}</span>
-                <div class="trading-score-bar-container"><div class="trading-score-bar" style="width:{metrics['Trading Score']:.0f}%"></div></div>
+                <span class="metric-value">{format_metric_value(metrics['Trading Score'], 0)}</span>
+                <div class="trading-score-bar-container"><div class="trading-score-bar" style="width:{min(max(score_value, 0), 100):.0f}%"></div></div>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_1[4]:
@@ -2861,35 +2882,35 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Total Profit</strong>
-                <span class="metric-value">{metrics['Total Profit']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Total Profit'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_2[1]:
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Average Win</strong>
-                <span class="metric-value">{metrics['Average Win']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Average Win'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_2[2]:
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Best Single Trade</strong>
-                <span class="metric-value">{metrics['Best Single Trade']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Best Single Trade'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_2[3]:
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Total Loss</strong>
-                <span class="metric-value">{metrics['Total Loss']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Total Loss'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_2[4]:
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Average Loss</strong>
-                <span class="metric-value">{metrics['Average Loss']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Average Loss'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -2898,28 +2919,30 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Worst Single Trade</strong>
-                <span class="metric-value">{metrics['Worst Single Trade']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Worst Single Trade'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_3[1]:
+            # Handle infinite profit factor display
+            profit_factor_display = "∞" if metrics['Profit Factor'] == float('inf') else format_metric_value(metrics['Profit Factor'])
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Profit Factor</strong>
-                <span class="metric-value">{metrics['Profit Factor']:.2f}</span>
+                <span class="metric-value">{profit_factor_display}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_3[2]:
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Max Drawdown</strong>
-                <span class="metric-value">{metrics['Max Drawdown']:.2f}%</span>
+                <span class="metric-value">{format_metric_value(metrics['Max Drawdown'], suffix='%')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_3[3]:
             st.markdown(f"""
             <div class="metric-box">
                 <strong>Expectancy</strong>
-                <span class="metric-value">{metrics['Expectancy']:.2f} {st.session_state.myfxbook_account_data.get('currency', '')}</span>
+                <span class="metric-value">{format_metric_value(metrics['Expectancy'], suffix=f' {currency_symbol}')}</span>
             </div>
             """, unsafe_allow_html=True)
         with metrics_layout_3[4]:
@@ -2950,16 +2973,6 @@ elif st.session_state.current_page == 'mt5': # This page will now handle Myfxboo
                 st.info("No open trades available.")
     else:
         st.info("No Myfxbook data loaded. Please log in.")
-
-# The existing calendar rendering logic (if any) would go here or in a separate function.
-# For simplicity, and given the focus on Myfxbook metrics and trades,
-# I'm omitting the calendar part for now, as it wasn't explicitly requested to be integrated
-# with Myfxbook data in the same way as the metrics/trades.
-# If the user wants the calendar to reflect Myfxbook daily profits, that would be an additional step.
-
-# Removed the original MT5-specific data loading and metric calculation logic
-# because the request specifies using Myfxbook API.
-# The 'mt5_df' session state variable is no longer actively used with Myfxbook data.
 
 
 import streamlit as st
