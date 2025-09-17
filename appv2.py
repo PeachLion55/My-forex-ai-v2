@@ -2500,7 +2500,7 @@ if st.session_state.current_page == 'mt5':
     icon_base64 = image_to_base_64(page_info['icon'])
     if icon_base64:
         # FIX: Corrected from class="{icon_style}" to style="{icon_style}"
-        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">' 
+        icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 130px; height: auto;">'
 
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
