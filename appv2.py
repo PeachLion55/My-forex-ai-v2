@@ -2413,12 +2413,21 @@ def calculate_myfxbook_metrics(account_data, history_df):
 # --- Sidebar Navigation ---
 with st.sidebar:
     st.header("Navigation")
-    if st.button("Account Login", key="nav_account"):
-        st.session_state.current_page = 'account'
-        st.rerun()
-    if st.button("Performance Dashboard", key="nav_dashboard"):
-        st.session_state.current_page = 'mt5' # Reusing 'mt5' for Myfxbook Dashboard
-        st.rerun()
+    
+    # Use st.radio for page navigation
+    page_options = {
+        'Account Login': 'account',
+        'Performance Dashboard': 'mt5' # Reusing 'mt5' for Myfxbook Dashboard
+    }
+    
+    selected_page_label = st.radio(
+        "Go to",
+        list(page_options.keys()),
+        index=list(page_options.values()).index(st.session_state.current_page),
+        key="sidebar_radio_nav"
+    )
+    
+    st.session_state.current_page = page_options[selected_page_label]
     
     st.markdown("---")
     if st.session_state.myfxbook_session:
@@ -2440,7 +2449,7 @@ if st.session_state.current_page == 'account':
         email = st.text_input("Myfxbook Email", key="login_email")
         password = st.text_input("Myfxbook Password", type="password", key="login_password")
         
-        login_button = st.form_submit_button("Login")
+        login_button = st.form_submit_button("Login", key="myfxbook_form_login_button")
 
         if login_button:
             if email and password:
