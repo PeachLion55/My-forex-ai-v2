@@ -2007,25 +2007,43 @@ if st.session_state.current_page == 'trading_journal':
                 st.plotly_chart(fig_pnl_symbol, use_container_width=True)
 
 import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
 import os
+import calendar
 import io
 import base64
 import pytz
-from datetime import datetime, timedelta
+import requests
+import json
+from datetime import datetime, date, timedelta
 import logging
 
 # =========================================================
-# HELPER FUNCTIONS (Included here for completeness, but should ideally be global)
+# HELPER FUNCTIONS (Integrated directly as provided by you)
 # =========================================================
+
+# Ensure basic logging is set up if not already
+if 'logging' not in globals():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 @st.cache_data
 def image_to_base_64(path):
     """Converts a local image file to a base64 string."""
     try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
-    except FileNotFoundError:
-        logging.warning(f"Warning: Image file not found at path: {path}")
+        # Adjust path to be relative to the script's directory for robust deployment
+        script_dir = os.path.dirname(__file__) if '__file__' in locals() else os.getcwd()
+        full_path = os.path.join(script_dir, path)
+
+        if os.path.exists(full_path):
+            with open(full_path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        else:
+            logging.warning(f"Warning: Image file not found at path: {full_path}")
+            return None
+    except Exception as e:
+        logging.error(f"Error encoding image {path}: {e}")
         return None
 
 def get_active_market_sessions():
@@ -2033,17 +2051,26 @@ def get_active_market_sessions():
     Determines active forex sessions and returns a display string AND a list of active sessions.
     Includes a 1-hour correction for the server's clock.
     """
+    # Ensure session_timings is initialized, using a default if not present
+    if 'session_timings' not in st.session_state:
+        st.session_state.session_timings = {
+            'Sydney': {'start': 22, 'end': 7},    # 10 PM - 7 AM UTC
+            'Tokyo': {'start': 0, 'end': 9},      # 12 AM - 9 AM UTC
+            'London': {'start': 7, 'end': 16},    # 7 AM - 4 PM UTC
+            'New York': {'start': 12, 'end': 21}  # 12 PM - 9 PM UTC
+        }
+
     sessions_utc = st.session_state.get('session_timings', {})
-    corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1)
+    corrected_utc_time = datetime.now(pytz.utc) + timedelta(hours=1) # Corrected for server clock if needed
     current_utc_hour = corrected_utc_time.hour
     
     active_sessions = []
     for session_name, timings in sessions_utc.items():
         start, end = timings['start'], timings['end']
-        if start > end:
+        if start > end: # Session crosses midnight UTC
             if current_utc_hour >= start or current_utc_hour < end:
                 active_sessions.append(session_name)
-        else:
+        else: # Session within the same UTC day
             if start <= current_utc_hour < end:
                 active_sessions.append(session_name)
 
@@ -2059,6 +2086,15 @@ def get_next_session_end_info(active_sessions_list):
     if not active_sessions_list:
         return None, None
 
+    # Ensure session_timings is initialized, using a default if not present
+    if 'session_timings' not in st.session_state:
+        st.session_state.session_timings = {
+            'Sydney': {'start': 22, 'end': 7},
+            'Tokyo': {'start': 0, 'end': 9},
+            'London': {'start': 7, 'end': 16},
+            'New York': {'start': 12, 'end': 21}
+        }
+
     sessions_utc_hours = st.session_state.get('session_timings', {})
     now_utc = datetime.now(pytz.utc) + timedelta(hours=1) # Use corrected time
     
@@ -2071,21 +2107,35 @@ def get_next_session_end_info(active_sessions_list):
             
             end_time_today = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
 
-            if start_hour > end_hour and now_utc.hour >= end_hour:
-                end_time_today += timedelta(days=1)
-            elif now_utc > end_time_today:
-                end_time_today += timedelta(days=1)
+            # Adjust end_time_today if the session has already ended for the current day
+            # This logic assumes end_hour is less than 24.
+            # If a session ends, for example, at 00:00, that means it ends at the start of the next day.
+            # So if end_hour is 0, it really means 24 of previous day.
+            # Simplified for clarity: if current time is past today's end time, assume it's tomorrow's end.
+            if start_hour > end_hour and now_utc.hour >= end_hour: # Crosses midnight, e.g., Sydney 22-7. If now_utc is 23, end is 7 tomorrow. If now_utc is 6, end is 7 today.
+                if now_utc.hour >= start_hour: # If we are in the starting part of a cross-midnight session
+                    end_time_candidate = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                else: # If we are in the ending part of a cross-midnight session
+                    end_time_candidate = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+            else: # Session within the same day
+                end_time_candidate = now_utc.replace(hour=end_hour, minute=0, second=0, microsecond=0)
+                if now_utc >= end_time_candidate: # If today's session already ended, consider tomorrow's
+                    end_time_candidate += timedelta(days=1)
+            
+            # Final check: make sure end_time_candidate is in the future relative to now_utc
+            while end_time_candidate < now_utc:
+                end_time_candidate += timedelta(days=1)
 
-            next_end_times.append((end_time_today, session_name))
+            next_end_times.append((end_time_candidate, session_name))
     
     if not next_end_times:
         return None, None
         
-    next_end_times.sort()
+    next_end_times.sort(key=lambda x: x[0]) # Sort by timestamp
     soonest_end_time, soonest_session_name = next_end_times[0]
     
     remaining = soonest_end_time - now_utc
-    if remaining.total_seconds() < 0:
+    if remaining.total_seconds() < 0: # Should not happen with corrected logic, but as a safeguard
         return soonest_session_name, "Closing..."
 
     hours, remainder = divmod(int(remaining.total_seconds()), 3600)
@@ -2094,56 +2144,16 @@ def get_next_session_end_info(active_sessions_list):
     time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
     return soonest_session_name, time_str
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.express as px
-import os
-import calendar
-from datetime import datetime, date, timedelta
-import requests # For Myfxbook API calls
-import json # For handling JSON responses
-import base64 # For image_to_base_64
 
-# Assume DEFAULT_APP_STATE and other helper functions are defined globally or imported.
-# For this full code, I'll provide basic placeholder definitions for any missing functions
-# or variables to ensure the script is runnable.
-# YOU SHOULD REPLACE THESE PLACEHOLDERS WITH YOUR ACTUAL IMPLEMENTATIONS.
-
-# --- Global/App-wide State & Helper Placeholders (Replace with your actual ones) ---
-if 'DEFAULT_APP_STATE' not in globals():
-    DEFAULT_APP_STATE = {
+# --- Global/App-wide State Initialization ---
+if 'DEFAULT_APP_STATE' not in st.session_state:
+    st.session_state.DEFAULT_APP_STATE = {
         'mt5_df': pd.DataFrame(columns=["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]),
         'selected_calendar_month': datetime.now().strftime('%B %Y')
     }
-    st.session_state.setdefault('mt5_df', DEFAULT_APP_STATE['mt5_df'].copy())
-    st.session_state.setdefault('selected_calendar_month', DEFAULT_APP_STATE['selected_calendar_month'])
+st.session_state.setdefault('mt5_df', st.session_state.DEFAULT_APP_STATE['mt5_df'].copy())
+st.session_state.setdefault('selected_calendar_month', st.session_state.DEFAULT_APP_STATE['selected_calendar_month'])
 
-if 'logging' not in globals():
-    import logging
-    logging.basicConfig(level=logging.INFO) # Basic logging setup
-
-def image_to_base_64(image_path):
-    """Placeholder function to convert image to base64. Replace with your actual implementation."""
-    try:
-        # Check if the file exists and is readable
-        if os.path.exists(image_path):
-            with open(image_path, "rb") as image_file:
-                return base64.b64encode(image_file.read()).decode()
-        else:
-            logging.warning(f"Icon file not found at: {image_path}. Using empty icon.")
-            return ""
-    except Exception as e:
-        logging.error(f"Error encoding image {image_path}: {e}")
-        return ""
-
-def get_active_market_sessions():
-    """Placeholder for market sessions. Replace with your actual implementation."""
-    return "London, New York", []
-
-def get_next_session_end_info(active_sessions_list):
-    """Placeholder for next session end info. Replace with your actual implementation."""
-    return "New York", "2h 30m"
 
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
@@ -2160,7 +2170,7 @@ if st.session_state.current_page == 'mt5':
     # --- 1. Page-Specific Configuration ---
     page_info = {
         'title': 'Performance Dashboard',
-        'icon': 'performance_dashboard.png',
+        'icon': 'icons/performance_dashboard.png', # Ensure this path is correct relative to script
         'caption': 'Analyze your MT5 trading history with advanced metrics and visualizations.'
     }
 
@@ -2180,9 +2190,7 @@ if st.session_state.current_page == 'mt5':
 
     # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
-    # Ensure the 'icons' directory exists or handle missing image
-    icon_path = os.path.join(os.path.dirname(__file__), "icons", page_info['icon']) # Adjust path if 'icons' is not in the same directory
-    icon_base64 = image_to_base_64(icon_path)
+    icon_base64 = image_to_base_64(page_info['icon']) # Use the helper function with the full path
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
 
@@ -2505,31 +2513,6 @@ if st.session_state.current_page == 'mt5':
         if daily_pnl_series.empty or len(daily_pnl_series) < 2:
             return np.nan
 
-        # Calculate daily returns (percentage change of cumulative profit if we want equity curve sharpe)
-        # Or, if profit represents daily PnL, calculate returns based on that.
-        # For simplicity and typical Sharpe, we'll use daily PnL relative to some initial capital or percentage of daily profit
-        # If 'Profit' is absolute PnL, a standard way is to use daily cumulative returns from an initial balance.
-        # For a simple approach, let's use the daily PnL directly as "returns" for calculation,
-        # assuming it's representative of daily performance changes.
-        # A more robust Sharpe would require a full equity curve.
-        # Given the existing setup, let's assume 'Profit' can be directly used for daily returns in a simplified way.
-        daily_returns = daily_pnl_series.diff().dropna() # PnL differences
-
-        if daily_returns.empty or len(daily_returns) < 2:
-            return np.nan
-        
-        # Adjusting for returns as PnL. If 'Profit' is already PnL, we need an initial capital assumption
-        # or daily percentage returns based on daily equity.
-        # For now, let's compute based on `daily_pnl_series` itself, treating it as if it represents
-        # "value" changes over time. A more precise Sharpe often uses portfolio value changes.
-        # A common simplification is `(mean_daily_return - risk_free_rate) / std_daily_return`.
-        # Here, `daily_pnl_series` are absolute PnL. Converting to percentage returns for Sharpe.
-        # This is often done on an equity curve.
-        # Let's approximate by assuming daily_pnl_series are returns over some (unspecified) capital.
-        # This is a simplification and might not be perfectly standard.
-
-        # Alternative: Calculate cumulative sum and then percentage change for equity-like returns
-        # This is more aligned with typical Sharpe ratio calculation
         initial_capital = 10000 # Assume an initial capital for percentage calculation
         equity_curve = initial_capital + daily_pnl_series.cumsum()
         returns_pct = equity_curve.pct_change().dropna()
@@ -2537,8 +2520,6 @@ if st.session_state.current_page == 'mt5':
         if returns_pct.empty:
             return np.nan
 
-        # Annualize returns and standard deviation
-        # Assuming daily data, 252 trading days in a year
         annualized_mean_return = returns_pct.mean() * 252
         annualized_std_dev = returns_pct.std() * np.sqrt(252)
 
@@ -2552,24 +2533,31 @@ if st.session_state.current_page == 'mt5':
     def _ta_daily_pnl_mt5(df_trades):
         """
         Returns a dictionary mapping datetime.date to total profit for that day.
-        Includes all days that had at least one trade in the CSV.
+        Includes all days that had at least one trade.
         """
         if "Close Time" in df_trades.columns and "Profit" in df_trades.columns and not df_trades.empty and not df_trades["Profit"].isnull().all():
             df_copy = df_trades.copy()
             df_copy["date"] = pd.to_datetime(df_copy["Close Time"]).dt.date
-            return df_copy.groupby("date")["Profit"].sum().to_dict()
+            # Ensure filtering by Symbol.notna() is consistently applied here as well for daily PnL
+            df_copy_filtered = df_copy[df_copy['Symbol'].notna()]
+            return df_copy_filtered.groupby("date")["Profit"].sum().to_dict()
         return {}
 
     def _ta_profit_factor_mt5(df_trades):
-        wins_sum = df_trades[df_trades["Profit"] > 0]["Profit"].sum()
-        losses_sum = abs(df_trades[df_trades["Profit"] < 0]["Profit"].sum())
+        # Ensure filtering by Symbol.notna()
+        df_filtered = df_trades[df_trades['Symbol'].notna()]
+        wins_sum = df_filtered[df_filtered["Profit"] > 0]["Profit"].sum()
+        losses_sum = abs(df_filtered[df_filtered["Profit"] < 0]["Profit"].sum())
         return wins_sum / losses_sum if losses_sum != 0.0 else (np.inf if wins_sum > 0 else np.nan)
 
     def _ta_show_badges_mt5(df_trades):
         st.subheader("🎖️ Your Trading Badges")
 
-        total_profit_val = df_trades["Profit"].sum()
-        total_trades_val = len(df_trades)
+        # Ensure filtering by Symbol.notna() for badge calculations
+        df_filtered_for_badges = df_trades[df_trades['Symbol'].notna()]
+
+        total_profit_val = df_filtered_for_badges["Profit"].sum()
+        total_trades_val = len(df_filtered_for_badges)
 
         col_badge1, col_badge2, col_badge3 = st.columns(3)
         with col_badge1:
@@ -2584,8 +2572,8 @@ if st.session_state.current_page == 'mt5':
             else:
                 st.markdown(f"<div class='metric-box'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({max(0, 30 - total_trades_val)} left)</span></div>", unsafe_allow_html=True)
 
-        avg_win_for_badge = df_trades[df_trades["Profit"] > 0]["Profit"].mean()
-        avg_loss_for_badge = df_trades[df_trades["Profit"] < 0]["Profit"].mean()
+        avg_win_for_badge = df_filtered_for_badges[df_filtered_for_badges["Profit"] > 0]["Profit"].mean()
+        avg_loss_for_badge = df_filtered_for_badges[df_filtered_for_badges["Profit"] < 0]["Profit"].mean()
 
         with col_badge3:
             if pd.notna(avg_win_for_badge) and pd.notna(avg_loss_for_badge) and avg_loss_for_badge < 0.0:
@@ -2625,7 +2613,7 @@ if st.session_state.current_page == 'mt5':
                         accounts_response.raise_for_status()
                         accounts_data = accounts_response.json()
 
-                        if not accounts_data["error"] and accounts_data["accounts"]:
+                        if not accounts_data["error"] and accounts_data.get("accounts"):
                             st.session_state.myfxbook_accounts = accounts_data["accounts"]
                             st.session_state.myfxbook_logged_in = True
                             st.rerun() # Rerun to display account selection and data loading options
@@ -2653,17 +2641,26 @@ if st.session_state.current_page == 'mt5':
     if st.session_state.get('myfxbook_logged_in') and st.session_state.get('myfxbook_accounts'):
         st.subheader("Select Myfxbook Account")
         account_names = {acc['name']: acc['id'] for acc in st.session_state.myfxbook_accounts}
-        # Get current selected account or default to the first one
-        if 'myfxbook_selected_account_name' not in st.session_state or st.session_state.myfxbook_selected_account_name not in account_names:
-            st.session_state.myfxbook_selected_account_name = list(account_names.keys())[0] if account_names else None
+        
+        # Determine initial selection for selectbox
+        initial_account_name = None
+        if 'myfxbook_selected_account_name' in st.session_state and st.session_state.myfxbook_selected_account_name in account_names:
+            initial_account_name = st.session_state.myfxbook_selected_account_name
+        elif account_names:
+            initial_account_name = list(account_names.keys())[0]
 
-        selected_account_name = st.selectbox(
-            "Choose an account",
-            list(account_names.keys()),
-            index=list(account_names.keys()).index(st.session_state.myfxbook_selected_account_name) if st.session_state.myfxbook_selected_account_name else 0,
-            key="myfxbook_account_selector"
-        )
-        st.session_state.myfxbook_selected_account_name = selected_account_name
+        if account_names:
+            selected_account_name = st.selectbox(
+                "Choose an account",
+                list(account_names.keys()),
+                index=list(account_names.keys()).index(initial_account_name) if initial_account_name else 0,
+                key="myfxbook_account_selector"
+            )
+            st.session_state.myfxbook_selected_account_name = selected_account_name
+        else:
+            st.warning("No Myfxbook accounts found or selectable.")
+            selected_account_name = None
+
 
         if selected_account_name:
             selected_account_id = account_names[selected_account_name]
@@ -2684,23 +2681,16 @@ if st.session_state.current_page == 'mt5':
                         df_history = pd.DataFrame()
                         if not history_data["error"] and history_data.get("history"):
                             df_history = pd.DataFrame(history_data["history"])
-                            # Convert column names to match MT5 CSV
                             df_history = df_history.rename(columns={
                                 "openTime": "Open Time",
                                 "closeTime": "Close Time",
                                 "symbol": "Symbol",
-                                "action": "Type", # Myfxbook uses 'action', MT5 uses 'Type'
+                                "action": "Type",
                                 "profit": "Profit"
                             })
-                            # Handle 'sizing' column for Volume: it can be a dict {'value': X}
                             df_history['Volume'] = df_history['sizing'].apply(lambda x: x.get('value') if isinstance(x, dict) else pd.NA)
                             df_history['Volume'] = pd.to_numeric(df_history['Volume'], errors='coerce')
-
-
-                            # Clean 'Type' e.g., "Buy Limit" -> "Buy"
                             df_history["Type"] = df_history["Type"].apply(lambda x: x.split(" ")[0] if isinstance(x, str) and " " in x else x)
-
-                            # Keep only necessary columns before concatenating
                             df_history = df_history[['Open Time', 'Close Time', 'Symbol', 'Type', 'Profit', 'Volume']]
                             logging.info(f"Fetched {len(df_history)} history trades.")
                         else:
@@ -2722,82 +2712,71 @@ if st.session_state.current_page == 'mt5':
                                 "action": "Type",
                                 "profit": "Profit"
                             })
-                            # Add 'Close Time' and 'closePrice' for open trades as None/NaN for consistency
-                            df_open_trades['Close Time'] = pd.NaT # Not a Timestamp
+                            df_open_trades['Close Time'] = pd.NaT
                             df_open_trades['closePrice'] = np.nan
-                            # Handle 'sizing' column for Volume
                             df_open_trades['Volume'] = df_open_trades['sizing'].apply(lambda x: x.get('value') if isinstance(x, dict) else pd.NA)
                             df_open_trades['Volume'] = pd.to_numeric(df_open_trades['Volume'], errors='coerce')
-
                             df_open_trades["Type"] = df_open_trades["Type"].apply(lambda x: x.split(" ")[0] if isinstance(x, str) and " " in x else x)
-
-                            # Keep only necessary columns for open trades (if you want to display them)
-                            # For the dashboard, we usually need closed trades.
                             df_open_trades_display = df_open_trades[['Open Time', 'Symbol', 'Type', 'openPrice', 'Profit', 'Volume']].copy()
                             logging.info(f"Fetched {len(df_open_trades)} open trades.")
                         else:
                             st.info("No open trades found for this account.")
                             df_open_trades_display = pd.DataFrame()
 
+                        df_to_process = df_history.copy()
 
-                        # Combine history and open trades (for a complete view if needed, but dashboard typically uses closed)
-                        # For the purpose of the existing dashboard, we primarily use closed trades (`df_history`).
-                        # We will process `df_history` to become `st.session_state.mt5_df`.
-
-                        df_to_process = df_history.copy() # Use history for the main dashboard metrics
-
-                        # Ensure required columns exist and are of correct type
                         required_cols_for_processing = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
                         for col in required_cols_for_processing:
                             if col not in df_to_process.columns:
-                                df_to_process[col] = pd.NA # Use pandas NA for consistency
+                                df_to_process[col] = pd.NA
 
                         df_to_process["Open Time"] = pd.to_datetime(df_to_process["Open Time"], errors="coerce")
                         df_to_process["Close Time"] = pd.to_datetime(df_to_process["Close Time"], errors="coerce")
                         df_to_process["Profit"] = pd.to_numeric(df_to_process["Profit"], errors='coerce').fillna(0.0)
                         df_to_process["Volume"] = pd.to_numeric(df_to_process["Volume"], errors='coerce').fillna(0.0)
 
-                        # Filter out trades where Close Time is NaT if the dashboard expects closed trades
-                        df_processed = df_to_process.dropna(subset=["Open Time", "Profit", "Close Time"]) # Only consider closed trades for analysis
+                        df_processed = df_to_process.dropna(subset=["Open Time", "Profit", "Close Time"])
+                        # --- FIX: Filter out non-symbol rows here ---
+                        df_processed = df_processed[df_processed['Symbol'].notna()]
+                        # --- END FIX ---
 
                         if df_processed.empty:
-                            st.warning("No valid closed trading data found for the selected Myfxbook account after processing. Please check if the account has closed trades.")
-                            st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                            st.warning("No valid closed trading data found for the selected Myfxbook account after processing. Please check if the account has closed trades with symbols.")
+                            st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                             st.session_state.myfxbook_df_loaded = False
                         else:
                             st.session_state.mt5_df = df_processed
                             st.session_state.myfxbook_df_loaded = True
                             st.success(f"Successfully loaded {len(df_processed)} closed trades from Myfxbook.")
-                            # Optionally display open trades
                             if not df_open_trades_display.empty:
                                 st.subheader("Current Open Trades (from Myfxbook)")
                                 st.dataframe(df_open_trades_display, use_container_width=True)
                             else:
                                 st.info("No open trades currently available for this account.")
 
-                        st.rerun() # Rerun to update the dashboard with new data
+                        st.rerun()
 
                     except requests.exceptions.RequestException as e:
                         st.error(f"Network or API error during Myfxbook data fetch: {e}. Please check your internet connection or Myfxbook API status.")
                         logging.error(f"Myfxbook data fetch error: {e}", exc_info=True)
-                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                         st.session_state.myfxbook_df_loaded = False
                     except json.JSONDecodeError:
                         st.error("Failed to parse Myfxbook data response. The API might be returning non-JSON data or is unavailable.")
                         logging.error("Myfxbook data fetch JSONDecodeError", exc_info=True)
-                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                         st.session_state.myfxbook_df_loaded = False
                     except Exception as e:
                         st.error(f"An unexpected error occurred during Myfxbook data processing: {e}")
                         logging.error(f"Myfxbook data processing error: {e}", exc_info=True)
-                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                         st.session_state.myfxbook_df_loaded = False
-        st.markdown("---") # Separator between Myfxbook and CSV uploader
+        st.markdown("---")
 
     # --------------------------
     # File Uploader (MT5 page) OR use Myfxbook Data
     # --------------------------
-    df = st.session_state.get('mt5_df', DEFAULT_APP_STATE['mt5_df'].copy()) # Initialize df from session state
+    df = st.session_state.get('mt5_df', st.session_state.DEFAULT_APP_STATE['mt5_df'].copy())
 
     if not st.session_state.get('myfxbook_df_loaded', False):
         uploaded_file = st.file_uploader(
@@ -2810,14 +2789,16 @@ if st.session_state.current_page == 'mt5':
             with st.spinner("Processing trading data from CSV..."):
                 try:
                     df = pd.read_csv(uploaded_file)
-                    st.session_state.mt5_df = df # Update session state with new df
+                    # Filter out any rows without a symbol immediately
+                    df = df[df['Symbol'].notna()]
+                    st.session_state.mt5_df = df
 
                     required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
                     missing_cols = [col for col in required_cols if col not in df.columns]
                     if missing_cols:
                         st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}. Please ensure your CSV has all necessary columns.")
-                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
-                        st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+                        st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
                         st.stop()
 
                     df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
@@ -2826,36 +2807,34 @@ if st.session_state.current_page == 'mt5':
                     df = df.dropna(subset=["Open Time", "Close Time"])
 
                     if df.empty:
-                        st.error("Uploaded CSV resulted in no valid trading data after processing timestamps or profits.")
-                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
-                        st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+                        st.error("Uploaded CSV resulted in no valid trading data after processing timestamps or profits (ensure symbols are present).")
+                        st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
                         st.stop()
 
                     df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
                     st.success("CSV data loaded and processed successfully!")
-                    st.session_state.myfxbook_df_loaded = False # Ensure this is false if CSV is used
-                    st.rerun() # Rerun to update dashboard with CSV data
+                    st.session_state.myfxbook_df_loaded = False
+                    st.rerun()
 
                 except Exception as e:
                     st.error(f"Error processing CSV: {str(e)}. Please check your CSV format and ensure it contains the required columns with valid data.")
                     logging.error(f"Error processing CSV: {str(e)}", exc_info=True)
-                    st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
-                    st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+                    st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
+                    st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
         else:
             if df.empty and not st.session_state.get('myfxbook_df_loaded', False):
                 st.info("👆 Upload your MT5 trading history CSV or login to Myfxbook above to explore advanced performance metrics.")
-                st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
-                st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+                st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
+                st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
     else:
         st.info("📊 Data is currently loaded from your Myfxbook account. CSV upload is disabled.")
-        # Ensure df is taken from session state if Myfxbook data was loaded
-        df = st.session_state.get('mt5_df', DEFAULT_APP_STATE['mt5_df'].copy())
+        df = st.session_state.get('mt5_df', st.session_state.DEFAULT_APP_STATE['mt5_df'].copy())
 
 
     # The main dashboard display logic (metrics, charts, calendar) starts here
-    # It now operates on `df`, which is either from Myfxbook or CSV.
+    # It now operates on `df`, which is either from Myfxbook or CSV, and is filtered for symbols.
     if not df.empty:
-        # Re-calculate daily_pnl_map and daily_pnl_df_for_stats with the loaded df
         daily_pnl_map = _ta_daily_pnl_mt5(df)
 
         daily_pnl_df_for_stats = pd.DataFrame(columns=["date", "Profit"])
@@ -2869,6 +2848,7 @@ if st.session_state.current_page == 'mt5':
                 for d in all_dates_in_data_range
             ])
         elif not df.empty and pd.notna(df['Close Time'].min()) and pd.notna(df['Close Time'].max()):
+            # Fallback if daily_pnl_map is empty but Close Time exists (e.g., all 0 profit days)
             min_date_raw = df['Close Time'].min().date()
             max_date_raw = df['Close Time'].max().date()
             all_dates_raw_range = pd.date_range(start=min_date_raw, end=max_date_raw).date
@@ -2939,10 +2919,12 @@ if st.session_state.current_page == 'mt5':
 
             most_profitable_asset_calc = "N/A"
             if not df.empty and "Symbol" in df.columns and not df["Profit"].isnull().all():
-                profitable_assets = df.groupby("Symbol")["Profit"].sum()
-                if not profitable_assets.empty and profitable_assets.max() > 0.0:
-                    most_profitable_asset_calc = profitable_assets.idxmax()
-                elif not profitable_assets.empty and profitable_assets.min() <= 0.0 and profitable_assets.max() <= 0.0:
+                # Filter for trades (Symbol notna) and then group by symbol
+                profitable_assets = df[df['Symbol'].notna()].groupby("Symbol")["Profit"].sum()
+                if not profitable_assets.empty:
+                    if profitable_assets.max() > 0.0:
+                        most_profitable_asset_calc = profitable_assets.idxmax()
+                    else: # All symbols had zero or negative profit
                         most_profitable_asset_calc = "None Profitable"
             
             best_day_profit = 0.0
@@ -3147,34 +3129,30 @@ if st.session_state.current_page == 'mt5':
 
             if not df.empty:
                 analysis_options = ['Symbol', 'Type', 'Trade Duration']
-                # Ensure 'Trade Duration' is calculated if not already
-                if 'Trade Duration' not in df.columns:
-                    # Make sure 'Open Time' and 'Close Time' are datetime objects
+                if 'Trade Duration' not in df.columns or df['Trade Duration'].isnull().all():
                     df['Open Time'] = pd.to_datetime(df['Open Time'], errors='coerce')
                     df['Close Time'] = pd.to_datetime(df['Close Time'], errors='coerce')
                     df_valid_duration = df.dropna(subset=['Open Time', 'Close Time'])
-                    df['Trade Duration'] = (df_valid_duration["Close Time"] - df_valid_duration["Open Time"]).dt.total_seconds() / 3600
+                    df.loc[df_valid_duration.index, 'Trade Duration'] = (df_valid_duration["Close Time"] - df_valid_duration["Open Time"]).dt.total_seconds() / 3600
                 
-                # Filter analysis options based on available columns
-                available_analysis_options = [opt for opt in analysis_options if opt in df.columns]
+                available_analysis_options = [opt for opt in analysis_options if opt in df.columns and not df[opt].isnull().all()]
                 
                 if not available_analysis_options:
-                    st.info("Insufficient data columns to perform edge analysis (requires 'Symbol', 'Type', or calculated 'Trade Duration').")
+                    st.info("Insufficient data columns to perform edge analysis (requires 'Symbol', 'Type', or calculated 'Trade Duration' with non-null values).")
                 else:
                     analysis_by = st.selectbox("Analyze by:", available_analysis_options)
 
                     if analysis_by == 'Trade Duration':
                         df_for_edge = df.copy()
-                        # Ensure 'Trade Duration' is numeric and not NaN for binning
                         df_for_edge = df_for_edge.dropna(subset=['Trade Duration'])
-                        if not df_for_edge.empty:
+                        if not df_for_edge.empty and df_for_edge['Trade Duration'].max() > df_for_edge['Trade Duration'].min(): # Ensure there's variation for binning
                             df_for_edge['Duration Bin'] = pd.cut(df_for_edge['Trade Duration'], bins=5, labels=False, include_lowest=True)
                             grouped_data = df_for_edge.groupby('Duration Bin')['Profit'].agg(['sum', 'count', 'mean']).reset_index()
-                            grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}") # Label bins
+                            grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}")
                             fig_edge = px.bar(grouped_data, x='Duration Bin', y='sum', title=f"Profit by {analysis_by}")
                             st.plotly_chart(fig_edge, use_container_width=True)
                         else:
-                            st.info("No valid trade durations to analyze for Edge Finder.")
+                            st.info("No sufficient trade durations to analyze for Edge Finder. Data might be uniform.")
                     else:
                         grouped_data = df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
                         fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
@@ -3200,27 +3178,30 @@ if st.session_state.current_page == 'mt5':
         if not st.session_state.get('myfxbook_df_loaded', False):
             st.info("Start by uploading your MT5 trading history CSV or logging into your Myfxbook account above.")
         else:
-            st.info("No trade data available from Myfxbook account to display dashboard metrics. Please check your selected account.")
+            st.info("No trade data available from Myfxbook account to display dashboard metrics. Please check your selected account or if there are closed trades with symbols.")
 
 
-    if not st.session_state.mt5_df.empty: # Use st.session_state.mt5_df for subsequent sections
+    if not st.session_state.mt5_df.empty:
         try:
             st.markdown("---")
             _ta_show_badges_mt5(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     
-    if not st.session_state.mt5_df.empty: # Use st.session_state.mt5_df for calendar
+    if not st.session_state.mt5_df.empty:
         st.markdown("---")
         st.subheader("🗓️ Daily Performance Calendar")
 
-        df_for_calendar = st.session_state.mt5_df
+        df_for_calendar = st.session_state.mt5_df.copy() # Operate on a copy
+        df_for_calendar['Close Time'] = pd.to_datetime(df_for_calendar['Close Time'], errors='coerce')
+        # Ensure only trades with valid Close Time are considered for calendar
+        df_for_calendar = df_for_calendar.dropna(subset=['Close Time'])
 
-        selected_month_date = date(datetime.now().year, datetime.now().month, 1)
+        selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Default current month
 
-        if not df_for_calendar.empty and not df_for_calendar["Close Time"].isnull().all():
-            min_date_data = pd.to_datetime(df_for_calendar["Close Time"]).min().date()
-            max_date_data = pd.to_datetime(df_for_calendar["Close Time"]).max().date()
+        if not df_for_calendar.empty:
+            min_date_data = df_for_calendar["Close Time"].min().date()
+            max_date_data = df_for_calendar["Close Time"].max().date()
 
             all_months_in_data = pd.date_range(start=min_date_data.replace(day=1),
                                                 end=max_date_data.replace(day=1), freq='MS').to_period('M')
@@ -3231,13 +3212,20 @@ if st.session_state.current_page == 'mt5':
 
                 latest_data_month_str = available_months_periods[0].strftime('%B %Y')
 
+                # Set initial selected month in session state if not already set or invalid
                 if 'selected_calendar_month' not in st.session_state or st.session_state.selected_calendar_month not in display_options:
                      st.session_state.selected_calendar_month = latest_data_month_str
+
+                # Ensure the index is valid for the selectbox
+                try:
+                    default_index = display_options.index(st.session_state.selected_calendar_month)
+                except ValueError:
+                    default_index = 0 # Fallback to first month if selected month is no longer in options
 
                 selected_month_year_str = st.selectbox(
                     "Select Month",
                     options=display_options,
-                    index=display_options.index(st.session_state.selected_calendar_month),
+                    index=default_index,
                     key="calendar_month_selector"
                 )
                 st.session_state.selected_calendar_month = selected_month_year_str
@@ -3246,10 +3234,10 @@ if st.session_state.current_page == 'mt5':
                 selected_month_date = selected_period.start_time.date() if selected_period else date(datetime.now().year, datetime.now().month, 1)
             else:
                  st.warning("No trade data with valid 'Close Time' to display in the calendar.")
-                 selected_month_date = date(datetime.now().year, datetime.now().month, 1)
+                 selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Fallback to current month if no data months
         else:
-            st.warning("No trade data with valid 'Close Time' to display in the calendar.")
-            selected_month_date = date(datetime.now().year, datetime.now().month, 1)
+            st.warning("No trade data with valid 'Close Time' available to display in the calendar.")
+            selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Fallback to current month
 
         daily_pnl_map_for_calendar = _ta_daily_pnl_mt5(df_for_calendar)
 
@@ -3317,25 +3305,28 @@ if st.session_state.current_page == 'mt5':
         st.markdown(calendar_html, unsafe_allow_html=True)
 
 
-    if not st.session_state.mt5_df.empty: # Use st.session_state.mt5_df for report generation
+    if not st.session_state.mt5_df.empty:
         st.markdown("---")
         if st.button("📄 Generate Performance Report"):
-            total_trades = len(st.session_state.mt5_df)
-            wins_df = st.session_state.mt5_df[st.session_state.mt5_df["Profit"] > 0]
-            losses_df = st.session_state.mt5_df[st.session_state.mt5_df["Profit"] < 0]
-            win_rate = len(wins_df) / total_trades if total_trades else 0.0
-            net_profit = st.session_state.mt5_df["Profit"].sum()
-            profit_factor = _ta_profit_factor_mt5(st.session_state.mt5_df)
-            
-            if st.session_state.get('mt5_df', pd.DataFrame()) is not None and not st.session_state.mt5_df.empty:
-                daily_pnl_for_streaks = _ta_daily_pnl_mt5(st.session_state.mt5_df)
-                streaks = _ta_compute_streaks(pd.DataFrame(list(daily_pnl_for_streaks.items()), columns=['date', 'Profit']))
-                longest_win_streak = streaks['best_win']
-                longest_loss_streak = streaks['best_loss']
-            else:
-                longest_win_streak = 0
-                longest_loss_streak = 0
+            # Ensure report generation uses the filtered data
+            df_for_report = st.session_state.mt5_df[st.session_state.mt5_df['Symbol'].notna()].copy()
 
+            total_trades = len(df_for_report)
+            wins_df = df_for_report[df_for_report["Profit"] > 0]
+            losses_df = df_for_report[df_for_report["Profit"] < 0]
+            win_rate = len(wins_df) / total_trades if total_trades else 0.0
+            net_profit = df_for_report["Profit"].sum()
+            profit_factor = _ta_profit_factor_mt5(df_for_report) # This helper also filters by symbol
+
+            daily_pnl_for_streaks = _ta_daily_pnl_mt5(df_for_report)
+            streaks = _ta_compute_streaks(pd.DataFrame(list(daily_pnl_for_streaks.items()), columns=['date', 'Profit']))
+            longest_win_streak = streaks['best_win']
+            longest_loss_streak = streaks['best_loss']
+
+            avg_trade_duration = df_for_report['Trade Duration'].mean() if 'Trade Duration' in df_for_report.columns and not df_for_report['Trade Duration'].isnull().all() else 0.0
+            total_volume = df_for_report['Volume'].sum() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
+            avg_volume = df_for_report['Volume'].mean() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
+            profit_per_trade = (net_profit / total_trades) if total_trades else 0.0
 
             report_html = f"""
             <html>
@@ -3360,11 +3351,11 @@ if st.session_state.current_page == 'mt5':
             <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
             <p><strong>Longest Win Streak:</strong> {_ta_human_num_mt5(longest_win_streak)}</p>
             <p><strong>Longest Loss Streak:</strong> {_ta_human_num_mt5(longest_loss_streak)}</p>
-            <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(st.session_state.mt5_df['Trade Duration'].mean()) if 'Trade Duration' in st.session_state.mt5_df.columns else 'N/A'}h</p>
-            <p><strong>Total Volume:</strong> {_ta_human_num_mt5(st.session_state.mt5_df['Volume'].sum()) if 'Volume' in st.session_state.mt5_df.columns else 'N/A'}</p>
-            <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(st.session_state.mt5_df['Volume'].mean()) if 'Volume' in st.session_state.mt5_df.columns else 'N/A'}</p>
-            <p><strong>Profit / Trade:</strong> <span class='{'positive' if (net_profit/total_trades if total_trades else 0.0) >= 0 else 'negative'}'>
-            {'$' if (net_profit/total_trades if total_trades else 0.0) >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit/total_trades if total_trades else 0.0))}</span></p>
+            <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(avg_trade_duration)}h</p>
+            <p><strong>Total Volume:</strong> {_ta_human_num_num_mt5(total_volume)}</p>
+            <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(avg_volume)}</p>
+            <p><strong>Profit / Trade:</strong> <span class='{'positive' if profit_per_trade >= 0 else 'negative'}'>
+            {'$' if profit_per_trade >= 0 else '-$'}{_ta_human_num_mt5(abs(profit_per_trade))}</span></p>
             </body>
             </html>
             """
@@ -3375,7 +3366,6 @@ if st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
-
 import streamlit as st
 import os
 import io
