@@ -2196,7 +2196,8 @@ if st.session_state.current_page == 'mt5':
         .header-title {
             color: white; margin: 0; font-size: 2.2rem; line-height: 1.2;
         }
-        .icon-style {
+        /* NOTE: The 'icon-image' below is a CSS class, NOT a Python variable. */
+        .icon-image {
             width: 130px; height: auto;
         }
         .header-caption {
@@ -2499,7 +2500,7 @@ if st.session_state.current_page == 'mt5':
     icon_html = ""
     icon_base64 = image_to_base_64(page_info['icon'])
     if icon_base64:
-        # FIX: Corrected from class="{icon_style}" to style="{icon_style}"
+        # CORRECTED: Directly embedding the style string for the image
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="width: 130px; height: auto;">'
 
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
@@ -2782,9 +2783,9 @@ if st.session_state.current_page == 'mt5':
                             df_to_process["Profit"] = pd.to_numeric(df_to_process["Profit"], errors='coerce').fillna(0.0)
                             df_to_process["Volume"] = pd.to_numeric(df_to_process["Volume"], errors='coerce').fillna(0.0)
 
-                            # CRITICAL: Filter out non-symbol (e.g., deposit/withdrawal) rows early
+                            # CRITICAL FIX: Filter out non-symbol (e.g., deposit/withdrawal) rows early
                             df_processed = df_to_process[df_to_process['Symbol'].notna()].copy()
-                            df_processed = df_processed.dropna(subset=["Open Time", "Profit", "Close Time"]) # Only consider closed trades for main analysis
+                            df_processed.dropna(subset=["Open Time", "Profit", "Close Time"], inplace=True) # Only consider closed trades for main analysis
 
                             if df_processed.empty:
                                 st.warning("No valid closed trading data found for the selected Myfxbook account after processing. Please check if the account has closed trades with symbols.")
@@ -2841,37 +2842,37 @@ if st.session_state.current_page == 'mt5':
                     try:
                         df_raw_csv = pd.read_csv(uploaded_file)
                         
-                        # CRITICAL: Filter out any rows without a symbol immediately for CSV data
-                        df_filtered_csv = df_raw_csv[df_raw_csv['Symbol'].notna()].copy()
+                        # CRITICAL FIX: Filter out any rows without a symbol immediately for CSV data
+                        df = df_raw_csv[df_raw_csv['Symbol'].notna()].copy()
                         
-                        st.session_state.mt5_df = df_filtered_csv # Update session state with new df
+                        st.session_state.mt5_df = df # Update session state with filtered df
 
                         required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
-                        missing_cols = [col for col in required_cols if col not in df_filtered_csv.columns]
+                        missing_cols = [col for col in required_cols if col not in df.columns]
                         if missing_cols:
                             st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}. Please ensure your CSV has all necessary columns.")
                             st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                             st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
                             st.stop()
 
-                        df_filtered_csv["Open Time"] = pd.to_datetime(df_filtered_csv["Open Time"], errors="coerce")
-                        df_filtered_csv["Close Time"] = pd.to_datetime(df_filtered_csv["Close Time"], errors="coerce")
-                        df_filtered_csv["Profit"] = pd.to_numeric(df_filtered_csv["Profit"], errors='coerce').fillna(0.0)
-                        df_filtered_csv["Volume"] = pd.to_numeric(df_filtered_csv["Volume"], errors='coerce').fillna(0.0)
+                        df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+                        df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                        df["Profit"] = pd.to_numeric(df["Profit"], errors='coerce').fillna(0.0)
+                        df["Volume"] = pd.to_numeric(df["Volume"], errors='coerce').fillna(0.0)
                         
                         # Only keep rows where both Open and Close Times are valid for trade duration and calendar
-                        df_filtered_csv.dropna(subset=["Open Time", "Close Time"], inplace=True)
+                        df.dropna(subset=["Open Time", "Close Time"], inplace=True)
 
-                        if df_filtered_csv.empty:
+                        if df.empty:
                             st.error("Uploaded CSV resulted in no valid trading data after processing timestamps or profits (ensure symbols are present).")
                             st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                             st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
                             st.stop()
 
-                        df_filtered_csv["Trade Duration"] = (df_filtered_csv["Close Time"] - df_filtered_csv["Open Time"]).dt.total_seconds() / 3600
+                        df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
                         st.success("CSV data loaded and processed successfully!")
                         st.session_state.myfxbook_df_loaded = False # Ensure this is false if CSV is used
-                        st.session_state.mt5_df = df_filtered_csv # Update session state with the fully processed DF
+                        st.session_state.mt5_df = df # Update session state with the fully processed DF
                         st.rerun()
 
                     except Exception as e:
@@ -2930,10 +2931,13 @@ if st.session_state.current_page == 'mt5':
             losses_df = df[df["Profit"] < 0]
 
             win_rate = len(wins_df) / total_trades if total_trades else 0.0
-            net_profit = df["Profit"].sum()
+            net_profit = df["Profit"].sum() # This is now correct because df is pre-filtered
             profit_factor = _ta_profit_factor_mt5(df)
+            
+            # FIX: Clarified Avg Win/Loss and added Avg Profit/Trade
             avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
             avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0
+            avg_profit_per_trade = net_profit / total_trades if total_trades else 0.0
 
             max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
             sharpe_ratio = _ta_compute_sharpe(df)
@@ -2941,29 +2945,18 @@ if st.session_state.current_page == 'mt5':
 
             def _ta_compute_streaks(df_pnl_daily):
                 d = df_pnl_daily.sort_values(by="date")
-                if d.empty:
-                    return {"current_win": 0, "best_win": 0, "current_loss": 0, "best_loss": 0}
-
-                current_win_streak = 0
-                best_win_streak = 0
-                current_loss_streak = 0
-                best_loss_streak = 0
-
+                if d.empty: return {"best_win": 0, "best_loss": 0}
+                current_win_streak, best_win_streak, current_loss_streak, best_loss_streak = 0, 0, 0, 0
                 for pnl in d["Profit"]:
                     if pnl > 0:
                         current_win_streak += 1
-                        best_win_streak = max(best_win_streak, current_win_streak)
                         current_loss_streak = 0
                     elif pnl < 0:
                         current_loss_streak += 1
-                        best_loss_streak = max(best_loss_streak, current_loss_streak)
                         current_win_streak = 0
-                    else:
-                        current_win_streak = 0
-                        current_loss_streak = 0
-
-                return {"current_win": current_win_streak, "best_win": best_win_streak,
-                        "current_loss": current_loss_streak, "best_loss": best_loss_streak}
+                    best_win_streak = max(best_win_streak, current_win_streak)
+                    best_loss_streak = max(best_loss_streak, current_loss_streak)
+                return {"best_win": best_win_streak, "best_loss": best_loss_streak}
 
             streaks = _ta_compute_streaks(daily_pnl_df_for_stats)
             longest_win_streak = streaks["best_win"]
@@ -2971,12 +2964,7 @@ if st.session_state.current_page == 'mt5':
 
             avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
 
-            trading_score_value = 90.98
-            max_trading_score = 100
-            trading_score_percentage = (trading_score_value / max_trading_score) * 100
-
-            hit_rate = win_rate
-
+            # FIX: Logic for Most Profitable Asset (now works on clean data)
             most_profitable_asset_calc = "N/A"
             if not df.empty:
                 symbol_profits = df.groupby("Symbol")["Profit"].sum()
@@ -2985,6 +2973,7 @@ if st.session_state.current_page == 'mt5':
                 else:
                     most_profitable_asset_calc = "None Profitable"
 
+            # FIX: Logic for Best Single Trade (now works on clean data)
             best_trade_profit = 0.0
             best_trade_symbol = "N/A"
             worst_trade_loss = 0.0
@@ -3004,139 +2993,40 @@ if st.session_state.current_page == 'mt5':
             col1, col2, col3, col4, col5 = st.columns(5)
 
             with col1:
-                r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) and avg_r_r > 0 else 0)
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Avg R:R</strong>
-                        <span class='metric-value'>{_ta_human_num_mt5(avg_r_r)}</span>
-                        <div class="progress-container">
-                            <div class="progress-bar green" style="width: {r_r_bar_width:.2f}%;"></div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col2:
-                win_rate_percent = win_rate * 100
-                loss_rate_percent = 100 - win_rate_percent
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Win Rate</strong>
-                        <span class='metric-value'>{_ta_human_pct_mt5(win_rate)}</span>
-                        <div class="win-loss-bar-container">
-                            <div class="win-bar" style="width: {win_rate_percent:.2f}%;"></div>
-                            <div class="loss-bar" style="width: {loss_rate_percent:.2f}%;"></div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col3:
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Trading score</strong>
-                        <span class='metric-value'>{_ta_human_num_mt5(trading_score_value)}</span>
-                        <div class="trading-score-bar-container">
-                            <div class="trading-score-bar" style="width: {trading_score_percentage:.2f}%;"></div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col4:
-                hit_rate_percent = hit_rate * 100
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Hit Rate</strong>
-                        <span class='metric-value'>{_ta_human_pct_mt5(hit_rate)}</span>
-                        <div class="win-loss-bar-container">
-                            <div class="win-bar" style="width: {hit_rate_percent:.2f}%;"></div>
-                            <div class="loss-bar" style="width: {100-hit_rate_percent:.2f}%;"></div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col5:
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Total Trades</strong>
-                        <span class='metric-value'>{_ta_human_num_mt5(total_trades)}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("---")
-
-            col6, col7, col8, col9, col10 = st.columns(5)
-
-            with col6:
-                avg_win_formatted = _ta_human_num_mt5(avg_win)
-                avg_win_display = f"<span style='color: #5cb85c;'>${avg_win_formatted}</span>" if avg_win > 0.0 and avg_win_formatted != "N/A" else f"${avg_win_formatted}"
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Avg Win</strong>
-                        <span class='metric-value'>{avg_win_display}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col7:
-                best_trade_profit_formatted = _ta_human_num_mt5(best_trade_profit)
-                if best_trade_profit > 0 and best_trade_symbol != "N/A":
-                    trade_info_text = f"{best_trade_symbol} with profit of <span style='color: #5cb85c;'>${best_trade_profit_formatted}</span>."
-                else:
-                    trade_info_text = "No winning trades."
-
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Best Single Trade</strong>
-                        <span class='trade-info'>{trade_info_text}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-
-            with col8:
                 net_profit_val = net_profit
                 net_profit_formatted = _ta_human_num_mt5(abs(net_profit_val))
+                net_profit_value_display_html = f"<span style='color: #5cb85c;'>${net_profit_formatted}</span>" if net_profit_val >= 0 else f"<span style='color: #d9534f;'>-${net_profit_formatted}</span>"
+                st.markdown(f"<div class='metric-box'><strong>Total Profit</strong><span class='metric-value'>{net_profit_value_display_html}</span></div>", unsafe_allow_html=True)
+            with col2:
+                win_rate_percent = win_rate * 100
+                st.markdown(f"<div class='metric-box'><strong>Win Rate</strong><span class='metric-value'>{_ta_human_pct_mt5(win_rate)}</span><div class='win-loss-bar-container'><div class='win-bar' style='width: {win_rate_percent:.2f}%;'></div></div></div>", unsafe_allow_html=True)
+            with col3:
+                r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) and avg_r_r > 0 else 0)
+                st.markdown(f"<div class='metric-box'><strong>Avg R:R</strong><span class='metric-value'>{_ta_human_num_mt5(avg_r_r)}</span><div class='progress-container'><div class='progress-bar green' style='width: {r_r_bar_width:.2f}%;'></div></div></div>", unsafe_allow_html=True)
+            with col4:
+                st.markdown(f"<div class='metric-box'><strong>Profit Factor</strong><span class='metric-value'>{_ta_human_num_mt5(profit_factor)}</span></div>", unsafe_allow_html=True)
+            with col5:
+                st.markdown(f"<div class='metric-box'><strong>Total Trades</strong><span class='metric-value'>{_ta_human_num_mt5(total_trades)}</span></div>", unsafe_allow_html=True)
 
-                if net_profit_val >= 0.0 and net_profit_formatted != "N/A":
-                    net_profit_value_display_html = f"<span style='color: #5cb85c;'>${net_profit_formatted}</span>"
-                elif net_profit_formatted != "N/A":
-                    net_profit_value_display_html = f"<span style='color: #d9534f;'>-${net_profit_formatted}</span>"
-                else:
-                    net_profit_value_display_html = "N/A"
-
-                total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
-                formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_magnitude)
-
-                if formatted_total_loss_in_parentheses_val != "N/A":
-                    formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>($-{formatted_total_loss_in_parentheses_val})</span>"
-                else:
-                    formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>(N/A)</span>"
-
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Total Profit</strong>
-                        <span class='metric-value'>{net_profit_value_display_html}</span>
-                        <span class='sub-value'>{formatted_total_loss_in_parentheses_html}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-
+            st.markdown("---")
+            col6, col7, col8, col9, col10 = st.columns(5)
+            with col6:
+                avg_win_formatted = _ta_human_num_mt5(avg_win)
+                avg_win_display = f"<span style='color: #5cb85c;'>${avg_win_formatted}</span>"
+                st.markdown(f"<div class='metric-box'><strong>Avg Win</strong><span class='metric-value'>{avg_win_display}</span></div>", unsafe_allow_html=True)
+            with col7:
+                avg_loss_formatted = _ta_human_num_mt5(abs(avg_loss))
+                avg_loss_display = f"<span style='color: #d9534f;'>-${avg_loss_formatted}</span>"
+                st.markdown(f"<div class='metric-box'><strong>Avg Loss</strong><span class='metric-value'>{avg_loss_display}</span></div>", unsafe_allow_html=True)
+            with col8:
+                avg_profit_display = f"<span style='color: #5cb85c;'>${_ta_human_num_mt5(avg_profit_per_trade)}</span>" if avg_profit_per_trade >= 0 else f"<span style='color: #d9534f;'>-${_ta_human_num_mt5(abs(avg_profit_per_trade))}</span>"
+                st.markdown(f"<div class='metric-box'><strong>Avg Profit/Trade</strong><span class='metric-value'>{avg_profit_display}</span></div>", unsafe_allow_html=True)
             with col9:
-                worst_trade_loss_formatted = _ta_human_num_mt5(abs(worst_trade_loss))
-                if worst_trade_loss < 0 and worst_trade_symbol != "N/A":
-                     trade_info_text = f"{worst_trade_symbol} with loss of <span style='color: #d9534f;'>-${worst_trade_loss_formatted}</span>."
-                else:
-                    trade_info_text = "No losing trades."
-
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Worst Single Trade</strong>
-                        <span class='trade-info'>{trade_info_text}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-
+                best_trade_profit_formatted = _ta_human_num_mt5(best_trade_profit)
+                trade_info_text = f"{best_trade_symbol}<br><span style='color: #5cb85c;'>${best_trade_profit_formatted}</span>" if best_trade_profit > 0 else "No winning trades."
+                st.markdown(f"<div class='metric-box'><strong>Best Single Trade</strong><span class='trade-info'>{trade_info_text}</span></div>", unsafe_allow_html=True)
             with col10:
-                st.markdown(f"""
-                    <div class='metric-box'>
-                        <strong>Most Profitable Asset</strong>
-                        <span class='metric-value'>{most_profitable_asset_calc}</span>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-box'><strong>Most Profitable Asset</strong><span class='metric-value'>{most_profitable_asset_calc}</span></div>", unsafe_allow_html=True)
 
         with tab_charts:
             st.subheader("Visualizations")
