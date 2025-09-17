@@ -2094,6 +2094,57 @@ def get_next_session_end_info(active_sessions_list):
     time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
     return soonest_session_name, time_str
 
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import os
+import calendar
+from datetime import datetime, date, timedelta
+import requests # For Myfxbook API calls
+import json # For handling JSON responses
+import base64 # For image_to_base_64
+
+# Assume DEFAULT_APP_STATE and other helper functions are defined globally or imported.
+# For this full code, I'll provide basic placeholder definitions for any missing functions
+# or variables to ensure the script is runnable.
+# YOU SHOULD REPLACE THESE PLACEHOLDERS WITH YOUR ACTUAL IMPLEMENTATIONS.
+
+# --- Global/App-wide State & Helper Placeholders (Replace with your actual ones) ---
+if 'DEFAULT_APP_STATE' not in globals():
+    DEFAULT_APP_STATE = {
+        'mt5_df': pd.DataFrame(columns=["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]),
+        'selected_calendar_month': datetime.now().strftime('%B %Y')
+    }
+    st.session_state.setdefault('mt5_df', DEFAULT_APP_STATE['mt5_df'].copy())
+    st.session_state.setdefault('selected_calendar_month', DEFAULT_APP_STATE['selected_calendar_month'])
+
+if 'logging' not in globals():
+    import logging
+    logging.basicConfig(level=logging.INFO) # Basic logging setup
+
+def image_to_base_64(image_path):
+    """Placeholder function to convert image to base64. Replace with your actual implementation."""
+    try:
+        # Check if the file exists and is readable
+        if os.path.exists(image_path):
+            with open(image_path, "rb") as image_file:
+                return base64.b64encode(image_file.read()).decode()
+        else:
+            logging.warning(f"Icon file not found at: {image_path}. Using empty icon.")
+            return ""
+    except Exception as e:
+        logging.error(f"Error encoding image {image_path}: {e}")
+        return ""
+
+def get_active_market_sessions():
+    """Placeholder for market sessions. Replace with your actual implementation."""
+    return "London, New York", []
+
+def get_next_session_end_info(active_sessions_list):
+    """Placeholder for next session end info. Replace with your actual implementation."""
+    return "New York", "2h 30m"
+
 # =========================================================
 # PERFORMANCE DASHBOARD PAGE (MT5)
 # =========================================================
@@ -2108,14 +2159,14 @@ if st.session_state.current_page == 'mt5':
 
     # --- 1. Page-Specific Configuration ---
     page_info = {
-        'title': 'Performance Dashboard', 
-        'icon': 'performance_dashboard.png', 
+        'title': 'Performance Dashboard',
+        'icon': 'performance_dashboard.png',
         'caption': 'Analyze your MT5 trading history with advanced metrics and visualizations.'
     }
 
     # --- 2. Define CSS Styles for the New Header ---
     main_container_style = """
-        background-color: black; padding: 20px 25px; border-radius: 10px; 
+        background-color: black; padding: 20px 25px; border-radius: 10px;
         display: flex; align-items: center; gap: 20px;
         border: 1px solid #2d4646; box-shadow: 0 0 15px 5px rgba(45, 70, 70, 0.5);
     """
@@ -2129,15 +2180,16 @@ if st.session_state.current_page == 'mt5':
 
     # --- 3. Prepare Dynamic Parts of the Header ---
     icon_html = ""
-    icon_path = os.path.join("icons", page_info['icon'])
+    # Ensure the 'icons' directory exists or handle missing image
+    icon_path = os.path.join(os.path.dirname(__file__), "icons", page_info['icon']) # Adjust path if 'icons' is not in the same directory
     icon_base64 = image_to_base_64(icon_path)
     if icon_base64:
         icon_html = f'<img src="data:image/png;base64,{icon_base64}" style="{icon_style}">'
-    
+
     welcome_message = f'Welcome, <b>{st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "Guest"))}</b>!'
     active_sessions_str, active_sessions_list = get_active_market_sessions()
     market_sessions_display = f'Active Sessions: <b>{active_sessions_str}</b>'
-    
+
     next_session_name, timer_str = get_next_session_end_info(active_sessions_list)
     timer_display = ""
     if next_session_name and timer_str:
@@ -2412,10 +2464,7 @@ if st.session_state.current_page == 'mt5':
         """,
         unsafe_allow_html=True
     )
-    # The Python code for this MT5 page's Streamlit components would start below this point,
-    # following the `st.markdown('---')` that it just rendered.
-    # For example: `uploaded_file = st.file_uploader(...)` would appear here.
-    
+
     # --------------------------
     # Helper functions (MT5 page specific)
     # --------------------------
@@ -2456,14 +2505,49 @@ if st.session_state.current_page == 'mt5':
         if daily_pnl_series.empty or len(daily_pnl_series) < 2:
             return np.nan
 
-        returns = daily_pnl_series.pct_change().dropna()
+        # Calculate daily returns (percentage change of cumulative profit if we want equity curve sharpe)
+        # Or, if profit represents daily PnL, calculate returns based on that.
+        # For simplicity and typical Sharpe, we'll use daily PnL relative to some initial capital or percentage of daily profit
+        # If 'Profit' is absolute PnL, a standard way is to use daily cumulative returns from an initial balance.
+        # For a simple approach, let's use the daily PnL directly as "returns" for calculation,
+        # assuming it's representative of daily performance changes.
+        # A more robust Sharpe would require a full equity curve.
+        # Given the existing setup, let's assume 'Profit' can be directly used for daily returns in a simplified way.
+        daily_returns = daily_pnl_series.diff().dropna() # PnL differences
 
-        if len(returns) < 2:
+        if daily_returns.empty or len(daily_returns) < 2:
+            return np.nan
+        
+        # Adjusting for returns as PnL. If 'Profit' is already PnL, we need an initial capital assumption
+        # or daily percentage returns based on daily equity.
+        # For now, let's compute based on `daily_pnl_series` itself, treating it as if it represents
+        # "value" changes over time. A more precise Sharpe often uses portfolio value changes.
+        # A common simplification is `(mean_daily_return - risk_free_rate) / std_daily_return`.
+        # Here, `daily_pnl_series` are absolute PnL. Converting to percentage returns for Sharpe.
+        # This is often done on an equity curve.
+        # Let's approximate by assuming daily_pnl_series are returns over some (unspecified) capital.
+        # This is a simplification and might not be perfectly standard.
+
+        # Alternative: Calculate cumulative sum and then percentage change for equity-like returns
+        # This is more aligned with typical Sharpe ratio calculation
+        initial_capital = 10000 # Assume an initial capital for percentage calculation
+        equity_curve = initial_capital + daily_pnl_series.cumsum()
+        returns_pct = equity_curve.pct_change().dropna()
+
+        if returns_pct.empty:
             return np.nan
 
-        mean_return = returns.mean() * 252
-        std_return = returns.std() * np.sqrt(252)
-        return (mean_return - risk_free_rate) / std_return if std_return != 0 else np.nan
+        # Annualize returns and standard deviation
+        # Assuming daily data, 252 trading days in a year
+        annualized_mean_return = returns_pct.mean() * 252
+        annualized_std_dev = returns_pct.std() * np.sqrt(252)
+
+        if annualized_std_dev == 0:
+            return np.nan # Avoid division by zero
+
+        sharpe = (annualized_mean_return - risk_free_rate) / annualized_std_dev
+        return sharpe
+
 
     def _ta_daily_pnl_mt5(df_trades):
         """
@@ -2512,385 +2596,621 @@ if st.session_state.current_page == 'mt5':
             else:
                  st.markdown("<div class='metric-box'><strong>Smart Scaler</strong><br><span class='metric-value'>Trade more to assess!</span></div>", unsafe_allow_html=True)
 
+    # ----------------------------------------------------
+    # Myfxbook API Integration Section
+    # ----------------------------------------------------
+    st.subheader("🔗 Integrate Myfxbook Account")
+    st.write("Login to your Myfxbook account to automatically fetch your trade data.")
+
+    myfxbook_email = st.text_input("Myfxbook Email", key="myfxbook_email_input")
+    myfxbook_password = st.text_input("Myfxbook Password", type="password", key="myfxbook_password_input")
+
+    if st.button("Login to Myfxbook & Fetch Accounts"):
+        if myfxbook_email and myfxbook_password:
+            with st.spinner("Logging into Myfxbook..."):
+                try:
+                    login_url = f"https://www.myfxbook.com/api/login.json?email={myfxbook_email}&password={myfxbook_password}"
+                    response = requests.get(login_url)
+                    response.raise_for_status() # Raise an exception for HTTP errors
+                    login_data = response.json()
+
+                    if not login_data["error"]:
+                        session_id = login_data["session"]
+                        st.session_state.myfxbook_session = session_id
+                        st.success("Successfully logged into Myfxbook!")
+
+                        # Fetch accounts
+                        accounts_url = f"https://www.myfxbook.com/api/get-my-accounts.json?session={session_id}"
+                        accounts_response = requests.get(accounts_url)
+                        accounts_response.raise_for_status()
+                        accounts_data = accounts_response.json()
+
+                        if not accounts_data["error"] and accounts_data["accounts"]:
+                            st.session_state.myfxbook_accounts = accounts_data["accounts"]
+                            st.session_state.myfxbook_logged_in = True
+                            st.rerun() # Rerun to display account selection and data loading options
+                        else:
+                            st.error("Could not fetch Myfxbook accounts. " + accounts_data.get("message", "Unknown error."))
+                            st.session_state.myfxbook_logged_in = False
+                    else:
+                        st.error("Myfxbook login failed: " + login_data.get("message", "Unknown error."))
+                        st.session_state.myfxbook_logged_in = False
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Network or API error during Myfxbook login: {e}. Please check your internet connection and Myfxbook API status.")
+                    logging.error(f"Myfxbook login error: {e}", exc_info=True)
+                    st.session_state.myfxbook_logged_in = False
+                except json.JSONDecodeError:
+                    st.error("Failed to parse Myfxbook login response. The API might be returning non-JSON data or is unavailable.")
+                    logging.error("Myfxbook login JSONDecodeError", exc_info=True)
+                    st.session_state.myfxbook_logged_in = False
+                except Exception as e:
+                    st.error(f"An unexpected error occurred during Myfxbook login: {e}")
+                    logging.error(f"Myfxbook unexpected login error: {e}", exc_info=True)
+                    st.session_state.myfxbook_logged_in = False
+        else:
+            st.warning("Please enter your Myfxbook email and password.")
+
+    if st.session_state.get('myfxbook_logged_in') and st.session_state.get('myfxbook_accounts'):
+        st.subheader("Select Myfxbook Account")
+        account_names = {acc['name']: acc['id'] for acc in st.session_state.myfxbook_accounts}
+        # Get current selected account or default to the first one
+        if 'myfxbook_selected_account_name' not in st.session_state or st.session_state.myfxbook_selected_account_name not in account_names:
+            st.session_state.myfxbook_selected_account_name = list(account_names.keys())[0] if account_names else None
+
+        selected_account_name = st.selectbox(
+            "Choose an account",
+            list(account_names.keys()),
+            index=list(account_names.keys()).index(st.session_state.myfxbook_selected_account_name) if st.session_state.myfxbook_selected_account_name else 0,
+            key="myfxbook_account_selector"
+        )
+        st.session_state.myfxbook_selected_account_name = selected_account_name
+
+        if selected_account_name:
+            selected_account_id = account_names[selected_account_name]
+            st.session_state.myfxbook_selected_account_id = selected_account_id
+
+            if st.button(f"Load Trade Data from {selected_account_name}"):
+                with st.spinner(f"Fetching data for {selected_account_name} from Myfxbook..."):
+                    try:
+                        session_id = st.session_state.myfxbook_session
+                        account_id = st.session_state.myfxbook_selected_account_id
+
+                        # Fetch History (closed trades)
+                        history_url = f"https://www.myfxbook.com/api/get-history.json?session={session_id}&id={account_id}"
+                        history_response = requests.get(history_url)
+                        history_response.raise_for_status()
+                        history_data = history_response.json()
+
+                        df_history = pd.DataFrame()
+                        if not history_data["error"] and history_data.get("history"):
+                            df_history = pd.DataFrame(history_data["history"])
+                            # Convert column names to match MT5 CSV
+                            df_history = df_history.rename(columns={
+                                "openTime": "Open Time",
+                                "closeTime": "Close Time",
+                                "symbol": "Symbol",
+                                "action": "Type", # Myfxbook uses 'action', MT5 uses 'Type'
+                                "profit": "Profit"
+                            })
+                            # Handle 'sizing' column for Volume: it can be a dict {'value': X}
+                            df_history['Volume'] = df_history['sizing'].apply(lambda x: x.get('value') if isinstance(x, dict) else pd.NA)
+                            df_history['Volume'] = pd.to_numeric(df_history['Volume'], errors='coerce')
+
+
+                            # Clean 'Type' e.g., "Buy Limit" -> "Buy"
+                            df_history["Type"] = df_history["Type"].apply(lambda x: x.split(" ")[0] if isinstance(x, str) and " " in x else x)
+
+                            # Keep only necessary columns before concatenating
+                            df_history = df_history[['Open Time', 'Close Time', 'Symbol', 'Type', 'Profit', 'Volume']]
+                            logging.info(f"Fetched {len(df_history)} history trades.")
+                        else:
+                            st.info("No closed trade history found for this account via Myfxbook API (or API limit reached).")
+                            logging.warning("Myfxbook history data empty or error: %s", history_data.get("message", "No message"))
+
+                        # Fetch Open Trades
+                        open_trades_url = f"https://www.myfxbook.com/api/get-open-trades.json?session={session_id}&id={account_id}"
+                        open_trades_response = requests.get(open_trades_url)
+                        open_trades_response.raise_for_status()
+                        open_trades_data = open_trades_response.json()
+
+                        df_open_trades = pd.DataFrame()
+                        if not open_trades_data["error"] and open_trades_data.get("openTrades"):
+                            df_open_trades = pd.DataFrame(open_trades_data["openTrades"])
+                            df_open_trades = df_open_trades.rename(columns={
+                                "openTime": "Open Time",
+                                "symbol": "Symbol",
+                                "action": "Type",
+                                "profit": "Profit"
+                            })
+                            # Add 'Close Time' and 'closePrice' for open trades as None/NaN for consistency
+                            df_open_trades['Close Time'] = pd.NaT # Not a Timestamp
+                            df_open_trades['closePrice'] = np.nan
+                            # Handle 'sizing' column for Volume
+                            df_open_trades['Volume'] = df_open_trades['sizing'].apply(lambda x: x.get('value') if isinstance(x, dict) else pd.NA)
+                            df_open_trades['Volume'] = pd.to_numeric(df_open_trades['Volume'], errors='coerce')
+
+                            df_open_trades["Type"] = df_open_trades["Type"].apply(lambda x: x.split(" ")[0] if isinstance(x, str) and " " in x else x)
+
+                            # Keep only necessary columns for open trades (if you want to display them)
+                            # For the dashboard, we usually need closed trades.
+                            df_open_trades_display = df_open_trades[['Open Time', 'Symbol', 'Type', 'openPrice', 'Profit', 'Volume']].copy()
+                            logging.info(f"Fetched {len(df_open_trades)} open trades.")
+                        else:
+                            st.info("No open trades found for this account.")
+                            df_open_trades_display = pd.DataFrame()
+
+
+                        # Combine history and open trades (for a complete view if needed, but dashboard typically uses closed)
+                        # For the purpose of the existing dashboard, we primarily use closed trades (`df_history`).
+                        # We will process `df_history` to become `st.session_state.mt5_df`.
+
+                        df_to_process = df_history.copy() # Use history for the main dashboard metrics
+
+                        # Ensure required columns exist and are of correct type
+                        required_cols_for_processing = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
+                        for col in required_cols_for_processing:
+                            if col not in df_to_process.columns:
+                                df_to_process[col] = pd.NA # Use pandas NA for consistency
+
+                        df_to_process["Open Time"] = pd.to_datetime(df_to_process["Open Time"], errors="coerce")
+                        df_to_process["Close Time"] = pd.to_datetime(df_to_process["Close Time"], errors="coerce")
+                        df_to_process["Profit"] = pd.to_numeric(df_to_process["Profit"], errors='coerce').fillna(0.0)
+                        df_to_process["Volume"] = pd.to_numeric(df_to_process["Volume"], errors='coerce').fillna(0.0)
+
+                        # Filter out trades where Close Time is NaT if the dashboard expects closed trades
+                        df_processed = df_to_process.dropna(subset=["Open Time", "Profit", "Close Time"]) # Only consider closed trades for analysis
+
+                        if df_processed.empty:
+                            st.warning("No valid closed trading data found for the selected Myfxbook account after processing. Please check if the account has closed trades.")
+                            st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                            st.session_state.myfxbook_df_loaded = False
+                        else:
+                            st.session_state.mt5_df = df_processed
+                            st.session_state.myfxbook_df_loaded = True
+                            st.success(f"Successfully loaded {len(df_processed)} closed trades from Myfxbook.")
+                            # Optionally display open trades
+                            if not df_open_trades_display.empty:
+                                st.subheader("Current Open Trades (from Myfxbook)")
+                                st.dataframe(df_open_trades_display, use_container_width=True)
+                            else:
+                                st.info("No open trades currently available for this account.")
+
+                        st.rerun() # Rerun to update the dashboard with new data
+
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Network or API error during Myfxbook data fetch: {e}. Please check your internet connection or Myfxbook API status.")
+                        logging.error(f"Myfxbook data fetch error: {e}", exc_info=True)
+                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.myfxbook_df_loaded = False
+                    except json.JSONDecodeError:
+                        st.error("Failed to parse Myfxbook data response. The API might be returning non-JSON data or is unavailable.")
+                        logging.error("Myfxbook data fetch JSONDecodeError", exc_info=True)
+                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.myfxbook_df_loaded = False
+                    except Exception as e:
+                        st.error(f"An unexpected error occurred during Myfxbook data processing: {e}")
+                        logging.error(f"Myfxbook data processing error: {e}", exc_info=True)
+                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.myfxbook_df_loaded = False
+        st.markdown("---") # Separator between Myfxbook and CSV uploader
 
     # --------------------------
-    # File Uploader (MT5 page)
+    # File Uploader (MT5 page) OR use Myfxbook Data
     # --------------------------
-    uploaded_file = st.file_uploader(
-        "Upload MT5 History CSV",
-        type=["csv"],
-        help="Export your trading history from MetaTrader 5 as a CSV file."
-    )
+    df = st.session_state.get('mt5_df', DEFAULT_APP_STATE['mt5_df'].copy()) # Initialize df from session state
 
-    if uploaded_file:
-        with st.spinner("Processing trading data..."):
-            try:
-                df = pd.read_csv(uploaded_file)
-                st.session_state.mt5_df = df
+    if not st.session_state.get('myfxbook_df_loaded', False):
+        uploaded_file = st.file_uploader(
+            "Upload MT5 History CSV (or log in to Myfxbook above)",
+            type=["csv"],
+            help="Export your trading history from MetaTrader 5 as a CSV file."
+        )
 
-                required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                if missing_cols:
-                    st.error(f"Missing required columns: {', '.join(missing_cols)}. Please ensure your CSV has all necessary columns.")
+        if uploaded_file:
+            with st.spinner("Processing trading data from CSV..."):
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.mt5_df = df # Update session state with new df
+
+                    required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
+                    missing_cols = [col for col in required_cols if col not in df.columns]
+                    if missing_cols:
+                        st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}. Please ensure your CSV has all necessary columns.")
+                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+                        st.stop()
+
+                    df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
+                    df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
+                    df["Profit"] = pd.to_numeric(df["Profit"], errors='coerce').fillna(0.0)
+                    df = df.dropna(subset=["Open Time", "Close Time"])
+
+                    if df.empty:
+                        st.error("Uploaded CSV resulted in no valid trading data after processing timestamps or profits.")
+                        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
+                        st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+                        st.stop()
+
+                    df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
+                    st.success("CSV data loaded and processed successfully!")
+                    st.session_state.myfxbook_df_loaded = False # Ensure this is false if CSV is used
+                    st.rerun() # Rerun to update dashboard with CSV data
+
+                except Exception as e:
+                    st.error(f"Error processing CSV: {str(e)}. Please check your CSV format and ensure it contains the required columns with valid data.")
+                    logging.error(f"Error processing CSV: {str(e)}", exc_info=True)
                     st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
                     st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
-                    st.stop()
-
-                df["Open Time"] = pd.to_datetime(df["Open Time"], errors="coerce")
-                df["Close Time"] = pd.to_datetime(df["Close Time"], errors="coerce")
-                df["Profit"] = pd.to_numeric(df["Profit"], errors='coerce').fillna(0.0)
-                df = df.dropna(subset=["Open Time", "Close Time"])
-
-                if df.empty:
-                    st.error("Uploaded CSV resulted in no valid trading data after processing timestamps or profits.")
-                    st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
-                    st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
-                    st.stop()
-
-
-                df["Trade Duration"] = (df["Close Time"] - df["Open Time"]).dt.total_seconds() / 3600
-
-                daily_pnl_map = _ta_daily_pnl_mt5(df)
-
-                daily_pnl_df_for_stats = pd.DataFrame(columns=["date", "Profit"])
-
-                if daily_pnl_map:
-                    min_data_date = min(daily_pnl_map.keys())
-                    max_data_date = max(daily_pnl_map.keys())
-                    all_dates_in_data_range = pd.date_range(start=min_data_date, end=max_data_date).date
-                    daily_pnl_df_for_stats = pd.DataFrame([
-                        {"date": d, "Profit": daily_pnl_map.get(d, 0.0)}
-                        for d in all_dates_in_data_range
-                    ])
-                elif not df.empty and pd.notna(df['Close Time'].min()) and pd.notna(df['Close Time'].max()):
-                    min_date_raw = df['Close Time'].min().date()
-                    max_date_raw = df['Close Time'].max().date()
-                    all_dates_raw_range = pd.date_range(start=min_date_raw, end=max_date_raw).date
-                    daily_pnl_df_for_stats = pd.DataFrame([
-                        {"date": d, "Profit": 0.0} for d in all_dates_raw_range
-                    ])
-
-                tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
-                    "📈 Summary Metrics",
-                    "📊 Visualizations",
-                    "🔍 Edge Finder",
-                    "📤 Export Reports"
-                ])
-
-                with tab_summary:
-                    st.subheader("Key Performance Metrics")
-                    total_trades = len(df)
-                    wins_df = df[df["Profit"] > 0]
-                    losses_df = df[df["Profit"] < 0]
-
-                    win_rate = len(wins_df) / total_trades if total_trades else 0.0
-                    net_profit = df["Profit"].sum()
-                    profit_factor = _ta_profit_factor_mt5(df)
-                    avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
-                    avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0
-
-                    max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
-                    sharpe_ratio = _ta_compute_sharpe(df)
-                    expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0.0
-                    
-                    def _ta_compute_streaks(df_pnl_daily):
-                        d = df_pnl_daily.sort_values(by="date")
-                        if d.empty:
-                            return {"current_win": 0, "best_win": 0, "current_loss": 0, "best_loss": 0}
-
-                        current_win_streak = 0
-                        best_win_streak = 0
-                        current_loss_streak = 0
-                        best_loss_streak = 0
-
-                        for pnl in d["Profit"]:
-                            if pnl > 0:
-                                current_win_streak += 1
-                                best_win_streak = max(best_win_streak, current_win_streak)
-                                current_loss_streak = 0
-                            elif pnl < 0:
-                                current_loss_streak += 1
-                                best_loss_streak = max(best_loss_streak, current_loss_streak)
-                                current_win_streak = 0
-                            else:
-                                current_win_streak = 0
-                                current_loss_streak = 0
-
-                        return {"current_win": current_win_streak, "best_win": best_win_streak,
-                                "current_loss": current_loss_streak, "best_loss": best_loss_streak}
-
-                    streaks = _ta_compute_streaks(daily_pnl_df_for_stats)
-                    longest_win_streak = streaks["best_win"]
-                    longest_loss_streak = streaks["best_loss"]
-
-                    avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
-
-                    trading_score_value = 90.98
-                    max_trading_score = 100
-                    trading_score_percentage = (trading_score_value / max_trading_score) * 100
-
-                    hit_rate = win_rate
-
-                    most_profitable_asset_calc = "N/A"
-                    if not df.empty and "Symbol" in df.columns and not df["Profit"].isnull().all():
-                        profitable_assets = df.groupby("Symbol")["Profit"].sum()
-                        if not profitable_assets.empty and profitable_assets.max() > 0.0:
-                            most_profitable_asset_calc = profitable_assets.idxmax()
-                        elif not profitable_assets.empty and profitable_assets.min() <= 0.0 and profitable_assets.max() <= 0.0:
-                             most_profitable_asset_calc = "None Profitable"
-                    
-                    best_day_profit = 0.0
-                    best_performing_day_name = "N/A"
-                    worst_day_loss = 0.0
-                    worst_performing_day_name = "N/A"
-
-                    if not daily_pnl_df_for_stats.empty and not daily_pnl_df_for_stats["Profit"].empty:
-                        days_with_pnl_actual_trades = daily_pnl_df_for_stats[daily_pnl_df_for_stats["Profit"] != 0.0]
-
-                        if not days_with_pnl_actual_trades.empty:
-                            best_day_profit = days_with_pnl_actual_trades["Profit"].max()
-                            if pd.notna(best_day_profit) and best_day_profit > 0.0:
-                                best_performing_day_date = days_with_pnl_actual_trades.loc[days_with_pnl_actual_trades["Profit"].idxmax(), "date"]
-                                best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
-                            else:
-                                best_performing_day_name = "No Profitable Days"
-
-                            worst_day_loss = days_with_pnl_actual_trades["Profit"].min()
-                            if pd.notna(worst_day_loss) and worst_day_loss < 0.0:
-                                worst_performing_day_date = days_with_pnl_actual_trades.loc[days_with_pnl_actual_trades["Profit"].idxmin(), "date"]
-                                worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
-                            else:
-                                worst_performing_day_name = "No Losing Days"
-                        else:
-                            best_performing_day_name = "No Trades With Non-Zero P&L"
-                            worst_performing_day_name = "No Trades With Non-Zero P&L"
-                    else:
-                        best_performing_day_name = "No P&L Data"
-                        worst_performing_day_name = "No P&L Data"
-
-
-                    col1, col2, col3, col4, col5 = st.columns(5)
-
-                    with col1:
-                        r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) and avg_r_r > 0 else 0)
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Avg R:R</strong>
-                                <span class='metric-value'>{_ta_human_num_mt5(avg_r_r)}</span>
-                                <div class="progress-container">
-                                    <div class="progress-bar green" style="width: {r_r_bar_width:.2f}%;"></div>
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col2:
-                        win_rate_percent = win_rate * 100
-                        loss_rate_percent = 100 - win_rate_percent
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Win Rate</strong>
-                                <span class='metric-value'>{_ta_human_pct_mt5(win_rate)}</span>
-                                <div class="win-loss-bar-container">
-                                    <div class="win-bar" style="width: {win_rate_percent:.2f}%;"></div>
-                                    <div class="loss-bar" style="width: {loss_rate_percent:.2f}%;"></div>
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col3:
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Trading score</strong>
-                                <span class='metric-value'>{_ta_human_num_mt5(trading_score_value)}</span>
-                                <div class="trading-score-bar-container">
-                                    <div class="trading-score-bar" style="width: {trading_score_percentage:.2f}%;"></div>
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col4:
-                        hit_rate_percent = hit_rate * 100
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Hit Rate</strong>
-                                <span class='metric-value'>{_ta_human_pct_mt5(hit_rate)}</span>
-                                <div class="win-loss-bar-container">
-                                    <div class="win-bar" style="width: {hit_rate_percent:.2f}%;"></div>
-                                    <div class="loss-bar" style="width: {100-hit_rate_percent:.2f}%;"></div>
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col5:
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Total Trades</strong>
-                                <span class='metric-value'>{_ta_human_num_mt5(total_trades)}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    st.markdown("---")
-
-                    col6, col7, col8, col9, col10 = st.columns(5)
-
-                    with col6:
-                        avg_win_formatted = _ta_human_num_mt5(avg_win)
-                        avg_win_display = f"<span style='color: #5cb85c;'>${avg_win_formatted}</span>" if avg_win > 0.0 and avg_win_formatted != "N/A" else f"${avg_win_formatted}"
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Avg Profit</strong>
-                                <span class='metric-value'>{avg_win_display}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col7:
-                        best_day_profit_val = best_day_profit
-                        best_day_profit_formatted = _ta_human_num_mt5(best_day_profit_val)
-
-                        if best_day_profit_val > 0.0 and best_day_profit_formatted != "N/A":
-                            best_day_profit_display_html = f"<span style='color: #5cb85c;'>${best_day_profit_formatted}</span>"
-                            day_info_text = f"{best_performing_day_name} with profit of {best_day_profit_display_html}."
-                        elif best_performing_day_name in ["No Profitable Days", "No P&L Data", "No Trades With Non-Zero P&L"]:
-                            day_info_text = best_performing_day_name
-                        else:
-                            day_info_text = "N/A"
-
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Best Performing Day</strong>
-                                <span class='day-info'>{day_info_text}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col8:
-                        net_profit_val = net_profit
-                        net_profit_formatted = _ta_human_num_mt5(abs(net_profit_val))
-
-                        if net_profit_val >= 0.0 and net_profit_formatted != "N/A":
-                            net_profit_value_display_html = f"<span style='color: #5cb85c;'>${net_profit_formatted}</span>"
-                        elif net_profit_formatted != "N/A":
-                            net_profit_value_display_html = f"<span style='color: #d9534f;'>-${net_profit_formatted}</span>"
-                        else:
-                            net_profit_value_display_html = "N/A"
-
-                        total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
-                        formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_magnitude)
-
-                        if formatted_total_loss_in_parentheses_val != "N/A":
-                            formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>($-{formatted_total_loss_in_parentheses_val})</span>"
-                        else:
-                            formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>(N/A)</span>"
-
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Total Profit</strong>
-                                <span class='metric-value'>{net_profit_value_display_html}</span>
-                                <span class='sub-value'>{formatted_total_loss_in_parentheses_html}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col9:
-                        worst_day_loss_val = worst_day_loss
-                        worst_day_loss_formatted = _ta_human_num_mt5(abs(worst_day_loss_val))
-
-                        if worst_day_loss_val < 0.0 and worst_day_loss_formatted != "N/A":
-                            worst_day_loss_display_html = f"<span style='color: #d9534f;'>-${worst_day_loss_formatted}</span>"
-                            day_info_text = f"{worst_performing_day_name} with loss of {worst_day_loss_display_html}."
-                        elif worst_performing_day_name in ["No Losing Days", "No P&L Data", "No Trades With Non-Zero P&L"]:
-                            day_info_text = worst_performing_day_name
-                        else:
-                            day_info_text = "N/A"
-
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Worst Performing Day</strong>
-                                <span class='day-info'>{day_info_text}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                    with col10:
-                        st.markdown(f"""
-                            <div class='metric-box'>
-                                <strong>Most Profitable Asset</strong>
-                                <span class='metric-value'>{most_profitable_asset_calc}</span>
-                            </div>
-                        """, unsafe_allow_html=True)
-
-                with tab_charts:
-                    st.subheader("Visualizations")
-                    if not daily_pnl_df_for_stats.empty:
-                        df_for_chart = daily_pnl_df_for_stats.copy()
-                        df_for_chart["Cumulative Profit"] = df_for_chart["Profit"].cumsum()
-                        fig_equity = px.line(df_for_chart, x="date", y="Cumulative Profit", title="Equity Curve")
-                        st.plotly_chart(fig_equity, use_container_width=True)
-
-                        profit_by_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
-                        fig_symbol = px.bar(profit_by_symbol, x="Symbol", y="Profit", title="Profit by Symbol")
-                        st.plotly_chart(fig_symbol, use_container_width=True)
-
-                        trade_types = df["Type"].value_counts().reset_index(name="Count")
-                        trade_types.columns = ['Type', 'Count']
-                        fig_type = px.pie(trade_types, names="Type", values="Count", title="Trades by Type")
-                        st.plotly_chart(fig_type, use_container_width=True)
-                    else:
-                        st.info("Upload your MT5 data to see visualizations.")
-
-                with tab_edge:
-                    st.subheader("Edge Finder")
-                    st.write("Analyze your trading edge here by breaking down performance by various factors.")
-
-                    if not df.empty:
-                        analysis_options = ['Symbol', 'Type', 'Trade Duration']
-                        analysis_by = st.selectbox("Analyze by:", analysis_options)
-
-                        if analysis_by == 'Trade Duration':
-                            df_for_edge = df.copy()
-                            df_for_edge['Duration Bin'] = pd.cut(df_for_edge['Trade Duration'], bins=5, labels=False)
-                            grouped_data = df_for_edge.groupby('Duration Bin')['Profit'].agg(['sum', 'count', 'mean']).reset_index()
-                            grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}")
-                            fig_edge = px.bar(grouped_data, x='Duration Bin', y='sum', title=f"Profit by {analysis_by}")
-                            st.plotly_chart(fig_edge, use_container_width=True)
-                        else:
-                            grouped_data = df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
-                            fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
-                            st.plotly_chart(fig_edge, use_container_width=True)
-
-                    else:
-                        st.info("Upload your MT5 data to use the Edge Finder.")
-
-                with tab_export:
-                    st.subheader("Export Reports")
-                    st.write("Export your trading data and reports.")
-
-                    csv_processed = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="Download Processed CSV",
-                        data=csv_processed,
-                        file_name="processed_mt5_history.csv",
-                        mime="text/csv",
-                    )
-                    
-                    st.info("Further reporting options (e.g., custom PDF reports) could be integrated here.")
-
-
-            except Exception as e:
-                st.error(f"Error processing CSV: {str(e)}. Please check your CSV format and ensure it contains the required columns with valid data.")
-                logging.error(f"Error processing CSV: {str(e)}", exc_info=True)
+        else:
+            if df.empty and not st.session_state.get('myfxbook_df_loaded', False):
+                st.info("👆 Upload your MT5 trading history CSV or login to Myfxbook above to explore advanced performance metrics.")
                 st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
                 st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
     else:
-        st.info("👆 Upload your MT5 trading history CSV to explore advanced performance metrics.")
-        st.session_state.mt5_df = DEFAULT_APP_STATE['mt5_df'].copy()
-        st.session_state.selected_calendar_month = DEFAULT_APP_STATE['selected_calendar_month']
+        st.info("📊 Data is currently loaded from your Myfxbook account. CSV upload is disabled.")
+        # Ensure df is taken from session state if Myfxbook data was loaded
+        df = st.session_state.get('mt5_df', DEFAULT_APP_STATE['mt5_df'].copy())
 
-    if st.session_state.mt5_df is not None and not st.session_state.mt5_df.empty:
+
+    # The main dashboard display logic (metrics, charts, calendar) starts here
+    # It now operates on `df`, which is either from Myfxbook or CSV.
+    if not df.empty:
+        # Re-calculate daily_pnl_map and daily_pnl_df_for_stats with the loaded df
+        daily_pnl_map = _ta_daily_pnl_mt5(df)
+
+        daily_pnl_df_for_stats = pd.DataFrame(columns=["date", "Profit"])
+
+        if daily_pnl_map:
+            min_data_date = min(daily_pnl_map.keys())
+            max_data_date = max(daily_pnl_map.keys())
+            all_dates_in_data_range = pd.date_range(start=min_data_date, end=max_data_date).date
+            daily_pnl_df_for_stats = pd.DataFrame([
+                {"date": d, "Profit": daily_pnl_map.get(d, 0.0)}
+                for d in all_dates_in_data_range
+            ])
+        elif not df.empty and pd.notna(df['Close Time'].min()) and pd.notna(df['Close Time'].max()):
+            min_date_raw = df['Close Time'].min().date()
+            max_date_raw = df['Close Time'].max().date()
+            all_dates_raw_range = pd.date_range(start=min_date_raw, end=max_date_raw).date
+            daily_pnl_df_for_stats = pd.DataFrame([
+                {"date": d, "Profit": 0.0} for d in all_dates_raw_range
+            ])
+
+        tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
+            "📈 Summary Metrics",
+            "📊 Visualizations",
+            "🔍 Edge Finder",
+            "📤 Export Reports"
+        ])
+
+        with tab_summary:
+            st.subheader("Key Performance Metrics")
+            total_trades = len(df)
+            wins_df = df[df["Profit"] > 0]
+            losses_df = df[df["Profit"] < 0]
+
+            win_rate = len(wins_df) / total_trades if total_trades else 0.0
+            net_profit = df["Profit"].sum()
+            profit_factor = _ta_profit_factor_mt5(df)
+            avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
+            avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0
+
+            max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
+            sharpe_ratio = _ta_compute_sharpe(df)
+            expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0.0
+
+            def _ta_compute_streaks(df_pnl_daily):
+                d = df_pnl_daily.sort_values(by="date")
+                if d.empty:
+                    return {"current_win": 0, "best_win": 0, "current_loss": 0, "best_loss": 0}
+
+                current_win_streak = 0
+                best_win_streak = 0
+                current_loss_streak = 0
+                best_loss_streak = 0
+
+                for pnl in d["Profit"]:
+                    if pnl > 0:
+                        current_win_streak += 1
+                        best_win_streak = max(best_win_streak, current_win_streak)
+                        current_loss_streak = 0
+                    elif pnl < 0:
+                        current_loss_streak += 1
+                        best_loss_streak = max(best_loss_streak, current_loss_streak)
+                        current_win_streak = 0
+                    else:
+                        current_win_streak = 0
+                        current_loss_streak = 0
+
+                return {"current_win": current_win_streak, "best_win": best_win_streak,
+                        "current_loss": current_loss_streak, "best_loss": best_loss_streak}
+
+            streaks = _ta_compute_streaks(daily_pnl_df_for_stats)
+            longest_win_streak = streaks["best_win"]
+            longest_loss_streak = streaks["best_loss"]
+
+            avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
+
+            trading_score_value = 90.98
+            max_trading_score = 100
+            trading_score_percentage = (trading_score_value / max_trading_score) * 100
+
+            hit_rate = win_rate
+
+            most_profitable_asset_calc = "N/A"
+            if not df.empty and "Symbol" in df.columns and not df["Profit"].isnull().all():
+                profitable_assets = df.groupby("Symbol")["Profit"].sum()
+                if not profitable_assets.empty and profitable_assets.max() > 0.0:
+                    most_profitable_asset_calc = profitable_assets.idxmax()
+                elif not profitable_assets.empty and profitable_assets.min() <= 0.0 and profitable_assets.max() <= 0.0:
+                        most_profitable_asset_calc = "None Profitable"
+            
+            best_day_profit = 0.0
+            best_performing_day_name = "N/A"
+            worst_day_loss = 0.0
+            worst_performing_day_name = "N/A"
+
+            if not daily_pnl_df_for_stats.empty and not daily_pnl_df_for_stats["Profit"].empty:
+                days_with_pnl_actual_trades = daily_pnl_df_for_stats[daily_pnl_df_for_stats["Profit"] != 0.0]
+
+                if not days_with_pnl_actual_trades.empty:
+                    best_day_profit = days_with_pnl_actual_trades["Profit"].max()
+                    if pd.notna(best_day_profit) and best_day_profit > 0.0:
+                        best_performing_day_date = days_with_pnl_actual_trades.loc[days_with_pnl_actual_trades["Profit"].idxmax(), "date"]
+                        best_performing_day_name = pd.to_datetime(str(best_performing_day_date)).strftime('%A')
+                    else:
+                        best_performing_day_name = "No Profitable Days"
+
+                    worst_day_loss = days_with_pnl_actual_trades["Profit"].min()
+                    if pd.notna(worst_day_loss) and worst_day_loss < 0.0:
+                        worst_performing_day_date = days_with_pnl_actual_trades.loc[days_with_pnl_actual_trades["Profit"].idxmin(), "date"]
+                        worst_performing_day_name = pd.to_datetime(str(worst_performing_day_date)).strftime('%A')
+                    else:
+                        worst_performing_day_name = "No Losing Days"
+                else:
+                    best_performing_day_name = "No Trades With Non-Zero P&L"
+                    worst_performing_day_name = "No Trades With Non-Zero P&L"
+            else:
+                best_performing_day_name = "No P&L Data"
+                worst_performing_day_name = "No P&L Data"
+
+
+            col1, col2, col3, col4, col5 = st.columns(5)
+
+            with col1:
+                r_r_bar_width = min(100, (avg_r_r / 2) * 100 if pd.notna(avg_r_r) and avg_r_r > 0 else 0)
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Avg R:R</strong>
+                        <span class='metric-value'>{_ta_human_num_mt5(avg_r_r)}</span>
+                        <div class="progress-container">
+                            <div class="progress-bar green" style="width: {r_r_bar_width:.2f}%;"></div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col2:
+                win_rate_percent = win_rate * 100
+                loss_rate_percent = 100 - win_rate_percent
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Win Rate</strong>
+                        <span class='metric-value'>{_ta_human_pct_mt5(win_rate)}</span>
+                        <div class="win-loss-bar-container">
+                            <div class="win-bar" style="width: {win_rate_percent:.2f}%;"></div>
+                            <div class="loss-bar" style="width: {loss_rate_percent:.2f}%;"></div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col3:
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Trading score</strong>
+                        <span class='metric-value'>{_ta_human_num_mt5(trading_score_value)}</span>
+                        <div class="trading-score-bar-container">
+                            <div class="trading-score-bar" style="width: {trading_score_percentage:.2f}%;"></div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col4:
+                hit_rate_percent = hit_rate * 100
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Hit Rate</strong>
+                        <span class='metric-value'>{_ta_human_pct_mt5(hit_rate)}</span>
+                        <div class="win-loss-bar-container">
+                            <div class="win-bar" style="width: {hit_rate_percent:.2f}%;"></div>
+                            <div class="loss-bar" style="width: {100-hit_rate_percent:.2f}%;"></div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col5:
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Total Trades</strong>
+                        <span class='metric-value'>{_ta_human_num_mt5(total_trades)}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("---")
+
+            col6, col7, col8, col9, col10 = st.columns(5)
+
+            with col6:
+                avg_win_formatted = _ta_human_num_mt5(avg_win)
+                avg_win_display = f"<span style='color: #5cb85c;'>${avg_win_formatted}</span>" if avg_win > 0.0 and avg_win_formatted != "N/A" else f"${avg_win_formatted}"
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Avg Profit</strong>
+                        <span class='metric-value'>{avg_win_display}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col7:
+                best_day_profit_val = best_day_profit
+                best_day_profit_formatted = _ta_human_num_mt5(best_day_profit_val)
+
+                if best_day_profit_val > 0.0 and best_day_profit_formatted != "N/A":
+                    best_day_profit_display_html = f"<span style='color: #5cb85c;'>${best_day_profit_formatted}</span>"
+                    day_info_text = f"{best_performing_day_name} with profit of {best_day_profit_display_html}."
+                elif best_performing_day_name in ["No Profitable Days", "No P&L Data", "No Trades With Non-Zero P&L"]:
+                    day_info_text = best_performing_day_name
+                else:
+                    day_info_text = "N/A"
+
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Best Performing Day</strong>
+                        <span class='day-info'>{day_info_text}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col8:
+                net_profit_val = net_profit
+                net_profit_formatted = _ta_human_num_mt5(abs(net_profit_val))
+
+                if net_profit_val >= 0.0 and net_profit_formatted != "N/A":
+                    net_profit_value_display_html = f"<span style='color: #5cb85c;'>${net_profit_formatted}</span>"
+                elif net_profit_formatted != "N/A":
+                    net_profit_value_display_html = f"<span style='color: #d9534f;'>-${net_profit_formatted}</span>"
+                else:
+                    net_profit_value_display_html = "N/A"
+
+                total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
+                formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_magnitude)
+
+                if formatted_total_loss_in_parentheses_val != "N/A":
+                    formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>($-{formatted_total_loss_in_parentheses_val})</span>"
+                else:
+                    formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>(N/A)</span>"
+
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Total Profit</strong>
+                        <span class='metric-value'>{net_profit_value_display_html}</span>
+                        <span class='sub-value'>{formatted_total_loss_in_parentheses_html}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col9:
+                worst_day_loss_val = worst_day_loss
+                worst_day_loss_formatted = _ta_human_num_mt5(abs(worst_day_loss_val))
+
+                if worst_day_loss_val < 0.0 and worst_day_loss_formatted != "N/A":
+                    worst_day_loss_display_html = f"<span style='color: #d9534f;'>-${worst_day_loss_formatted}</span>"
+                    day_info_text = f"{worst_performing_day_name} with loss of {worst_day_loss_display_html}."
+                elif worst_performing_day_name in ["No Losing Days", "No P&L Data", "No Trades With Non-Zero P&L"]:
+                    day_info_text = worst_performing_day_name
+                else:
+                    day_info_text = "N/A"
+
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Worst Performing Day</strong>
+                        <span class='day-info'>{day_info_text}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col10:
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Most Profitable Asset</strong>
+                        <span class='metric-value'>{most_profitable_asset_calc}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+        with tab_charts:
+            st.subheader("Visualizations")
+            if not daily_pnl_df_for_stats.empty:
+                df_for_chart = daily_pnl_df_for_stats.copy()
+                df_for_chart["Cumulative Profit"] = df_for_chart["Profit"].cumsum()
+                fig_equity = px.line(df_for_chart, x="date", y="Cumulative Profit", title="Equity Curve")
+                st.plotly_chart(fig_equity, use_container_width=True)
+
+                profit_by_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+                fig_symbol = px.bar(profit_by_symbol, x="Symbol", y="Profit", title="Profit by Symbol")
+                st.plotly_chart(fig_symbol, use_container_width=True)
+
+                trade_types = df["Type"].value_counts().reset_index(name="Count")
+                trade_types.columns = ['Type', 'Count']
+                fig_type = px.pie(trade_types, names="Type", values="Count", title="Trades by Type")
+                st.plotly_chart(fig_type, use_container_width=True)
+            else:
+                st.info("No trade data available to generate visualizations. Upload your data or log in to Myfxbook.")
+
+        with tab_edge:
+            st.subheader("Edge Finder")
+            st.write("Analyze your trading edge here by breaking down performance by various factors.")
+
+            if not df.empty:
+                analysis_options = ['Symbol', 'Type', 'Trade Duration']
+                # Ensure 'Trade Duration' is calculated if not already
+                if 'Trade Duration' not in df.columns:
+                    # Make sure 'Open Time' and 'Close Time' are datetime objects
+                    df['Open Time'] = pd.to_datetime(df['Open Time'], errors='coerce')
+                    df['Close Time'] = pd.to_datetime(df['Close Time'], errors='coerce')
+                    df_valid_duration = df.dropna(subset=['Open Time', 'Close Time'])
+                    df['Trade Duration'] = (df_valid_duration["Close Time"] - df_valid_duration["Open Time"]).dt.total_seconds() / 3600
+                
+                # Filter analysis options based on available columns
+                available_analysis_options = [opt for opt in analysis_options if opt in df.columns]
+                
+                if not available_analysis_options:
+                    st.info("Insufficient data columns to perform edge analysis (requires 'Symbol', 'Type', or calculated 'Trade Duration').")
+                else:
+                    analysis_by = st.selectbox("Analyze by:", available_analysis_options)
+
+                    if analysis_by == 'Trade Duration':
+                        df_for_edge = df.copy()
+                        # Ensure 'Trade Duration' is numeric and not NaN for binning
+                        df_for_edge = df_for_edge.dropna(subset=['Trade Duration'])
+                        if not df_for_edge.empty:
+                            df_for_edge['Duration Bin'] = pd.cut(df_for_edge['Trade Duration'], bins=5, labels=False, include_lowest=True)
+                            grouped_data = df_for_edge.groupby('Duration Bin')['Profit'].agg(['sum', 'count', 'mean']).reset_index()
+                            grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}") # Label bins
+                            fig_edge = px.bar(grouped_data, x='Duration Bin', y='sum', title=f"Profit by {analysis_by}")
+                            st.plotly_chart(fig_edge, use_container_width=True)
+                        else:
+                            st.info("No valid trade durations to analyze for Edge Finder.")
+                    else:
+                        grouped_data = df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
+                        fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
+                        st.plotly_chart(fig_edge, use_container_width=True)
+            else:
+                st.info("No trade data available to use the Edge Finder. Upload your data or log in to Myfxbook.")
+
+        with tab_export:
+            st.subheader("Export Reports")
+            st.write("Export your trading data and reports.")
+
+            csv_processed = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Download Processed Data CSV",
+                data=csv_processed,
+                file_name="processed_trade_history.csv",
+                mime="text/csv",
+            )
+            
+            st.info("Further reporting options (e.g., custom PDF reports) could be integrated here.")
+
+    else: # If df is empty after all loading attempts
+        if not st.session_state.get('myfxbook_df_loaded', False):
+            st.info("Start by uploading your MT5 trading history CSV or logging into your Myfxbook account above.")
+        else:
+            st.info("No trade data available from Myfxbook account to display dashboard metrics. Please check your selected account.")
+
+
+    if not st.session_state.mt5_df.empty: # Use st.session_state.mt5_df for subsequent sections
         try:
             st.markdown("---")
             _ta_show_badges_mt5(st.session_state.mt5_df)
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     
-    if st.session_state.mt5_df is not None and not st.session_state.mt5_df.empty:
+    if not st.session_state.mt5_df.empty: # Use st.session_state.mt5_df for calendar
         st.markdown("---")
         st.subheader("🗓️ Daily Performance Calendar")
 
@@ -2997,15 +3317,15 @@ if st.session_state.current_page == 'mt5':
         st.markdown(calendar_html, unsafe_allow_html=True)
 
 
-    if 'df' in locals() and not df.empty:
+    if not st.session_state.mt5_df.empty: # Use st.session_state.mt5_df for report generation
         st.markdown("---")
         if st.button("📄 Generate Performance Report"):
-            total_trades = len(df)
-            wins_df = df[df["Profit"] > 0]
-            losses_df = df[df["Profit"] < 0]
+            total_trades = len(st.session_state.mt5_df)
+            wins_df = st.session_state.mt5_df[st.session_state.mt5_df["Profit"] > 0]
+            losses_df = st.session_state.mt5_df[st.session_state.mt5_df["Profit"] < 0]
             win_rate = len(wins_df) / total_trades if total_trades else 0.0
-            net_profit = df["Profit"].sum()
-            profit_factor = _ta_profit_factor_mt5(df)
+            net_profit = st.session_state.mt5_df["Profit"].sum()
+            profit_factor = _ta_profit_factor_mt5(st.session_state.mt5_df)
             
             if st.session_state.get('mt5_df', pd.DataFrame()) is not None and not st.session_state.mt5_df.empty:
                 daily_pnl_for_streaks = _ta_daily_pnl_mt5(st.session_state.mt5_df)
@@ -3040,9 +3360,9 @@ if st.session_state.current_page == 'mt5':
             <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
             <p><strong>Longest Win Streak:</strong> {_ta_human_num_mt5(longest_win_streak)}</p>
             <p><strong>Longest Loss Streak:</strong> {_ta_human_num_mt5(longest_loss_streak)}</p>
-            <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(df['Trade Duration'].mean())}h</p>
-            <p><strong>Total Volume:</strong> {_ta_human_num_mt5(df['Volume'].sum())}</p>
-            <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(df['Volume'].mean())}</p>
+            <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(st.session_state.mt5_df['Trade Duration'].mean()) if 'Trade Duration' in st.session_state.mt5_df.columns else 'N/A'}h</p>
+            <p><strong>Total Volume:</strong> {_ta_human_num_mt5(st.session_state.mt5_df['Volume'].sum()) if 'Volume' in st.session_state.mt5_df.columns else 'N/A'}</p>
+            <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(st.session_state.mt5_df['Volume'].mean()) if 'Volume' in st.session_state.mt5_df.columns else 'N/A'}</p>
             <p><strong>Profit / Trade:</strong> <span class='{'positive' if (net_profit/total_trades if total_trades else 0.0) >= 0 else 'negative'}'>
             {'$' if (net_profit/total_trades if total_trades else 0.0) >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit/total_trades if total_trades else 0.0))}</span></p>
             </body>
@@ -3055,7 +3375,6 @@ if st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
-
 
 import streamlit as st
 import os
