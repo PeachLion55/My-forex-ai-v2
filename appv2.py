@@ -3480,7 +3480,7 @@ calendar_html += "</div>"
 
 st.markdown(calendar_html, unsafe_allow_html=True)
 st.markdown("---")
-        if st.button("📄 Generate Performance Report"):
+if st.button("📄 Generate Performance Report"):
             df_for_report = st.session_state.mt5_df.copy()
             df_for_report = df_for_report[df_for_report['Symbol'].notna()].copy()
 
