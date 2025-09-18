@@ -2929,7 +2929,7 @@ if st.session_state.current_page == 'mt5':
             "📤 Export Reports"
         ])
 
-                with tab_summary:
+            with tab_summary:
             st.subheader("Key Performance Metrics")
 
             # --- KEY CHANGE: Filter DataFrame for trades only ---
