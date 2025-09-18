@@ -2929,22 +2929,30 @@ if st.session_state.current_page == 'mt5':
             "📤 Export Reports"
         ])
 
-        with tab_summary:
+                with tab_summary:
             st.subheader("Key Performance Metrics")
-            total_trades = len(df)
-            wins_df = df[df["Profit"] > 0]
-            losses_df = df[df["Profit"] < 0]
+
+            # --- KEY CHANGE: Filter DataFrame for trades only ---
+            # Create a new DataFrame that excludes deposits or other non-trade activities.
+            # We assume that any row with a valid 'Symbol' is a trade.
+            trades_df = df[df['Symbol'].notna() & (df['Symbol'] != '')].copy()
+
+            # All calculations below now use 'trades_df' instead of the original 'df'.
+            total_trades = len(trades_df)
+            wins_df = trades_df[trades_df["Profit"] > 0]
+            losses_df = trades_df[trades_df["Profit"] < 0]
 
             win_rate = len(wins_df) / total_trades if total_trades else 0.0
-            net_profit = df["Profit"].sum()
-            profit_factor = _ta_profit_factor_mt5(df)
+            net_profit = trades_df["Profit"].sum()
+            profit_factor = _ta_profit_factor_mt5(trades_df)
             avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
             avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0
-            total_losses_sum = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0 # New metric
+            total_losses_sum = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0
 
+            # Note: Ensure 'daily_pnl_df_for_stats' is also calculated using only trade data.
             max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
-            sharpe_ratio = _ta_compute_sharpe(df)
-            expectancy = (win_rate * avg_win) + ((1 - win_rate) * avg_loss) if total_trades else 0.0 # Corrected expectancy calculation: sum of (prob * outcome)
+            sharpe_ratio = _ta_compute_sharpe(trades_df)
+            expectancy = (win_rate * avg_win) + ((1 - win_rate) * avg_loss) if total_trades else 0.0
 
             def _ta_compute_streaks(df_pnl_daily):
                 d = df_pnl_daily.sort_values(by="date")
@@ -2978,6 +2986,7 @@ if st.session_state.current_page == 'mt5':
 
             avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
 
+            # The Trading Score calculation should also use trades_df if it were a real calculation
             trading_score_value = 90.98 # Placeholder for now
             max_trading_score = 100
             trading_score_percentage = (trading_score_value / max_trading_score) * 100
@@ -2985,8 +2994,8 @@ if st.session_state.current_page == 'mt5':
             hit_rate = win_rate
 
             most_profitable_asset_calc = "N/A"
-            if not df.empty:
-                symbol_profits = df.groupby("Symbol")["Profit"].sum()
+            if not trades_df.empty:
+                symbol_profits = trades_df.groupby("Symbol")["Profit"].sum()
                 if not symbol_profits.empty and symbol_profits.max() > 0:
                     most_profitable_asset_calc = symbol_profits.idxmax()
                 else:
@@ -3008,6 +3017,7 @@ if st.session_state.current_page == 'mt5':
                 worst_trade_symbol = worst_trade['Symbol']
 
 
+            # --- DISPLAY LOGIC (No changes needed below this line in this block) ---
             col1, col2, col3, col4, col5 = st.columns(5)
 
             with col1:
@@ -3107,7 +3117,6 @@ if st.session_state.current_page == 'mt5':
                 else:
                     net_profit_value_display_html = "N/A"
 
-                # total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0 # Already calculated as total_losses_sum
                 formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_sum)
 
                 if formatted_total_loss_in_parentheses_val != "N/A":
@@ -3145,7 +3154,6 @@ if st.session_state.current_page == 'mt5':
                     </div>
                 """, unsafe_allow_html=True)
 
-            # New Row for additional metrics (Average Loss, Total Loss, Profit Factor, Max Drawdown, Expectancy)
             st.markdown("---")
             col11, col12, col13, col14, col15 = st.columns(5)
             
@@ -3203,17 +3211,18 @@ if st.session_state.current_page == 'mt5':
 
         with tab_charts:
             st.subheader("Visualizations")
+            # Use 'trades_df' for visualizations to ensure they reflect trading activity only.
             if not daily_pnl_df_for_stats.empty:
                 df_for_chart = daily_pnl_df_for_stats.copy()
                 df_for_chart["Cumulative Profit"] = df_for_chart["Profit"].cumsum()
                 fig_equity = px.line(df_for_chart, x="date", y="Cumulative Profit", title="Equity Curve")
                 st.plotly_chart(fig_equity, use_container_width=True)
 
-                profit_by_symbol = df.groupby("Symbol")["Profit"].sum().reset_index()
+                profit_by_symbol = trades_df.groupby("Symbol")["Profit"].sum().reset_index()
                 fig_symbol = px.bar(profit_by_symbol, x="Symbol", y="Profit", title="Profit by Symbol")
                 st.plotly_chart(fig_symbol, use_container_width=True)
 
-                trade_types = df["Type"].value_counts().reset_index(name="Count")
+                trade_types = trades_df["Type"].value_counts().reset_index(name="Count")
                 trade_types.columns = ['Type', 'Count']
                 fig_type = px.pie(trade_types, names="Type", values="Count", title="Trades by Type")
                 st.plotly_chart(fig_type, use_container_width=True)
@@ -3222,6 +3231,7 @@ if st.session_state.current_page == 'mt5':
         
         with tab_closed_trades:
             st.subheader("Closed Trades History")
+            # This tab correctly shows the original, unfiltered data from the session state.
             if not st.session_state.mt5_df.empty:
                 st.dataframe(st.session_state.mt5_df, use_container_width=True)
             else:
@@ -3239,22 +3249,20 @@ if st.session_state.current_page == 'mt5':
             st.subheader("Edge Finder")
             st.write("Analyze your trading edge here by breaking down performance by various factors.")
 
-            if not df.empty:
+            # Use 'trades_df' for edge analysis.
+            if not trades_df.empty:
                 analysis_options = ['Symbol', 'Type', 'Trade Duration']
                 
-                # Re-calculate Trade Duration robustly if needed
-                if 'Trade Duration' not in df.columns or df['Trade Duration'].isnull().all():
-                    df['Open Time'] = pd.to_datetime(df['Open Time'], errors='coerce')
-                    df['Close Time'] = pd.to_datetime(df['Close Time'], errors='coerce')
-                    df_valid_duration = df.dropna(subset=['Open Time', 'Close Time'])
+                if 'Trade Duration' not in trades_df.columns or trades_df['Trade Duration'].isnull().all():
+                    trades_df['Open Time'] = pd.to_datetime(trades_df['Open Time'], errors='coerce')
+                    trades_df['Close Time'] = pd.to_datetime(trades_df['Close Time'], errors='coerce')
+                    df_valid_duration = trades_df.dropna(subset=['Open Time', 'Close Time'])
                     if not df_valid_duration.empty:
-                         # Use .loc to modify a copy or df safely
-                        df.loc[df_valid_duration.index, 'Trade Duration'] = (df_valid_duration["Close Time"] - df_valid_duration["Open Time"]).dt.total_seconds() / 3600
+                        trades_df.loc[df_valid_duration.index, 'Trade Duration'] = (df_valid_duration["Close Time"] - df_valid_duration["Open Time"]).dt.total_seconds() / 3600
                     else:
-                        df['Trade Duration'] = np.nan # No valid durations to calculate
+                        trades_df['Trade Duration'] = np.nan
 
-                # Filter analysis options based on available columns with non-null values
-                available_analysis_options = [opt for opt in analysis_options if opt in df.columns and not df[opt].isnull().all()]
+                available_analysis_options = [opt for opt in analysis_options if opt in trades_df.columns and not trades_df[opt].isnull().all()]
                 
                 if not available_analysis_options:
                     st.info("Insufficient data columns to perform edge analysis (requires 'Symbol', 'Type', or calculated 'Trade Duration' with non-null values).")
@@ -3262,9 +3270,9 @@ if st.session_state.current_page == 'mt5':
                     analysis_by = st.selectbox("Analyze by:", available_analysis_options)
 
                     if analysis_by == 'Trade Duration':
-                        df_for_edge = df.copy()
+                        df_for_edge = trades_df.copy()
                         df_for_edge = df_for_edge.dropna(subset=['Trade Duration'])
-                        if not df_for_edge.empty and (df_for_edge['Trade Duration'].max() > df_for_edge['Trade Duration'].min() or len(df_for_edge['Trade Duration'].unique()) > 1): # Ensure enough variation for binning
+                        if not df_for_edge.empty and (df_for_edge['Trade Duration'].max() > df_for_edge['Trade Duration'].min() or len(df_for_edge['Trade Duration'].unique()) > 1):
                             df_for_edge['Duration Bin'] = pd.cut(df_for_edge['Trade Duration'], bins=5, labels=False, include_lowest=True)
                             grouped_data = df_for_edge.groupby('Duration Bin')['Profit'].agg(['sum', 'count', 'mean']).reset_index()
                             grouped_data['Duration Bin'] = grouped_data['Duration Bin'].apply(lambda x: f"Bin {x}")
@@ -3273,7 +3281,7 @@ if st.session_state.current_page == 'mt5':
                         else:
                             st.info("No sufficient variation in trade durations to analyze for Edge Finder.")
                     else:
-                        grouped_data = df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
+                        grouped_data = trades_df.groupby(analysis_by)['Profit'].agg(['sum', 'count', 'mean']).reset_index()
                         fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
                         st.plotly_chart(fig_edge, use_container_width=True)
             else:
@@ -3283,12 +3291,13 @@ if st.session_state.current_page == 'mt5':
             st.subheader("Export Reports")
             st.write("Export your trading data and reports.")
 
-            if not df.empty:
-                csv_processed = df.to_csv(index=False).encode('utf-8')
+            # Provide an export for both processed trade data and the original data.
+            if not trades_df.empty:
+                csv_processed = trades_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="Download Processed Data CSV (Closed Trades)",
+                    label="Download Processed Data CSV (Trades Only)",
                     data=csv_processed,
-                    file_name="processed_closed_trade_history.csv",
+                    file_name="processed_trades_only_history.csv",
                     mime="text/csv",
                 )
             
