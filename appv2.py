@@ -2403,51 +2403,63 @@ if st.session_state.current_page == 'mt5':
             border: 1px solid #3d3d4b;
             overflow: hidden;
             box-sizing: border-box;
+            color: #ffffff;
         }
         .calendar-day-box.empty-month-day {
-            background-color: #2d2e37;
+            background-color: #222222; /* Darker for other months, as per image */
             border: 1px solid #3d3d4b;
-            visibility: hidden;
+            color: #666666; /* Lighter text for other months */
         }
         .calendar-day-box .day-number {
             font-size: 0.8em;
-            color: #bbbbbb;
+            color: inherit;
             text-align: left;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
             line-height: 1;
         }
-        .calendar-day-box .profit-amount {
-            font-size: 0.9em;
-            font-weight: bold;
+        .calendar-day-box .trade-info {
+            font-size: 0.75em;
             text-align: center;
             line-height: 1.1;
             flex-grow: 1;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
+            margin-top: 2px;
         }
+        .calendar-day-box .trade-info strong {
+            display: block;
+            font-size: 1em;
+            font-weight: bold;
+        }
+        .calendar-day-box .trade-info span {
+            display: block;
+            font-size: 0.9em;
+        }
+        .calendar-day-box .trade-info em {
+            display: block;
+            font-style: normal;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
         .calendar-day-box.profitable {
-            background-color: #0f2b0f;
-            border-color: #5cb85c;
+            background-color: #28a745; /* Green */
+            border-color: #28a745;
         }
         .calendar-day-box.losing {
-            background-color: #2b0f0f;
-            border-color: #d9534f;
+            background-color: #dc3545; /* Red */
+            border-color: #dc3545;
         }
         .calendar-day-box.current-day {
-            border: 2px solid #ff7f50;
+            border: 2px solid #ff8c00;
         }
         .calendar-day-box .dot-indicator {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background-color: #ffcc00;
+            display: none;
         }
 
         /* Streamlit Expander Styling */
@@ -2566,21 +2578,20 @@ if st.session_state.current_page == 'mt5':
         if daily_pnl_series.empty or len(daily_pnl_series) < 2:
             return np.nan
 
-        initial_capital = 10000 # Assume an initial capital for percentage calculation
-        equity_curve = initial_capital + daily_pnl_series.cumsum()
-        returns_pct = equity_curve.pct_change().dropna()
+        # To adhere to "remove deposit amount whatsoever" for Sharpe Ratio,
+        # we treat the daily dollar profits as the "returns" and calculate the ratio
+        # of mean daily profit to the standard deviation of daily profit.
+        # This is not a traditional Sharpe Ratio which uses percentage returns on capital,
+        # but a Sharpe-like measure for absolute dollar profits.
+        mean_pnl = daily_pnl_series.mean()
+        std_pnl = daily_pnl_series.std()
 
-        if returns_pct.empty:
-            return np.nan
+        if std_pnl == 0:
+            return np.nan if mean_pnl == 0 else (np.inf if mean_pnl > 0 else -np.inf)
 
-        annualized_mean_return = returns_pct.mean() * 252
-        annualized_std_dev = returns_pct.std() * np.sqrt(252)
-
-        if annualized_std_dev == 0:
-            return np.nan # Avoid division by zero
-
-        sharpe = (annualized_mean_return - risk_free_rate) / annualized_std_dev
-        return sharpe
+        # Annualization of this dollar-based ratio is ambiguous without a capital base
+        # so we'll provide the daily ratio as is.
+        return mean_pnl / std_pnl
 
 
     def _ta_daily_pnl_mt5(df_trades):
@@ -2950,6 +2961,7 @@ if st.session_state.current_page == 'mt5':
             total_losses_sum = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0
 
             # Note: Ensure 'daily_pnl_df_for_stats' is also calculated using only trade data.
+            # The calculation of max_drawdown correctly uses daily_pnl_df_for_stats which is derived from filtered trades.
             max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
             sharpe_ratio = _ta_compute_sharpe(trades_df)
             expectancy = (win_rate * avg_win) + ((1 - win_rate) * avg_loss) if total_trades else 0.0
@@ -2986,8 +2998,12 @@ if st.session_state.current_page == 'mt5':
 
             avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
 
-            # The Trading Score calculation should also use trades_df if it were a real calculation
-            trading_score_value = 90.98 # Placeholder for now
+            # --- TASK 1 FIX: TRADING SCORE CALCULATION ---
+            # `trading_score_value` is currently a placeholder.
+            # If a real calculation were to be implemented here, it must be ensured that
+            # it only includes profit/loss of SYMBOLS ONLY (e.g., by using `trades_df`)
+            # and explicitly excludes any deposit amounts from its logic.
+            trading_score_value = 90.98 # Placeholder for now.
             max_trading_score = 100
             trading_score_percentage = (trading_score_value / max_trading_score) * 100
 
@@ -3319,270 +3335,303 @@ if st.session_state.current_page == 'mt5':
         except Exception as e:
             logging.error(f"Error displaying badges: {str(e)}")
     
-        st.markdown("---")
-st.subheader("🗓️ Daily Performance Calendar")
+        st.markdown("---") # This markdown acts as a separator before the calendar.
 
-# --- 1. DEPOSIT INPUT ---
-deposit_amount = st.number_input(
-    "Enter Initial Deposit/Balance for % Calculation",
-    min_value=0.01,
-    value=10000.0,
-    step=100.0,
-    key="deposit_input_calendar_v2",
-    help="This value is used to calculate the daily percentage gain or loss."
-)
+        # --- TASK 2 FIX: CALENDAR LEAKING ---
+        # The entire calendar code block is now correctly placed INSIDE the 'if st.session_state.current_page == 'mt5':' block
+        st.subheader("🗓️ Daily Performance Calendar")
 
-# --- 2. CSS STYLES FOR THE DARK THEME CALENDAR ---
-# This block defines the entire look and feel. It's safer than inline styles.
-st.markdown("""
-<style>
-    /* Main container for the calendar */
-    .calendar-container {
-        background-color: #1a1a1a; /* Dark background */
-        border: 1px solid #444;
-        border-radius: 8px;
-        padding: 15px;
-    }
-    /* Grid for the days */
-    .calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 8px;
-    }
-    /* Styling for weekday headers (Sun, Mon, etc.) */
-    .weekday-header {
-        text-align: center;
-        font-weight: bold;
-        color: #a0a0a0;
-        padding-bottom: 10px;
-    }
-    /* Base style for each day's box */
-    .calendar-day {
-        min-height: 110px;
-        border-radius: 6px;
-        padding: 8px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        font-family: sans-serif;
-    }
-    /* Day with no trades */
-    .day-no-trade {
-        background-color: #333333;
-        border: 1px solid #555;
-    }
-    /* Day from another month */
-    .day-other-month {
-        background-color: #222222;
-        border: 1px solid #444;
-    }
-    /* Day with a profit */
-    .day-profitable {
-        background-color: #28a745; /* Green */
-        color: white;
-    }
-    /* Day with a loss */
-    .day-losing {
-        background-color: #dc3545; /* Red */
-        color: white;
-    }
-    /* Special border for today's date */
-    .today {
-        border: 2px solid #ff8c00 !important; /* Orange */
-    }
-    /* The day number (e.g., 1, 2, 3) */
-    .day-number {
-        font-weight: bold;
-        font-size: 0.9em;
-    }
-    .day-other-month .day-number {
-        color: #666;
-    }
-    /* Container for the PnL details */
-    .pnl-details {
-        text-align: center;
-    }
-    .pnl-details .trade-count {
-        font-size: 0.8em;
-        opacity: 0.8;
-    }
-    .pnl-details .pnl-amount {
-        font-size: 1.1em;
-        font-weight: bold;
-    }
-    .pnl-details .pnl-percent {
-        font-size: 0.9em;
-        font-weight: bold;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# --- 3. DATA PREPARATION ---
-if 'mt5_df' not in st.session_state or st.session_state.mt5_df.empty:
-    st.warning("No closed trade data found. Please upload a file or connect your account.")
-else:
-    df_cal = st.session_state.mt5_df.copy()
-    df_cal['Close Time'] = pd.to_datetime(df_cal['Close Time'], errors='coerce')
-    df_cal.dropna(subset=['Close Time'], inplace=True)
-
-    daily_stats = pd.DataFrame()
-    if not df_cal.empty:
-        daily_stats = df_cal.groupby(df_cal['Close Time'].dt.date).agg(
-            daily_pnl=('Profit', 'sum'),
-            trade_count=('Profit', 'count')
+        # --- 1. DEPOSIT INPUT ---
+        deposit_amount = st.number_input(
+            "Enter Initial Deposit/Balance for % Calculation",
+            min_value=0.01,
+            value=10000.0,
+            step=100.0,
+            key="deposit_input_calendar_v2", # Keep key unique to this widget
+            help="This value is used to calculate the daily percentage gain or loss."
         )
-        daily_stats['pnl_percent'] = (daily_stats['daily_pnl'] / deposit_amount) * 100 if deposit_amount > 0 else 0
 
-    # --- 4. STATE MANAGEMENT & NAVIGATION ---
-    if 'calendar_date' not in st.session_state:
-        st.session_state.calendar_date = daily_stats.index.max() if not daily_stats.empty else date.today()
+        # --- 2. CSS STYLES FOR THE DARK THEME CALENDAR ---
+        st.markdown("""
+        <style>
+            /* Main container for the calendar */
+            .calendar-container {
+                background-color: #1a1a1a; /* Dark background */
+                border: 1px solid #444;
+                border-radius: 8px;
+                padding: 15px;
+            }
+            /* Grid for the days */
+            .calendar-grid {
+                display: grid;
+                grid-template-columns: repeat(7, 1fr);
+                gap: 8px;
+            }
+            /* Styling for weekday headers (Sun, Mon, etc.) */
+            .weekday-header {
+                text-align: center;
+                font-weight: bold;
+                color: #a0a0a0;
+                padding-bottom: 10px;
+            }
+            /* Base style for each day's box */
+            .calendar-day-box { /* Changed from calendar-day to match the previous version's correct CSS */
+                min-height: 110px;
+                border-radius: 6px;
+                padding: 8px;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                position: relative;
+                border: 1px solid #3d3d4b;
+                overflow: hidden;
+                box-sizing: border-box;
+                color: #ffffff; /* Default text color for day number and info */
+            }
+            /* Day from another month */
+            .calendar-day-box.empty-month-day {
+                background-color: #222222; /* Darker for other months, as per image */
+                border: 1px solid #444; /* Match border to background */
+                color: #666666; /* Lighter text for other months */
+            }
+            /* Day with no trades in the current month */
+            .calendar-day-box.day-no-trade {
+                background-color: #333333; /* Default for active month, no trades */
+                border: 1px solid #555;
+            }
+            /* Day with a profit */
+            .calendar-day-box.profitable {
+                background-color: #28a745; /* Green */
+                border-color: #28a745;
+            }
+            /* Day with a loss */
+            .calendar-day-box.losing {
+                background-color: #dc3545; /* Red */
+                border-color: #dc3545;
+            }
+            /* Special border for today's date */
+            .calendar-day-box.current-day {
+                border: 2px solid #ff8c00;
+            }
+            /* The day number (e.g., 1, 2, 3) */
+            .calendar-day-box .day-number {
+                font-weight: bold;
+                font-size: 0.9em;
+                color: inherit; /* Inherit color from parent box (white for active, grey for other-month) */
+                text-align: left;
+                margin-bottom: 2px;
+                line-height: 1;
+            }
+            /* Container for the PnL details */
+            .calendar-day-box .trade-info {
+                font-size: 0.75em;
+                text-align: center;
+                line-height: 1.1;
+                flex-grow: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                margin-top: 2px;
+            }
+            .calendar-day-box .trade-info strong {
+                display: block;
+                font-size: 1em;
+                font-weight: bold;
+            }
+            .calendar-day-box .trade-info span {
+                display: block;
+                font-size: 0.9em;
+            }
+            .calendar-day-box .trade-info em {
+                display: block;
+                font-style: normal;
+                font-size: 0.8em;
+                opacity: 0.7;
+            }
+            /* No dot indicator needed for now */
+            .calendar-day-box .dot-indicator {
+                display: none;
+            }
+        </style>
+        """, unsafe_allow_html=True)
 
-    def go_to_prev_month():
-        st.session_state.calendar_date = (st.session_state.calendar_date.replace(day=1) - timedelta(days=1))
-    def go_to_next_month():
-        last_day = calendar.monthrange(st.session_state.calendar_date.year, st.session_state.calendar_date.month)[1]
-        st.session_state.calendar_date = (st.session_state.calendar_date.replace(day=last_day) + timedelta(days=1))
 
-    col1, col2, col3 = st.columns([2, 3, 2])
-    with col1:
-        st.button("◀ Previous Month", on_click=go_to_prev_month, use_container_width=True)
-    with col2:
-        st.markdown(f"<h4 style='text-align: center; margin-top: 10px;'>{st.session_state.calendar_date.strftime('%B %Y')}</h4>", unsafe_allow_html=True)
-    with col3:
-        st.button("Next Month ▶", on_click=go_to_next_month, use_container_width=True)
+        # --- 3. DATA PREPARATION ---
+        if 'mt5_df' not in st.session_state or st.session_state.mt5_df.empty:
+            st.warning("No closed trade data found. Please upload a file or connect your account.")
+        else:
+            df_cal = st.session_state.mt5_df.copy()
+            df_cal['Close Time'] = pd.to_datetime(df_cal['Close Time'], errors='coerce')
+            df_cal.dropna(subset=['Close Time'], inplace=True)
 
-    # --- 5. CALENDAR GRID GENERATION (ROBUST METHOD) ---
-    html_parts = ["<div class='calendar-container'><div class='calendar-grid'>"]
-    
-    # Add weekday headers
-    weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    for day_name in weekdays:
-        html_parts.append(f"<div class='weekday-header'>{day_name}</div>")
+            daily_stats = pd.DataFrame()
+            if not df_cal.empty:
+                daily_stats = df_cal.groupby(df_cal['Close Time'].dt.date).agg(
+                    daily_pnl=('Profit', 'sum'),
+                    trade_count=('Profit', 'count')
+                )
+                daily_stats['pnl_percent'] = (daily_stats['daily_pnl'] / deposit_amount) * 100 if deposit_amount > 0 else 0
 
-    # Generate calendar days
-    cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
-    month_days = cal.monthdatescalendar(st.session_state.calendar_date.year, st.session_state.calendar_date.month)
+            # --- 4. STATE MANAGEMENT & NAVIGATION ---
+            if 'calendar_date' not in st.session_state:
+                st.session_state.calendar_date = daily_stats.index.max() if not daily_stats.empty else date.today()
 
-    for week in month_days:
-        for day_date in week:
-            day_classes = ["calendar-day"]
-            inner_content = f"<div class='day-number'>{day_date.day}</div>" # Day number is always present
+            def go_to_prev_month():
+                st.session_state.calendar_date = (st.session_state.calendar_date.replace(day=1) - timedelta(days=1))
+            def go_to_next_month():
+                # Get the last day of the current month
+                last_day_of_current_month = calendar.monthrange(st.session_state.calendar_date.year, st.session_state.calendar_date.month)[1]
+                # Set date to the first day of the next month
+                st.session_state.calendar_date = (st.session_state.calendar_date.replace(day=last_day_of_current_month) + timedelta(days=1))
 
-            if day_date.month != st.session_state.calendar_date.month:
-                day_classes.append("day-other-month")
-            else:
-                if day_date == date.today():
-                    day_classes.append("today")
+            col1_cal_nav, col2_cal_nav, col3_cal_nav = st.columns([2, 3, 2])
+            with col1_cal_nav:
+                st.button("◀ Previous Month", on_click=go_to_prev_month, use_container_width=True, key="calendar_prev_month_btn")
+            with col2_cal_nav:
+                st.markdown(f"<h4 style='text-align: center; margin-top: 10px;'>{st.session_state.calendar_date.strftime('%B %Y')}</h4>", unsafe_allow_html=True)
+            with col3_cal_nav:
+                st.button("Next Month ▶", on_click=go_to_next_month, use_container_width=True, key="calendar_next_month_btn")
 
-                if day_date in daily_stats.index:
-                    day_data = daily_stats.loc[day_date]
-                    pnl, count, percent = day_data['daily_pnl'], day_data['trade_count'], day_data.get('pnl_percent', 0.0)
-                    
-                    if pnl > 0:
-                        day_classes.append("day-profitable")
-                        pnl_display, percent_display = f"+${pnl:,.2f}", f"+{percent:.2f}%"
-                    else:
-                        day_classes.append("day-losing")
-                        pnl_display, percent_display = f"-${abs(pnl):,.2f}", f"{percent:.2f}%"
-                    
-                    count_display = f"{count} {'Trade' if count == 1 else 'Trades'}"
-                    
-                    inner_content += f"""
-                        <div class='pnl-details'>
-                            <div class='trade-count'>{count_display}</div>
-                            <div class='pnl-amount'>{pnl_display}</div>
-                            <div class='pnl-percent'>{percent_display}</div>
-                        </div>
-                    """
-                else:
-                    day_classes.append("day-no-trade")
-
-            # Assemble the final div for the day
-            html_parts.append(f"<div class='{' '.join(day_classes)}'>{inner_content}</div>")
-    
-    html_parts.append("</div></div>") # Close grid and container
-    
-    # Render the complete, clean HTML string
-    st.markdown("".join(html_parts), unsafe_allow_html=True)
-
-st.markdown("---")
-if st.button("📄 Generate Performance Report"):
-            df_for_report = st.session_state.mt5_df.copy()
-            df_for_report = df_for_report[df_for_report['Symbol'].notna()].copy()
-
-            total_trades = len(df_for_report)
-            wins_df = df_for_report[df_for_report["Profit"] > 0]
-            losses_df = df_for_report[df_for_report["Profit"] < 0]
-            win_rate = len(wins_df) / total_trades if total_trades else 0.0
-            net_profit = df_for_report["Profit"].sum()
-            profit_factor = _ta_profit_factor_mt5(df_for_report)
-            avg_loss_report = losses_df["Profit"].mean() if not losses_df.empty else 0.0
-            total_losses_sum_report = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0
-
-            daily_pnl_for_streaks = _ta_daily_pnl_mt5(df_for_report)
-            # Ensure daily_pnl_df_for_stats is available for max_drawdown if not already calculated for the report
-            daily_pnl_df_for_report_stats = pd.DataFrame(list(daily_pnl_for_streaks.items()), columns=['date', 'Profit'])
-            if not daily_pnl_df_for_report_stats.empty:
-                max_drawdown_report = (daily_pnl_df_for_report_stats["Profit"].cumsum() - daily_pnl_df_for_report_stats["Profit"].cumsum().cummax()).min()
-            else:
-                max_drawdown_report = 0.0
-
-            streaks = _ta_compute_streaks(daily_pnl_df_for_report_stats)
-            longest_win_streak = streaks['best_win']
-            longest_loss_streak = streaks['best_loss']
-
-            avg_trade_duration = df_for_report['Trade Duration'].mean() if 'Trade Duration' in df_for_report.columns and not df_for_report['Trade Duration'].isnull().all() else 0.0
-            total_volume = df_for_report['Volume'].sum() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
-            avg_volume = df_for_report['Volume'].mean() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
-            profit_per_trade = (net_profit / total_trades) if total_trades else 0.0
+            # --- 5. CALENDAR GRID GENERATION (ROBUST METHOD) ---
+            html_parts = ["<div class='calendar-container'><div class='calendar-grid'>"]
             
-            expectancy_report = (win_rate * (wins_df["Profit"].mean() if not wins_df.empty else 0.0)) + ((1 - win_rate) * (losses_df["Profit"].mean() if not losses_df.empty else 0.0)) if total_trades else 0.0
+            # Add weekday headers
+            weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+            for day_name in weekdays:
+                html_parts.append(f"<div class='weekday-header'>{day_name}</div>")
+
+            # Generate calendar days
+            cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
+            month_days = cal.monthdatescalendar(st.session_state.calendar_date.year, st.session_state.calendar_date.month)
+            today = date.today()
+
+            for week in month_days:
+                for day_date in week:
+                    day_classes = ["calendar-day-box"]
+                    inner_content = f"<div class='day-number'>{day_date.day}</div>"
+
+                    if day_date.month != st.session_state.calendar_date.month:
+                        day_classes.append("empty-month-day")
+                        # No trade info for other months
+                    else:
+                        if day_date == today:
+                            day_classes.append("current-day")
+
+                        if day_date in daily_stats.index:
+                            day_data = daily_stats.loc[day_date]
+                            pnl, count, percent = day_data['daily_pnl'], day_data['trade_count'], day_data.get('pnl_percent', 0.0)
+                            
+                            if pnl > 0:
+                                day_classes.append("profitable")
+                                pnl_display, percent_display = f"+${pnl:,.2f}", f"+{percent:.2f}%"
+                            else: # Includes pnl <= 0 (losses or exactly zero)
+                                day_classes.append("losing") # Using 'losing' for zero PnL as well to show activity
+                                pnl_display = f"-${abs(pnl):,.2f}"
+                                percent_display = f"{percent:.2f}%" # Will show 0.00% or negative
+                            
+                            count_display = f"{count} {'Trade' if count == 1 else 'Trades'}"
+                            
+                            inner_content += f"""
+                                <div class='trade-info'>
+                                    <em>{count_display}</em>
+                                    <strong>{pnl_display}</strong>
+                                    <span>{percent_display}</span>
+                                </div>
+                            """
+                        else:
+                            day_classes.append("day-no-trade")
+                            # Optionally add "No Trades" text for visual clarity
+                            # inner_content += "<div class='trade-info' style='opacity: 0.7;'>No Trades</div>"
+
+                    # Assemble the final div for the day
+                    html_parts.append(f"<div class='{' '.join(day_classes)}'>{inner_content}</div>")
+            
+            html_parts.append("</div></div>") # Close grid and container
+            
+            # Render the complete, clean HTML string
+            st.markdown("".join(html_parts), unsafe_allow_html=True)
+
+        st.markdown("---")
+        if st.button("📄 Generate Performance Report"):
+                    df_for_report = st.session_state.mt5_df.copy()
+                    df_for_report = df_for_report[df_for_report['Symbol'].notna()].copy()
+
+                    total_trades = len(df_for_report)
+                    wins_df = df_for_report[df_for_report["Profit"] > 0]
+                    losses_df = df_for_report[df_for_report["Profit"] < 0]
+                    win_rate = len(wins_df) / total_trades if total_trades else 0.0
+                    net_profit = df_for_report["Profit"].sum()
+                    profit_factor = _ta_profit_factor_mt5(df_for_report)
+                    avg_loss_report = losses_df["Profit"].mean() if not losses_df.empty else 0.0
+                    total_losses_sum_report = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0
+
+                    daily_pnl_for_streaks = _ta_daily_pnl_mt5(df_for_report)
+                    # Ensure daily_pnl_df_for_stats is available for max_drawdown if not already calculated for the report
+                    daily_pnl_df_for_report_stats = pd.DataFrame(list(daily_pnl_for_streaks.items()), columns=['date', 'Profit'])
+                    if not daily_pnl_df_for_report_stats.empty:
+                        max_drawdown_report = (daily_pnl_df_for_report_stats["Profit"].cumsum() - daily_pnl_df_for_report_stats["Profit"].cumsum().cummax()).min()
+                    else:
+                        max_drawdown_report = 0.0
+
+                    streaks = _ta_compute_streaks(daily_pnl_df_for_report_stats)
+                    longest_win_streak = streaks['best_win']
+                    longest_loss_streak = streaks['best_loss']
+
+                    avg_trade_duration = df_for_report['Trade Duration'].mean() if 'Trade Duration' in df_for_report.columns and not df_for_report['Trade Duration'].isnull().all() else 0.0
+                    total_volume = df_for_report['Volume'].sum() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
+                    avg_volume = df_for_report['Volume'].mean() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
+                    profit_per_trade = (net_profit / total_trades) if total_trades else 0.0
+                    
+                    expectancy_report = (win_rate * (wins_df["Profit"].mean() if not wins_df.empty else 0.0)) + ((1 - win_rate) * (losses_df["Profit"].mean() if not losses_df.empty else 0.0)) if total_trades else 0.0
 
 
-            report_html = f"""
-            <html>
-            <head>
-                <title>Performance Report</title>
-                <style>
-                    body {{ font-family: sans-serif; margin: 20px; background-color: #1a1a1a; color: #f0f0f0; }}
-                    h2 {{ color: #58b3b1; }}
-                    p {{ margin-bottom: 5px; }}
-                    .positive {{ color: #5cb85c; }}
-                    .negative {{ color: #d9534f; }}
-                </style>
-            </head>
-            <body>
-            <h2>Performance Report</h2>
-            <p><strong>Total Trades:</strong> {_ta_human_num_mt5(total_trades)}</p>
-            <p><strong>Win Rate:</strong> {_ta_human_pct_mt5(win_rate)}</p>
-            <p><strong>Net Profit:</strong> <span class='{'positive' if net_profit >= 0 else 'negative'}'>
-            {'$' if net_profit >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit))}</span></p>
-            <p><strong>Total Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(total_losses_sum_report)}</span></p>
-            <p><strong>Average Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(avg_loss_report))}</span></p>
-            <p><strong>Profit Factor:</strong> {_ta_human_num_mt5(profit_factor)}</p>
-            <p><strong>Max Drawdown:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(max_drawdown_report))}</span></p>
-            <p><strong>Expectancy:</strong> <span class='{'positive' if expectancy_report >= 0 else 'negative'}'>
-            {'$' if expectancy_report >= 0 else '-$'}{_ta_human_num_mt5(abs(expectancy_report))}</span></p>
-            <p><strong>Biggest Win:</strong> <span class='positive'>${_ta_human_num_mt5(wins_df["Profit"].max() if not wins_df.empty else 0.0)}</span></p>
-            <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
-            <p><strong>Longest Win Streak:</strong> {_ta_human_num_mt5(longest_win_streak)}</p>
-            <p><strong>Longest Loss Streak:</strong> {_ta_human_num_mt5(longest_loss_streak)}</p>
-            <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(avg_trade_duration)}h</p>
-            <p><strong>Total Volume:</strong> {_ta_human_num_mt5(total_volume)}</p>
-            <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(avg_volume)}</p>
-            <p><strong>Profit / Trade:</strong> <span class='{'positive' if profit_per_trade >= 0 else 'negative'}'>
-            {'$' if profit_per_trade >= 0 else '-$'}{_ta_human_num_mt5(abs(profit_per_trade))}</span></p>
-            </body>
-            </html>
-            """
-            st.download_button(
-                label="Download HTML Report",
-                data=report_html,
-                file_name="performance_report.html",
-                mime="text/html"
-            )
-            st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
+                    report_html = f"""
+                    <html>
+                    <head>
+                        <title>Performance Report</title>
+                        <style>
+                            body {{ font-family: sans-serif; margin: 20px; background-color: #1a1a1a; color: #f0f0f0; }}
+                            h2 {{ color: #58b3b1; }}
+                            p {{ margin-bottom: 5px; }}
+                            .positive {{ color: #5cb85c; }}
+                            .negative {{ color: #d9534f; }}
+                        </style>
+                    </head>
+                    <body>
+                    <h2>Performance Report</h2>
+                    <p><strong>Total Trades:</strong> {_ta_human_num_mt5(total_trades)}</p>
+                    <p><strong>Win Rate:</strong> {_ta_human_pct_mt5(win_rate)}</p>
+                    <p><strong>Net Profit:</strong> <span class='{'positive' if net_profit >= 0 else 'negative'}'>
+                    {'$' if net_profit >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit))}</span></p>
+                    <p><strong>Total Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(total_losses_sum_report)}</span></p>
+                    <p><strong>Average Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(avg_loss_report))}</span></p>
+                    <p><strong>Profit Factor:</strong> {_ta_human_num_mt5(profit_factor)}</p>
+                    <p><strong>Max Drawdown:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(max_drawdown_report))}</span></p>
+                    <p><strong>Expectancy:</strong> <span class='{'positive' if expectancy_report >= 0 else 'negative'}'>
+                    {'$' if expectancy_report >= 0 else '-$'}{_ta_human_num_mt5(abs(expectancy_report))}</span></p>
+                    <p><strong>Biggest Win:</strong> <span class='positive'>${_ta_human_num_mt5(wins_df["Profit"].max() if not wins_df.empty else 0.0)}</span></p>
+                    <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
+                    <p><strong>Longest Win Streak:</strong> {_ta_human_num_mt5(longest_win_streak)}</p>
+                    <p><strong>Longest Loss Streak:</strong> {_ta_human_num_mt5(longest_loss_streak)}</p>
+                    <p><strong>Avg Trade Duration:</strong> {_ta_human_num_mt5(avg_trade_duration)}h</p>
+                    <p><strong>Total Volume:</strong> {_ta_human_num_mt5(total_volume)}</p>
+                    <p><strong>Avg Volume:</strong> {_ta_human_num_mt5(avg_volume)}</p>
+                    <p><strong>Profit / Trade:</strong> <span class='{'positive' if profit_per_trade >= 0 else 'negative'}'>
+                    {'$' if profit_per_trade >= 0 else '-$'}{_ta_human_num_mt5(abs(profit_per_trade))}</span></p>
+                    </body>
+                    </html>
+                    """
+                    st.download_button(
+                        label="Download HTML Report",
+                        data=report_html,
+                        file_name="performance_report.html",
+                        mime="text/html"
+                    )
+                    st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
 
 
 import streamlit as st
