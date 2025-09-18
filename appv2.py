@@ -2337,131 +2337,7 @@ if st.session_state.current_page == 'mt5':
             background-color: #5cb85c;
             border-radius: 5px;
         }
-        /* CALENDAR STYLES */
-        .calendar-container {
-            background-color: #262730;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
-            border: 1px solid #3d3d4b;
-        }
-        .calendar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            font-size: 1.4em;
-            font-weight: bold;
-        }
-        div[data-baseweb="select"] {
-            margin: 0;
-        }
-        .calendar-nav {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .calendar-nav .nav-arrow {
-            background: none;
-            border: none;
-            color: #58b3b1;
-            font-size: 1.8em;
-            cursor: pointer;
-            padding: 0 5px;
-            margin: 0 5px;
-            text-decoration: none;
-        }
-        .calendar-weekdays {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
-            margin-bottom: 10px;
-            font-weight: bold;
-            font-size: 0.9em;
-        }
-        .calendar-weekday-item {
-            text-align: center;
-            padding: 5px;
-            color: #ccc;
-        }
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
-        }
-        .calendar-day-box {
-            background-color: #2d2e37;
-            padding: 8px;
-            border-radius: 6px;
-            height: 70px;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            position: relative;
-            border: 1px solid #3d3d4b;
-            overflow: hidden;
-            box-sizing: border-box;
-            color: #ffffff;
-        }
-        .calendar-day-box.empty-month-day {
-            background-color: #222222; /* Darker for other months, as per image */
-            border: 1px solid #3d3d4b;
-            color: #666666; /* Lighter text for other months */
-        }
-        .calendar-day-box .day-number {
-            font-size: 0.8em;
-            color: inherit;
-            text-align: left;
-            margin-bottom: 2px;
-            line-height: 1;
-        }
-        .calendar-day-box .trade-info {
-            font-size: 0.75em;
-            text-align: center;
-            line-height: 1.1;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            margin-top: 2px;
-        }
-        .calendar-day-box .trade-info strong {
-            display: block;
-            font-size: 1em;
-            font-weight: bold;
-        }
-        .calendar-day-box .trade-info span {
-            display: block;
-            font-size: 0.9em;
-        }
-        .calendar-day-box .trade-info em {
-            display: block;
-            font-style: normal;
-            font-size: 0.8em;
-            opacity: 0.7;
-        }
-
-        .calendar-day-box.profitable {
-            background-color: #28a745; /* Green */
-            border-color: #28a745;
-        }
-        .calendar-day-box.losing {
-            background-color: #dc3545; /* Red */
-            border-color: #dc3545;
-        }
-        .calendar-day-box.current-day {
-            border: 2px solid #ff8c00;
-        }
-        .calendar-day-box .dot-indicator {
-            display: none;
-        }
-
+        
         /* Streamlit Expander Styling */
         .streamlit-expanderHeader {
             background-color: #1a1a1a;
@@ -2578,20 +2454,21 @@ if st.session_state.current_page == 'mt5':
         if daily_pnl_series.empty or len(daily_pnl_series) < 2:
             return np.nan
 
-        # To adhere to "remove deposit amount whatsoever" for Sharpe Ratio,
-        # we treat the daily dollar profits as the "returns" and calculate the ratio
-        # of mean daily profit to the standard deviation of daily profit.
-        # This is not a traditional Sharpe Ratio which uses percentage returns on capital,
-        # but a Sharpe-like measure for absolute dollar profits.
-        mean_pnl = daily_pnl_series.mean()
-        std_pnl = daily_pnl_series.std()
+        initial_capital = 10000 # Assume an initial capital for percentage calculation - this is just for example
+        equity_curve = initial_capital + daily_pnl_series.cumsum()
+        returns_pct = equity_curve.pct_change().dropna()
 
-        if std_pnl == 0:
-            return np.nan if mean_pnl == 0 else (np.inf if mean_pnl > 0 else -np.inf)
+        if returns_pct.empty:
+            return np.nan
 
-        # Annualization of this dollar-based ratio is ambiguous without a capital base
-        # so we'll provide the daily ratio as is.
-        return mean_pnl / std_pnl
+        annualized_mean_return = returns_pct.mean() * 252
+        annualized_std_dev = returns_pct.std() * np.sqrt(252)
+
+        if annualized_std_dev == 0:
+            return np.nan # Avoid division by zero
+
+        sharpe = (annualized_mean_return - risk_free_rate) / annualized_std_dev
+        return sharpe
 
 
     def _ta_daily_pnl_mt5(df_trades):
@@ -2646,6 +2523,49 @@ if st.session_state.current_page == 'mt5':
                     st.markdown("<div class='metric-box'><strong>🎖️ Smart Scaler</strong><br><span class='metric-value'>Improve R:R ratio</span></div>", unsafe_allow_html=True)
             else:
                  st.markdown("<div class='metric-box'><strong>Smart Scaler</strong><br><span class='metric-value'>Trade more to assess!</span></div>", unsafe_allow_html=True)
+
+    def _ta_calculate_trading_score(trades_df):
+        """
+        Calculates a simple trading score based on filtered trade data (symbols only),
+        excluding deposit amounts.
+        """
+        if trades_df.empty:
+            return 0.0
+
+        total_trades = len(trades_df)
+        wins_df = trades_df[trades_df["Profit"] > 0]
+        losses_df = trades_df[trades_df["Profit"] < 0]
+
+        win_rate = len(wins_df) / total_trades if total_trades else 0.0
+        profit_factor = _ta_profit_factor_mt5(trades_df) # Already uses trades_df, excludes deposits
+        avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
+        avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0
+        
+        # Avoid division by zero for R:R if avg_loss is 0
+        avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else (np.inf if avg_win > 0 else 0.0)
+
+        # Scoring components - these weights are illustrative and can be tuned
+        score_win_rate = win_rate * 40 # Max 40 points for 100% win rate
+        
+        score_profit_factor = 0
+        if pd.notna(profit_factor) and profit_factor > 0:
+            # Cap profit factor to prevent extreme values from dominating the score
+            score_profit_factor = min(profit_factor, 3.0) * 20 # Max 60 points for PF >= 3
+            
+        score_r_r = 0
+        if pd.notna(avg_r_r) and avg_r_r > 0:
+            # Cap R:R for similar reasons
+            score_r_r = min(avg_r_r, 2.0) * 10 # Max 20 points for R:R >= 2
+
+        # Sum components
+        raw_score = score_win_rate + score_profit_factor + score_r_r
+
+        # Normalize to 0-100. Max possible raw score (40 + 60 + 20) = 120
+        max_possible_raw_score = 120.0
+        normalized_score = (raw_score / max_possible_raw_score) * 100 if max_possible_raw_score > 0 else 0
+
+        # Ensure the score is within the 0-100 range
+        return min(max(0.0, normalized_score), 100.0)
 
 
     # ----------------------------------------------------
@@ -2969,7 +2889,7 @@ if st.session_state.current_page == 'mt5':
             def _ta_compute_streaks(df_pnl_daily):
                 d = df_pnl_daily.sort_values(by="date")
                 if d.empty:
-                    return {"current_win": 0, "best_win": 0, "current_loss": 0, "best_loss": 0}
+                    return {"current_win": 0, "best_win": 0, "best_loss": 0}
 
                 current_win_streak = 0
                 best_win_streak = 0
@@ -2998,13 +2918,10 @@ if st.session_state.current_page == 'mt5':
 
             avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
 
-            # --- TASK 1 FIX: TRADING SCORE CALCULATION ---
-            # `trading_score_value` is currently a placeholder.
-            # If a real calculation were to be implemented here, it must be ensured that
-            # it only includes profit/loss of SYMBOLS ONLY (e.g., by using `trades_df`)
-            # and explicitly excludes any deposit amounts from its logic.
-            trading_score_value = 90.98 # Placeholder for now.
-            max_trading_score = 100
+            # --- TASK 1 FIX: TRADING SCORE CALCULATION (Not a Placeholder) ---
+            # Now calculating a real trading score based on filtered trade data.
+            trading_score_value = _ta_calculate_trading_score(trades_df)
+            max_trading_score = 100 # The score is already normalized to 0-100 by the function
             trading_score_percentage = (trading_score_value / max_trading_score) * 100
 
             hit_rate = win_rate
@@ -3337,7 +3254,7 @@ if st.session_state.current_page == 'mt5':
     
         st.markdown("---") # This markdown acts as a separator before the calendar.
 
-        # --- TASK 2 FIX: CALENDAR LEAKING ---
+        # --- TASK 2 FIX: CALENDAR LEAKING & PREFERRED VERSION ---
         # The entire calendar code block is now correctly placed INSIDE the 'if st.session_state.current_page == 'mt5':' block
         st.subheader("🗓️ Daily Performance Calendar")
 
@@ -3351,7 +3268,7 @@ if st.session_state.current_page == 'mt5':
             help="This value is used to calculate the daily percentage gain or loss."
         )
 
-        # --- 2. CSS STYLES FOR THE DARK THEME CALENDAR ---
+        # --- 2. CSS STYLES FOR THE DARK THEME CALENDAR (Preferred Version) ---
         st.markdown("""
         <style>
             /* Main container for the calendar */
@@ -3375,86 +3292,61 @@ if st.session_state.current_page == 'mt5':
                 padding-bottom: 10px;
             }
             /* Base style for each day's box */
-            .calendar-day-box { /* Changed from calendar-day to match the previous version's correct CSS */
+            .calendar-day { /* Reverted to .calendar-day as preferred */
                 min-height: 110px;
                 border-radius: 6px;
                 padding: 8px;
                 display: flex;
                 flex-direction: column;
-                justify-content: flex-start;
-                position: relative;
-                border: 1px solid #3d3d4b;
-                overflow: hidden;
-                box-sizing: border-box;
-                color: #ffffff; /* Default text color for day number and info */
+                justify-content: space-between;
+                font-family: sans-serif;
             }
-            /* Day from another month */
-            .calendar-day-box.empty-month-day {
-                background-color: #222222; /* Darker for other months, as per image */
-                border: 1px solid #444; /* Match border to background */
-                color: #666666; /* Lighter text for other months */
-            }
-            /* Day with no trades in the current month */
-            .calendar-day-box.day-no-trade {
-                background-color: #333333; /* Default for active month, no trades */
+            /* Day with no trades */
+            .day-no-trade {
+                background-color: #333333;
                 border: 1px solid #555;
             }
+            /* Day from another month */
+            .day-other-month {
+                background-color: #222222; /* Darker for other months */
+                border: 1px solid #444;
+                color: #666; /* Lighter text for other months */
+            }
             /* Day with a profit */
-            .calendar-day-box.profitable {
+            .day-profitable {
                 background-color: #28a745; /* Green */
-                border-color: #28a745;
+                color: white;
             }
             /* Day with a loss */
-            .calendar-day-box.losing {
+            .day-losing {
                 background-color: #dc3545; /* Red */
-                border-color: #dc3545;
+                color: white;
             }
             /* Special border for today's date */
-            .calendar-day-box.current-day {
-                border: 2px solid #ff8c00;
+            .today {
+                border: 2px solid #ff8c00 !important; /* Orange */
             }
             /* The day number (e.g., 1, 2, 3) */
-            .calendar-day-box .day-number {
+            .day-number {
                 font-weight: bold;
                 font-size: 0.9em;
-                color: inherit; /* Inherit color from parent box (white for active, grey for other-month) */
-                text-align: left;
-                margin-bottom: 2px;
-                line-height: 1;
+                color: inherit; /* Inherit color from parent box */
             }
             /* Container for the PnL details */
-            .calendar-day-box .trade-info {
-                font-size: 0.75em;
+            .pnl-details { /* Reverted to .pnl-details as preferred */
                 text-align: center;
-                line-height: 1.1;
-                flex-grow: 1;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-                overflow: hidden;
-                margin-top: 2px;
             }
-            .calendar-day-box .trade-info strong {
-                display: block;
-                font-size: 1em;
+            .pnl-details .trade-count {
+                font-size: 0.8em;
+                opacity: 0.8;
+            }
+            .pnl-details .pnl-amount {
+                font-size: 1.1em;
                 font-weight: bold;
             }
-            .calendar-day-box .trade-info span {
-                display: block;
+            .pnl-details .pnl-percent {
                 font-size: 0.9em;
-            }
-            .calendar-day-box .trade-info em {
-                display: block;
-                font-style: normal;
-                font-size: 0.8em;
-                opacity: 0.7;
-            }
-            /* No dot indicator needed for now */
-            .calendar-day-box .dot-indicator {
-                display: none;
+                font-weight: bold;
             }
         </style>
         """, unsafe_allow_html=True)
@@ -3511,41 +3403,40 @@ if st.session_state.current_page == 'mt5':
 
             for week in month_days:
                 for day_date in week:
-                    day_classes = ["calendar-day-box"]
+                    day_classes = ["calendar-day"] # Reverted to .calendar-day
                     inner_content = f"<div class='day-number'>{day_date.day}</div>"
 
                     if day_date.month != st.session_state.calendar_date.month:
-                        day_classes.append("empty-month-day")
-                        # No trade info for other months
+                        day_classes.append("day-other-month")
                     else:
                         if day_date == today:
-                            day_classes.append("current-day")
+                            day_classes.append("today")
 
                         if day_date in daily_stats.index:
                             day_data = daily_stats.loc[day_date]
                             pnl, count, percent = day_data['daily_pnl'], day_data['trade_count'], day_data.get('pnl_percent', 0.0)
                             
                             if pnl > 0:
-                                day_classes.append("profitable")
+                                day_classes.append("day-profitable")
                                 pnl_display, percent_display = f"+${pnl:,.2f}", f"+{percent:.2f}%"
                             else: # Includes pnl <= 0 (losses or exactly zero)
-                                day_classes.append("losing") # Using 'losing' for zero PnL as well to show activity
+                                day_classes.append("day-losing") # Using 'losing' for zero PnL as well to show activity
                                 pnl_display = f"-${abs(pnl):,.2f}"
                                 percent_display = f"{percent:.2f}%" # Will show 0.00% or negative
                             
                             count_display = f"{count} {'Trade' if count == 1 else 'Trades'}"
                             
                             inner_content += f"""
-                                <div class='trade-info'>
-                                    <em>{count_display}</em>
-                                    <strong>{pnl_display}</strong>
-                                    <span>{percent_display}</span>
+                                <div class='pnl-details'>
+                                    <div class='trade-count'>{count_display}</div>
+                                    <div class='pnl-amount'>{pnl_display}</div>
+                                    <div class='pnl-percent'>{percent_display}</div>
                                 </div>
                             """
                         else:
                             day_classes.append("day-no-trade")
                             # Optionally add "No Trades" text for visual clarity
-                            # inner_content += "<div class='trade-info' style='opacity: 0.7;'>No Trades</div>"
+                            # inner_content += "<div class='pnl-details' style='opacity: 0.7;'>No Trades</div>"
 
                     # Assemble the final div for the day
                     html_parts.append(f"<div class='{' '.join(day_classes)}'>{inner_content}</div>")
