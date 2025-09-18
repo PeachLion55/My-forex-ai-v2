@@ -3322,109 +3322,105 @@ if st.session_state.current_page == 'mt5':
         st.markdown("---")
 st.subheader("🗓️ Daily Performance Calendar")
 
-# --- 1. SETUP & DATA PREPARATION ---
+# --- 1. DATA VALIDATION AND PREPARATION ---
 
-# Check if the required DataFrame exists and is not empty.
+# Check if the required DataFrame exists in the session state.
 if 'mt5_df' not in st.session_state or st.session_state.mt5_df.empty:
-    st.info("No closed trade history available to display the calendar. Please upload or load your data.")
+    st.warning("No closed trade data found. Please upload a file or connect your account.")
 else:
-    # Safely copy the dataframe to avoid changing the original data
+    # Safely create a copy to avoid altering the original DataFrame.
     df_cal = st.session_state.mt5_df.copy()
 
-    # Ensure 'Close Time' is a datetime object. Invalid formats will become NaT (Not a Time).
+    # --- THIS IS THE CRITICAL STEP ---
+    # Convert 'Close Time' to datetime objects. 
+    # 'errors='coerce'' will turn any unparseable dates into 'NaT' (Not a Time).
+    original_rows = len(df_cal)
     df_cal['Close Time'] = pd.to_datetime(df_cal['Close Time'], errors='coerce')
     
-    # Remove any rows where the 'Close Time' could not be parsed.
+    # Drop any rows where the date conversion failed.
     df_cal.dropna(subset=['Close Time'], inplace=True)
+    valid_rows = len(df_cal)
 
-    # Calculate the total profit for each day.
+    # --- 2. CALCULATE DAILY PROFIT/LOSS ---
+
+    # This line groups all trades by their closing DATE and sums up the 'Profit'.
+    # This correctly calculates the total PnL for each day with trading activity.
     if not df_cal.empty:
-        # The result is a pandas Series with dates as the index and total profit as the value.
         daily_pnl = df_cal.groupby(df_cal['Close Time'].dt.date)['Profit'].sum()
     else:
-        # Create an empty series if no valid trade dates are found.
+        # If no valid data remains after cleaning, create an empty Series.
         daily_pnl = pd.Series(dtype=float)
 
-    # --- 2. STATE MANAGEMENT FOR NAVIGATION ---
+    # --- (Optional) DEBUGGING EXPANDER ---
+    # This section helps you verify the data being used by the calendar.
+    with st.expander("🔍 Click here to see Calendar Data Details"):
+        st.write(f"**Data Processing Summary:**")
+        st.write(f"- **Original trades found:** {original_rows}")
+        st.write(f"- **Trades with valid 'Close Time':** {valid_rows}")
+        st.write(f"- **Unique days with trading activity:** {len(daily_pnl)}")
+        
+        st.write("**Daily PnL data being shown in the calendar:** (Date: Total Profit)")
+        if not daily_pnl.empty:
+            st.dataframe(daily_pnl)
+        else:
+            st.write("No daily profit/loss data could be calculated.")
 
-    # Initialize the calendar's display date in the session state if it doesn't exist.
+    # --- 3. STATE MANAGEMENT FOR NAVIGATION ---
     if 'calendar_date' not in st.session_state:
-        # Start by showing the month of the most recent trade, or today's date if no trades exist.
+        # Default to the month of the last trade, or today if no trades exist.
         st.session_state.calendar_date = daily_pnl.index.max() if not daily_pnl.empty else date.today()
 
-    # Define functions to handle button clicks for navigation.
     def go_to_prev_month():
-        first_day_of_current_month = st.session_state.calendar_date.replace(day=1)
-        st.session_state.calendar_date = first_day_of_current_month - timedelta(days=1)
+        first_day = st.session_state.calendar_date.replace(day=1)
+        st.session_state.calendar_date = first_day - timedelta(days=1)
 
     def go_to_next_month():
-        last_day_of_current_month = calendar.monthrange(st.session_state.calendar_date.year, st.session_state.calendar_date.month)[1]
-        st.session_state.calendar_date = st.session_state.calendar_date.replace(day=last_day_of_current_month) + timedelta(days=1)
+        last_day = calendar.monthrange(st.session_state.calendar_date.year, st.session_state.calendar_date.month)[1]
+        st.session_state.calendar_date = st.session_state.calendar_date.replace(day=last_day) + timedelta(days=1)
 
-    # --- 3. DISPLAY HEADER AND NAVIGATION ---
-
+    # --- 4. DISPLAY HEADER AND NAVIGATION ---
     col1, col2, col3 = st.columns([2, 3, 2])
     with col1:
         st.button("◀ Previous Month", on_click=go_to_prev_month, use_container_width=True)
     with col2:
-        # Display the current month and year being viewed.
         st.markdown(f"<h4 style='text-align: center; margin-top: 10px;'>{st.session_state.calendar_date.strftime('%B %Y')}</h4>", unsafe_allow_html=True)
     with col3:
         st.button("Next Month ▶", on_click=go_to_next_month, use_container_width=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- 4. DISPLAY CALENDAR GRID ---
-
-    # Create headers for the days of the week.
+    # --- 5. DISPLAY CALENDAR GRID ---
     cols = st.columns(7)
     weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     for i, day_name in enumerate(weekdays):
         cols[i].markdown(f"<p style='text-align: center; font-weight: bold;'>{day_name}</p>", unsafe_allow_html=True)
 
-    # Generate the weeks for the selected month.
     cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
     month_days = cal.monthdatescalendar(st.session_state.calendar_date.year, st.session_state.calendar_date.month)
 
-    # Loop through each week and day to build the calendar cells.
     for week in month_days:
         cols = st.columns(7)
         for i, day_date in enumerate(week):
             with cols[i]:
-                # Style for days that are not in the currently viewed month.
+                # Non-active days (from previous/next month) are styled grey.
                 if day_date.month != st.session_state.calendar_date.month:
-                    st.markdown(f"""
-                        <div style="min-height: 80px; background-color: #f0f2f6; border-radius: 5px; padding: 5px;">
-                            <span style="color: #adb5bd;">{day_date.day}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f'<div style="min-height: 80px; background-color: #f0f2f6; border-radius: 5px; padding: 5px;"><span style="color: #adb5bd;">{day_date.day}</span></div>', unsafe_allow_html=True)
                 else:
-                    # Get the profit/loss for this specific date from our prepared data.
+                    # Active days in the current month.
                     pnl = daily_pnl.get(day_date)
+                    bg_color, text_color, pnl_text = ("#ffffff", "black", "")
                     
-                    # Set default styles.
-                    bg_color = "#ffffff"  # White for days with no trades.
-                    pnl_text = ""
-                    text_color = "black"
-
-                    # Apply styles for profitable or losing days.
                     if pnl is not None:
                         if pnl > 0:
-                            bg_color = "#28a745"  # Green
-                            pnl_text = f"+${pnl:,.2f}"
-                            text_color = "white"
+                            bg_color, text_color, pnl_text = ("#28a745", "white", f"+${pnl:,.2f}")
                         elif pnl < 0:
-                            bg_color = "#dc3545"  # Red
-                            pnl_text = f"-${abs(pnl):,.2f}"
-                            text_color = "white"
+                            bg_color, text_color, pnl_text = ("#dc3545", "white", f"-${abs(pnl):,.2f}")
 
-                    # Add a special border if the day is today.
                     border_style = "border: 2px solid #ff8c00;" if day_date == date.today() else "border: 1px solid #dee2e6;"
-
-                    # Render the final HTML for the day's cell.
+                    
                     st.markdown(f"""
                         <div style="min-height: 80px; background-color: {bg_color}; border-radius: 5px; padding: 5px; color: {text_color}; {border_style}; display: flex; flex-direction: column; justify-content: space-between;">
-                            <span style="font-weight: bold; text-align: left;">{day_date.day}</span>
+                            <span style="font-weight: bold;">{day_date.day}</span>
                             <p style="font-weight: bold; text-align: center; margin-bottom: 5px; font-size: 1.1em;">{pnl_text}</p>
                         </div>
                     """, unsafe_allow_html=True)
