@@ -3322,64 +3322,128 @@ if st.session_state.current_page == 'mt5':
         st.markdown("---")
 st.subheader("🗓️ Daily Performance Calendar")
 
-# --- 1. DEPOSIT INPUT FOR PERCENTAGE CALCULATION ---
+# --- 1. DEPOSIT INPUT ---
 deposit_amount = st.number_input(
     "Enter Initial Deposit/Balance for % Calculation",
     min_value=0.01,
     value=10000.0,
     step=100.0,
-    key="deposit_input_calendar", # Added a key for stability
-    help="This value is used as the denominator for calculating daily percentage gain/loss."
+    key="deposit_input_calendar_v2",
+    help="This value is used to calculate the daily percentage gain or loss."
 )
 
-# --- 2. DATA VALIDATION AND PREPARATION ---
+# --- 2. CSS STYLES FOR THE DARK THEME CALENDAR ---
+# This block defines the entire look and feel. It's safer than inline styles.
+st.markdown("""
+<style>
+    /* Main container for the calendar */
+    .calendar-container {
+        background-color: #1a1a1a; /* Dark background */
+        border: 1px solid #444;
+        border-radius: 8px;
+        padding: 15px;
+    }
+    /* Grid for the days */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+    }
+    /* Styling for weekday headers (Sun, Mon, etc.) */
+    .weekday-header {
+        text-align: center;
+        font-weight: bold;
+        color: #a0a0a0;
+        padding-bottom: 10px;
+    }
+    /* Base style for each day's box */
+    .calendar-day {
+        min-height: 110px;
+        border-radius: 6px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-family: sans-serif;
+    }
+    /* Day with no trades */
+    .day-no-trade {
+        background-color: #333333;
+        border: 1px solid #555;
+    }
+    /* Day from another month */
+    .day-other-month {
+        background-color: #222222;
+        border: 1px solid #444;
+    }
+    /* Day with a profit */
+    .day-profitable {
+        background-color: #28a745; /* Green */
+        color: white;
+    }
+    /* Day with a loss */
+    .day-losing {
+        background-color: #dc3545; /* Red */
+        color: white;
+    }
+    /* Special border for today's date */
+    .today {
+        border: 2px solid #ff8c00 !important; /* Orange */
+    }
+    /* The day number (e.g., 1, 2, 3) */
+    .day-number {
+        font-weight: bold;
+        font-size: 0.9em;
+    }
+    .day-other-month .day-number {
+        color: #666;
+    }
+    /* Container for the PnL details */
+    .pnl-details {
+        text-align: center;
+    }
+    .pnl-details .trade-count {
+        font-size: 0.8em;
+        opacity: 0.8;
+    }
+    .pnl-details .pnl-amount {
+        font-size: 1.1em;
+        font-weight: bold;
+    }
+    .pnl-details .pnl-percent {
+        font-size: 0.9em;
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- 3. DATA PREPARATION ---
 if 'mt5_df' not in st.session_state or st.session_state.mt5_df.empty:
     st.warning("No closed trade data found. Please upload a file or connect your account.")
 else:
     df_cal = st.session_state.mt5_df.copy()
-    original_rows = len(df_cal)
     df_cal['Close Time'] = pd.to_datetime(df_cal['Close Time'], errors='coerce')
     df_cal.dropna(subset=['Close Time'], inplace=True)
-    valid_rows = len(df_cal)
 
-    # --- 3. CALCULATE DAILY STATISTICS (PnL, Trade Count, %) ---
     daily_stats = pd.DataFrame()
     if not df_cal.empty:
         daily_stats = df_cal.groupby(df_cal['Close Time'].dt.date).agg(
             daily_pnl=('Profit', 'sum'),
             trade_count=('Profit', 'count')
         )
-        if deposit_amount > 0:
-            daily_stats['pnl_percent'] = (daily_stats['daily_pnl'] / deposit_amount) * 100
-        else:
-            daily_stats['pnl_percent'] = 0.0
+        daily_stats['pnl_percent'] = (daily_stats['daily_pnl'] / deposit_amount) * 100 if deposit_amount > 0 else 0
 
-    # --- (Optional) DEBUGGING EXPANDER ---
-    with st.expander("🔍 Click here to see Calendar Data Details"):
-        st.write(f"**Data Processing Summary:**")
-        st.write(f"- **Original trades found:** {original_rows}")
-        st.write(f"- **Trades with valid 'Close Time':** {valid_rows}")
-        st.write(f"- **Unique days with trading activity:** {len(daily_stats)}")
-        st.write(f"**Deposit amount for % calculation:** ${deposit_amount:,.2f}")
-        st.write("**Daily stats being shown in the calendar:**")
-        if not daily_stats.empty:
-            st.dataframe(daily_stats)
-        else:
-            st.write("No daily performance data could be calculated.")
-
-    # --- 4. STATE MANAGEMENT FOR NAVIGATION ---
+    # --- 4. STATE MANAGEMENT & NAVIGATION ---
     if 'calendar_date' not in st.session_state:
         st.session_state.calendar_date = daily_stats.index.max() if not daily_stats.empty else date.today()
 
     def go_to_prev_month():
-        first_day = st.session_state.calendar_date.replace(day=1)
-        st.session_state.calendar_date = first_day - timedelta(days=1)
-
+        st.session_state.calendar_date = (st.session_state.calendar_date.replace(day=1) - timedelta(days=1))
     def go_to_next_month():
         last_day = calendar.monthrange(st.session_state.calendar_date.year, st.session_state.calendar_date.month)[1]
-        st.session_state.calendar_date = st.session_state.calendar_date.replace(day=last_day) + timedelta(days=1)
+        st.session_state.calendar_date = (st.session_state.calendar_date.replace(day=last_day) + timedelta(days=1))
 
-    # --- 5. DISPLAY HEADER AND NAVIGATION ---
     col1, col2, col3 = st.columns([2, 3, 2])
     with col1:
         st.button("◀ Previous Month", on_click=go_to_prev_month, use_container_width=True)
@@ -3388,67 +3452,59 @@ else:
     with col3:
         st.button("Next Month ▶", on_click=go_to_next_month, use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # --- 6. DISPLAY CALENDAR GRID ---
-    cols = st.columns(7)
+    # --- 5. CALENDAR GRID GENERATION (ROBUST METHOD) ---
+    html_parts = ["<div class='calendar-container'><div class='calendar-grid'>"]
+    
+    # Add weekday headers
     weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    for i, day_name in enumerate(weekdays):
-        cols[i].markdown(f"<p style='text-align: center; font-weight: bold;'>{day_name}</p>", unsafe_allow_html=True)
+    for day_name in weekdays:
+        html_parts.append(f"<div class='weekday-header'>{day_name}</div>")
 
+    # Generate calendar days
     cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
     month_days = cal.monthdatescalendar(st.session_state.calendar_date.year, st.session_state.calendar_date.month)
 
     for week in month_days:
-        cols = st.columns(7)
-        for i, day_date in enumerate(week):
-            with cols[i]:
-                # Days not in the current month
-                if day_date.month != st.session_state.calendar_date.month:
-                    st.markdown(f'<div style="min-height: 110px; background-color: #f0f2f6; border-radius: 5px; padding: 5px;"><span style="color: #adb5bd;">{day_date.day}</span></div>', unsafe_allow_html=True)
-                else:
-                    # --- REFACTORED LOGIC ---
-                    # Set default styles for a day with no trades
-                    bg_color = "#ffffff"
-                    text_color = "black"
-                    border_style = "border: 1px solid #dee2e6;"
-                    inner_content = "" # This will hold the PnL, count, % info
+        for day_date in week:
+            day_classes = ["calendar-day"]
+            inner_content = f"<div class='day-number'>{day_date.day}</div>" # Day number is always present
 
-                    # Add special border for today
-                    if day_date == date.today():
-                        border_style = "border: 2px solid #ff8c00;"
+            if day_date.month != st.session_state.calendar_date.month:
+                day_classes.append("day-other-month")
+            else:
+                if day_date == date.today():
+                    day_classes.append("today")
 
-                    # If there is trading data for this day, build the inner content
-                    if day_date in daily_stats.index:
-                        day_data = daily_stats.loc[day_date]
-                        pnl, trade_count, pnl_percent = day_data['daily_pnl'], day_data['trade_count'], day_data.get('pnl_percent', 0.0)
-
-                        if pnl > 0:
-                            bg_color, text_color = ("#28a745", "white")
-                            pnl_display = f"+${pnl:,.2f}"
-                            percent_display = f"+{pnl_percent:.2f}%"
-                        else: # Handles losses and zero PnL
-                            bg_color, text_color = ("#dc3545", "white")
-                            pnl_display = f"-${abs(pnl):,.2f}"
-                            percent_display = f"{pnl_percent:.2f}%"
-
-                        trade_count_display = f"{trade_count} {'Trade' if trade_count == 1 else 'Trades'}"
-                        
-                        # Build the HTML content for inside the box
-                        inner_content = f"""
-                            <div style="font-size: 0.8em; text-align: center; opacity: 0.9;">{trade_count_display}</div>
-                            <div style="font-size: 1.1em; font-weight: bold; text-align: center; margin: 2px 0;">{pnl_display}</div>
-                            <div style="font-size: 0.9em; font-weight: bold; text-align: center;">{percent_display}</div>
-                        """
+                if day_date in daily_stats.index:
+                    day_data = daily_stats.loc[day_date]
+                    pnl, count, percent = day_data['daily_pnl'], day_data['trade_count'], day_data.get('pnl_percent', 0.0)
                     
-                    # Assemble the final HTML for the entire cell
-                    final_html = f"""
-                        <div style="min-height: 110px; background-color: {bg_color}; border-radius: 5px; padding: 5px; color: {text_color}; {border_style}; display: flex; flex-direction: column; justify-content: space-between;">
-                            <span style="font-weight: bold;">{day_date.day}</span>
-                            {inner_content}
+                    if pnl > 0:
+                        day_classes.append("day-profitable")
+                        pnl_display, percent_display = f"+${pnl:,.2f}", f"+{percent:.2f}%"
+                    else:
+                        day_classes.append("day-losing")
+                        pnl_display, percent_display = f"-${abs(pnl):,.2f}", f"{percent:.2f}%"
+                    
+                    count_display = f"{count} {'Trade' if count == 1 else 'Trades'}"
+                    
+                    inner_content += f"""
+                        <div class='pnl-details'>
+                            <div class='trade-count'>{count_display}</div>
+                            <div class='pnl-amount'>{pnl_display}</div>
+                            <div class='pnl-percent'>{percent_display}</div>
                         </div>
                     """
-                    st.markdown(final_html, unsafe_allow_html=True)
+                else:
+                    day_classes.append("day-no-trade")
+
+            # Assemble the final div for the day
+            html_parts.append(f"<div class='{' '.join(day_classes)}'>{inner_content}</div>")
+    
+    html_parts.append("</div></div>") # Close grid and container
+    
+    # Render the complete, clean HTML string
+    st.markdown("".join(html_parts), unsafe_allow_html=True)
 
 st.markdown("---")
 if st.button("📄 Generate Performance Report"):
