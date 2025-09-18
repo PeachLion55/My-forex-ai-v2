@@ -3320,123 +3320,166 @@ if st.session_state.current_page == 'mt5':
             logging.error(f"Error displaying badges: {str(e)}")
     
         st.markdown("---")
-        st.subheader("🗓️ Daily Performance Calendar")
+st.subheader("🗓️ Daily Performance Calendar")
 
-        df_for_calendar = st.session_state.mt5_df.copy()
-        df_for_calendar['Close Time'] = pd.to_datetime(df_for_calendar['Close Time'], errors='coerce')
-        df_for_calendar.dropna(subset=['Close Time'], inplace=True) # Critical for calendar functionality
+# --- CSS for the calendar styling ---
+st.markdown("""
+<style>
+    .calendar-container {
+        background-color: #2b2b2b;
+        padding: 20px;
+        border-radius: 10px;
+        font-family: sans-serif;
+    }
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        color: white;
+    }
+    .calendar-header h3 {
+        margin: 0;
+        font-size: 1.5em;
+    }
+    .calendar-nav-button {
+        background: none;
+        border: 1px solid #555;
+        color: white;
+        cursor: pointer;
+        padding: 5px 10px;
+        border-radius: 5px;
+    }
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+    }
+    .calendar-weekday {
+        text-align: center;
+        color: #888;
+        font-weight: bold;
+    }
+    .calendar-day {
+        background-color: #3c3c3c;
+        border-radius: 8px;
+        min-height: 90px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        color: white;
+        position: relative;
+    }
+    .calendar-day.other-month {
+        background-color: #2b2b2b;
+        color: #555;
+    }
+    .calendar-day.profitable {
+        background-color: #28a745; /* Green */
+    }
+    .calendar-day.losing {
+        background-color: #dc3545; /* Red */
+    }
+    .calendar-day.today {
+        border: 2px solid #ff8c00; /* Orange border for today */
+    }
+    .day-number {
+        font-size: 0.9em;
+        font-weight: bold;
+        color: #ccc;
+    }
+    .profitable .day-number, .losing .day-number {
+        color: white;
+    }
+    .pnl-amount {
+        font-size: 1.1em;
+        font-weight: bold;
+        text-align: center;
+        margin-top: auto; /* Pushes the PnL to the bottom */
+    }
+</style>
+""", unsafe_allow_html=True)
 
-        selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Default to current month
+# --- Calendar Data Preparation ---
+df_for_calendar = st.session_state.mt5_df.copy()
+df_for_calendar['Close Time'] = pd.to_datetime(df_for_calendar['Close Time'], errors='coerce')
+df_for_calendar.dropna(subset=['Close Time'], inplace=True)
 
-        if not df_for_calendar.empty:
-            min_date_data = df_for_calendar["Close Time"].min().date()
-            max_date_data = df_for_calendar["Close Time"].max().date()
+daily_pnl_map = {}
+if not df_for_calendar.empty:
+    daily_pnl = df_for_calendar.groupby(df_for_calendar['Close Time'].dt.date)['Profit'].sum()
+    daily_pnl_map = daily_pnl.to_dict()
 
-            all_months_in_data = pd.date_range(start=min_date_data.replace(day=1),
-                                                end=max_date_data.replace(day=1), freq='MS').to_period('M')
-            available_months_periods = sorted(list(all_months_in_data), reverse=True)
+# --- State Management for Current Month ---
+if 'current_date' not in st.session_state:
+    st.session_state.current_date = datetime.now().date()
 
-            if available_months_periods:
-                display_options = [f"{p.strftime('%B %Y')}" for p in available_months_periods]
+current_date = st.session_state.current_date
 
-                # Set initial selected month safely
-                if 'selected_calendar_month' not in st.session_state or st.session_state.selected_calendar_month not in display_options:
-                     st.session_state.selected_calendar_month = display_options[0]
+# --- Header with Navigation ---
+col1, col2, col3 = st.columns([1, 2, 1])
 
-                # Find index safely to prevent errors
-                try:
-                    default_index = display_options.index(st.session_state.selected_calendar_month)
-                except ValueError:
-                    default_index = 0 # Fallback to the most recent month if the stored one is somehow invalid
+with col1:
+    if st.button("◀ Previous", key="prev_month", use_container_width=True):
+        first_day_of_current_month = current_date.replace(day=1)
+        st.session_state.current_date = first_day_of_current_month - timedelta(days=1)
+        st.rerun()
 
-                selected_month_year_str = st.selectbox(
-                    "Select Month",
-                    options=display_options,
-                    index=default_index,
-                    key="calendar_month_selector"
-                )
-                st.session_state.selected_calendar_month = selected_month_year_str
+with col2:
+    st.markdown(f"<h3 style='text-align: center; color: white;'>{current_date.strftime('%B %Y')}</h3>", unsafe_allow_html=True)
 
-                selected_period = next((p for p in available_months_periods if p.strftime('%B %Y') == selected_month_year_str), None)
-                if selected_period:
-                    selected_month_date = selected_period.start_time.date()
-                else: # Fallback if selected_period somehow becomes None after selectbox
-                    st.warning("Could not determine selected month for calendar. Displaying current month.")
-                    selected_month_date = date(datetime.now().year, datetime.now().month, 1)
-            else:
-                st.info("No historical trade data with valid closing dates available to populate the month selection for the calendar.")
-                selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Fallback to current month if no data months
+with col3:
+    if st.button("Next ▶", key="next_month", use_container_width=True):
+        last_day_of_current_month = calendar.monthrange(current_date.year, current_date.month)[1]
+        st.session_state.current_date = current_date.replace(day=last_day_of_current_month) + timedelta(days=1)
+        st.rerun()
+
+# --- Calendar Generation ---
+cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
+month_days = cal.monthdatescalendar(current_date.year, current_date.month)
+
+# --- Display Calendar ---
+calendar_html = "<div class='calendar-grid'>"
+
+# Add weekday headers
+for weekday in ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]:
+    calendar_html += f"<div class='calendar-weekday'>{weekday}</div>"
+
+today = datetime.now().date()
+
+for week in month_days:
+    for day in week:
+        day_class = "calendar-day"
+        pnl_html = ""
+        day_number = day.day
+
+        if day.month != current_date.month:
+            day_class += " other-month"
+            pnl_html = ""
         else:
-            st.warning("No trades with valid closing dates available to display in the calendar.")
-            selected_month_date = date(datetime.now().year, datetime.now().month, 1) # Fallback to current month if no data at all
+            pnl = daily_pnl_map.get(day)
+            if pnl is not None:
+                if pnl > 0:
+                    day_class += " profitable"
+                    pnl_html = f"<div class='pnl-amount'>${pnl:,.0f}</div>"
+                elif pnl < 0:
+                    day_class += " losing"
+                    pnl_html = f"<div class='pnl-amount'>$-{abs(pnl):,.0f}</div>"
+            
+            if day == today:
+                day_class += " today"
 
-        daily_pnl_map_for_calendar = _ta_daily_pnl_mt5(df_for_calendar)
-
-        cal = calendar.Calendar(firstweekday=calendar.SUNDAY)
-        month_days = cal.monthdatescalendar(selected_month_date.year, selected_month_date.month)
-
-        calendar_html = f"""
-        <div class="calendar-container">
-            <div class="calendar-header">
-                {calendar.month_name[selected_month_date.month]} {selected_month_date.year}
+        calendar_html += f"""
+            <div class='{day_class}'>
+                <div class='day-number'>{day_number}</div>
+                {pnl_html}
             </div>
-            <div class="calendar-weekdays">
-                <div class="calendar-weekday-item">Sun</div>
-                <div class="calendar-weekday-item">Mon</div>
-                <div class="calendar-weekday-item">Tue</div>
-                <div class="calendar-weekday-item">Wed</div>
-                <div class="calendar-weekday-item">Thu</div>
-                <div class="calendar-weekday-item">Fri</div>
-                <div class="calendar-weekday-item">Sat</div>
-            </div>
-            <div class="calendar-grid">
         """
+calendar_html += "</div>"
 
-        today = datetime.now().date()
-        for week in month_days:
-            for day_date in week:
-                day_class = ""
-                profit_amount_html = ""
-                dot_indicator_html = ""
-
-                if day_date.month == selected_month_date.month:
-                    profit = daily_pnl_map_for_calendar.get(day_date)
-                    if profit is not None:
-                        if profit > 0.0:
-                            day_class += " profitable"
-                            profit_amount_html = f"<span style='color:#5cb85c;'>${_ta_human_num_mt5(profit)}</span>"
-                        elif profit < 0.0:
-                            day_class += " losing"
-                            profit_amount_html = f"<span style='color:#d9534f;'>-${_ta_human_num_mt5(abs(profit))}</span>"
-                        else:
-                            profit_amount_html = f"<span style='color:#cccccc;'>$0.00</span>"
-                    else:
-                         profit_amount_html = "<span style='color:#cccccc;'>$0.00</span>"
-
-                else:
-                    day_class += " empty-month-day"
-                    profit_amount_html = ""
-
-                if day_date == today:
-                    day_class += " current-day"
-
-                calendar_html += f"""
-                    <div class="calendar-day-box {day_class}">
-                        <span class="day-number">{day_date.day if day_date.month == selected_month_date.month else ''}</span>
-                        <div class="profit-amount">{profit_amount_html}</div>
-                        {dot_indicator_html}
-                    </div>
-                """
-
-        calendar_html += """
-            </div>
-        </div>
-        """
-
-        st.markdown(calendar_html, unsafe_allow_html=True)
-
-
-        st.markdown("---")
+st.markdown(calendar_html, unsafe_allow_html=True)
+st.markdown("---")
         if st.button("📄 Generate Performance Report"):
             df_for_report = st.session_state.mt5_df.copy()
             df_for_report = df_for_report[df_for_report['Symbol'].notna()].copy()
