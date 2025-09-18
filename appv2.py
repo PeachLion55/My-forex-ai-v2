@@ -2150,6 +2150,7 @@ if 'DEFAULT_APP_STATE' not in st.session_state:
 st.session_state.setdefault('mt5_df', st.session_state.DEFAULT_APP_STATE['mt5_df'].copy())
 st.session_state.setdefault('selected_calendar_month', st.session_state.DEFAULT_APP_STATE['selected_calendar_month'])
 st.session_state.setdefault('myfxbook_df_loaded', False) # Flag to indicate if Myfxbook data is active
+st.session_state.setdefault('myfxbook_open_trades_df', pd.DataFrame()) # Initialize open trades DataFrame
 
 
 # =========================================================
@@ -2763,11 +2764,14 @@ if st.session_state.current_page == 'mt5':
                                 df_open_trades['Volume'] = df_open_trades['sizing'].apply(lambda x: x.get('value') if isinstance(x, dict) else pd.NA)
                                 df_open_trades['Volume'] = pd.to_numeric(df_open_trades['Volume'], errors='coerce')
                                 df_open_trades["Type"] = df_open_trades["Type"].apply(lambda x: x.split(" ")[0] if isinstance(x, str) and " " in x else x)
+                                
+                                # Select and rename columns for display in "Open Trades" tab
                                 df_open_trades_display = df_open_trades[['Open Time', 'Symbol', 'Type', 'openPrice', 'Profit', 'Volume']].copy()
+                                st.session_state.myfxbook_open_trades_df = df_open_trades_display # Store open trades in session state
                                 logging.info(f"Fetched {len(df_open_trades)} open trades.")
                             else:
                                 st.info("No open trades found for this account.")
-                                df_open_trades_display = pd.DataFrame()
+                                st.session_state.myfxbook_open_trades_df = pd.DataFrame() # Clear open trades if none found
 
                             df_to_process = df_history.copy()
 
@@ -2797,11 +2801,6 @@ if st.session_state.current_page == 'mt5':
                                 st.session_state.mt5_df = df_processed
                                 st.session_state.myfxbook_df_loaded = True
                                 st.success(f"Successfully loaded {len(df_processed)} closed trades from Myfxbook.")
-                                if not df_open_trades_display.empty:
-                                    with st.expander("Show Current Open Trades", expanded=False):
-                                        st.dataframe(df_open_trades_display, use_container_width=True)
-                                else:
-                                    st.info("No open trades currently available for this account.")
 
                             st.rerun()
 
@@ -2810,16 +2809,19 @@ if st.session_state.current_page == 'mt5':
                             logging.error(f"Myfxbook data fetch error: {e}", exc_info=True)
                             st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                             st.session_state.myfxbook_df_loaded = False
+                            st.session_state.myfxbook_open_trades_df = pd.DataFrame() # Clear open trades
                         except json.JSONDecodeError:
                             st.error("Failed to parse Myfxbook data response. The API might be returning non-JSON data or is unavailable.")
                             logging.error("Myfxbook data fetch JSONDecodeError", exc_info=True)
                             st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                             st.session_state.myfxbook_df_loaded = False
+                            st.session_state.myfxbook_open_trades_df = pd.DataFrame() # Clear open trades
                         except Exception as e:
                             st.error(f"An unexpected error occurred during Myfxbook data processing: {e}")
                             logging.error(f"Myfxbook data processing error: {e}", exc_info=True)
                             st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                             st.session_state.myfxbook_df_loaded = False
+                            st.session_state.myfxbook_open_trades_df = pd.DataFrame() # Clear open trades
 
     # --------------------------
     # File Uploader (MT5 page)
@@ -2845,6 +2847,7 @@ if st.session_state.current_page == 'mt5':
                         df_filtered_csv = df_raw_csv[df_raw_csv['Symbol'].notna()].copy()
                         
                         st.session_state.mt5_df = df_filtered_csv # Update session state with new df
+                        st.session_state.myfxbook_open_trades_df = pd.DataFrame() # Clear open trades if CSV is uploaded
 
                         required_cols = ["Symbol", "Type", "Profit", "Volume", "Open Time", "Close Time"]
                         missing_cols = [col for col in required_cols if col not in df_filtered_csv.columns]
@@ -2884,6 +2887,7 @@ if st.session_state.current_page == 'mt5':
                     st.info("👆 Upload your MT5 trading history CSV or login to Myfxbook above to explore advanced performance metrics.")
                     st.session_state.mt5_df = st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()
                     st.session_state.selected_calendar_month = st.session_state.DEFAULT_APP_STATE['selected_calendar_month']
+                    st.session_state.myfxbook_open_trades_df = pd.DataFrame() # Ensure open trades are clear if no data loaded
     else:
         st.success("📊 Data is currently loaded from your Myfxbook account.")
         df = st.session_state.get('mt5_df', st.session_state.DEFAULT_APP_STATE['mt5_df'].copy()) # Ensure df is taken from session state if Myfxbook data was loaded
@@ -2891,8 +2895,8 @@ if st.session_state.current_page == 'mt5':
 
     # The main dashboard display logic (metrics, charts, calendar) starts here
     # It now operates on `df`, which is either from Myfxbook or CSV, and is guaranteed to be filtered for symbols.
-    if df.empty:
-        st.info("👆 Load your trading data using one of the methods above to see your performance dashboard.")
+    if df.empty and st.session_state.myfxbook_open_trades_df.empty:
+        st.info("👆 Load your trading data (closed trades via Myfxbook/CSV, or open trades via Myfxbook) using one of the methods above to see your performance dashboard.")
     else:
         # Re-calculate daily_pnl_map and daily_pnl_df_for_stats with the loaded and filtered df
         daily_pnl_map = _ta_daily_pnl_mt5(df)
@@ -2916,9 +2920,11 @@ if st.session_state.current_page == 'mt5':
                 {"date": d, "Profit": 0.0} for d in all_dates_raw_range
             ])
 
-        tab_summary, tab_charts, tab_edge, tab_export = st.tabs([
+        tab_summary, tab_charts, tab_closed_trades, tab_open_trades, tab_edge, tab_export = st.tabs([
             "📈 Summary Metrics",
             "📊 Visualizations",
+            "📜 Closed Trades",
+            "📊 Open Trades",
             "🔍 Edge Finder",
             "📤 Export Reports"
         ])
@@ -2934,10 +2940,11 @@ if st.session_state.current_page == 'mt5':
             profit_factor = _ta_profit_factor_mt5(df)
             avg_win = wins_df["Profit"].mean() if not wins_df.empty else 0.0
             avg_loss = losses_df["Profit"].mean() if not losses_df.empty else 0.0
+            total_losses_sum = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0 # New metric
 
             max_drawdown = (daily_pnl_df_for_stats["Profit"].cumsum() - daily_pnl_df_for_stats["Profit"].cumsum().cummax()).min() if not daily_pnl_df_for_stats.empty else 0.0
             sharpe_ratio = _ta_compute_sharpe(df)
-            expectancy = win_rate * avg_win - (1 - win_rate) * abs(avg_loss) if total_trades else 0.0
+            expectancy = (win_rate * avg_win) + ((1 - win_rate) * avg_loss) if total_trades else 0.0 # Corrected expectancy calculation: sum of (prob * outcome)
 
             def _ta_compute_streaks(df_pnl_daily):
                 d = df_pnl_daily.sort_values(by="date")
@@ -2971,7 +2978,7 @@ if st.session_state.current_page == 'mt5':
 
             avg_r_r = avg_win / abs(avg_loss) if avg_loss != 0.0 else np.nan
 
-            trading_score_value = 90.98
+            trading_score_value = 90.98 # Placeholder for now
             max_trading_score = 100
             trading_score_percentage = (trading_score_value / max_trading_score) * 100
 
@@ -3100,8 +3107,8 @@ if st.session_state.current_page == 'mt5':
                 else:
                     net_profit_value_display_html = "N/A"
 
-                total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0
-                formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_magnitude)
+                # total_losses_magnitude = abs(losses_df['Profit'].sum()) if not losses_df.empty else 0.0 # Already calculated as total_losses_sum
+                formatted_total_loss_in_parentheses_val = _ta_human_num_mt5(total_losses_sum)
 
                 if formatted_total_loss_in_parentheses_val != "N/A":
                     formatted_total_loss_in_parentheses_html = f"<span style='color: #d9534f;'>($-{formatted_total_loss_in_parentheses_val})</span>"
@@ -3138,6 +3145,62 @@ if st.session_state.current_page == 'mt5':
                     </div>
                 """, unsafe_allow_html=True)
 
+            # New Row for additional metrics (Average Loss, Total Loss, Profit Factor, Max Drawdown, Expectancy)
+            st.markdown("---")
+            col11, col12, col13, col14, col15 = st.columns(5)
+            
+            with col11:
+                avg_loss_formatted = _ta_human_num_mt5(abs(avg_loss))
+                avg_loss_display = f"<span style='color: #d9534f;'>-${avg_loss_formatted}</span>" if avg_loss < 0.0 and avg_loss_formatted != "N/A" else f"${avg_loss_formatted}"
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Avg Loss</strong>
+                        <span class='metric-value'>{avg_loss_display}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col12:
+                total_losses_sum_formatted = _ta_human_num_mt5(total_losses_sum)
+                total_losses_sum_display = f"<span style='color: #d9534f;'>-${total_losses_sum_formatted}</span>" if total_losses_sum > 0.0 else f"${total_losses_sum_formatted}"
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Total Loss</strong>
+                        <span class='metric-value'>{total_losses_sum_display}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col13:
+                profit_factor_formatted = _ta_human_num_mt5(profit_factor)
+                profit_factor_color = "#5cb85c" if pd.notna(profit_factor) and profit_factor >= 1.0 else "#d9534f" if pd.notna(profit_factor) and profit_factor < 1.0 else "#cccccc"
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Profit Factor</strong>
+                        <span class='metric-value' style='color: {profit_factor_color};'>{profit_factor_formatted}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col14:
+                max_drawdown_formatted = _ta_human_num_mt5(abs(max_drawdown))
+                max_drawdown_display = f"<span style='color: #d9534f;'>-${max_drawdown_formatted}</span>" if max_drawdown < 0.0 else f"${max_drawdown_formatted}"
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Max Drawdown</strong>
+                        <span class='metric-value'>{max_drawdown_display}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col15:
+                expectancy_formatted = _ta_human_num_mt5(expectancy)
+                expectancy_color = "#5cb85c" if expectancy > 0.0 else "#d9534f" if expectancy < 0.0 else "#cccccc"
+                expectancy_sign = "$" if expectancy >= 0 else "-$"
+                st.markdown(f"""
+                    <div class='metric-box'>
+                        <strong>Expectancy</strong>
+                        <span class='metric-value' style='color: {expectancy_color};'>{expectancy_sign}{_ta_human_num_mt5(abs(expectancy))}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+
         with tab_charts:
             st.subheader("Visualizations")
             if not daily_pnl_df_for_stats.empty:
@@ -3155,7 +3218,22 @@ if st.session_state.current_page == 'mt5':
                 fig_type = px.pie(trade_types, names="Type", values="Count", title="Trades by Type")
                 st.plotly_chart(fig_type, use_container_width=True)
             else:
-                st.info("No trade data available to generate visualizations. Load your data or log in to Myfxbook.")
+                st.info("No closed trade data available to generate visualizations. Load your data or log in to Myfxbook.")
+        
+        with tab_closed_trades:
+            st.subheader("Closed Trades History")
+            if not st.session_state.mt5_df.empty:
+                st.dataframe(st.session_state.mt5_df, use_container_width=True)
+            else:
+                st.info("No closed trade history available. Please upload a CSV or connect your Myfxbook account to load closed trade data.")
+
+        with tab_open_trades:
+            st.subheader("Open Trades")
+            if not st.session_state.myfxbook_open_trades_df.empty:
+                st.dataframe(st.session_state.myfxbook_open_trades_df, use_container_width=True)
+            else:
+                st.info("No open trades currently available. This tab displays real-time open trades from your connected Myfxbook account.")
+
 
         with tab_edge:
             st.subheader("Edge Finder")
@@ -3199,19 +3277,29 @@ if st.session_state.current_page == 'mt5':
                         fig_edge = px.bar(grouped_data, x=analysis_by, y='sum', title=f"Profit by {analysis_by}")
                         st.plotly_chart(fig_edge, use_container_width=True)
             else:
-                st.info("No trade data available to use the Edge Finder. Load your data or log in to Myfxbook.")
+                st.info("No closed trade data available to use the Edge Finder. Load your data or log in to Myfxbook.")
 
         with tab_export:
             st.subheader("Export Reports")
             st.write("Export your trading data and reports.")
 
-            csv_processed = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="Download Processed Data CSV",
-                data=csv_processed,
-                file_name="processed_trade_history.csv",
-                mime="text/csv",
-            )
+            if not df.empty:
+                csv_processed = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download Processed Data CSV (Closed Trades)",
+                    data=csv_processed,
+                    file_name="processed_closed_trade_history.csv",
+                    mime="text/csv",
+                )
+            
+            if not st.session_state.myfxbook_open_trades_df.empty:
+                csv_open_trades = st.session_state.myfxbook_open_trades_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download Open Trades Data CSV",
+                    data=csv_open_trades,
+                    file_name="open_trades.csv",
+                    mime="text/csv",
+                )
             
             st.info("Further reporting options (e.g., custom PDF reports) could be integrated here.")
 
@@ -3350,9 +3438,18 @@ if st.session_state.current_page == 'mt5':
             win_rate = len(wins_df) / total_trades if total_trades else 0.0
             net_profit = df_for_report["Profit"].sum()
             profit_factor = _ta_profit_factor_mt5(df_for_report)
+            avg_loss_report = losses_df["Profit"].mean() if not losses_df.empty else 0.0
+            total_losses_sum_report = abs(losses_df["Profit"].sum()) if not losses_df.empty else 0.0
 
             daily_pnl_for_streaks = _ta_daily_pnl_mt5(df_for_report)
-            streaks = _ta_compute_streaks(pd.DataFrame(list(daily_pnl_for_streaks.items()), columns=['date', 'Profit']))
+            # Ensure daily_pnl_df_for_stats is available for max_drawdown if not already calculated for the report
+            daily_pnl_df_for_report_stats = pd.DataFrame(list(daily_pnl_for_streaks.items()), columns=['date', 'Profit'])
+            if not daily_pnl_df_for_report_stats.empty:
+                max_drawdown_report = (daily_pnl_df_for_report_stats["Profit"].cumsum() - daily_pnl_df_for_report_stats["Profit"].cumsum().cummax()).min()
+            else:
+                max_drawdown_report = 0.0
+
+            streaks = _ta_compute_streaks(daily_pnl_df_for_report_stats)
             longest_win_streak = streaks['best_win']
             longest_loss_streak = streaks['best_loss']
 
@@ -3360,6 +3457,9 @@ if st.session_state.current_page == 'mt5':
             total_volume = df_for_report['Volume'].sum() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
             avg_volume = df_for_report['Volume'].mean() if 'Volume' in df_for_report.columns and not df_for_report['Volume'].isnull().all() else 0.0
             profit_per_trade = (net_profit / total_trades) if total_trades else 0.0
+            
+            expectancy_report = (win_rate * (wins_df["Profit"].mean() if not wins_df.empty else 0.0)) + ((1 - win_rate) * (losses_df["Profit"].mean() if not losses_df.empty else 0.0)) if total_trades else 0.0
+
 
             report_html = f"""
             <html>
@@ -3379,7 +3479,12 @@ if st.session_state.current_page == 'mt5':
             <p><strong>Win Rate:</strong> {_ta_human_pct_mt5(win_rate)}</p>
             <p><strong>Net Profit:</strong> <span class='{'positive' if net_profit >= 0 else 'negative'}'>
             {'$' if net_profit >= 0 else '-$'}{_ta_human_num_mt5(abs(net_profit))}</span></p>
+            <p><strong>Total Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(total_losses_sum_report)}</span></p>
+            <p><strong>Average Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(avg_loss_report))}</span></p>
             <p><strong>Profit Factor:</strong> {_ta_human_num_mt5(profit_factor)}</p>
+            <p><strong>Max Drawdown:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(max_drawdown_report))}</span></p>
+            <p><strong>Expectancy:</strong> <span class='{'positive' if expectancy_report >= 0 else 'negative'}'>
+            {'$' if expectancy_report >= 0 else '-$'}{_ta_human_num_mt5(abs(expectancy_report))}</span></p>
             <p><strong>Biggest Win:</strong> <span class='positive'>${_ta_human_num_mt5(wins_df["Profit"].max() if not wins_df.empty else 0.0)}</span></p>
             <p><strong>Biggest Loss:</strong> <span class='negative'>-${_ta_human_num_mt5(abs(losses_df["Profit"].min()) if not losses_df.empty else 0.0)}</span></p>
             <p><strong>Longest Win Streak:</strong> {_ta_human_num_mt5(longest_win_streak)}</p>
@@ -3399,7 +3504,6 @@ if st.session_state.current_page == 'mt5':
                 mime="text/html"
             )
             st.info("Download the HTML report and share it with mentors or communities. You can print it to PDF in your browser.")
-
 
 
 import streamlit as st
