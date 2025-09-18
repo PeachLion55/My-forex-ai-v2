@@ -3323,13 +3323,12 @@ if st.session_state.current_page == 'mt5':
 st.subheader("🗓️ Daily Performance Calendar")
 
 # --- 1. DEPOSIT INPUT FOR PERCENTAGE CALCULATION ---
-# Add a number input field for the user to enter their balance.
-# This value is crucial for calculating the daily percentage change.
 deposit_amount = st.number_input(
     "Enter Initial Deposit/Balance for % Calculation",
     min_value=0.01,
-    value=10000.0,  # A sensible default value
+    value=10000.0,
     step=100.0,
+    key="deposit_input_calendar", # Added a key for stability
     help="This value is used as the denominator for calculating daily percentage gain/loss."
 )
 
@@ -3338,25 +3337,18 @@ if 'mt5_df' not in st.session_state or st.session_state.mt5_df.empty:
     st.warning("No closed trade data found. Please upload a file or connect your account.")
 else:
     df_cal = st.session_state.mt5_df.copy()
-
-    # Ensure 'Close Time' is a datetime object, discarding invalid entries.
     original_rows = len(df_cal)
     df_cal['Close Time'] = pd.to_datetime(df_cal['Close Time'], errors='coerce')
     df_cal.dropna(subset=['Close Time'], inplace=True)
     valid_rows = len(df_cal)
 
     # --- 3. CALCULATE DAILY STATISTICS (PnL, Trade Count, %) ---
-    daily_stats = pd.DataFrame()  # Initialize an empty DataFrame for the results.
+    daily_stats = pd.DataFrame()
     if not df_cal.empty:
-        # Group by the closing date and perform multiple aggregations at once:
-        # - Sum of 'Profit' for the net PnL.
-        # - Count of trades for the daily trade volume.
         daily_stats = df_cal.groupby(df_cal['Close Time'].dt.date).agg(
             daily_pnl=('Profit', 'sum'),
             trade_count=('Profit', 'count')
         )
-        
-        # Calculate percentage change using the provided deposit amount.
         if deposit_amount > 0:
             daily_stats['pnl_percent'] = (daily_stats['daily_pnl'] / deposit_amount) * 100
         else:
@@ -3411,41 +3403,53 @@ else:
         cols = st.columns(7)
         for i, day_date in enumerate(week):
             with cols[i]:
+                # Days not in the current month
                 if day_date.month != st.session_state.calendar_date.month:
                     st.markdown(f'<div style="min-height: 110px; background-color: #f0f2f6; border-radius: 5px; padding: 5px;"><span style="color: #adb5bd;">{day_date.day}</span></div>', unsafe_allow_html=True)
                 else:
-                    content_html = ""
+                    # --- REFACTORED LOGIC ---
+                    # Set default styles for a day with no trades
+                    bg_color = "#ffffff"
+                    text_color = "black"
+                    border_style = "border: 1px solid #dee2e6;"
+                    inner_content = "" # This will hold the PnL, count, % info
+
+                    # Add special border for today
+                    if day_date == date.today():
+                        border_style = "border: 2px solid #ff8c00;"
+
+                    # If there is trading data for this day, build the inner content
                     if day_date in daily_stats.index:
                         day_data = daily_stats.loc[day_date]
                         pnl, trade_count, pnl_percent = day_data['daily_pnl'], day_data['trade_count'], day_data.get('pnl_percent', 0.0)
-                        
+
                         if pnl > 0:
                             bg_color, text_color = ("#28a745", "white")
                             pnl_display = f"+${pnl:,.2f}"
                             percent_display = f"+{pnl_percent:.2f}%"
-                        else: # Handles both losses and pnl of exactly zero
+                        else: # Handles losses and zero PnL
                             bg_color, text_color = ("#dc3545", "white")
                             pnl_display = f"-${abs(pnl):,.2f}"
                             percent_display = f"{pnl_percent:.2f}%"
 
                         trade_count_display = f"{trade_count} {'Trade' if trade_count == 1 else 'Trades'}"
                         
-                        content_html = f"""
+                        # Build the HTML content for inside the box
+                        inner_content = f"""
                             <div style="font-size: 0.8em; text-align: center; opacity: 0.9;">{trade_count_display}</div>
                             <div style="font-size: 1.1em; font-weight: bold; text-align: center; margin: 2px 0;">{pnl_display}</div>
                             <div style="font-size: 0.9em; font-weight: bold; text-align: center;">{percent_display}</div>
                         """
-                    else: # Day with no trades
-                        bg_color, text_color = ("#ffffff", "black")
-
-                    border_style = "border: 2px solid #ff8c00;" if day_date == date.today() else "border: 1px solid #dee2e6;"
                     
-                    st.markdown(f"""
+                    # Assemble the final HTML for the entire cell
+                    final_html = f"""
                         <div style="min-height: 110px; background-color: {bg_color}; border-radius: 5px; padding: 5px; color: {text_color}; {border_style}; display: flex; flex-direction: column; justify-content: space-between;">
                             <span style="font-weight: bold;">{day_date.day}</span>
-                            {content_html}
+                            {inner_content}
                         </div>
-                    """, unsafe_allow_html=True)
+                    """
+                    st.markdown(final_html, unsafe_allow_html=True)
+
 st.markdown("---")
 if st.button("📄 Generate Performance Report"):
             df_for_report = st.session_state.mt5_df.copy()
