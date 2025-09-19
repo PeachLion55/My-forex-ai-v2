@@ -74,24 +74,23 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                        # --- 2. CSS Styling for the Header ---
+                                            # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
-    /* 
-    =================================================================
-    THE SURGICAL FIX: Only target the element directly after the header.
-    =================================================================
-    */
-
     /*
-    This is the only rule needed to fix the gap. It does the following:
-    1. Finds the direct child 'div' inside the main block that CONTAINS our custom 'header-container'.
-    2. Uses the '+' (adjacent sibling) selector to target the VERY NEXT 'div'.
-    3. Applies a negative top margin to ONLY this specific element. This pulls
-       it upwards, precisely canceling out Streamlit's default 'gap' spacing.
+    =================================================================
+    THE FINAL SOLUTION: Overcome the full gap with one targeted rule.
+    =================================================================
+
+    This single rule targets the container directly after the header and
+    applies an aggressive negative margin to cancel out all vertical spacing.
+    
+    *** YOU CAN EDIT THE '-2.5rem' VALUE. ***
+    - If the gap is still too big, try -2.8rem or -3rem.
+    - If the content moves up too much, try -2.2rem or -2rem.
     */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
-        margin-top: -1rem !important; /* Streamlit's default gap is 1rem. This perfectly neutralizes it. */
+    div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
+        margin-top: -2.5rem !important;
     }
 
 
