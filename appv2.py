@@ -88,7 +88,7 @@ if st.session_state.get('logged_in_user'):
         closing the gap without affecting the header's position.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -2.5rem !important; /* Adjust this value as needed */
+        margin-top: -3.0rem !important; /* Adjust this value as needed */
     }
 
     /* Keep the rest of your styles */
