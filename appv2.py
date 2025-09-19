@@ -42,9 +42,9 @@ if st.session_state.get('logged_in_user'):
         # Assuming event times are in UTC for consistency
         econ_df_header['datetime_utc'] = pd.to_datetime(econ_df_header['datetime_str']).dt.tz_localize('UTC')
         now_utc = datetime.now(pytz.utc)
-
+        
         future_events = econ_df_header[econ_df_header['datetime_utc'] > now_utc].sort_values('datetime_utc')
-
+        
         next_event = None
         if not future_events.empty:
             next_event = future_events.iloc[0]
@@ -77,17 +77,27 @@ if st.session_state.get('logged_in_user'):
     # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
+    /* 
+    This new rule targets the container we added around the header 
+    and uses a negative margin to pull the content below it upwards.
+    Adjust the -1.5rem value if needed.
+    */
+    .header-container {
+        margin-bottom: -1.5rem; 
+    }
+    
+    /* This style applies to the visual box of the header itself */
     .top-header {
-        background-color: #0d1117; /* Dark background */
+        background-color: #0d1117;
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        margin-bottom: 1rem; /* <<< REDUCED a lot of the gap here */
+        /* margin-bottom is no longer needed here, the wrapper handles spacing */
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        flex-wrap: wrap; /* Allows items to wrap on smaller screens */
+        flex-wrap: wrap;
     }
     .header-item {
         display: flex;
@@ -100,14 +110,12 @@ if st.session_state.get('logged_in_user'):
         font-weight: 600;
         color: #58a6ff;
     }
-    /* Countdown Timer Style */
     #countdown-timer {
         background-color: #161b22;
         padding: 4px 8px;
         border-radius: 5px;
         border: 1px solid #58a6ff;
     }
-    /* XP Bar */
     .xp-progress-bar-container {
         width: 120px;
         height: 12px;
@@ -121,7 +129,6 @@ if st.session_state.get('logged_in_user'):
         background: linear-gradient(90deg, #58a6ff, #316dca);
         border-radius: 6px;
     }
-    /* Notification Bell */
     .notification-bell {
         font-size: 1.4rem;
         color: #8b949e;
@@ -131,7 +138,6 @@ if st.session_state.get('logged_in_user'):
     .notification-bell:hover {
         color: #c9d1d9;
     }
-    /* Invite Banner */
     .invite-banner {
         background: linear-gradient(90deg, #238636, #1a5c2e);
         color: white;
@@ -140,7 +146,6 @@ if st.session_state.get('logged_in_user'):
         font-weight: 500;
         font-size: 0.85rem;
     }
-    /* User Avatar */
     .user-avatar {
         width: 32px;
         height: 32px;
@@ -159,8 +164,11 @@ if st.session_state.get('logged_in_user'):
 
 
     # --- 3. Header Layout & Rendering ---
-
-    # Use st.columns for better responsive handling than pure flexbox in Markdown
+    
+    # ADDED THIS WRAPPER to gain control over Streamlit's vertical spacing
+    st.markdown('<div class="header-container">', unsafe_allow_html=True)
+    
+    # Use st.columns for better responsive handling
     c1, c2, c3, c4, c5 = st.columns([2, 2.2, 1.8, 0.5, 3])
 
     # a. Economic Calendar
@@ -174,25 +182,20 @@ if st.session_state.get('logged_in_user'):
                 </div>
                 """, unsafe_allow_html=True
             )
-
-            # JavaScript for the countdown timer
+            
             components.html(f"""
             <script>
                 var countDownDate = new Date({target_timestamp_ms}).getTime();
                 var timerElement = parent.document.getElementById("countdown-timer");
-
                 if (timerElement) {{
                     var x = setInterval(function() {{
                         var now = new Date().getTime();
                         var distance = countDownDate - now;
-
                         var days = Math.floor(distance / (1000 * 60 * 60 * 24));
                         var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                         var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                         var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
                         timerElement.innerHTML = days + "d " + hours + "h " + minutes + "m " + seconds + "s ";
-
                         if (distance < 0) {{
                             clearInterval(x);
                             timerElement.innerHTML = "NOW";
@@ -226,11 +229,9 @@ if st.session_state.get('logged_in_user'):
     # c. Notification Bell & User Avatar/Dropdown
     with c4:
         st.markdown('<div class="header-item notification-bell" title="Notifications">🔔</div>', unsafe_allow_html=True)
-
-    # Get user initial for avatar
+    
     user_initial = st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "U"))[0].upper()
-
-    # Combine Avatar and Invite Banner
+    
     with c5, st.container():
         user_col, invite_col = st.columns([0.5, 2])
         with user_col:
@@ -241,20 +242,19 @@ if st.session_state.get('logged_in_user'):
                     st.session_state.current_page = 'account'
                     st.rerun()
                 if st.button("💳 Subscription", use_container_width=True):
-                    # Placeholder for subscription page logic
                     st.toast("Subscription management coming soon!")
                 st.markdown("---")
                 if st.button("Log Out", use_container_width=True):
-                    handle_logout() # Assuming handle_logout is a globally defined function
-
-             # The visible part of the popover (the avatar)
+                    handle_logout()
+             
              st.markdown(f'<div class="user-avatar">{user_initial}</div>', unsafe_allow_html=True)
-
+             
         with invite_col:
             st.markdown('<div class="header-item invite-banner"><span>🎉 Invite 3 friends > Get 1 month free</span></div>', unsafe_allow_html=True)
 
-    # <<< REMOVED the st.markdown("<hr.../>") line that was here, as it created extra space.
-    
+    # ADDED THIS CLOSING DIV for the wrapper
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # =========================================================
 # END OF GLOBAL HEADER
 # =========================================================
