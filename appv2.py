@@ -91,7 +91,7 @@ if st.session_state.get('logged_in_user'):
     - If it moves up too much, try a smaller negative value like -2.2rem.
     */
     div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
-        transform: translateY(-10.0rem) !important;
+        transform: translateY(-30.0rem) !important;
     }
 
 
