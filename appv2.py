@@ -89,13 +89,13 @@ if st.session_state.get('logged_in_user'):
     */
     div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
         padding-bottom: 0 !important;
-        margin-bottom: 0 !important;
+        margin-bottom: -5.0 !important;
     }
 
     /*
     STEP 2: Target the container after the header and apply the fix.
     
-    - 'padding-top: 10px;' is the key. It creates a buffer that PREVENTS margin collapse.
+    - 'padding-top: 1px;' is the key. It creates a buffer that PREVENTS margin collapse.
     - 'margin-top: -10.0rem;' now correctly pulls THIS element up, not the whole page.
     
     *** YOU CAN NOW ADJUST THE '-2.5rem' VALUE. ***
