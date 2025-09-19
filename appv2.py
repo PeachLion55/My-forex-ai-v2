@@ -90,7 +90,7 @@ if st.session_state.get('logged_in_user'):
     - If the content moves up too much, try -2.2rem or -2rem.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -2.5rem !important;
+        margin-top: -2.8rem !important;
     }
 
 
