@@ -90,8 +90,8 @@ if st.session_state.get('logged_in_user'):
     from "pushing" other content down.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
-        margin-bottom: 0rem !important;
-        padding-bottom: -5.0rem !important;
+        margin-bottom: -3.0rem !important;
+        padding-bottom: 0rem !important;
     }
 
     /*
