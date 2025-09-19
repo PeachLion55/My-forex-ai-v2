@@ -74,27 +74,25 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-        # --- 2. CSS Styling for the Header ---
+            # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /* 
     =================================================================
-    THE FIX: This is the key rule to remove the vertical gap.
-    It finds the direct sibling (+) of your header's container
-    and removes the space above it. The '!important' flag ensures
-    this rule overrides Streamlit's default styles.
-    =================================================================
+    THE NEW FIX: More Aggressive & Specific
+    ================================e=================================
     */
-    div[data-testid="stVerticalBlock"] > div:has(div.top-header) + div {
-        margin-top: -5rem !important;
+    /*
+    1.  Find the main vertical block that holds all page elements.
+    2.  Find the direct child ('> div') that CONTAINS (':has') our custom 'header-container'.
+    3.  Forcefully apply a negative margin to this Streamlit-generated wrapper to
+        pull all subsequent content up, thereby closing the gap. '!important' is crucial.
+    */
+    div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
+        margin-bottom: -2.0rem !important; /* Increased negative margin for a stronger effect */
     }
 
-    /* This rule targets the header's own container to remove any unwanted bottom margin */
-    .header-container {
-       padding-bottom: 1rem; /* Ensures content inside doesn't get clipped */
-    }
-
-    /* This style applies to the visual box of the header itself */
+    /* Keep the rest of your styles */
     .top-header {
         background-color: #0d1117;
         border: 1px solid #30363d;
