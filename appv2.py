@@ -74,32 +74,42 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                        # --- 2. CSS Styling for the Header ---
+                            # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
-    /* 
+    /*
     =================================================================
-    THE DEBUGGING FIX: Let's see what we are targeting.
+    THE FINAL FIX - Based on the red border debug result.
     =================================================================
     */
 
     /*
-    STEP 1: Find the header's container.
-    This rule should draw a 2px BLUE border around your entire header block.
-    If you see this, we are successfully targeting the header's wrapper.
+    STEP 1: A more direct rule to find the header's container and remove
+    all space below it. Since the previous rule failed, this one is
+    simplified and more aggressive.
     */
-    div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
-        border: 2px solid blue !important; /* DEBUGGING BORDER */
+    div.header-container {
+        /* Add a parent div to get more specific. Assume it's a direct child. */
+        /* It seems the wrapper doesn't have a specific test-id. */
+        /* Let's be aggressive and remove margins from streamlit's default wrapper */
+        position: relative; /* Establish a positioning context */
     }
 
+    /* We target Streamlit's Block Container that directly wraps the user's content. */
+    div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
+         padding-bottom: 0rem !important;
+         margin-bottom: 0rem !important;
+    }
+
+
     /*
-    STEP 2: Find the content BELOW the header and pull it up.
-    This rule should draw a 2px RED border around the "Trading Tools"
-    section and apply a negative top margin to pull it up, closing the gap.
+    STEP 2: Use the confirmed working rule from the debug test.
+    This pulls the "Trading Tools" block (which had the red border)
+    upwards to eliminate any remaining space. I've used a larger value
+    to ensure it fully closes the gap.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        border: 2px solid red !important; /* DEBUGGING BORDER */
-        margin-top: -2.8rem !important; /* Increase this value if needed */
+        margin-top: -3.5rem !important; /* Adjust this value down (e.g., -3.0rem) if it moves up too much */
     }
 
 
