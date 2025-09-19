@@ -42,9 +42,9 @@ if st.session_state.get('logged_in_user'):
         # Assuming event times are in UTC for consistency
         econ_df_header['datetime_utc'] = pd.to_datetime(econ_df_header['datetime_str']).dt.tz_localize('UTC')
         now_utc = datetime.now(pytz.utc)
-        
+
         future_events = econ_df_header[econ_df_header['datetime_utc'] > now_utc].sort_values('datetime_utc')
-        
+
         next_event = None
         if not future_events.empty:
             next_event = future_events.iloc[0]
@@ -82,7 +82,7 @@ if st.session_state.get('logged_in_user'):
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        margin-bottom: 1rem;
+        margin-bottom: 1rem; /* <<< REDUCED a lot of the gap here */
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -159,7 +159,7 @@ if st.session_state.get('logged_in_user'):
 
 
     # --- 3. Header Layout & Rendering ---
-    
+
     # Use st.columns for better responsive handling than pure flexbox in Markdown
     c1, c2, c3, c4, c5 = st.columns([2, 2.2, 1.8, 0.5, 3])
 
@@ -174,7 +174,7 @@ if st.session_state.get('logged_in_user'):
                 </div>
                 """, unsafe_allow_html=True
             )
-            
+
             # JavaScript for the countdown timer
             components.html(f"""
             <script>
@@ -226,10 +226,10 @@ if st.session_state.get('logged_in_user'):
     # c. Notification Bell & User Avatar/Dropdown
     with c4:
         st.markdown('<div class="header-item notification-bell" title="Notifications">🔔</div>', unsafe_allow_html=True)
-    
+
     # Get user initial for avatar
     user_initial = st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "U"))[0].upper()
-    
+
     # Combine Avatar and Invite Banner
     with c5, st.container():
         user_col, invite_col = st.columns([0.5, 2])
@@ -246,15 +246,15 @@ if st.session_state.get('logged_in_user'):
                 st.markdown("---")
                 if st.button("Log Out", use_container_width=True):
                     handle_logout() # Assuming handle_logout is a globally defined function
-             
+
              # The visible part of the popover (the avatar)
              st.markdown(f'<div class="user-avatar">{user_initial}</div>', unsafe_allow_html=True)
-             
+
         with invite_col:
             st.markdown('<div class="header-item invite-banner"><span>🎉 Invite 3 friends > Get 1 month free</span></div>', unsafe_allow_html=True)
 
-    # Add a horizontal rule to separate the header from the page content
-    st.markdown("<hr style='margin-top: -1.5rem; margin-bottom: 2rem;'/>", unsafe_allow_html=True)
+    # <<< REMOVED the st.markdown("<hr.../>") line that was here, as it created extra space.
+    
 # =========================================================
 # END OF GLOBAL HEADER
 # =========================================================
