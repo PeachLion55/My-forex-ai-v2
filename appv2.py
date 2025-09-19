@@ -95,7 +95,7 @@ if st.session_state.get('logged_in_user'):
     /*
     STEP 2: Target the container after the header and apply the fix.
     
-    - 'padding-top: 1px;' is the key. It creates a buffer that PREVENTS margin collapse.
+    - 'padding-top: 10px;' is the key. It creates a buffer that PREVENTS margin collapse.
     - 'margin-top: -10.0rem;' now correctly pulls THIS element up, not the whole page.
     
     *** YOU CAN NOW ADJUST THE '-2.5rem' VALUE. ***
