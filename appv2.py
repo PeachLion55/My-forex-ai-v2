@@ -74,32 +74,24 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                    # --- 2. CSS Styling for the Header ---
+                                        # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /* 
     =================================================================
-    THE FINAL STRATEGY: Target the Parent's 'gap' Property
+    THE SURGICAL FIX: Only target the element directly after the header.
     =================================================================
     */
 
     /*
-    STEP 1: Find the main container for all elements and kill its spacing.
-    This is the key rule. It forces the space between all Streamlit
-    elements to zero.
+    This is the only rule needed to fix the gap. It does the following:
+    1. Finds the direct child 'div' inside the main block that CONTAINS our custom 'header-container'.
+    2. Uses the '+' (adjacent sibling) selector to target the VERY NEXT 'div'.
+    3. Applies a negative top margin to ONLY this specific element. This pulls
+       it upwards, precisely canceling out Streamlit's default 'gap' spacing.
     */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0rem !important;
-    }
-
-    /*
-    STEP 2: Find our header's wrapper and add our OWN controlled space below it.
-    Now that the default gap is gone, we can add a sane margin-bottom
-    to the header block to create a normal-sized space.
-    Adjust '1rem' to '1.5rem' or '0.5rem' to get your desired spacing.
-    */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
-        margin-bottom: 1rem !important;
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
+        margin-top: -1rem !important; /* Streamlit's default gap is 1rem. This perfectly neutralizes it. */
     }
 
 
@@ -109,7 +101,6 @@ if st.session_state.get('logged_in_user'):
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        /* margin-bottom is no longer needed here, it's controlled by the wrapper rule above */
         display: flex;
         align-items: center;
         justify-content: space-between;
