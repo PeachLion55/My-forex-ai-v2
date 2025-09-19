@@ -74,42 +74,34 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                            # --- 2. CSS Styling for the Header ---
+                                # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
-    /*
+    /* 
     =================================================================
-    THE FINAL FIX - Based on the red border debug result.
+    THE DEFINITIVE FIX: Neutralize Spacing, No Negative Margins
     =================================================================
     */
 
     /*
-    STEP 1: A more direct rule to find the header's container and remove
-    all space below it. Since the previous rule failed, this one is
-    simplified and more aggressive.
+    STEP 1: Target the Streamlit wrapper FOR the header.
+    This rule finds the container that holds your header and completely
+    REMOVES any space (margin or padding) at its BOTTOM.
     */
-    div.header-container {
-        /* Add a parent div to get more specific. Assume it's a direct child. */
-        /* It seems the wrapper doesn't have a specific test-id. */
-        /* Let's be aggressive and remove margins from streamlit's default wrapper */
-        position: relative; /* Establish a positioning context */
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
     }
 
-    /* We target Streamlit's Block Container that directly wraps the user's content. */
-    div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
-         padding-bottom: 0rem !important;
-         margin-bottom: 0rem !important;
-    }
-
-
     /*
-    STEP 2: Use the confirmed working rule from the debug test.
-    This pulls the "Trading Tools" block (which had the red border)
-    upwards to eliminate any remaining space. I've used a larger value
-    to ensure it fully closes the gap.
+    STEP 2: Target the Streamlit wrapper AFTER the header.
+    This rule finds the container holding the "Trading Tools" section and
+    completely REMOVES any space at its TOP. This directly counteracts
+    Streamlit's default "gap" without causing erratic movement.
     */
-    div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -3.5rem !important; /* Adjust this value down (e.g., -3.0rem) if it moves up too much */
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
+        margin-top: 0rem !important;
+        padding-top: 0rem !important;
     }
 
 
@@ -119,6 +111,7 @@ if st.session_state.get('logged_in_user'):
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
+        margin-bottom: 1rem; /* We add a margin HERE, inside our controlled space */
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -187,7 +180,6 @@ if st.session_state.get('logged_in_user'):
     }
     </style>
     """, unsafe_allow_html=True)
-
 
     # --- 3. Header Layout & Rendering ---
     
