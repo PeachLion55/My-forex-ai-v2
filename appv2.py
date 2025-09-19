@@ -89,7 +89,7 @@ if st.session_state.get('logged_in_user'):
         pull all subsequent content up, thereby closing the gap. '!important' is crucial.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
-        margin-bottom: -5.0rem !important; /* Increased negative margin for a stronger effect */
+        margin-bottom: -1.0rem !important; /* Increased negative margin for a stronger effect */
     }
 
     /* Keep the rest of your styles */
