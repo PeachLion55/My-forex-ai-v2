@@ -78,7 +78,7 @@ if st.session_state.get('logged_in_user'):
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        margin-bottom: 1rem; /* <<< THIS IS THE KEY VALUE TO EDIT. 1rem is usually good. */
+        margin-bottom: 0.1rem; /* <<< THIS IS THE KEY VALUE TO EDIT. 1rem is usually good. */
         display: flex;
         align-items: center;
         justify-content: space-between;
