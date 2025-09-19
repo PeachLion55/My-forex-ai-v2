@@ -100,7 +100,7 @@ if st.session_state.get('logged_in_user'):
     applies a negative top margin to "pull" it up, closing the gap from below.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -10.0rem !important;
+        margin-top: -6.0rem !important;
         padding-top: 0rem !important;
     }
 
