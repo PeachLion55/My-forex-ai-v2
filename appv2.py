@@ -98,7 +98,7 @@ if st.session_state.get('logged_in_user'):
     */
     div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
         display: flow-root !important;
-        margin-top: -2.8rem !important;
+        margin-top: -4.8rem !important;
     }
 
     /* Your Original Header Styles (Unchanged) */
