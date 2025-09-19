@@ -74,38 +74,31 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                                        # --- 2. CSS Styling for the Header ---
+                                                            # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /*
     =================================================================
-    THE DEFINITIVE SOLUTION: Preventing Margin Collapse
+    THE DEFINITIVE SOLUTION: 'display: flow-root' to Contain Margins
     =================================================================
     */
 
     /*
-    STEP 1: Forcefully remove any bottom spacing on the header's own container.
-    This ensures the gap isn't coming from the header pushing down.
-    */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
-        padding-bottom: 10 !important;
-        margin-bottom: -10.0 !important;
-    }
+    STEP 1: Find the Streamlit container directly after the header.
+    
+    STEP 2: Apply the two key properties:
+    - 'display: flow-root;' creates a new block formatting context, which
+      is the modern way to contain margins and prevent them from collapsing.
+    - 'margin-top: -2.8rem;' can now pull the element up safely because
+      it is trapped inside the new context. The header will NOT move.
 
-    /*
-    STEP 2: Target the container after the header and apply the fix.
-    
-    - 'padding-top: 100px;' is the key. It creates a buffer that PREVENTS margin collapse.
-    - 'margin-top: -10.0rem;' now correctly pulls THIS element up, not the whole page.
-    
-    *** YOU CAN NOW ADJUST THE '-2.5rem' VALUE. ***
-    - If the gap is still too big, try a larger negative value like -3rem.
-    - If it moves up too much, try a smaller value like -2rem.
-    It should now work as expected without moving the header.
+    *** YOU CAN NOW ADJUST THE '-2.8rem' VALUE ***
+    - It should now work perfectly. Adjust the value until the spacing is exactly
+      how you want it. For example: -2.5rem, -3.0rem, etc.
     */
     div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
-        padding-top: 1px !important;
-        margin-top: -2.5rem !important;
+        display: flow-root !important;
+        margin-top: -2.8rem !important;
     }
 
     /* Your Original Header Styles (Unchanged) */
