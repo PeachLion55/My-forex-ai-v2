@@ -96,7 +96,7 @@ if st.session_state.get('logged_in_user'):
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 1px;
         flex-wrap: wrap;
     }
     .header-item {
