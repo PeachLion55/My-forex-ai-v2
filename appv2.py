@@ -74,99 +74,55 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                                    # --- 2. CSS Styling for the Header ---
+                                                        # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /*
     =================================================================
-    THE DEFINITIVE FIX: Using CSS Transform for Stable Positioning
+    THE DEFINITIVE SOLUTION: Preventing Margin Collapse
     =================================================================
-
-    This single rule targets the container AFTER the header and visually
-    slides it upwards without affecting the document layout. This is the
-    correct and stable way to close a persistent gap when margin fails.
-    
-    *** YOU CAN EDIT THE '-2.5rem' VALUE. ***
-    - If a small gap remains, try a larger negative value like -2.8rem.
-    - If it moves up too much, try a smaller negative value like -2.2rem.
     */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
-        transform: translateY(-30.0rem) !important;
+
+    /*
+    STEP 1: Forcefully remove any bottom spacing on the header's own container.
+    This ensures the gap isn't coming from the header pushing down.
+    */
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
     }
 
+    /*
+    STEP 2: Target the container after the header and apply the fix.
+    
+    - 'padding-top: 1px;' is the key. It creates a buffer that PREVENTS margin collapse.
+    - 'margin-top: -2.5rem;' now correctly pulls THIS element up, not the whole page.
+    
+    *** YOU CAN NOW ADJUST THE '-2.5rem' VALUE. ***
+    - If the gap is still too big, try a larger negative value like -3rem.
+    - If it moves up too much, try a smaller value like -2rem.
+    It should now work as expected without moving the header.
+    */
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
+        padding-top: 1px !important;
+        margin-top: -2.5rem !important;
+    }
 
     /* Your Original Header Styles (Unchanged) */
     .top-header {
-        background-color: #0d1117;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 8px 15px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
+        background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+        padding: 8px 15px; display: flex; align-items: center;
+        justify-content: space-between; gap: 10px; flex-wrap: wrap;
     }
-    .header-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #c9d1d9;
-        font-size: 0.9rem;
-    }
-    .header-item-strong {
-        font-weight: 600;
-        color: #58a6ff;
-    }
-    #countdown-timer {
-        background-color: #161b22;
-        padding: 4px 8px;
-        border-radius: 5px;
-        border: 1px solid #58a6ff;
-    }
-    .xp-progress-bar-container {
-        width: 120px;
-        height: 12px;
-        background-color: #30363d;
-        border-radius: 6px;
-        overflow: hidden;
-    }
-    .xp-progress-bar {
-        height: 100%;
-        width: """ + str(progress_to_next_level) + """%;
-        background: linear-gradient(90deg, #58a6ff, #316dca);
-        border-radius: 6px;
-    }
-    .notification-bell {
-        font-size: 1.4rem;
-        color: #8b949e;
-        cursor: pointer;
-        position: relative;
-    }
-    .notification-bell:hover {
-        color: #c9d1d9;
-    }
-    .invite-banner {
-        background: linear-gradient(90deg, #238636, #1a5c2e);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-weight: 500;
-        font-size: 0.85rem;
-    }
-    .user-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background-color: #30363d;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        color: #c9d1d9;
-        cursor: pointer;
-        border: 2px solid #58a6ff;
-    }
+    .header-item { display: flex; align-items: center; gap: 8px; color: #c9d1d9; font-size: 0.9rem; }
+    .header-item-strong { font-weight: 600; color: #58a6ff; }
+    #countdown-timer { background-color: #161b22; padding: 4px 8px; border-radius: 5px; border: 1px solid #58a6ff; }
+    .xp-progress-bar-container { width: 120px; height: 12px; background-color: #30363d; border-radius: 6px; overflow: hidden; }
+    .xp-progress-bar { height: 100%; width: """ + str(progress_to_next_level) + """%; background: linear-gradient(90deg, #58a6ff, #316dca); border-radius: 6px; }
+    .notification-bell { font-size: 1.4rem; color: #8b949e; cursor: pointer; position: relative; }
+    .notification-bell:hover { color: #c9d1d9; }
+    .invite-banner { background: linear-gradient(90deg, #238636, #1a5c2e); color: white; padding: 5px 10px; border-radius: 5px; font-weight: 500; font-size: 0.85rem; }
+    .user-avatar { width: 32px; height: 32px; border-radius: 50%; background-color: #30363d; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #c9d1d9; cursor: pointer; border: 2px solid #58a6ff; }
     </style>
     """, unsafe_allow_html=True)
 
