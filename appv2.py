@@ -48,12 +48,10 @@ if st.session_state.get('logged_in_user'):
         next_event = None
         if not future_events.empty:
             next_event = future_events.iloc[0]
-            # Format for JavaScript (milliseconds since epoch)
             target_timestamp_ms = int(next_event['datetime_utc'].timestamp() * 1000)
     except Exception as e:
         next_event = None
         logging.error(f"Header Countdown Error: {e}")
-
 
     # b. Trades Logged Today
     trades_today_count = 0
@@ -61,7 +59,6 @@ if st.session_state.get('logged_in_user'):
         journal_df = st.session_state.trade_journal
         if not journal_df.empty and 'Date' in journal_df.columns:
             journal_df['Date'] = pd.to_datetime(journal_df['Date'])
-            # Compare just the date part, ensuring timezone awareness isn't an issue
             trades_today = journal_df[journal_df['Date'].dt.date == date.today()]
             trades_today_count = len(trades_today)
     except Exception as e:
@@ -73,31 +70,20 @@ if st.session_state.get('logged_in_user'):
     progress_to_next_level = xp % 100
     xp_for_next_level = (level + 1) * 100
 
-
     # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
-    /* 
-    This new rule targets the container we added around the header 
-    and uses a negative margin to pull the content below it upwards.
-    Adjust the -1.5rem value if needed.
-    */
-    .header-container {
-        margin-bottom: -1.5rem; 
-    }
-    
-    /* This style applies to the visual box of the header itself */
     .top-header {
-        background-color: #0d1117;
+        background-color: #0d1117; /* Dark background */
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        /* margin-bottom is no longer needed here, the wrapper handles spacing */
+        margin-bottom: 1rem; /* <<< THIS IS THE KEY VALUE TO EDIT. 1rem is usually good. */
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 1px;
-        flex-wrap: wrap;
+        gap: 10px;
+        flex-wrap: wrap; /* Allows items to wrap on smaller screens */
     }
     .header-item {
         display: flex;
@@ -110,12 +96,14 @@ if st.session_state.get('logged_in_user'):
         font-weight: 600;
         color: #58a6ff;
     }
+    /* Countdown Timer Style */
     #countdown-timer {
         background-color: #161b22;
         padding: 4px 8px;
         border-radius: 5px;
         border: 1px solid #58a6ff;
     }
+    /* XP Bar */
     .xp-progress-bar-container {
         width: 120px;
         height: 12px;
@@ -129,6 +117,7 @@ if st.session_state.get('logged_in_user'):
         background: linear-gradient(90deg, #58a6ff, #316dca);
         border-radius: 6px;
     }
+    /* Notification Bell */
     .notification-bell {
         font-size: 1.4rem;
         color: #8b949e;
@@ -138,6 +127,7 @@ if st.session_state.get('logged_in_user'):
     .notification-bell:hover {
         color: #c9d1d9;
     }
+    /* Invite Banner */
     .invite-banner {
         background: linear-gradient(90deg, #238636, #1a5c2e);
         color: white;
@@ -146,6 +136,7 @@ if st.session_state.get('logged_in_user'):
         font-weight: 500;
         font-size: 0.85rem;
     }
+    /* User Avatar */
     .user-avatar {
         width: 32px;
         height: 32px;
@@ -162,29 +153,18 @@ if st.session_state.get('logged_in_user'):
     </style>
     """, unsafe_allow_html=True)
 
-
     # --- 3. Header Layout & Rendering ---
     
-    # ADDED THIS WRAPPER to gain control over Streamlit's vertical spacing
-    st.markdown('<div class="header-container">', unsafe_allow_html=True)
+    # <<< WRAP the entire layout in a div with the .top-header class
+    st.markdown('<div class="top-header">', unsafe_allow_html=True)
     
-    # Use st.columns for better responsive handling
     c1, c2, c3, c4, c5 = st.columns([2, 2.2, 1.8, 0.5, 3])
 
     # a. Economic Calendar
     with c1:
         if next_event is not None:
-            st.markdown(
-                f"""
-                <div class="header-item">
-                    <span>⏳ {next_event['Event']} ({next_event['Currency']}):</span>
-                    <span id="countdown-timer"></span>
-                </div>
-                """, unsafe_allow_html=True
-            )
-            
-            components.html(f"""
-            <script>
+            st.markdown(f'<div class="header-item"><span>⏳ {next_event["Event"]} ({next_event["Currency"]}):</span><span id="countdown-timer"></span></div>', unsafe_allow_html=True)
+            components.html(f"""<script>
                 var countDownDate = new Date({target_timestamp_ms}).getTime();
                 var timerElement = parent.document.getElementById("countdown-timer");
                 if (timerElement) {{
@@ -196,35 +176,17 @@ if st.session_state.get('logged_in_user'):
                         var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                         var seconds = Math.floor((distance % (1000 * 60)) / 1000);
                         timerElement.innerHTML = days + "d " + hours + "h " + minutes + "m " + seconds + "s ";
-                        if (distance < 0) {{
-                            clearInterval(x);
-                            timerElement.innerHTML = "NOW";
-                        }}
+                        if (distance < 0) {{ clearInterval(x); timerElement.innerHTML = "NOW"; }}
                     }}, 1000);
-                }}
-            </script>
-            """, height=0)
+                }}</script>""", height=0)
         else:
             st.markdown('<div class="header-item"><span>No upcoming high-impact events.</span></div>', unsafe_allow_html=True)
 
     # b. Trades Logged & XP Bar
     with c2:
-        st.markdown(
-            f"""
-            <div class="header-item">
-                <span>🗓️ Today:</span> <span class="header-item-strong">{trades_today_count} trades logged</span>
-            </div>
-            """, unsafe_allow_html=True
-        )
+        st.markdown(f'<div class="header-item"><span>🗓️ Today:</span> <span class="header-item-strong">{trades_today_count} trades logged</span></div>', unsafe_allow_html=True)
     with c3:
-        st.markdown(
-            f"""
-            <div class="header-item" title="{xp}/{xp_for_next_level} XP">
-                <span>Trader Lvl {level}</span>
-                <div class="xp-progress-bar-container"><div class="xp-progress-bar"></div></div>
-            </div>
-            """, unsafe_allow_html=True
-        )
+        st.markdown(f'<div class="header-item" title="{xp}/{xp_for_next_level} XP"><span>Trader Lvl {level}</span><div class="xp-progress-bar-container"><div class="xp-progress-bar"></div></div></div>', unsafe_allow_html=True)
 
     # c. Notification Bell & User Avatar/Dropdown
     with c4:
@@ -232,27 +194,27 @@ if st.session_state.get('logged_in_user'):
     
     user_initial = st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "U"))[0].upper()
     
-    with c5, st.container():
-        user_col, invite_col = st.columns([0.5, 2])
-        with user_col:
-             with st.popover("", use_container_width=True):
-                st.markdown(f"Signed in as **{st.session_state.user_nickname}**")
-                st.markdown("---")
-                if st.button("⚙️ Settings", use_container_width=True):
-                    st.session_state.current_page = 'account'
-                    st.rerun()
-                if st.button("💳 Subscription", use_container_width=True):
-                    st.toast("Subscription management coming soon!")
-                st.markdown("---")
-                if st.button("Log Out", use_container_width=True):
-                    handle_logout()
-             
-             st.markdown(f'<div class="user-avatar">{user_initial}</div>', unsafe_allow_html=True)
-             
-        with invite_col:
-            st.markdown('<div class="header-item invite-banner"><span>🎉 Invite 3 friends > Get 1 month free</span></div>', unsafe_allow_html=True)
-
-    # ADDED THIS CLOSING DIV for the wrapper
+    with c5:
+        # Use a container to manage the layout of internal popover/banner items
+        with st.container():
+            user_col, invite_col = st.columns([0.2, 1])
+            with user_col:
+                with st.popover("", use_container_width=True):
+                    st.markdown(f"Signed in as **{st.session_state.user_nickname}**")
+                    st.markdown("---")
+                    if st.button("⚙️ Settings", use_container_width=True):
+                        st.session_state.current_page = 'account'
+                        st.rerun()
+                    if st.button("💳 Subscription", use_container_width=True):
+                        st.toast("Subscription management coming soon!")
+                    st.markdown("---")
+                    if st.button("Log Out", use_container_width=True):
+                        handle_logout() # Assuming handle_logout is a globally defined function
+                st.markdown(f'<div class="user-avatar">{user_initial}</div>', unsafe_allow_html=True)
+            with invite_col:
+                st.markdown('<div class="header-item invite-banner"><span>🎉 Invite 3 friends > Get 1 month free</span></div>', unsafe_allow_html=True)
+                
+    # <<< CLOSE the wrapper div
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
