@@ -26,126 +26,266 @@ import calendar
 from datetime import datetime, date, timedelta
 
 import streamlit as st
+from PIL import Image
+import io
+import base64
+import os
+from datetime import datetime, timedelta
+import pytz
 
-st.set_page_config(page_title="Zentrodash", layout="wide")
+# =========================================================
+# ⚙️ GLOBAL TOP HEADER IMPLEMENTATION
+# =========================================================
+# This function encapsulates the entire header logic.
+def render_global_header():
+    # --- Data for the header ---
+    # In a real app, this data would come from your database or API calls.
+    # Economic Calendar Event (static example based on search results)
+    try:
+        event_time_utc = datetime(2025, 9, 25, 3, 30, 0, tzinfo=pytz.utc)
+        event_name = "SNB Rate Decision"
+    except Exception as e:
+        st.error(f"Could not set event time: {e}")
+        return
 
-# CSS + HTML for top header
-header_html = """
-<style>
-/* Hide default Streamlit elements */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+    # User-specific data from session_state
+    xp = st.session_state.get('xp', 0)
+    level = st.session_state.get('level', 0)
+    trades_today = st.session_state.trade_journal[pd.to_datetime(st.session_state.trade_journal['Date']).dt.date == datetime.today().date()].shape[0] if not st.session_state.trade_journal.empty else 0
+    notifications = 3 # Placeholder for notification count
+    
+    # Calculate XP progress
+    xp_for_next_level = 100
+    xp_in_current_level = xp % xp_for_next_level
+    progress_percentage = (xp_in_current_level / xp_for_next_level) * 100
 
-/* Fixed top header */
-.top-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 70px;
-    background-color: #111;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 30px;
-    z-index: 9999;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
-    font-family: Arial, sans-serif;
-    font-size: 14px;
-}
+    # Countdown calculation
+    now_utc = datetime.now(pytz.utc)
+    time_remaining = event_time_utc - now_utc
+    days, seconds = time_remaining.days, time_remaining.seconds
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    
+    # --- Base64 encoded icons for embedding in HTML ---
+    # Using a simple SVG for the bell and user icons to avoid file dependencies.
+    bell_icon_svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+    </svg>
+    """
+    user_icon_svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+    </svg>
+    """
 
-/* Left Section */
-.top-left {
-    display: flex;
-    align-items: center;
-    gap: 25px;
-}
+    # --- CSS for the Header and Dropdown ---
+    st.markdown(f"""
+    <style>
+        /* Main header container */
+        .header {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #000000;
+            padding: 8px 25px;
+            border-bottom: 1px solid #30363d;
+            z-index: 999;
+            box-sizing: border-box; /* Ensures padding is included in width */
+            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 60px; /* Fixed height for the header */
+        }}
 
-/* Middle Section */
-.top-middle {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
+        /* Left and Right sections of the header */
+        .header .left-section, .header .right-section {{
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }}
 
-/* XP Progress Bar */
-.progress-container {
-    background-color: #333;
-    border-radius: 10px;
-    width: 120px;
-    height: 12px;
-    overflow: hidden;
-}
+        /* Individual items in the header */
+        .header-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }}
+        .header-item .label {{
+            color: #8b949e;
+        }}
+        .header-item .value {{
+            font-weight: 600;
+        }}
+        .header-item .countdown-timer {{
+            color: #58a6ff;
+            font-weight: bold;
+        }}
 
-.progress-bar {
-    height: 100%;
-    background-color: #4caf50;
-    width: 50%; /* Dynamic width based on XP */
-}
+        /* XP Progress Bar */
+        .xp-bar-container {{
+            width: 120px;
+            height: 8px;
+            background-color: #30363d;
+            border-radius: 4px;
+            overflow: hidden;
+        }}
+        .xp-bar-progress {{
+            width: {progress_percentage}%;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(88,179,177,1) 0%, rgba(45,112,111,1) 100%);
+            border-radius: 4px;
+        }}
 
-/* Right Section */
-.top-right {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
+        /* Notification Bell */
+        .notification-bell {{
+            position: relative;
+            cursor: pointer;
+            color: #8b949e;
+        }}
+        .notification-bell:hover {{
+            color: #c9d1d9;
+        }}
+        .notification-badge {{
+            position: absolute;
+            top: -5px;
+            right: -8px;
+            background-color: #cf222e;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #000;
+        }}
 
-/* Notification Bell */
-.bell {
-    cursor: pointer;
-}
+        /* User Avatar and Dropdown */
+        .user-avatar-dropdown {{
+            position: relative;
+            cursor: pointer;
+        }}
+        .user-avatar-dropdown .avatar {{
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: #30363d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #c9d1d9;
+        }}
+        .user-avatar-dropdown .dropdown-content {{
+            display: none;
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background-color: #161b22;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+            z-index: 1000;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            overflow: hidden;
+        }}
+        .user-avatar-dropdown:hover .dropdown-content {{
+            display: block;
+        }}
+        .dropdown-content a {{
+            color: #c9d1d9;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+        }}
+        .dropdown-content a:hover {{
+            background-color: #30363d;
+            color: white;
+        }}
 
-/* Avatar dropdown */
-.avatar-dropdown {
-    cursor: pointer;
-}
+        /* Promotional Banner */
+        .promo-banner {{
+            position: fixed;
+            top: 60px; /* Position it right below the header */
+            left: 0;
+            width: 100%;
+            background: linear-gradient(90deg, rgba(88,179,177,1) 0%, rgba(45,112,111,1) 100%);
+            color: white;
+            text-align: center;
+            padding: 6px 0;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 998;
+        }}
+        
+        /* Add padding to the top of the app to prevent content from being hidden by the fixed header and banner */
+        .stApp {{
+            padding-top: 90px; /* Header height (60px) + Banner height (approx 30px) */
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # --- HTML for the Header ---
+    header_html = f"""
+    <div class="header">
+        <div class="left-section">
+            <div class="header-item">
+                <span class="label">Next Event:</span>
+                <span class="value">{event_name} in </span>
+                <span class="countdown-timer">{days}d {hours}h {minutes}m</span>
+            </div>
+            <div class="header-item">
+                <span class="label">Today:</span>
+                <span class="value">{trades_today} Trades Logged</span>
+            </div>
+        </div>
 
-/* Invite button */
-.invite-btn {
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-}
+        <div class="right-section">
+            <div class="header-item">
+                <span class="label">Trader Level: {level}</span>
+                <div class="xp-bar-container" title="{xp_in_current_level}/{xp_for_next_level} XP">
+                    <div class="xp-bar-progress"></div>
+                </div>
+            </div>
 
-.invite-btn:hover {
-    background-color: #45a049;
-}
+            <div class="header-item notification-bell" title="Notifications">
+                {bell_icon_svg}
+                <div class="notification-badge">{notifications}</div>
+            </div>
 
-/* Push content below header */
-.main-content {
-    padding-top: 90px; /* Header height + spacing */
-}
-</style>
-
-<div class="top-header">
-    <div class="top-left">
-        <div>📅 Economic Calendar: 14:30 GMT</div>
-        <div>📝 Today: 12 trades logged</div>
+            <div class="header-item user-avatar-dropdown">
+                <div class="avatar" title="My Account">
+                    {user_icon_svg}
+                </div>
+                <div class="dropdown-content">
+                    <a href="#">Settings</a>
+                    <a href="#">Subscription</a>
+                    <a href="?logout=true" target="_self">Logout</a>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="top-middle">
-        <div>Trader Level</div>
-        <div class="progress-container"><div class="progress-bar"></div></div>
+    <div class="promo-banner">
+        Invite 3 friends &gt; Get 1 month free
     </div>
-    <div class="top-right">
-        <div class="bell">🔔</div>
-        <div class="avatar-dropdown">👤 ▼</div>
-        <button class="invite-btn">Invite 3 friends → Get 1 month free</button>
-    </div>
-</div>
-<div class="main-content"></div>
-"""
+    """
+    
+    st.markdown(header_html, unsafe_allow_html=True)
 
-st.markdown(header_html, unsafe_allow_html=True)
-
-# Example content
-st.title("Welcome to Zentrodash")
-st.write("Scroll down to see your dashboard content below the top header.")
-st.write("Add all your trading widgets, charts, and tools here...")
+    # --- Logout Logic ---
+    if st.query_params.get("logout") == "true":
+        handle_logout() # This is your existing logout function
+        st.query_params.clear() # Clear query params to avoid logout loop
+        st.rerun()
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
