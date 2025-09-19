@@ -26,181 +26,235 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# GLOBAL TOP HEADER IMPLEMENTATION (V4 - LAYOUT CORRECTED)
+# GLOBAL TOP HEADER IMPLEMENTATION
 # =========================================================
 
-# This block should be placed AFTER all global helper functions (like save_user_data) are defined.
+# This entire block should be placed after your sidebar navigation logic
+# and before the main page rendering logic (e.g., before if st.session_state.current_page == 'fundamentals':)
 
 if st.session_state.get('logged_in_user'):
-    # --- 1. Data Preparation ---
-    if 'viewed_notifications' not in st.session_state: st.session_state.viewed_notifications = []
-    
+    # --- 1. Data Preparation for Header ---
+
     # a. Economic Calendar Countdown
-    next_event, target_timestamp_ms = None, 0
     try:
         econ_df_header = econ_df.copy()
         econ_df_header['datetime_str'] = econ_df_header['Date'] + ' ' + econ_df_header['Time']
+        # Assuming event times are in UTC for consistency
         econ_df_header['datetime_utc'] = pd.to_datetime(econ_df_header['datetime_str']).dt.tz_localize('UTC')
         now_utc = datetime.now(pytz.utc)
+        
         future_events = econ_df_header[econ_df_header['datetime_utc'] > now_utc].sort_values('datetime_utc')
+        
+        next_event = None
         if not future_events.empty:
             next_event = future_events.iloc[0]
+            # Format for JavaScript (milliseconds since epoch)
             target_timestamp_ms = int(next_event['datetime_utc'].timestamp() * 1000)
-    except Exception: pass
+    except Exception as e:
+        next_event = None
+        logging.error(f"Header Countdown Error: {e}")
+
 
     # b. Trades Logged Today
-    journal_df = st.session_state.trade_journal
     trades_today_count = 0
-    if not journal_df.empty and 'Date' in journal_df.columns:
-        trades_today_count = len(journal_df[pd.to_datetime(journal_df['Date']).dt.date == date.today()])
+    try:
+        journal_df = st.session_state.trade_journal
+        if not journal_df.empty and 'Date' in journal_df.columns:
+            journal_df['Date'] = pd.to_datetime(journal_df['Date'])
+            # Compare just the date part, ensuring timezone awareness isn't an issue
+            trades_today = journal_df[journal_df['Date'].dt.date == date.today()]
+            trades_today_count = len(trades_today)
+    except Exception as e:
+        logging.error(f"Header Trades Today Error: {e}")
 
     # c. XP Progress
-    xp, level = st.session_state.get('xp', 0), st.session_state.get('level', 0)
+    xp = st.session_state.get('xp', 0)
+    level = xp // 100
     progress_to_next_level = xp % 100
-    
-    # d. Notifications
-    new_notifications = [f"🏅 New Badge Earned: **{b}**" for b in st.session_state.get('badges', []) if b not in st.session_state.get('viewed_notifications', [])]
-    has_new_notifications = len(new_notifications) > 0
+    xp_for_next_level = (level + 1) * 100
 
-    def mark_notifications_as_viewed():
-        viewed = st.session_state.get('viewed_notifications', [])
-        for badge in st.session_state.get('badges', []):
-            if badge not in viewed: viewed.append(badge)
-        st.session_state.viewed_notifications = viewed
-        save_user_data(st.session_state.logged_in_user)
 
-    # --- 2. CSS Styling ---
-    st.markdown(f"""
+    # --- 2. CSS Styling for the Header ---
+    st.markdown("""
     <style>
-        .main-header-wrapper {{
-            background-color: #000000;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 8px 15px;
-            margin-bottom: 2rem;
-        }}
-        .header-item {{
-            display: flex; align-items: center; gap: 8px;
-            color: #c9d1d9; font-size: 0.9rem; white-space: nowrap; height: 100%;
-        }}
-        #countdown-timer {{
-            background-color: #161b22; padding: 4px 8px; border-radius: 5px;
-            font-weight: 500; border: 1px solid #58a6ff;
-        }}
-        .xp-progress-bar-container {{
-            width: 120px; height: 12px; background-color: #30363d;
-            border-radius: 6px; overflow: hidden;
-        }}
-        .xp-progress-bar {{
-            height: 100%; width: {progress_to_next_level}%;
-            background: linear-gradient(90deg, #58a6ff, #316dca);
-        }}
-        .invite-banner {{
-            background: linear-gradient(90deg, #238636, #1a5c2e); color: white;
-            padding: 5px 10px; border-radius: 5px; font-weight: 500; font-size: 0.85rem;
-        }}
-        
-        /* Popover Base Button Style Removal */
-        div[data-testid="stPopover"] > button {{
-            background-color: transparent !important; border: none !important;
-            padding: 0 !important; margin: 0 !important; box-shadow: none !important;
-        }}
-        
-        /* Bell Specific Styling */
-        .bell-popover-trigger button {{
-            font-size: 1.4rem; color: #8b949e; position: relative;
-        }}
-        .notification-dot {{
-            height: 8px; width: 8px; background-color: #cf222e; border-radius: 50%;
-            position: absolute; top: 0; right: -2px; border: 1.5px solid #000000;
-        }}
-
-        /* Avatar Specific Styling */
-        .avatar-popover-trigger button {{
-            display: inline-flex !important; align-items: center; justify-content: center;
-            width: 34px !important; height: 34px !important; min-width: 34px !important;
-            border-radius: 50% !important; background-color: #30363d !important;
-            border: 2px solid #58a6ff !important; color: #c9d1d9 !important; font-weight: 600 !important;
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }}
-        .avatar-popover-trigger button:hover {{
-             transform: scale(1.1); border-color: #fff !important;
-        }}
+    .top-header {
+        background-color: #0d1117; /* Dark background */
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 8px 15px;
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap; /* Allows items to wrap on smaller screens */
+    }
+    .header-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #c9d1d9;
+        font-size: 0.9rem;
+    }
+    .header-item-strong {
+        font-weight: 600;
+        color: #58a6ff;
+    }
+    /* Countdown Timer Style */
+    #countdown-timer {
+        background-color: #161b22;
+        padding: 4px 8px;
+        border-radius: 5px;
+        border: 1px solid #58a6ff;
+    }
+    /* XP Bar */
+    .xp-progress-bar-container {
+        width: 120px;
+        height: 12px;
+        background-color: #30363d;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .xp-progress-bar {
+        height: 100%;
+        width: """ + str(progress_to_next_level) + """%;
+        background: linear-gradient(90deg, #58a6ff, #316dca);
+        border-radius: 6px;
+    }
+    /* Notification Bell */
+    .notification-bell {
+        font-size: 1.4rem;
+        color: #8b949e;
+        cursor: pointer;
+        position: relative;
+    }
+    .notification-bell:hover {
+        color: #c9d1d9;
+    }
+    /* Invite Banner */
+    .invite-banner {
+        background: linear-gradient(90deg, #238636, #1a5c2e);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+    /* User Avatar */
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: #30363d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: #c9d1d9;
+        cursor: pointer;
+        border: 2px solid #58a6ff;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- 3. Header Layout & Rendering ---
-    with st.container(border=False):
-        st.markdown('<div class="main-header-wrapper">', unsafe_allow_html=True)
-        
-        cols = st.columns([2.5, 1.7, 1.7, 1, 0.4, 0.4, 2], vertical_alignment="center")
 
-        with cols[0]: # Economic Calendar
-            if next_event:
-                st.markdown(f'<div class="header-item"><span>⏳ {next_event["Event"][:20]} ({next_event["Currency"]})</span><span id="countdown-timer"></span></div>', unsafe_allow_html=True)
-                components.html(f"""
-                <script>
+    # --- 3. Header Layout & Rendering ---
+    
+    # Use st.columns for better responsive handling than pure flexbox in Markdown
+    c1, c2, c3, c4, c5 = st.columns([2, 2.2, 1.8, 0.5, 3])
+
+    # a. Economic Calendar
+    with c1:
+        if next_event is not None:
+            st.markdown(
+                f"""
+                <div class="header-item">
+                    <span>⏳ {next_event['Event']} ({next_event['Currency']}):</span>
+                    <span id="countdown-timer"></span>
+                </div>
+                """, unsafe_allow_html=True
+            )
+            
+            # JavaScript for the countdown timer
+            components.html(f"""
+            <script>
                 var countDownDate = new Date({target_timestamp_ms}).getTime();
                 var timerElement = parent.document.getElementById("countdown-timer");
-                if (timerElement && !timerElement.classList.contains('initialized')) {{
-                    timerElement.classList.add('initialized');
+
+                if (timerElement) {{
                     var x = setInterval(function() {{
                         var now = new Date().getTime();
                         var distance = countDownDate - now;
+
                         var days = Math.floor(distance / (1000 * 60 * 60 * 24));
                         var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                         var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                         var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                        timerElement.innerHTML = (days > 0 ? days + "d " : "") + hours + "h " + minutes + "m " + seconds + "s ";
-                        if (distance < 0) {{ clearInterval(x); timerElement.innerHTML = "NOW"; }}
+
+                        timerElement.innerHTML = days + "d " + hours + "h " + minutes + "m " + seconds + "s ";
+
+                        if (distance < 0) {{
+                            clearInterval(x);
+                            timerElement.innerHTML = "NOW";
+                        }}
                     }}, 1000);
-                }}</script>""", height=0)
+                }}
+            </script>
+            """, height=0)
+        else:
+            st.markdown('<div class="header-item"><span>No upcoming high-impact events.</span></div>', unsafe_allow_html=True)
 
-        with cols[1]: # Trades Logged
-            st.markdown(f'<div class="header-item">🗓️ Today:<span class="header-item-strong">{trades_today_count} trades logged</span></div>', unsafe_allow_html=True)
-            
-        with cols[2]: # XP Bar
-            st.markdown(f'<div class="header-item" title="{xp%100}/100 XP">Lvl {level}<div class="xp-progress-bar-container"><div class="xp-progress-bar"></div></div></div>', unsafe_allow_html=True)
+    # b. Trades Logged & XP Bar
+    with c2:
+        st.markdown(
+            f"""
+            <div class="header-item">
+                <span>🗓️ Today:</span> <span class="header-item-strong">{trades_today_count} trades logged</span>
+            </div>
+            """, unsafe_allow_html=True
+        )
+    with c3:
+        st.markdown(
+            f"""
+            <div class="header-item" title="{xp}/{xp_for_next_level} XP">
+                <span>Trader Lvl {level}</span>
+                <div class="xp-progress-bar-container"><div class="xp-progress-bar"></div></div>
+            </div>
+            """, unsafe_allow_html=True
+        )
 
-        # cols[3] is the flexible spacer, pushing content to the sides
+    # c. Notification Bell & User Avatar/Dropdown
+    with c4:
+        st.markdown('<div class="header-item notification-bell" title="Notifications">🔔</div>', unsafe_allow_html=True)
+    
+    # Get user initial for avatar
+    user_initial = st.session_state.get("user_nickname", st.session_state.get("logged_in_user", "U"))[0].upper()
+    
+    # Combine Avatar and Invite Banner
+    with c5, st.container():
+        user_col, invite_col = st.columns([0.5, 2])
+        with user_col:
+             with st.popover("", use_container_width=True):
+                st.markdown(f"Signed in as **{st.session_state.user_nickname}**")
+                st.markdown("---")
+                if st.button("⚙️ Settings", use_container_width=True):
+                    st.session_state.current_page = 'account'
+                    st.rerun()
+                if st.button("💳 Subscription", use_container_width=True):
+                    # Placeholder for subscription page logic
+                    st.toast("Subscription management coming soon!")
+                st.markdown("---")
+                if st.button("Log Out", use_container_width=True):
+                    handle_logout() # Assuming handle_logout is a globally defined function
+             
+             # The visible part of the popover (the avatar)
+             st.markdown(f'<div class="user-avatar">{user_initial}</div>', unsafe_allow_html=True)
+             
+        with invite_col:
+            st.markdown('<div class="header-item invite-banner"><span>🎉 Invite 3 friends > Get 1 month free</span></div>', unsafe_allow_html=True)
 
-        with cols[4]: # Notification Bell
-            st.markdown('<div class="bell-popover-trigger">', unsafe_allow_html=True)
-            with st.popover(""):
-                st.markdown("<h5>Notifications</h5>", unsafe_allow_html=True)
-                if new_notifications:
-                    for notif in new_notifications:
-                        st.info(notif, icon="🎉")
-                    if st.button("Mark as Read", on_click=mark_notifications_as_viewed): pass
-                else:
-                    st.write("No new notifications.")
-            
-            # The visible icon is now the popover's label
-            st.markdown(f"🔔{'<div class=\"notification-dot\"></div>' if has_new_notifications else ''}</div>", unsafe_allow_html=True)
-
-        with cols[5]: # User Avatar
-            user_initial = st.session_state.get("user_nickname", "U")[0].upper()
-            st.markdown('<div class="avatar-popover-trigger">', unsafe_allow_html=True)
-            with st.popover(""):
-                 st.markdown(f"Signed in as **{st.session_state.user_nickname}**")
-                 st.divider()
-                 if st.button("⚙️ Settings", use_container_width=True):
-                     st.session_state.current_page = 'account'
-                     st.rerun()
-                 if st.button("💳 Subscription", use_container_width=True):
-                     st.toast("Subscription management coming soon!")
-                 st.divider()
-                 if st.button("Log Out", use_container_width=True):
-                     handle_logout()
-            
-            # The visible avatar is the popover's label, styled by CSS
-            st.markdown(f"{user_initial}</div>", unsafe_allow_html=True)
-
-        with cols[6]: # Invite Banner
-            st.markdown('<div class="header-item invite-banner">🎉 Invite 3 friends > Get 1 month free</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True) # Close .main-header-wrapper
-
+    # Add a horizontal rule to separate the header from the page content
+    st.markdown("<hr style='margin-top: -1.5rem; margin-bottom: 2rem;'/>", unsafe_allow_html=True)
 # END OF GLOBAL HEADER
 # =========================================================
 
