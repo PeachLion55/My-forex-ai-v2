@@ -27,83 +27,125 @@ from datetime import datetime, date, timedelta
 
 import streamlit as st
 
-# Page configuration
-st.set_page_config(
-    page_title="Zentrodash",
-    layout="wide"
-)
+st.set_page_config(page_title="Zentrodash", layout="wide")
 
-# CSS for global top header
-header_css = """
+# CSS + HTML for top header
+header_html = """
 <style>
-/* Hide default Streamlit menu and footer */
+/* Hide default Streamlit elements */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
-/* Global top header */
+/* Fixed top header */
 .top-header {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 60px;
-    background-color: #1a1a1a;
+    height: 70px;
+    background-color: #111;
     color: white;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 0 30px;
     z-index: 9999;
-    box-shadow: 0px 3px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    font-family: Arial, sans-serif;
+    font-size: 14px;
 }
 
-/* Logo */
-.top-header .logo {
-    font-weight: bold;
-    font-size: 1.5em;
-    margin-right: 50px;
+/* Left Section */
+.top-left {
+    display: flex;
+    align-items: center;
+    gap: 25px;
 }
 
-/* Navigation links */
-.top-header nav a {
+/* Middle Section */
+.top-middle {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* XP Progress Bar */
+.progress-container {
+    background-color: #333;
+    border-radius: 10px;
+    width: 120px;
+    height: 12px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #4caf50;
+    width: 50%; /* Dynamic width based on XP */
+}
+
+/* Right Section */
+.top-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Notification Bell */
+.bell {
+    cursor: pointer;
+}
+
+/* Avatar dropdown */
+.avatar-dropdown {
+    cursor: pointer;
+}
+
+/* Invite button */
+.invite-btn {
+    background-color: #4caf50;
     color: white;
-    text-decoration: none;
-    margin-left: 25px;
-    font-weight: 500;
-    font-size: 1em;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
 }
 
-.top-header nav a:hover {
-    text-decoration: underline;
+.invite-btn:hover {
+    background-color: #45a049;
 }
 
-/* Push page content below header */
+/* Push content below header */
 .main-content {
-    padding-top: 80px; /* header height + some spacing */
+    padding-top: 90px; /* Header height + spacing */
 }
 </style>
 
-<!-- HTML for header -->
 <div class="top-header">
-    <div class="logo">Zentrodash</div>
-    <nav>
-        <a href="#">Home</a>
-        <a href="#">Performance</a>
-        <a href="#">Trading Tools</a>
-        <a href="#">Community</a>
-        <a href="#">Academy</a>
-    </nav>
+    <div class="top-left">
+        <div>📅 Economic Calendar: 14:30 GMT</div>
+        <div>📝 Today: 12 trades logged</div>
+    </div>
+    <div class="top-middle">
+        <div>Trader Level</div>
+        <div class="progress-container"><div class="progress-bar"></div></div>
+    </div>
+    <div class="top-right">
+        <div class="bell">🔔</div>
+        <div class="avatar-dropdown">👤 ▼</div>
+        <button class="invite-btn">Invite 3 friends → Get 1 month free</button>
+    </div>
 </div>
 <div class="main-content"></div>
 """
 
-# Inject CSS + header
-st.markdown(header_css, unsafe_allow_html=True)
+st.markdown(header_html, unsafe_allow_html=True)
 
-# Example page content
+# Example content
 st.title("Welcome to Zentrodash")
-st.write("Your all-in-one Forex dashboard for retail traders.")
-st.write("Scroll down to see how the header stays fixed while the content moves.")
-st.write("Add all your dashboard widgets below this section...")
+st.write("Scroll down to see your dashboard content below the top header.")
+st.write("Add all your trading widgets, charts, and tools here...")
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
