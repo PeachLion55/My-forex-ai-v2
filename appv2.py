@@ -74,31 +74,41 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                                            # --- 2. CSS Styling for the Header ---
+                                                                # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /*
     =================================================================
-    THE DEFINITIVE SOLUTION: 'display: flow-root' to Contain Margins
+    THE DEFINITIVE SOLUTION: Bypassing Streamlit with Absolute Positioning
     =================================================================
     */
 
     /*
-    STEP 1: Find the Streamlit container directly after the header.
-    
-    STEP 2: Apply the two key properties:
-    - 'display: flow-root;' creates a new block formatting context, which
-      is the modern way to contain margins and prevent them from collapsing.
-    - 'margin-top: -2.8rem;' can now pull the element up safely because
-      it is trapped inside the new context. The header will NOT move.
-
-    *** YOU CAN NOW ADJUST THE '-2.8rem' VALUE ***
-    - It should now work perfectly. Adjust the value until the spacing is exactly
-      how you want it. For example: -2.5rem, -3.0rem, etc.
+    STEP 1: Prepare the main content area.
+    - 'position: relative;' is CRITICAL. It establishes the positioning boundary
+      for our absolute header.
+    - 'padding-top: 80px;' creates the dedicated space at the top where our
+      header will live. Adjust this value up or down to fine-tune the space
+      between your header and the content below it.
     */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
-        display: flow-root !important;
-        margin-top: -4.8rem !important;
+    div[data-testid="stVerticalBlock"] {
+        position: relative !important;
+        padding-top: 80px !important; /* YOU CAN ADJUST THIS VALUE */
+    }
+
+    /*
+    STEP 2: Isolate and position the header.
+    - 'position: absolute;' lifts the header out of Streamlit's layout control.
+    - 'top', 'left', and 'right' pin it to the top of the prepared space.
+    - 'z-index' ensures it floats above all other content.
+    */
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
+        position: absolute !important;
+        top: 1rem !important; /* Positions header 1rem from the top of the page */
+        left: 1rem !important;
+        right: 1rem !important;
+        width: auto !important; /* Allow width to be determined by left/right */
+        z-index: 99 !important;
     }
 
     /* Your Original Header Styles (Unchanged) */
