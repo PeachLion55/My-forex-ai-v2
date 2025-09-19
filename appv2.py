@@ -86,7 +86,7 @@ if st.session_state.get('logged_in_user'):
     =================================================================
     */
     div[data-testid="stVerticalBlock"] > div:has(div.top-header) + div {
-        margin-top: -1.5rem !important;
+        margin-top: -5rem !important;
     }
 
     /* This rule targets the header's own container to remove any unwanted bottom margin */
