@@ -74,25 +74,28 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-            # --- 2. CSS Styling for the Header ---
+                # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /* 
     =================================================================
-    THE NEW FIX: More Aggressive & Specific
-    ================================e=================================
+    THE CORRECT FIX: Target the GAP, not the header.
+    =================================================================
+    1.  Find the Streamlit container ('div') that holds our custom 'header-container'.
+    2.  Use the '+' CSS selector to target the VERY NEXT sibling element.
+        This sibling is the container holding the "Trading Tools" section.
+    3.  Apply a negative top margin to THAT sibling to pull it upwards,
+        closing the gap without affecting the header's position.
     */
-    /*
-    1.  Find the main vertical block that holds all page elements.
-    2.  Find the direct child ('> div') that CONTAINS (':has') our custom 'header-container'.
-    3.  Forcefully apply a negative margin to this Streamlit-generated wrapper to
-        pull all subsequent content up, thereby closing the gap. '!important' is crucial.
-    */
-    div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
-        margin-top: -3.0rem !important; /* Increased negative margin for a stronger effect */
+    div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
+        margin-top: -2.5rem !important; /* Adjust this value as needed */
     }
 
     /* Keep the rest of your styles */
+    .header-container {
+        /* No margin styles needed here anymore */
+    }
+
     .top-header {
         background-color: #0d1117;
         border: 1px solid #30363d;
