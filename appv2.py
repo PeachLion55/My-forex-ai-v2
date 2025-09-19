@@ -74,23 +74,39 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                            # --- 2. CSS Styling for the Header ---
+                                                # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /*
     =================================================================
-    THE FINAL SOLUTION: Overcome the full gap with one targeted rule.
+    THE FINAL SOLUTION: Taking Safe Control of Vertical Spacing
     =================================================================
-
-    This single rule targets the container directly after the header and
-    applies an aggressive negative margin to cancel out all vertical spacing.
-    
-    *** YOU CAN EDIT THE '-2.5rem' VALUE. ***
-    - If the gap is still too big, try -2.8rem or -3rem.
-    - If the content moves up too much, try -2.2rem or -2rem.
     */
-    div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -2.8rem !important;
+
+    /*
+    STEP 1: Globally remove Streamlit's default 'gap' property.
+    This neutralizes the source of the unpredictable spacing.
+    */
+    div[data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+    }
+
+    /*
+    STEP 2: Re-introduce a standard margin for ALL elements.
+    This re-establishes a normal, controllable space between all other
+    components in your app, so the overall layout looks correct.
+    */
+    div[data-testid="stVerticalBlock"] > div {
+        margin-bottom: 1rem; /* Acts as the new default gap */
+    }
+
+    /*
+    STEP 3: Surgically remove the margin ONLY at the problem area.
+    This rule targets the Streamlit container that holds your header and
+    removes the bottom margin we just added, closing the gap from above.
+    */
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
+        margin-bottom: 0 !important;
     }
 
 
