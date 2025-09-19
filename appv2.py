@@ -82,7 +82,7 @@ if st.session_state.get('logged_in_user'):
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -255,6 +255,7 @@ if st.session_state.get('logged_in_user'):
 
     # Add a horizontal rule to separate the header from the page content
     st.markdown("<hr style='margin-top: -1.5rem; margin-bottom: 2rem;'/>", unsafe_allow_html=True)
+# =========================================================
 # END OF GLOBAL HEADER
 # =========================================================
 
