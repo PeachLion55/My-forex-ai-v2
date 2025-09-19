@@ -74,28 +74,37 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                # --- 2. CSS Styling for the Header ---
+                    # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /* 
     =================================================================
-    THE CORRECT FIX: Target the GAP, not the header.
+    THE COMPREHENSIVE FIX: Controlling Margin-Top & Margin-Bottom
     =================================================================
-    1.  Find the Streamlit container ('div') that holds our custom 'header-container'.
-    2.  Use the '+' CSS selector to target the VERY NEXT sibling element.
-        This sibling is the container holding the "Trading Tools" section.
-    3.  Apply a negative top margin to THAT sibling to pull it upwards,
-        closing the gap without affecting the header's position.
+    */
+
+    /*
+    STEP 1: Target the header's own Streamlit container.
+    This rule finds the wrapper around your header and forcefully removes
+    any space (margin or padding) below it. This prevents the header
+    from "pushing" other content down.
+    */
+    div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
+        margin-bottom: 0rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /*
+    STEP 2: Target the content container immediately BELOW the header.
+    This rule finds the next element after the header's container and
+    applies a negative top margin to "pull" it up, closing the gap from below.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -3.0rem !important; /* Adjust this value as needed */
+        margin-top: -2.5rem !important;
+        padding-top: 0rem !important;
     }
 
-    /* Keep the rest of your styles */
-    .header-container {
-        /* No margin styles needed here anymore */
-    }
-
+    /* Your Original Header Styles (Unchanged) */
     .top-header {
         background-color: #0d1117;
         border: 1px solid #30363d;
