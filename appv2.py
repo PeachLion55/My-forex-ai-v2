@@ -79,43 +79,47 @@ st.markdown("""
 <style>
 /*
 =================================================================
-THE DEFINITIVE FIX: A Self-Contained Solution
+THE FINAL SOLUTION: Overriding the Container Height
 =================================================================
-*/
 
-/*
-This is the ONLY rule you need. It targets the outer wrapper and
-pulls all subsequent content up. Because of the 'flow-root' blocker
-in the HTML, this margin CANNOT escape and will not affect the
-header's position.
-
-*** THIS IS THE ONLY VALUE TO ADJUST. ***
-- If a small gap remains, try a more negative value like -2.8rem.
-- If it pulls up too much, try a less negative value like -2.2rem.
+This is the only rule needed. It finds the Streamlit container that
+wraps the header and forces its height to be only as tall as its
+content, eliminating any extra space assigned by Streamlit.
 */
-.header-wrapper {
-    margin-bottom: -2.5rem;
+div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
+    height: auto !important;
+    min-height: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* 
+And to be absolutely sure, we will remove the space that Streamlit
+tries to add between elements.
+*/
+div[data-testid="stVerticalBlock"] {
+    gap: 0 !important;
 }
 
 
-/* All of your original header styles are below and are unchanged. */
+/* Your Original Header Styles Are Below and Are Unchanged */
 .top-header {
-    background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px;
-    padding: 8px 15px; display: flex; align-items: center;
+    background-color: #0d1117; border: 1px solid #3036d; border-radius: 8px;
+    padding: 8px 15px; display: flex; align-items: center; margin-bottom: 1rem;
     justify-content: space-between; gap: 10px; flex-wrap: wrap;
 }
 .header-item { display: flex; align-items: center; gap: 8px; color: #c9d1d9; font-size: 0.9rem; }
 .header-item-strong { font-weight: 600; color: #58a6ff; }
 #countdown-timer { background-color: #161b22; padding: 4px 8px; border-radius: 5px; border: 1px solid #58a6ff; }
-.xp-progress-bar-container { width: 120px; height: 12px; background-color: #30363d; border-radius: 6px; overflow: hidden; }
+.xp-progress-bar-container { width: 120px; height: 12px; background-color: #3036d; border-radius: 6px; overflow: hidden; }
 .xp-progress-bar { height: 100%; width: """ + str(progress_to_next_level) + """%; background: linear-gradient(90deg, #58a6ff, #316dca); border-radius: 6px; }
 .notification-bell { font-size: 1.4rem; color: #8b949e; cursor: pointer; position: relative; }
 .notification-bell:hover { color: #c9d1d9; }
 .invite-banner { background: linear-gradient(90deg, #238636, #1a5c2e); color: white; padding: 5px 10px; border-radius: 5px; font-weight: 500; font-size: 0.85rem; }
-.user-avatar { width: 32px; height: 32px; border-radius: 50%; background-color: #30363d; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #c9d1d9; cursor: pointer; border: 2px solid #58a6ff; }
+.user-avatar { width: 32px; height: 32px; border-radius: 50%; background-color: #3036d; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #c9d1d9; cursor: pointer; border: 2px solid #58a6ff; }
+
 </style>
 """, unsafe_allow_html=True)
-
     # --- 3. Header Layout & Rendering ---
 
 # By wrapping our header in these two divs, we create a controlled
