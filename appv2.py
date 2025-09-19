@@ -74,39 +74,24 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                                # --- 2. CSS Styling for the Header ---
+                                                    # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /*
     =================================================================
-    THE FINAL SOLUTION: Taking Safe Control of Vertical Spacing
+    THE DEFINITIVE FIX: Using CSS Transform for Stable Positioning
     =================================================================
-    */
 
-    /*
-    STEP 1: Globally remove Streamlit's default 'gap' property.
-    This neutralizes the source of the unpredictable spacing.
+    This single rule targets the container AFTER the header and visually
+    slides it upwards without affecting the document layout. This is the
+    correct and stable way to close a persistent gap when margin fails.
+    
+    *** YOU CAN EDIT THE '-2.5rem' VALUE. ***
+    - If a small gap remains, try a larger negative value like -2.8rem.
+    - If it moves up too much, try a smaller negative value like -2.2rem.
     */
-    div[data-testid="stVerticalBlock"] {
-        gap: 0 !important;
-    }
-
-    /*
-    STEP 2: Re-introduce a standard margin for ALL elements.
-    This re-establishes a normal, controllable space between all other
-    components in your app, so the overall layout looks correct.
-    */
-    div[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 1rem; /* Acts as the new default gap */
-    }
-
-    /*
-    STEP 3: Surgically remove the margin ONLY at the problem area.
-    This rule targets the Streamlit container that holds your header and
-    removes the bottom margin we just added, closing the gap from above.
-    */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
-        margin-bottom: 0 !important;
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
+        transform: translateY(-2.5rem) !important;
     }
 
 
