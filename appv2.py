@@ -74,34 +74,32 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                # --- 2. CSS Styling for the Header ---
+                                    # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /* 
     =================================================================
-    THE DEFINITIVE FIX: Neutralize Spacing, No Negative Margins
+    THE FINAL STRATEGY: Target the Parent's 'gap' Property
     =================================================================
     */
 
     /*
-    STEP 1: Target the Streamlit wrapper FOR the header.
-    This rule finds the container that holds your header and completely
-    REMOVES any space (margin or padding) at its BOTTOM.
+    STEP 1: Find the main container for all elements and kill its spacing.
+    This is the key rule. It forces the space between all Streamlit
+    elements to zero.
     */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
-        margin-bottom: 0rem !important;
-        padding-bottom: 0rem !important;
+    div[data-testid="stVerticalBlock"] {
+        gap: 0rem !important;
     }
 
     /*
-    STEP 2: Target the Streamlit wrapper AFTER the header.
-    This rule finds the container holding the "Trading Tools" section and
-    completely REMOVES any space at its TOP. This directly counteracts
-    Streamlit's default "gap" without causing erratic movement.
+    STEP 2: Find our header's wrapper and add our OWN controlled space below it.
+    Now that the default gap is gone, we can add a sane margin-bottom
+    to the header block to create a normal-sized space.
+    Adjust '1rem' to '1.5rem' or '0.5rem' to get your desired spacing.
     */
-    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) + div {
-        margin-top: 0rem !important;
-        padding-top: 0rem !important;
+    div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
+        margin-bottom: 1rem !important;
     }
 
 
@@ -111,7 +109,7 @@ if st.session_state.get('logged_in_user'):
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 8px 15px;
-        margin-bottom: 1rem; /* We add a margin HERE, inside our controlled space */
+        /* margin-bottom is no longer needed here, it's controlled by the wrapper rule above */
         display: flex;
         align-items: center;
         justify-content: space-between;
