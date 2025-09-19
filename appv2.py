@@ -74,57 +74,114 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                                                                    # --- 2. CSS Styling for the Header ---
+                                                                        # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /*
     =================================================================
-    THE SURGICAL SOLUTION: Resetting the Gap, then Excluding the Header
+    THE FINAL SOLUTION: Taking Safe Control of Vertical Spacing
     =================================================================
     */
 
     /*
-    STEP 1: RESET the problematic 'gap' property globally.
-    This neutralizes the source of the issue.
+    STEP 1: Globally remove Streamlit's default 'gap' property.
+    This neutralizes the source of the unpredictable spacing.
     */
     div[data-testid="stVerticalBlock"] {
         gap: 0 !important;
     }
 
     /*
-    STEP 2: REBUILD the layout by adding a standard margin to ALL elements.
-    This puts the space back everywhere, restoring your app's intended layout.
-    The '1rem' value is Streamlit's default.
+    STEP 2: Re-introduce a standard margin for ALL elements.
+    This re-establishes a normal, controllable space between all other
+    components in your app, so the overall layout looks correct.
     */
     div[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 1rem !important;
+        margin-bottom: 1rem; /* Acts as the new default gap */
     }
 
     /*
-    STEP 3: EXCLUDE the header's container from this new margin.
-    This final, surgical rule finds the specific container wrapping your header
-    and removes its bottom margin, closing the gap ONLY in this one spot
-    without affecting any other part of your app.
+    STEP 3: Surgically remove the margin ONLY at the problem area.
+    This rule targets the Streamlit container that holds your header and
+    removes the bottom margin we just added, closing the gap from above.
     */
     div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
         margin-bottom: 0 !important;
     }
 
-    /* Your Original Header Styles Are Below and Are Unchanged */
+
+    /* Your Original Header Styles (Unchanged) */
     .top-header {
-        background-color: #0d1117; border: 1px solid #3036d; border-radius: 8px;
-        padding: 8px 15px; display: flex; align-items: center;
-        justify-content: space-between; gap: 10px; flex-wrap: wrap;
+        background-color: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 8px 15px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
     }
-    .header-item { display: flex; align-items: center; gap: 8px; color: #c9d1d9; font-size: 0.9rem; }
-    .header-item-strong { font-weight: 600; color: #58a6ff; }
-    #countdown-timer { background-color: #161b22; padding: 4px 8px; border-radius: 5px; border: 1px solid #58a6ff; }
-    .xp-progress-bar-container { width: 120px; height: 12px; background-color: #3036d; border-radius: 6px; overflow: hidden; }
-    .xp-progress-bar { height: 100%; width: """ + str(progress_to_next_level) + """%; background: linear-gradient(90deg, #58a6ff, #316dca); border-radius: 6px; }
-    .notification-bell { font-size: 1.4rem; color: #8b949e; cursor: pointer; position: relative; }
-    .notification-bell:hover { color: #c9d1d9; }
-    .invite-banner { background: linear-gradient(90deg, #238636, #1a5c2e); color: white; padding: 5px 10px; border-radius: 5px; font-weight: 500; font-size: 0.85rem; }
-    .user-avatar { width: 32px; height: 32px; border-radius: 50%; background-color: #3036d; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #c9d1d9; cursor: pointer; border: 2px solid #58a6ff; }
+    .header-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #c9d1d9;
+        font-size: 0.9rem;
+    }
+    .header-item-strong {
+        font-weight: 600;
+        color: #58a6ff;
+    }
+    #countdown-timer {
+        background-color: #161b22;
+        padding: 4px 8px;
+        border-radius: 5px;
+        border: 1px solid #58a6ff;
+    }
+    .xp-progress-bar-container {
+        width: 120px;
+        height: 12px;
+        background-color: #30363d;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .xp-progress-bar {
+        height: 100%;
+        width: """ + str(progress_to_next_level) + """%;
+        background: linear-gradient(90deg, #58a6ff, #316dca);
+        border-radius: 6px;
+    }
+    .notification-bell {
+        font-size: 1.4rem;
+        color: #8b949e;
+        cursor: pointer;
+        position: relative;
+    }
+    .notification-bell:hover {
+        color: #c9d1d9;
+    }
+    .invite-banner {
+        background: linear-gradient(90deg, #238636, #1a5c2e);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background-color: #30363d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: #c9d1d9;
+        cursor: pointer;
+        border: 2px solid #58a6ff;
+    }
     </style>
     """, unsafe_allow_html=True)
     # --- 3. Header Layout & Rendering ---
