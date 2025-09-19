@@ -88,8 +88,8 @@ if st.session_state.get('logged_in_user'):
     This ensures the gap isn't coming from the header pushing down.
     */
     div[data-testid="stVerticalBlock"] > div:has(> div.header-container) {
-        padding-bottom: 0 !important;
-        margin-bottom: -5.0 !important;
+        padding-bottom: 10 !important;
+        margin-bottom: -10.0 !important;
     }
 
     /*
