@@ -74,35 +74,34 @@ if st.session_state.get('logged_in_user'):
     xp_for_next_level = (level + 1) * 100
 
 
-                    # --- 2. CSS Styling for the Header ---
+                        # --- 2. CSS Styling for the Header ---
     st.markdown("""
     <style>
     /* 
     =================================================================
-    THE COMPREHENSIVE FIX: Controlling Margin-Top & Margin-Bottom
+    THE DEBUGGING FIX: Let's see what we are targeting.
     =================================================================
     */
 
     /*
-    STEP 1: Target the header's own Streamlit container.
-    This rule finds the wrapper around your header and forcefully removes
-    any space (margin or padding) below it. This prevents the header
-    from "pushing" other content down.
+    STEP 1: Find the header's container.
+    This rule should draw a 2px BLUE border around your entire header block.
+    If you see this, we are successfully targeting the header's wrapper.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) {
-        margin-bottom: -4.0rem !important;
-        padding-bottom: 0rem !important;
+        border: 2px solid blue !important; /* DEBUGGING BORDER */
     }
 
     /*
-    STEP 2: Target the content container immediately BELOW the header.
-    This rule finds the next element after the header's container and
-    applies a negative top margin to "pull" it up, closing the gap from below.
+    STEP 2: Find the content BELOW the header and pull it up.
+    This rule should draw a 2px RED border around the "Trading Tools"
+    section and apply a negative top margin to pull it up, closing the gap.
     */
     div[data-testid="stVerticalBlock"] > div:has(div.header-container) + div {
-        margin-top: -6.0rem !important;
-        padding-top: 0rem !important;
+        border: 2px solid red !important; /* DEBUGGING BORDER */
+        margin-top: -2.8rem !important; /* Increase this value if needed */
     }
+
 
     /* Your Original Header Styles (Unchanged) */
     .top-header {
