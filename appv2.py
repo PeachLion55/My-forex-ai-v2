@@ -25,6 +25,85 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+import streamlit as st
+
+# Page configuration
+st.set_page_config(
+    page_title="Zentrodash",
+    layout="wide"
+)
+
+# CSS for global top header
+header_css = """
+<style>
+/* Hide default Streamlit menu and footer */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Global top header */
+.top-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background-color: #1a1a1a;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    z-index: 9999;
+    box-shadow: 0px 3px 5px rgba(0,0,0,0.2);
+}
+
+/* Logo */
+.top-header .logo {
+    font-weight: bold;
+    font-size: 1.5em;
+    margin-right: 50px;
+}
+
+/* Navigation links */
+.top-header nav a {
+    color: white;
+    text-decoration: none;
+    margin-left: 25px;
+    font-weight: 500;
+    font-size: 1em;
+}
+
+.top-header nav a:hover {
+    text-decoration: underline;
+}
+
+/* Push page content below header */
+.main-content {
+    padding-top: 80px; /* header height + some spacing */
+}
+</style>
+
+<!-- HTML for header -->
+<div class="top-header">
+    <div class="logo">Zentrodash</div>
+    <nav>
+        <a href="#">Home</a>
+        <a href="#">Performance</a>
+        <a href="#">Trading Tools</a>
+        <a href="#">Community</a>
+        <a href="#">Academy</a>
+    </nav>
+</div>
+<div class="main-content"></div>
+"""
+
+# Inject CSS + header
+st.markdown(header_css, unsafe_allow_html=True)
+
+# Example page content
+st.title("Welcome to Zentrodash")
+st.write("Your all-in-one Forex dashboard for retail traders.")
+st.write("Scroll down to see how the header stays fixed while the content moves.")
+st.write("Add all your dashboard widgets below this section...")
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
