@@ -774,60 +774,102 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
 # =========================================================
-# CUSTOM SIDEBAR CSS
+# NEW CUSTOM SIDEBAR CSS WITH BOXICONS
 # =========================================================
 st.markdown("""
 <style>
-/* Sidebar container - disable scrolling */
-section[data-testid="stSidebar"] > div:first-child {
-    overflow-y: hidden !important;
-}
+    /* Import Boxicons CSS - Ensures icons are available */
+    @import url('https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css');
 
-/* Sidebar background stays black */
-section[data-testid="stSidebar"] {
-    background-color: #000000 !important;
-}
+    /* Sidebar container - disable scrolling if content overflows */
+    section[data-testid="stSidebar"] > div:first-child {
+        overflow-y: auto !important; /* Changed to auto to allow scrolling if too many items */
+        padding-top: 1rem;
+    }
 
-/* Sidebar buttons - default state */
-section[data-testid="stSidebar"] div.stButton > button {
-    background-color: #000000 !important;
-    background-image: none !important; /* remove gradient */
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 5px !important;
-    padding: 10px !important;
-    margin: 2px 0 !important; /* This keeps the buttons close */
-    font-weight: bold !important;
-    font-size: 16px !important;
-    text-align: left !important;
-    display: block !important;
-    box-sizing: border-box !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    transition: all 0.3s ease !important;
+    /* Sidebar background stays black */
+    section[data-testid="stSidebar"] {
+        background-color: #000000 !important;
+        border-right: 1px solid #1c1c1c; /* Subtle separator */
+    }
 
-    /* Soft top and bottom glow only */
-    box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
-                0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
-}
+    /* Style for the button container to center the icon buttons within the sidebar */
+    section[data-testid="stSidebar"] div.stButton {
+        display: flex;
+        justify-content: center; /* Center buttons horizontally */
+        width: 100%; /* Ensure button containers take full width */
+    }
 
-/* Hover effect - untouched */
-section[data-testid="stSidebar"] div.stButton > button:hover {
-    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
-    color: #f0f0f0 !important;
-    cursor: pointer !important;
-}
+    /* Core icon button styling */
+    section[data-testid="stSidebar"] div.stButton > button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: transparent; /* No background by default */
+        color: rgba(255, 255, 255, 0.7); /* Default icon color (lighter white) */
+        border: none;
+        border-radius: 12px; /* Rounded corners for the icon box */
+        padding: 12px;
+        margin: 5px 0; /* Vertical spacing between buttons */
+        width: 58px; /* Fixed width for consistent box icons */
+        height: 58px; /* Fixed height */
+        font-size: 0 !important; /* Hides the button text label, making it icon-only */
+        transition: all 0.25s ease-in-out; /* Smooth transition for hover effects */
+        cursor: pointer; /* Indicate it's clickable */
+    }
 
-/* Active button */
-section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-    background-color: #000000 !important;
-    color: #ffffff !important;
-    box-shadow: 0 -4px 12px -2px rgba(88,179,177,0.9), /* top glow */
-                0 4px 12px -2px rgba(88,179,177,0.9);  /* bottom glow */
-}
+    /* Add the Boxicon using the ::before pseudo-element */
+    /* This uses content codes from Boxicons (e.g., '\e99a' for bxs-dashboard) */
+    section[data-testid="stSidebar"] div.stButton > button::before {
+        font-family: 'Boxicons' !important; /* Specify Boxicons font */
+        font-size: 26px; /* Icon size */
+        text-align: center; /* Center the icon itself */
+        line-height: 1; /* Adjust line-height for proper vertical alignment */
+    }
+
+    /* --- Define Icons for Each Button using :nth-of-type selector --- */
+    /* Ensure the order here matches your 'nav_items' list in Python */
+
+    /* 1. Forex Fundamentals (bxs-dashboard) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(1) > button::before { content: '\\e99a'; }
+    /* 2. My Watchlist (bx-list-ul) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(2) > button::before { content: '\\ea77'; }
+    /* 3. My Trading Journal (bxs-book-content) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(3) > button::before { content: '\\e93a'; }
+    /* 4. Performance Dashboard (bxs-report) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(4) > button::before { content: '\\eb59'; }
+    /* 5. Trading Tools (bxs-wrench) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(5) > button::before { content: '\\ebc5'; }
+    /* 6. Manage My Strategy (bxs-brain) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(6) > button::before { content: '\\e942'; }
+    /* 7. Community Chatroom (bxs-message-dots) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(7) > button::before { content: '\\eaec'; }
+    /* 8. Zenvo Academy (bxs-school) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(8) > button::before { content: '\\eb71'; }
+    /* 9. My Account (bxs-user) */
+    section[data-testid="stSidebar"] div.stButton:nth-of-type(9) > button::before { content: '\\ebbf'; }
+
+
+    /* --- Button Interactive States --- */
+
+    /* Hover effect */
+    section[data-testid="stSidebar"] div.stButton > button:hover {
+        background-color: #2a2a2a; /* Darker grey on hover */
+        color: #ffffff; /* Make icon fully white on hover */
+        transform: translateY(-1px); /* Slight lift for active feel */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Active button state */
+    /* Streamlit's 'primary' button type adds a class like 'st-emotion-cache-...' */
+    /* This class may vary slightly with Streamlit updates. Inspect the button if it doesn't apply. */
+    section[data-testid="stSidebar"] div.stButton > button.st-emotion-cache-19rxjzo {
+        background: linear-gradient(45deg, #58B3B1, #3b8a89); /* Teal gradient for active */
+        color: #ffffff; /* White icon for active state */
+        box-shadow: 0 4px 14px -4px rgba(88, 179, 177, 0.6); /* Enhanced shadow */
+        border: none; /* No border for active button */
+    }
+
 </style>
 """, unsafe_allow_html=True)
 # =========================================================
@@ -925,82 +967,35 @@ import base64
 import os
 
 # =========================================================
-# SIDEBAR NAVIGATION
+# REVAMPED SIDEBAR NAVIGATION
 # =========================================================
 
-# --- Add custom CSS for alignment and gradient button styling ---
-st.markdown(
-    """
-    <style>
-        .sidebar-content {
-            padding-top: 0rem;
-        }
-
-        /* Vertically center elements in columns */
-        [data-testid="stHorizontalBlock"] {
-            align-items: center;
-        }
-
-        /* --- GRADIENT BUTTON STYLING --- */
-
-        /* Style for the default (secondary) button */
-        /* This applies the black gradient from the left */
-        [data-testid="stSidebar"] [data-testid="stButton"] button {
-            background-color: transparent;
-            /* Gradient starts black on the left, fading to transparent grey on the right */
-            background-image: linear-gradient(to right, black, rgba(49, 51, 63, 0.8));
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white; /* Ensure text color is visible against the gradient */
-            transition: all 0.2s ease-in-out; /* Smooth transition for hover effects */
-        }
-
-        /* Style for the active (primary) button, overriding Streamlit's default color */
-        /* The ".st-emotion-cache-" class is what Streamlit uses internally for primary buttons */
-        [data-testid="stSidebar"] [data-testid="stButton"] button.st-emotion-cache-19rxjzo {
-            background-color: transparent;
-            /* Gradient starts black on the left, fading to the theme's blue on the right */
-            background-image: linear-gradient(to right, black, #1c83e1);
-            border: 1px solid #1c83e1; /* Match border to the theme color */
-            color: white;
-        }
-
-        /* Optional: A subtle hover effect for better user experience */
-        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
-            border-color: #0083B8;
-            color: white;
-            transform: scale(1.01); /* Slightly enlarge button on hover */
-        }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# --- Logo Display (same as your original code) ---
+# --- Logo Display ---
 try:
-    logo = Image.open("logo22.png")
-    logo = logo.resize((60, 50))
+    logo_path = "logo22.png" # Ensure your logo file is in the same directory as your app
+    logo = Image.open(logo_path)
+    logo_resized = logo.resize((60, 50)) # Resize for sidebar fit
     buffered = io.BytesIO()
-    logo.save(buffered, format="PNG")
+    logo_resized.save(buffered, format="PNG")
     logo_str = base64.b64encode(buffered.getvalue()).decode()
     st.sidebar.markdown(
         f"""
-        <div style='text-align: center; margin-bottom: 30px; margin-top: -45px;'>
-            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        <div style='display: flex; justify-content: center; margin-bottom: 25px; margin-top: -30px;'>
+            <img src="data:image/png;base64,{logo_str}" />
         </div>
         """,
         unsafe_allow_html=True
     )
 except FileNotFoundError:
-    st.sidebar.error("Logo file 'logo22.png' not found.")
+    st.sidebar.error(f"Logo file '{logo_path}' not found. Please ensure it's in the correct directory.")
 
-# --- Initialize session_state if it's the first run ---
+# --- Initialize session_state for navigation ---
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
-
-# --- Navigation Items Definition (emojis removed from text) ---
+# --- Navigation Items Definition ---
+# The text here will serve as the button's label but will be hidden by CSS.
+# It will naturally provide a tooltip on hover, which is good for UX with icon-only nav.
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
@@ -1013,46 +1008,22 @@ nav_items = [
     ('account', 'My Account'),
 ]
 
-# --- Map your page keys to the icon file names in the 'icons' folder ---
-icon_mapping = {
-    'trading_journal': 'trading_journal.png',
-    'watch list': 'watchlist_icon.png',
-    'fundamentals': 'forex_fundamentals.png',
-    'mt5': 'performance_dashboard.png',
-    'account': 'my_account.png',
-    'strategy': 'manage_my_strategy.png',
-    'trading_tools': 'trading_tools.png',
-    'community': 'community_trade_ideas.png',
-    'Community Chatroom': 'community_chatroom.png',
-    'Zenvo Academy': 'zenvo_academy.png'  # <-- ADDED THIS LINE
-}
-
-
-# --- Loop to Create the Navigation Menu (your exact Python logic) ---
+# --- Loop to Create the Icon-Only Navigation Menu ---
 for page_key, page_name in nav_items:
+    # Check if the current button corresponds to the active page
+    is_active = (st.session_state.current_page == page_key)
     
-    # Create two columns: one for the icon, one for the button
-    col1, col2 = st.sidebar.columns([1, 4], gap="small")
-
-    with col1:
-        icon_filename = icon_mapping.get(page_key)
-        if icon_filename:
-            icon_path = os.path.join("icons", icon_filename)
-            if os.path.exists(icon_path):
-                # NOTE: Adjusted width from 120 to 28 for a better layout
-                st.image(icon_path, width=100) # <-- CORRECTED WIDTH HERE
-
-    with col2:
-        # Highlight the active page button using 'type="primary"'
-        is_active = (st.session_state.current_page == page_key)
-        button_type = "primary" if is_active else "secondary"
-        
-        # This is your original button logic, inside a column
-        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
-            st.session_state.current_page = page_key
+    # Create the button in the sidebar.
+    # The `page_name` acts as the button's internal label and tooltip text.
+    # 'use_container_width=False' and the CSS 'width: 58px' ensure fixed size.
+    if st.sidebar.button(page_name, key=f"nav_{page_key}", use_container_width=False, type=("primary" if is_active else "secondary")):
+        st.session_state.current_page = page_key
+        # Optional: Reset other relevant session states when changing pages
+        if 'current_subpage' in st.session_state:
             st.session_state.current_subpage = None
+        if 'show_tools_submenu' in st.session_state:
             st.session_state.show_tools_submenu = False
-            st.rerun()
+        st.rerun() # Rerun to update the main content based on the new page
 # =========================================================
 # MAIN APPLICATION LOGIC
 # =========================================================
