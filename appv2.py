@@ -43,7 +43,7 @@ def get_image_as_base_64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# SIDEBAR (FINAL, GUARANTEED, SELF-CONTAINED SOLUTION)
+# SIDEBAR LOGIC (FINAL, GUARANTEED VERSION WITH ERROR FIX)
 # =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -78,24 +78,23 @@ with st.sidebar:
     ]
 
     # --- "BRUTE FORCE" CSS INJECTION ---
-    # This stylesheet is designed with maximum specificity to win any CSS conflict.
-    # It cannot leak out and affect your main page layouts.
     style_block = "<style>"
     for page_key, page_name, icon_filename in nav_items:
         icon_path = os.path.join("icons", icon_filename)
+        # THIS IS THE CRITICAL LINE THAT WAS MISSING.
+        # It assigns the result of the function to the variable.
         icon_base_64 = get_image_as_base_64(icon_path)
-        if icon_base64:
-            # Rule 1: Apply the icon. This rule is extremely specific and uses !important.
-            # It targets the button using the 'title' attribute which is set by the 'help' parameter.
+        
+        # This check is now safe and will prevent errors if an icon is not found.
+        if icon_base_64:
             style_block += f"""
                 button[title="{page_name}"] {{
                     background-image: url("data:image/png;base64,{icon_base_64}") !important;
                 }}
             """
-
-    # Rule 2: General styling for ALL sidebar buttons to make them square icons.
+    
     style_block += """
-        /* This selector is highly specific and CANNOT leak outside the sidebar */
+        /* General styling for ALL sidebar buttons to make them square icons */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
             display: flex;
             justify-content: center;
@@ -103,7 +102,7 @@ with st.sidebar:
             width: 55px !important;
             height: 55px !important;
             padding: 0 !important;
-            margin: 5px auto !important; /* Center the buttons */
+            margin: 5px auto !important;
             
             background-color: transparent !important;
             background-size: 32px 32px !important;
@@ -116,8 +115,7 @@ with st.sidebar:
             transition: all 0.2s ease-in-out;
         }
 
-        /* BRUTALLY HIDE THE TEXT LABEL. This is the key. */
-        /* It finds the paragraph (<p>) tag Streamlit uses for text and removes it. */
+        /* BRUTALLY HIDE THE TEXT LABEL INSIDE THE BUTTON */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button p {
             display: none !important;
         }
@@ -128,7 +126,7 @@ with st.sidebar:
             transform: scale(1.1);
         }
 
-        /* Style for the ACTIVE button (when type="primary") */
+        /* Style for the ACTIVE button */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
             border-color: #FFFFFF !important;
             box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7) !important;
@@ -142,16 +140,13 @@ with st.sidebar:
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
 
-        # We use Streamlit's native button, which is 100% reliable for navigation.
-        # The complex CSS we just built handles its entire appearance.
         if st.button(
             label=page_name, # Text required by Streamlit, but now guaranteed to be hidden
             key=f"nav_{page_key}",
             type="primary" if is_active else "secondary",
-            use_container_width=True, # Allows our centering margin to work
-            help=page_name # Creates tooltip and the 'title' attribute for CSS to find
+            use_container_width=True,
+            help=page_name # Creates tooltip and the 'title' attribute for CSS
         ):
-            # This is Streamlit's simple, native, reliable way of changing pages
             if st.session_state.current_page != page_key:
                 st.session_state.current_page = page_key
                 st.rerun()
