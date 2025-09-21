@@ -32,14 +32,6 @@ import base64
 import os
 
 # =========================================================
-# PAGE CONFIGURATION
-# You must have this line somewhere at the top of your main script for layout="wide" to work.
-# If it's already there, you don't need to add it again.
-# =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
-
-
-# =========================================================
 # HELPER FUNCTION
 # =========================================================
 def get_image_as_base_64(path):
@@ -49,7 +41,6 @@ def get_image_as_base_64(path):
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
-
 
 # =========================================================
 # SIDEBAR LOGIC (FINAL, GUARANTEED VERSION)
@@ -69,7 +60,7 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-    # --- Initialize session state for the current page ---
+    # --- Initialize session state ---
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 'fundamentals'
 
@@ -86,33 +77,26 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- Build the CSS dynamically ---
-    # This creates a specific, high-priority rule for each button's icon.
+    # --- DYNAMIC CSS GENERATION (THE KEY FIX) ---
+    # This block creates one large, powerful CSS stylesheet that will be injected into the app.
     style_block = "<style>"
-    for page_key, page_name, icon_filename in nav_items:
-        icon_path = os.path.join("icons", icon_filename)
-        icon_base64 = get_image_as_base_64(icon_path)
-        if icon_base64:
-            # This is the secret: we create a rule that targets the button by its title
-            # and applies it to BOTH the default (secondary) and active (primary) states.
-            # This ensures the icon never disappears. The !important tag guarantees it overrides other styles.
-            style_block += f"""
-                button[data-testid="stButton"][title="{page_name}"] {{
-                    background-image: url("data:image/png;base64,{icon_base64}") !important;
-                }}
-            """
+
+    # Rule 1: General style for all icon buttons
     style_block += """
-        /* This is the general style for ALL sidebar buttons to make them square icons */
+        /* Target all buttons within the sidebar */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 0;
-            margin: 5px auto; /* Center the buttons */
+            margin: 5px auto; /* Center the buttons vertically and horizontally */
             width: 55px;
             height: 55px;
             
-            font-size: 0 !important; /* Hides the text label completely */
+            /* --- Force hide the text label --- */
+            color: transparent !important;
+            font-size: 0px !important;
+            line-height: 0;
             
             background-color: transparent;
             background-size: 32px 32px; /* Control icon size */
@@ -122,39 +106,55 @@ with st.sidebar:
             border-radius: 10px;
             border-width: 2px;
             border-style: solid;
-            border-color: rgba(88, 179, 177, 0.4); /* Inactive border */
+            border-color: rgba(88, 179, 177, 0.4); /* Default inactive border */
             
             transition: all 0.2s ease-in-out;
         }
 
-        /* Hover effect */
+        /* Hover effect for all buttons */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
             border-color: #FFFFFF;
             transform: scale(1.1);
         }
 
-        /* Style for the active button, overriding Streamlit's default color */
+        /* Style for the ACTIVE button (when type="primary") */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
             border-color: #FFFFFF;
             box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7);
         }
-    </style>
     """
-    st.markdown(style_block, unsafe_allow_html=True)
 
+    # Rule 2: Create a unique, high-priority rule for EACH button's icon
+    for page_key, page_name, icon_filename in nav_items:
+        icon_path = os.path.join("icons", icon_filename)
+        icon_base64 = get_image_as_base_64(icon_path)
+        if icon_base64:
+            # This is the most important part: a very specific selector that applies
+            # the background-image with !important, ensuring it overrides everything else.
+            style_block += f"""
+                section[data-testid="stSidebar"] button[title="{page_name}"] {{
+                    background-image: url("data:image/png;base64,{icon_base64}") !important;
+                }}
+            """
+
+    style_block += "</style>"
+
+    # Inject the complete CSS stylesheet into the app
+    st.markdown(style_block, unsafe_allow_html=True)
 
     # --- GENERATE THE BUTTONS ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
 
-        # We use Streamlit's native button, which is 100% reliable for navigation.
-        # The CSS above handles its entire appearance.
+        # We use Streamlit's native button. It is 100% reliable for navigation.
+        # The complex CSS we just built handles its entire appearance.
         if st.button(
-            label=page_name, # The label is hidden by CSS, but required by Streamlit
+            label=page_name,  # The text is required by Streamlit but is now hidden by our CSS
             key=f"nav_{page_key}",
             type="primary" if is_active else "secondary",
             use_container_width=True,
-            help=page_name # The 'help' param creates a tooltip AND the 'title' attribute for our CSS to target
+            # 'help' creates a nice tooltip and, crucially, the 'title' attribute for our CSS to find
+            help=page_name
         ):
             st.session_state.current_page = page_key
             st.rerun()
