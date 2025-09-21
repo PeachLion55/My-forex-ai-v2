@@ -30,12 +30,12 @@ from datetime import datetime, date, timedelta
 import streamlit as st
 import base64
 import os
-from streamlit_card import card  # Make sure this is installed (pip install streamlit-card)
+from streamlit_card import card  # Ensure this is installed (pip install streamlit-card)
 
 # =========================================================
-# PAGE CONFIGURATION
+# PAGE CONFIGURATION (Assuming this is at the top of your main script)
 # =========================================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
+# st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # =========================================================
 # HELPER FUNCTION TO ENCODE IMAGES
@@ -43,15 +43,13 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 def get_image_as_base_64(path):
     """Encodes a local image file into a Base64 string for embedding."""
     if not os.path.exists(path):
-        # Using st.warning is safer than st.error which can halt the app
         st.warning(f"Icon not found at: {path}")
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# Initialize session state if it doesn't exist
-# This is crucial for the app to know the current page on first load
+# Initialize session state for current page
 # =========================================================================
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
@@ -63,12 +61,12 @@ with st.sidebar:
     # --- LOGO DISPLAY ---
     logo_path = "logo22.png"
     if os.path.exists(logo_path):
-        logo_base64 = get_image_as_base_64(logo_path)
-        if logo_base64:
+        logo_base_64 = get_image_as_base_64(logo_path)
+        if logo_base_64:
             st.markdown(
                 f"""
                 <div style='text-align: center; margin-top: -60px; margin-bottom: 25px;'>
-                    <img src="data:image/png;base64,{logo_base64}" width="60">
+                    <img src="data:image/png;base64,{logo_base_64}" width="60">
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -87,7 +85,7 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- A simple helper function to change the page in session_state ---
+    # --- A helper function to change the page in session_state ---
     def set_page(page_key):
         st.session_state.current_page = page_key
 
@@ -100,6 +98,7 @@ with st.sidebar:
         if not icon_base64:
             continue
 
+        # This CSS now includes a fix for blurry images
         card_styles = {
             "card": {
                 "width": "50px", "height": "50px", "margin": "5px auto", "padding": "0",
@@ -108,16 +107,19 @@ with st.sidebar:
                 "border": f"2px solid {'#FFFFFF' if is_active else 'transparent'}",
                 "transition": "all 0.2s ease-in-out",
             },
-            "div": {"padding": "0"}, "img": {"width": "28px", "height": "28px", "margin": "auto", "display": "block"},
+            "div": {"padding": "0"},
+            "img": { # CSS for the icon image
+                "width": "28px", "height": "28px", "margin": "auto", "display": "block",
+                "image-rendering": "-webkit-optimize-contrast",  # For Chrome/Safari
+                "image-rendering": "crisp-edges",             # For Firefox
+            },
             "title": {"display": "none"}, "text": {"display": "none"}
         }
 
-        # This is the most reliable way to handle navigation.
-        # on_click tells Streamlit what function to run. Streamlit handles the rerun
-        # itself after the function completes, avoiding any conflicts.
+        # The 'on_click' callback is the most reliable way to handle navigation state
         card(
             title=page_name,
-            text="", image=f"data:image/png;base64,{icon_base64}",
+            text="", image=f"data:image/png;base64,{icon_base_64}",
             styles=card_styles,
             key=page_key,
             on_click=lambda page=page_key: set_page(page)
