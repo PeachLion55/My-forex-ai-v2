@@ -26,9 +26,11 @@ import calendar
 from datetime import datetime, date, timedelta
 
 
+
 import streamlit as st
 import base64
 import os
+from streamlit_card import card # <-- Import the new component
 
 # =========================================================
 # PAGE CONFIGURATION
@@ -39,7 +41,7 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # HELPER FUNCTION TO ENCODE IMAGES
 # =========================================================================
 def get_image_as_base64(path):
-    """Encodes a local image file into a Base64 string."""
+    """Encodes a local image file into a Base64 string for embedding."""
     if not os.path.exists(path):
         st.warning(f"Icon not found at: {path}")
         return None
@@ -47,13 +49,10 @@ def get_image_as_base64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# PAGE STATE MANAGEMENT (Reads the URL to set the page)
+# Initialize session state for the current page
 # =========================================================================
-query_params = st.query_params
-if "page" in query_params:
-    st.session_state.current_page = query_params["page"]
-elif 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals' # Default page
 
 # =========================================================
 # SIDEBAR
@@ -73,7 +72,7 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-    # --- ICON & PAGE MAPPING (Using your nav_items to build this) ---
+    # --- NAVIGATION ITEMS & ICONS ---
     nav_items = [
         ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
         ('watch list', 'My Watchlist', 'watchlist_icon.png'),
@@ -86,51 +85,48 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- GENERAL CSS FOR BUTTON SHAPE, HOVER, AND ACTIVE STATES ---
-    st.markdown("""
-    <style>
-        section[data-testid="stSidebar"] {
-            background-color: #000000 !important;
-            overflow-y: hidden !important;
-        }
-        .icon-container { display: flex; justify-content: center; margin: 5px 0; }
-        a.icon-button {
-            display: block; width: 50px; height: 50px; border-radius: 10px;
-            border: 2px solid transparent;
-            box-shadow: 0 4px 8px -2px rgba(88,179,177,0.4);
-            background-size: 28px 28px; background-repeat: no-repeat; background-position: center;
-            transition: all 0.2s ease-in-out;
-        }
-        a.icon-button:hover {
-            transform: scale(1.1); border-color: rgba(88, 179, 177, 1.0);
-            box-shadow: 0 0 15px -2px rgba(88,179,177,0.9);
-        }
-        a.icon-button.active {
-            border-color: #FFFFFF; box-shadow: 0 0 20px -2px rgba(88,179,177,1.0);
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # --- GENERATE THE ICONS IN A LOOP ---
+    # --- Generate Icon Buttons using streamlit_card ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
-        active_class = "active" if is_active else ""
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base64(icon_path)
 
+        # Skip if icon is not found
         if not icon_base64:
             continue
 
-        st.markdown(
-            f"""
-            <div class="icon-container">
-                <a href="?page={page_key}" target="_self" class="icon-button {active_class}" title="{page_name}"
-                   style="background-image: url('data:image/png;base64,{icon_base64}');">
-                </a>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        # Define custom CSS styles for the card
+        card_styles = {
+            "card": {
+                "width": "50px", "height": "50px", "margin": "5px auto", "padding": "0",
+                "border-radius": "10px", "background-color": "transparent",
+                "box-shadow": "0 4px 8px -2px rgba(88,179,177,0.4)",
+                "border": f"2px solid {'#FFFFFF' if is_active else 'transparent'}",
+                "transition": "all 0.2s ease-in-out",
+            },
+            "div": { # Style the div that contains the image
+                "padding": "0"
+            },
+            "img": { # Style the image itself
+                "width": "28px", "height": "28px", "margin": "auto", "display": "block",
+            },
+            "title": { # We don't have a title, so hide it
+                "display": "none",
+            },
+            "text": { # We don't have text, so hide it
+                "display": "none",
+            }
+        }
+        
+        # When card is clicked, it returns True. We use this to set the page.
+        if card(
+            title="", text="", image=f"data:image/png;base64,{icon_base64}",
+            key=page_key,
+            styles=card_styles,
+            on_click=lambda: st.session_state.update(current_page=page_key)
+        ):
+            # This logic triggers the script rerun to update the main page content
+            st.rerun()
 
 # =========================================================
 # 1. IMPORTS
