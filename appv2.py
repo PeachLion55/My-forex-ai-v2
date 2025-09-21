@@ -30,7 +30,14 @@ from datetime import datetime, date, timedelta
 import streamlit as st
 import base64
 import os
-from streamlit_card import card  # Ensure this is installed (pip install streamlit-card)
+
+# =========================================================
+# PAGE CONFIGURATION
+# You must have this line somewhere at the top of your main script for layout="wide" to work.
+# If it's already there, you don't need to add it again.
+# =========================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
+
 
 # =========================================================
 # HELPER FUNCTION
@@ -42,6 +49,7 @@ def get_image_as_base_64(path):
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
+
 
 # =========================================================
 # SIDEBAR LOGIC (FINAL, GUARANTEED VERSION)
@@ -61,6 +69,10 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
+    # --- Initialize session state for the current page ---
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'fundamentals'
+
     # --- NAVIGATION ITEMS ---
     nav_items = [
         ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
@@ -74,51 +86,78 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- A clean function to change the page in the session state ---
-    def set_page(page_key):
-        st.session_state.current_page = page_key
-
-    # --- GENERATE ICON BUTTONS ---
+    # --- Build the CSS dynamically ---
+    # This creates a specific, high-priority rule for each button's icon.
+    style_block = "<style>"
     for page_key, page_name, icon_filename in nav_items:
-        is_active = (st.session_state.get('current_page') == page_key)
         icon_path = os.path.join("icons", icon_filename)
-        icon_base_64 = get_image_as_base_64(icon_path)
+        icon_base64 = get_image_as_base_64(icon_path)
+        if icon_base64:
+            # This is the secret: we create a rule that targets the button by its title
+            # and applies it to BOTH the default (secondary) and active (primary) states.
+            # This ensures the icon never disappears. The !important tag guarantees it overrides other styles.
+            style_block += f"""
+                button[data-testid="stButton"][title="{page_name}"] {{
+                    background-image: url("data:image/png;base64,{icon_base64}") !important;
+                }}
+            """
+    style_block += """
+        /* This is the general style for ALL sidebar buttons to make them square icons */
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            margin: 5px auto; /* Center the buttons */
+            width: 55px;
+            height: 55px;
+            
+            font-size: 0 !important; /* Hides the text label completely */
+            
+            background-color: transparent;
+            background-size: 32px 32px; /* Control icon size */
+            background-repeat: no-repeat;
+            background-position: center;
 
-        if icon_base_64:
-            # --- CSS TO FIX BLURRY & DARKENED ICONS ---
-            card_styles = {
-                "card": {
-                    "width": "55px", "height": "55px", "margin": "5px auto", "padding": "0",
-                    "border-radius": "10px", "background-color": "transparent", "cursor": "pointer",
-                    # Active state: bright white border and an inner glow
-                    # Inactive state: clean, semi-transparent theme border
-                    "border": f"2px solid {'#FFFFFF' if is_active else 'rgba(88,179,177,0.4)'}",
-                    "box-shadow": f"{'inset 0 0 8px rgba(255, 255, 255, 0.7)' if is_active else 'none'}",
-                    "transition": "all 0.2s ease-in-out",
-                },
-                "div": {"padding": "0"},
-                "img": {
-                    "width": "32px", "height": "32px", "margin": "auto", "display": "block",
-                    # Filter: brightness(1) ensures no darkening of the icon itself
-                    "filter": "brightness(1.0)",
-                    # Force sharp, non-blurry rendering in all major browsers
-                    "image-rendering": "-webkit-optimize-contrast",
-                    "image-rendering": "pixelated",
-                    "image-rendering": "crisp-edges",
-                },
-                "title": {"display": "none"}, "text": {"display": "none"}
-            }
+            border-radius: 10px;
+            border-width: 2px;
+            border-style: solid;
+            border-color: rgba(88, 179, 177, 0.4); /* Inactive border */
+            
+            transition: all 0.2s ease-in-out;
+        }
 
-            # This is the modern, reliable way to handle callbacks.
-            # Streamlit manages the rerun correctly after on_click finishes.
-            # Now that the conflict from ta_update_xp is gone, this will work every time.
-            card(
-                title=page_name,
-                text="", image=f"data:image/png;base64,{icon_base_64}",
-                styles=card_styles,
-                key=page_key,
-                on_click=lambda page=page_key: set_page(page)
-            )
+        /* Hover effect */
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
+            border-color: #FFFFFF;
+            transform: scale(1.1);
+        }
+
+        /* Style for the active button, overriding Streamlit's default color */
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
+            border-color: #FFFFFF;
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7);
+        }
+    </style>
+    """
+    st.markdown(style_block, unsafe_allow_html=True)
+
+
+    # --- GENERATE THE BUTTONS ---
+    for page_key, page_name, icon_filename in nav_items:
+        is_active = (st.session_state.current_page == page_key)
+
+        # We use Streamlit's native button, which is 100% reliable for navigation.
+        # The CSS above handles its entire appearance.
+        if st.button(
+            label=page_name, # The label is hidden by CSS, but required by Streamlit
+            key=f"nav_{page_key}",
+            type="primary" if is_active else "secondary",
+            use_container_width=True,
+            help=page_name # The 'help' param creates a tooltip AND the 'title' attribute for our CSS to target
+        ):
+            st.session_state.current_page = page_key
+            st.rerun()
 # =========================================================
 # 1. IMPORTS
 # =========================================================
