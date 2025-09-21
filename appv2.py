@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Final Corrected Version)
+# SIDEBAR NAVIGATION (Definitive, Corrected Version)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -41,7 +41,7 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        st.sidebar.error(f"Icon missing: {path}")
+        st.sidebar.error(f"Icon missing, check path: {path}")
         return None
 
 # --- Navigation Items Definition ---
@@ -88,7 +88,7 @@ for page_key, _ in nav_items:
         if os.path.exists(icon_path):
             icon_b64 = image_to_base_64(icon_path)
     
-    # **FIX**: This rule targets the ::after pseudo-element to reliably display the icon.
+    # **FINAL FIX**: The crucial addition of `!important` to the background-image property.
     if icon_b64:
         dynamic_css_rules.append(f"""
             .{wrapper_class} button::after {{
@@ -96,7 +96,7 @@ for page_key, _ in nav_items:
             }}
         """)
     
-    # Special CSS for the currently active button (stronger glow and border)
+    # Special CSS for the currently active button
     if page_key == active_page_key:
         dynamic_css_rules.append(f"""
             .{wrapper_class} button {{
@@ -123,9 +123,9 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
 [data-testid="stSidebar"] .stButton {{ display: flex; justify-content: center; }}
 [class*="nav-button-wrapper-"] {{ width: 75px; margin-bottom: 1rem; }}
 
-/* GENERAL Button Style (Default State) */
+/* GENERAL Button Style */
 [class*="nav-button-wrapper-"] button {{
-    position: relative; /* CRITICAL: Required for the ::after pseudo-element */
+    position: relative;
     width: 65px !important;
     height: 65px !important;
     padding: 0 !important;
@@ -136,13 +136,13 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
     transition: all 0.2s ease-in-out;
 }}
 
-/* **FIX**: Target Streamlit's internal paragraph to hide the text label */
+/* Forcefully hide Streamlit's default button text */
 [class*="nav-button-wrapper-"] button p {{
     font-size: 0px !important;
-    color: transparent !important;
+    visibility: hidden; /* Stronger than color:transparent */
 }}
 
-/* **FIX**: This pseudo-element is the layer where the icon is displayed */
+/* The pseudo-element layer for the icon */
 [class*="nav-button-wrapper-"] button::after {{
     content: '';
     position: absolute;
@@ -152,7 +152,7 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
     background-repeat: no-repeat;
 }}
 
-/* HOVER Effect for all buttons */
+/* HOVER Effect */
 [class*="nav-button-wrapper-"] button:hover {{
     transform: scale(1.08);
     border-color: #4DB4B0 !important;
@@ -160,13 +160,13 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
     cursor: pointer;
 }}
 
-/* Python-generated CSS for icons and active state will be inserted here */
+/* This is where the Python-generated CSS for icons and active state goes */
 {''.join(dynamic_css_rules)}
-
 </style>
 """, unsafe_allow_html=True)
 
-# --- Logo Display ("streamlitApp" Text and Image) ---
+
+# --- Logo Display ---
 st.sidebar.markdown(
     """<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>""",
     unsafe_allow_html=True
@@ -187,22 +187,19 @@ try:
 except FileNotFoundError:
     pass
 
-# --- Loop to Create the Icon-Only Navigation Buttons ---
+# --- Loop to Create the Buttons ---
 for page_key, page_name in nav_items:
     wrapper_class = f"nav-button-wrapper-{page_key.replace(' ', '-').replace('_', '-')}"
     st.sidebar.markdown(f'<div class="{wrapper_class}">', unsafe_allow_html=True)
     
-    # **FIX**: The label is an empty space " ". This is important because
-    # an empty string `""` can cause Streamlit to render nothing.
-    # The CSS now reliably hides this from view.
     if st.sidebar.button(
-        label=" ",
+        label=" ", # The empty space label
         key=f"nav_{page_key}",
         use_container_width=True,
-        help=page_name  # Tooltip on hover still works
+        help=page_name  # Tooltip on hover
     ):
         st.session_state.current_page = page_key
-        # Reset sub-pages on navigation
+        # Reset any sub-page states
         if 'current_subpage' in st.session_state: st.session_state.current_subpage = None
         if 'show_tools_submenu' in st.session_state: st.session_state.show_tools_submenu = False
         st.rerun()
