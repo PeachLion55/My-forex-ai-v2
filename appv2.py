@@ -27,11 +27,9 @@ from datetime import datetime, date, timedelta
 
 
 # =========================================================
-# PAGE CONFIGURATION (Streamlit requires this at top level)
+# PAGE CONFIGURATION
 # =========================================================================
 import streamlit as st
-from PIL import Image
-import io
 import base64
 import os
 
@@ -39,32 +37,32 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
 # =========================================================
-# NAVIGATION HANDLER & HELPER FUNCTIONS
+# NAVIGATION & HELPER FUNCTIONS
 # =========================================================================
 def handle_nav_click(page_key):
     """
-    Updates the session state and forces an immediate re-run of the script
-    to ensure the page content updates smoothly and instantly.
+    Updates the session state and forces an immediate re-run to ensure
+    the page content updates smoothly and instantly.
     """
     st.session_state.current_page = page_key
-    st.rerun() # THIS IS THE KEY to making navigation work instantly.
+    st.rerun()
 
 def get_image_as_base64(path):
-    """Encodes a local image to a base64 string for CSS embedding."""
+    """Encodes a local image to a base64 string for CSS."""
     if not os.path.exists(path):
         return None
     with open(path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
 # =========================================================
-# INITIALIZE SESSION STATE
-# =========================================================
+# SESSION STATE INITIALIZATION
+# =========================================================================
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
 
 # =========================================================
-# DEFINE NAVIGATION AND ICON MAPPING
+# NAVIGATION ITEMS & ICON MAPPING
 # =========================================================================
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
@@ -91,109 +89,112 @@ icon_mapping = {
 }
 
 # =========================================================
-# BUILD AND INJECT THE COMPLETE CSS (THE CORRECT METHOD)
+# BUILD AND INJECT THE COMPLETE CSS
 # =========================================================================
 
-# Start building the CSS string
 css_to_inject = "<style>"
 
-# --- 1. Generic styles for all nav buttons ---
-# We use a unique key prefix "nav-" to avoid styling other buttons in the app
+# --- 1. General styles for all our navigation buttons ---
 css_to_inject += """
     /* Main Sidebar Style */
     section[data-testid="stSidebar"] {
         background-color: #000000 !important;
-        padding-top: 2rem; /* Add some space for the logo */
+        padding-top: 2rem;
     }
 
-    /* Target the container of all buttons with our special key prefix */
+    /* Container holding the button */
     div[data-testid*="stButton--nav-"] {
         display: flex;
         justify-content: center;
-        margin-bottom: 10px; /* Space between buttons */
+        margin-bottom: 12px;
     }
 
-    /* Style the actual button element */
+    /* The actual button element */
     div[data-testid*="stButton--nav-"] button {
-        width: 60px;
-        height: 60px;
-        padding: 0;
-        border-radius: 12px;
-        background-color: #0d1117;
-        color: transparent; /* Hide the text label */
-        border: 2px solid transparent;
-        box-shadow: 0 0 8px rgba(88, 179, 177, 0.4); /* Ambient glow */
-        background-size: 65% 65%;
-        background-repeat: no-repeat;
-        background-position: center;
-        transition: all 0.3s ease;
+        width: 65px !important;
+        height: 65px !important;
+        padding: 0 !important;
+        border-radius: 15px !important;
+        background-color: #0d1117 !important;
+        color: transparent !important; /* THIS IS THE KEY TO HIDING THE TEXT */
+        border: 2px solid transparent !important;
+        box-shadow: 0 0 10px rgba(88, 179, 177, 0.5) !important; /* Ambient glow */
+        background-size: 60% 60% !important;
+        background-repeat: no-repeat !important;
+        background-position: center !important;
+        transition: all 0.3s ease !important;
+        outline: none !important;
     }
 
     /* Hover effect */
     div[data-testid*="stButton--nav-"] button:hover {
         transform: scale(1.1);
-        border-color: rgba(88, 179, 177, 0.7);
+        border-color: rgba(88, 179, 177, 0.7) !important;
     }
+    
+    /* Remove focus outline */
     div[data-testid*="stButton--nav-"] button:focus {
         outline: none !important;
         box-shadow: 0 0 15px rgba(88, 179, 177, 0.9) !important;
     }
 """
 
-# --- 2. Dynamically create specific styles for each button (icon and active state) ---
+# --- 2. Dynamic styles for each button's icon and active state ---
 for page_key, _ in nav_items:
     sanitized_key = page_key.replace(" ", "-")
     button_testid = f"stButton--nav-{sanitized_key}"
     
-    # Rule for the icon background
+    # Add rule for the icon background image
     icon_path = icon_mapping.get(page_key)
-    if icon_path:
-        icon_base64 = get_image_as_base64(icon_path)
-        if icon_base64:
-            css_to_inject += f"""
-                div[data-testid="{button_testid}"] button {{
-                    background-image: url("data:image/png;base64,{icon_base64}");
-                }}
-            """
+    if icon_path and (icon_base64 := get_image_as_base64(icon_path)):
+        css_to_inject += f"""
+            div[data-testid="{button_testid}"] button {{
+                background-image: url("data:image/png;base64,{icon_base64}") !important;
+            }}
+        """
     
-    # Rule for the ACTIVE button's glowing border and shadow
+    # Add rule for the ACTIVE button's distinct style
     if st.session_state.current_page == page_key:
         css_to_inject += f"""
             div[data-testid="{button_testid}"] button {{
-                border-color: rgba(88, 179, 177, 1.0);
-                box-shadow: 0 0 15px rgba(88, 179, 177, 0.9);
+                border-color: rgba(88, 179, 177, 1.0) !important;
+                box-shadow: 0 0 20px rgba(88, 179, 177, 1.0) !important;
             }}
         """
 
 css_to_inject += "</style>"
 
-# --- 3. Inject the single, complete CSS block into the app ---
+# --- 3. Inject the single CSS block into the Streamlit app ---
 st.markdown(css_to_inject, unsafe_allow_html=True)
 
 
 # =========================================================
-# RENDER THE SIDEBAR
+# RENDER THE SIDEBAR UI
 # =========================================================
-
-# Using st.sidebar.container to group sidebar elements nicely
 with st.sidebar:
-    # Display the logo, centered
     if os.path.exists("logo22.png"):
-        st.image("logo22.png", width=80)
+        # Centering the logo
+        st.markdown("<div style='display: flex; justify-content: center;'><img src='data:image/png;base64,{}' width='80'></div>".format(get_image_as_base64('logo22.png')), unsafe_allow_html=True)
     else:
         st.warning("Logo file not found.")
 
-    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
 
     # Render the icon buttons
     for page_key, page_name in nav_items:
-        sanitized_key = page_key.replace(" ", "-")
         st.button(
-            label=page_name, # This label is hidden by CSS
-            key=f"nav-{sanitized_key}",
+            label=page_name,  # Hidden by CSS
+            key=f"nav-{page_key.replace(' ', '-')}", # Create a unique key
             on_click=handle_nav_click,
             args=(page_key,),
         )
+
+
+# =========================================================
+# RENDER THE MAIN PAGE CONTENT
+# =========================================================
+current_page_title = st.session_state.current_page.replace('_', ' ').title()
+st.title(current_page_title)
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
