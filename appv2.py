@@ -33,16 +33,6 @@ import os
 from streamlit_card import card  # Ensure this is installed (pip install streamlit-card)
 
 # =========================================================
-# URL ROUTER: THIS IS THE CRITICAL FIX
-# This block runs first. It reads the URL to determine the page, making navigation 100% reliable.
-# =========================================================
-query_params = st.query_params.to_dict()
-if "page" in query_params:
-    st.session_state.current_page = query_params["page"][0]
-elif 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals' # Default page on first load
-
-# =========================================================
 # HELPER FUNCTION
 # =========================================================
 def get_image_as_base_64(path):
@@ -54,7 +44,7 @@ def get_image_as_base_64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# SIDEBAR LOGIC (FINAL, SELF-CONTAINED VERSION)
+# SIDEBAR LOGIC (FINAL, GUARANTEED VERSION)
 # =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -84,14 +74,12 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- RELIABLE NAVIGATION FUNCTION ---
-    # This function only changes the URL. Streamlit handles the rest.
-    def navigate_to(page_key):
-        st.query_params["page"] = page_key
+    # --- A clean function to change the page in the session state ---
+    def set_page(page_key):
+        st.session_state.current_page = page_key
 
     # --- GENERATE ICON BUTTONS ---
     for page_key, page_name, icon_filename in nav_items:
-        # Determine active state by reading the session state, which is synced to the URL
         is_active = (st.session_state.get('current_page') == page_key)
         icon_path = os.path.join("icons", icon_filename)
         icon_base_64 = get_image_as_base_64(icon_path)
@@ -110,8 +98,7 @@ with st.sidebar:
                 },
                 "div": {"padding": "0"},
                 "img": {
-                    "width": "32px", "height": "32px",
-                    "margin": "auto", "display": "block",
+                    "width": "32px", "height": "32px", "margin": "auto", "display": "block",
                     # Filter: brightness(1) ensures no darkening of the icon itself
                     "filter": "brightness(1.0)",
                     # Force sharp, non-blurry rendering in all major browsers
@@ -122,13 +109,15 @@ with st.sidebar:
                 "title": {"display": "none"}, "text": {"display": "none"}
             }
 
-            # Use on_click to call our reliable URL-changing function
+            # This is the modern, reliable way to handle callbacks.
+            # Streamlit manages the rerun correctly after on_click finishes.
+            # Now that the conflict from ta_update_xp is gone, this will work every time.
             card(
                 title=page_name,
                 text="", image=f"data:image/png;base64,{icon_base_64}",
                 styles=card_styles,
                 key=page_key,
-                on_click=lambda page=page_key: navigate_to(page)
+                on_click=lambda page=page_key: set_page(page)
             )
 # =========================================================
 # 1. IMPORTS
@@ -383,8 +372,9 @@ def show_xp_notification(xp_gained):
 def ta_update_xp(username, amount, description="XP activity"):
     """
     (CORRECTED VERSION)
-    Updates user XP, checks for level up, logs the transaction, and persists data
-    WITHOUT causing a script rerun, which allows navigation to work.
+    Updates user XP, checks for level up, and logs the transaction.
+    CRITICALLY, this version does NOT cause an extra page refresh,
+    which solves the navigation conflict.
     """
     if username is None: return
 
@@ -398,7 +388,7 @@ def ta_update_xp(username, amount, description="XP activity"):
     if new_level > st.session_state.get('level', 0):
         st.session_state.level = new_level
         badge_name = f"Level {new_level}"
-        if badge_name not in st.session_state.badges:
+        if badge_name not in st.session_state.get('badges', []):
             st.session_state.badges.append(badge_name)
         st.balloons()
         st.success(f"Level up! You are now level {new_level}!")
@@ -410,10 +400,11 @@ def ta_update_xp(username, amount, description="XP activity"):
         "Description": description
     })
 
-    save_user_data(username) # Persist all changes
-    if amount != 0:
-        show_xp_notification(amount) # This function is safe and does not rerun.
-
+    save_user_data(username) # Persist all changes to the database
+    if amount > 0:
+        # The show_xp_notification function uses st.components.v1.html,
+        # which is safe and does not trigger a conflicting rerun.
+        show_xp_notification(amount)
 def ta_award_badge(username, badge_name):
     """Awards a badge to the user and triggers a toast notification."""
     if username is None: return
