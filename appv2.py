@@ -43,7 +43,7 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 def get_image_as_base_64(path):
     """Encodes a local image file into a Base64 string for embedding."""
     if not os.path.exists(path):
-        st.warning(f"Icon not found at: {path}")
+        st.warning(f"Icon file not found, skipping icon: {path}")
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
@@ -55,7 +55,7 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'  # Set your default page here
 
 # =========================================================
-# SIDEBAR (FINAL, SELF-CONTAINED SOLUTION)
+# SIDEBAR (FINAL, CORRECTED, SELF-CONTAINED SOLUTION)
 # =========================================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -97,38 +97,39 @@ with st.sidebar:
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
         icon_path = os.path.join("icons", icon_filename)
-        icon_base64 = get_image_as_base_64(icon_path)
+        
+        # --- CRITICAL FIX IS HERE ---
+        # First, we get the base64 string.
+        icon_base_64 = get_image_as_base_64(icon_path)
 
-        if not icon_base64:
-            continue
+        # Second, we ONLY proceed to create the card IF the icon was successfully found and encoded.
+        if icon_base_64:
+            card_styles = {
+                "card": {
+                    "width": "50px", "height": "50px", "margin": "5px auto", "padding": "0",
+                    "border-radius": "10px", "background-color": "transparent", "cursor": "pointer",
+                    "box-shadow": "0 4px 8px -2px rgba(88,179,177,0.4)",
+                    "border": f"2px solid {'#FFFFFF' if is_active else 'transparent'}",
+                    "transition": "all 0.2s ease-in-out",
+                },
+                "div": {"padding": "0"},
+                "img": { # CSS for the icon image
+                    "width": "28px", "height": "28px", "margin": "auto", "display": "block",
+                    "image-rendering": "-webkit-optimize-contrast",
+                    "image-rendering": "pixelated",
+                    "image-rendering": "crisp-edges",
+                },
+                "title": {"display": "none"}, "text": {"display": "none"}
+            }
 
-        # This CSS now includes a fix for blurry images
-        card_styles = {
-            "card": {
-                "width": "50px", "height": "50px", "margin": "5px auto", "padding": "0",
-                "border-radius": "10px", "background-color": "transparent", "cursor": "pointer",
-                "box-shadow": "0 4px 8px -2px rgba(88,179,177,0.4)",
-                "border": f"2px solid {'#FFFFFF' if is_active else 'transparent'}",
-                "transition": "all 0.2s ease-in-out",
-            },
-            "div": {"padding": "0"},
-            "img": { # CSS for the icon image
-                "width": "28px", "height": "28px", "margin": "auto", "display": "block",
-                "image-rendering": "-webkit-optimize-contrast",  # For Chrome/Safari
-                "image-rendering": "pixelated",               # General sharp scaling
-                "image-rendering": "crisp-edges",             # For Firefox
-            },
-            "title": {"display": "none"}, "text": {"display": "none"}
-        }
-
-        # The card now calls our new, more forceful navigation function.
-        card(
-            title=page_name,
-            text="", image=f"data:image/png;base64,{icon_base_64}",
-            styles=card_styles,
-            key=page_key,
-            on_click=lambda page=page_key: force_set_page(page)
-        )
+            # The card now calls our new, more forceful navigation function.
+            card(
+                title=page_name,
+                text="", image=f"data:image/png;base64,{icon_base_64}", # This is now safe to run
+                styles=card_styles,
+                key=page_key,
+                on_click=lambda page=page_key: force_set_page(page)
+            )
 
 # =========================================================
 # 1. IMPORTS
