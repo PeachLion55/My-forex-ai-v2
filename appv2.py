@@ -26,6 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 
+# =========================================================
 # PAGE CONFIGURATION (Streamlit requires this at top level)
 # =========================================================================
 import streamlit as st
@@ -39,78 +40,8 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
 # =========================================================
-# CUSTOM SIDEBAR CSS (for the final, polished look)
+# HELPER FUNCTIONS & NAVIGATION LOGIC
 # =========================================================================
-st.markdown("""
-<style>
-/* --- Main Sidebar Style --- */
-section[data-testid="stSidebar"] {
-    background-color: #000000 !important;
-}
-section[data-testid="stSidebar"] > div:first-child {
-    overflow-y: hidden; /* Hide the scrollbar */
-}
-
-/* --- Container for each icon button --- */
-/* This div wraps the button and provides the glowing border */
-.icon-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 10px auto; /* Provides spacing between buttons */
-    width: 70px; /* Container width */
-    height: 70px; /* Container height */
-    border-radius: 15px; /* Rounded corners for the container */
-    border: 2px solid transparent; /* Start with a transparent border */
-    box-shadow: 0 0 8px rgba(88, 179, 177, 0.4); /* Subtle ambient glow for all buttons */
-    transition: all 0.3s ease-in-out;
-}
-
-/* --- Style for the ACTIVE button's container --- */
-.icon-container.active {
-    border-color: rgba(88, 179, 177, 1.0); /* Solid colored border */
-    box-shadow: 0 0 15px rgba(88, 179, 177, 0.9); /* A stronger glow */
-}
-
-/* --- Hover effect for ANY button's container --- */
-.icon-container:hover {
-    transform: scale(1.1); /* Enlarge on hover */
-    border-color: rgba(88, 179, 177, 0.7); /* Glow on hover for inactive buttons */
-}
-
-/* --- The actual Streamlit button --- */
-/* We style the button itself to be the square with the icon */
-.icon-container button {
-    width: 60px; /* Square button width */
-    height: 60px; /* Square button height */
-    padding: 0;
-    border: none;
-    border-radius: 12px; /* Rounded corners for the button itself */
-    background-color: #0d1117; /* A very dark grey, almost black */
-    background-size: 65% 65%; /* Icon size within the button */
-    background-repeat: no-repeat;
-    background-position: center;
-    color: transparent; /* This is the key to hiding the button's text label */
-    transition: background-color 0.3s ease;
-}
-
-/* --- Ensure button inside container has no extra visual effects --- */
-.icon-container button:hover,
-.icon-container button:active,
-.icon-container button:focus {
-    background-color: #1c1c1c !important; /* Slightly lighten button background on interaction */
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: transparent !important; /* Keep the label hidden */
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-# =========================================================
-# HELPER FUNCTIONS
-# =========================================================
 
 def get_image_as_base64(path):
     """Encodes a local image to a base64 string for CSS embedding."""
@@ -121,11 +52,17 @@ def get_image_as_base64(path):
         return base64.b64encode(img_file.read()).decode()
 
 def handle_nav_click(page_key):
-    """Updates the session state to navigate to the clicked page."""
+    """
+    Updates the session state to navigate to the clicked page and forces a rerun.
+    """
     st.session_state.current_page = page_key
-    # Reset other states if necessary (e.g., for submenus)
+    # Reset other states if necessary
     if 'current_subpage' in st.session_state:
         st.session_state.current_subpage = None
+    
+    # CRITICAL: This forces Streamlit to re-run the script immediately,
+    # ensuring the page content updates smoothly.
+    st.rerun()
 
 # =========================================================
 # INITIALIZE SESSION STATE
@@ -133,24 +70,11 @@ def handle_nav_click(page_key):
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
+
 # =========================================================
-# SIDEBAR CONTENT
+# DEFINE NAVIGATION ITEMS AND ICONS
 # =========================================================
 
-# --- Logo Display ---
-st.sidebar.markdown("<div style='margin-top: -60px;'></div>", unsafe_allow_html=True) # Negative margin to pull logo up
-try:
-    logo_path = "logo22.png"
-    if os.path.exists(logo_path):
-        st.sidebar.image(logo_path, width=80)
-    else:
-        st.sidebar.warning("Logo file 'logo22.png' not found.")
-except Exception as e:
-    st.sidebar.error(f"Error loading logo: {e}")
-st.sidebar.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True) # Space below logo
-
-
-# --- Navigation Items Definition ---
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
@@ -163,7 +87,6 @@ nav_items = [
     ('account', 'My Account'),
 ]
 
-# --- Icon Mapping (ensure these paths are correct) ---
 icon_mapping = {
     'fundamentals': 'icons/forex_fundamentals.png',
     'watch list': 'icons/watchlist_icon.png',
@@ -176,37 +99,116 @@ icon_mapping = {
     'account': 'icons/my_account.png',
 }
 
-# --- Loop to Create and Display the Icon Navigation Menu ---
-for page_key, page_name in nav_items:
+# =========================================================
+# BUILD AND INJECT CSS (ROBUST METHOD)
+# =========================================================================
+
+# Start building the main CSS string for the sidebar layout
+css_style = """
+<style>
+/* Main Sidebar Style */
+section[data-testid="stSidebar"] {
+    background-color: #000000 !important;
+}
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: hidden;
+}
+
+/* Container for each icon button */
+.icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px auto;
+    width: 70px;
+    height: 70px;
+    border-radius: 15px;
+    border: 2px solid transparent;
+    box-shadow: 0 0 8px rgba(88, 179, 177, 0.4);
+    transition: all 0.3s ease-in-out;
+}
+.icon-container.active {
+    border-color: rgba(88, 179, 177, 1.0);
+    box-shadow: 0 0 15px rgba(88, 179, 177, 0.9);
+}
+.icon-container:hover {
+    transform: scale(1.1);
+    border-color: rgba(88, 179, 177, 0.7);
+}
+
+/* The actual Streamlit button */
+.icon-container button {
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background-color: #0d1117;
+    background-size: 65% 65%;
+    background-repeat: no-repeat;
+    background-position: center;
+    color: transparent; /* Hides the button's text label */
+    transition: background-color 0.3s ease;
+}
+.icon-container button:hover,
+.icon-container button:active,
+.icon-container button:focus {
+    background-color: #1c1c1c !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: transparent !important;
+}
+</style>
+"""
+
+# Build a second style block specifically for the button icons
+icon_styles = "<style>"
+for page_key, _ in nav_items:
     icon_path = icon_mapping.get(page_key)
     if icon_path:
         icon_base64 = get_image_as_base64(icon_path)
         if icon_base64:
-            # This is the unique ID for our container div
-            container_id = f"button-container-{page_key}"
+            # Note the use of data-testid for a stable selector
+            icon_styles += f"""
+                div[data-testid="stButton--{page_key}"] button {{
+                    background-image: url("data:image/png;base64,{icon_base64}");
+                }}
+            """
+icon_styles += "</style>"
 
-            # Dynamically inject the CSS to set the background icon for THIS specific button
-            st.markdown(f"""
-            <style>
-            #{container_id} button {{
-                background-image: url("data:image/png;base64,{icon_base64}");
-            }}
-            </style>
-            """, unsafe_allow_html=True)
+# Inject both style blocks into the app
+st.markdown(css_style, unsafe_allow_html=True)
+st.markdown(icon_styles, unsafe_allow_html=True)
 
-            # Determine if this is the active page to apply the 'active' class
-            is_active_class = "active" if st.session_state.current_page == page_key else ""
 
-            # Create the container div and place the Streamlit button inside it
-            st.sidebar.markdown(f'<div id="{container_id}" class="icon-container {is_active_class}">', unsafe_allow_html=True)
-            st.button(
-                label=page_name,  # Label is hidden by CSS but essential for Streamlit
-                key=page_key,
-                on_click=handle_nav_click,
-                args=(page_key,),
-                use_container_width=True
-            )
-            st.sidebar.markdown('</div>', unsafe_allow_html=True)
+# =========================================================
+# RENDER SIDEBAR CONTENT
+# =========================================================
+
+st.sidebar.markdown("<div style='margin-top: -60px;'></div>", unsafe_allow_html=True)
+try:
+    if os.path.exists("logo22.png"):
+        st.sidebar.image("logo22.png", width=80)
+    else:
+        st.sidebar.warning("Logo file 'logo22.png' not found.")
+except Exception as e:
+    st.sidebar.error(f"Error loading logo: {e}")
+st.sidebar.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
+# Loop to create the buttons
+for page_key, page_name in nav_items:
+    is_active_class = "active" if st.session_state.current_page == page_key else ""
+    
+    # Each button is wrapped in a container div for the glowing border effect
+    st.sidebar.markdown(f'<div class="icon-container {is_active_class}">', unsafe_allow_html=True)
+    st.button(
+        label=page_name,
+        key=page_key,
+        on_click=handle_nav_click,
+        args=(page_key,),
+    )
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
