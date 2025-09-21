@@ -109,16 +109,16 @@ css_to_inject += """
         margin-bottom: 12px;
     }
 
-    /* The actual button element */
+    /* The actual button element - force override */
     div[data-testid*="stButton--nav-"] button {
         width: 65px !important;
         height: 65px !important;
         padding: 0 !important;
         border-radius: 15px !important;
         background-color: #0d1117 !important;
-        color: transparent !important; /* THIS IS THE KEY TO HIDING THE TEXT */
+        color: transparent !important; /* HIDES THE TEXT LABEL */
         border: 2px solid transparent !important;
-        box-shadow: 0 0 10px rgba(88, 179, 177, 0.5) !important; /* Ambient glow */
+        box-shadow: 0 0 10px rgba(88, 179, 177, 0.5) !important; /* Ambient glow for all */
         background-size: 60% 60% !important;
         background-repeat: no-repeat !important;
         background-position: center !important;
@@ -132,7 +132,7 @@ css_to_inject += """
         border-color: rgba(88, 179, 177, 0.7) !important;
     }
     
-    /* Remove focus outline */
+    /* Remove focus outline and apply a hover-like glow */
     div[data-testid*="stButton--nav-"] button:focus {
         outline: none !important;
         box-shadow: 0 0 15px rgba(88, 179, 177, 0.9) !important;
@@ -144,7 +144,7 @@ for page_key, _ in nav_items:
     sanitized_key = page_key.replace(" ", "-")
     button_testid = f"stButton--nav-{sanitized_key}"
     
-    # Add rule for the icon background image
+    # Rule for the icon background image
     icon_path = icon_mapping.get(page_key)
     if icon_path and (icon_base64 := get_image_as_base64(icon_path)):
         css_to_inject += f"""
@@ -153,7 +153,7 @@ for page_key, _ in nav_items:
             }}
         """
     
-    # Add rule for the ACTIVE button's distinct style
+    # Rule for the ACTIVE button's distinct style (bright border and glow)
     if st.session_state.current_page == page_key:
         css_to_inject += f"""
             div[data-testid="{button_testid}"] button {{
@@ -172,19 +172,20 @@ st.markdown(css_to_inject, unsafe_allow_html=True)
 # RENDER THE SIDEBAR UI
 # =========================================================
 with st.sidebar:
+    # Centering the logo using Base64 to avoid extra containers
     if os.path.exists("logo22.png"):
-        # Centering the logo
-        st.markdown("<div style='display: flex; justify-content: center;'><img src='data:image/png;base64,{}' width='80'></div>".format(get_image_as_base64('logo22.png')), unsafe_allow_html=True)
+        logo_base64 = get_image_as_base64('logo22.png')
+        st.markdown(f"<div style='display: flex; justify-content: center;'><img src='data:image/png;base64,{logo_base64}' width='80'></div>", unsafe_allow_html=True)
     else:
         st.warning("Logo file not found.")
 
-    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True) # Spacer
 
     # Render the icon buttons
     for page_key, page_name in nav_items:
         st.button(
-            label=page_name,  # Hidden by CSS
-            key=f"nav-{page_key.replace(' ', '-')}", # Create a unique key
+            label=page_name,  # Hidden by CSS but required by Streamlit
+            key=f"nav-{page_key.replace(' ', '-')}", # Create a unique and sanitized key
             on_click=handle_nav_click,
             args=(page_key,),
         )
