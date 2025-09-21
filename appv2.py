@@ -191,12 +191,6 @@ with st.sidebar:
 
 
 # =========================================================
-# RENDER THE MAIN PAGE CONTENT
-# =========================================================
-current_page_title = st.session_state.current_page.replace('_', ' ').title()
-st.title(current_page_title)
-
-# =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
 st.markdown(
