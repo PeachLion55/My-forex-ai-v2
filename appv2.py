@@ -25,140 +25,332 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+# =========================================================
+# PAGE CONFIGURATION (Streamlit requires this at top level)
+# =========================================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
+
+# =========================================================
+# CUSTOM SIDEBAR CSS
+# =========================================================
+st.markdown("""
+<style>
+/* Sidebar container - disable scrolling */
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: hidden !important;
+}
+
+/* Sidebar background stays black */
+section[data-testid="stSidebar"] {
+    background-color: #000000 !important;
+}
+
+/* Sidebar buttons - default state */
+section[data-testid="stSidebar"] div.stButton > button {
+    background-color: #000000 !important;
+    background-image: none !important; /* remove gradient */
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    margin: 2px 0 !important; /* This keeps the buttons close */
+    font-weight: bold !important;
+    font-size: 16px !important;
+    text-align: left !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    transition: all 0.3s ease !important;
+
+    /* Soft top and bottom glow only */
+    box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
+                0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
+}
+
+/* Hover effect - untouched */
+section[data-testid="stSidebar"] div.stButton > button:hover {
+    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    color: #f0f0f0 !important;
+    cursor: pointer !important;
+}
+
+/* Active button */
+section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: 0 -4px 12px -2px rgba(88,179,177,0.9), /* top glow */
+                0 4px 12px -2px rgba(88,179,177,0.9);  /* bottom glow */
+}
+</style>
+""", unsafe_allow_html=True)
 
 import streamlit as st
+from PIL import Image
+import io
 import base64
 import os
 
 # =========================================================
-# HELPER FUNCTION
+# SIDEBAR NAVIGATION
 # =========================================================
-def get_image_as_base_64(path):
-    """Encodes an image file into a Base64 string."""
-    if not os.path.exists(path):
-        st.warning(f"Icon file not found: {path}")
-        return None
-    with open(path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
 
-# =========================================================
-# SIDEBAR (FINAL, GUARANTEED, SELF-CONTAINED SOLUTION)
-# =========================================================
-with st.sidebar:
-    # --- LOGO DISPLAY ---
-    logo_path = "logo22.png"
-    if os.path.exists(logo_path):
-        logo_base_64 = get_image_as_base_64(logo_path)
-        if logo_base_64:
-            st.markdown(
-                f"""
-                <div style='text-align: center; margin-top: -60px; margin-bottom: 25px;'>
-                    <img src="data:image/png;base64,{logo_base_64}" width="60">
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+# --- Add custom CSS for alignment and gradient button styling ---
+st.markdown(
+    """
+    <style>
+        .sidebar-content {
+            padding-top: 0rem;
+        }
 
-    # --- Initialize session state ---
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'fundamentals'
-
-    # --- NAVIGATION ITEMS ---
-    nav_items = [
-        ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
-        ('watch list', 'My Watchlist', 'watchlist_icon.png'),
-        ('trading_journal', 'My Trading Journal', 'trading_journal.png'),
-        ('mt5', 'Performance Dashboard', 'performance_dashboard.png'),
-        ('trading_tools', 'Trading Tools', 'trading_tools.png'),
-        ('strategy', 'Manage My Strategy', 'manage_my_strategy.png'),
-        ('Community Chatroom', 'Community Chatroom', 'community_chatroom.png'),
-        ('Zenvo Academy', 'Zenvo Academy', 'zenvo_academy.png'),
-        ('account', 'My Account', 'my_account.png'),
-    ]
-
-    # --- "BRUTE FORCE" CSS INJECTION ---
-    # This stylesheet is designed with maximum specificity to win any CSS conflict.
-    # It CANNOT leak out and affect your main page layouts.
-    style_block = "<style>"
-
-    # Rule 1: General style for the button to make it a square.
-    style_block += """
-        /* This selector CANNOT leak outside the sidebar */
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
-            display: flex;
-            justify-content: center;
+        /* Vertically center elements in columns */
+        [data-testid="stHorizontalBlock"] {
             align-items: center;
-            width: 55px !important;
-            height: 55px !important;
-            padding: 0 !important;
-            margin: 5px auto !important;
-            background-color: transparent !important;
-            background-size: 32px 32px !important;
-            background-repeat: no-repeat !important;
-            background-position: center !important;
-            border-radius: 10px !important;
-            border: 2px solid rgba(88, 179, 177, 0.4) !important;
-            transition: all 0.2s ease-in-out;
-            /* Forcefully hide any text color */
-            color: transparent !important;
         }
-    """
 
-    # Rule 2: BRUTALLY HIDE THE TEXT LABEL.
-    # This targets the actual text element inside the button and removes it.
-    style_block += """
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button p {
-            font-size: 0px !important;
-            line-height: 0 !important;
-            height: 0 !important;
-            width: 0 !important;
-            overflow: hidden !important;
+        /* --- GRADIENT BUTTON STYLING --- */
+
+        /* Style for the default (secondary) button */
+        /* This applies the black gradient from the left */
+        [data-testid="stSidebar"] [data-testid="stButton"] button {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to transparent grey on the right */
+            background-image: linear-gradient(to right, black, rgba(49, 51, 63, 0.8));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; /* Ensure text color is visible against the gradient */
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover effects */
         }
-    """
+
+        /* Style for the active (primary) button, overriding Streamlit's default color */
+        /* The ".st-emotion-cache-" class is what Streamlit uses internally for primary buttons */
+        [data-testid="stSidebar"] [data-testid="stButton"] button.st-emotion-cache-19rxjzo {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to the theme's blue on the right */
+            background-image: linear-gradient(to right, black, #1c83e1);
+            border: 1px solid #1c83e1; /* Match border to the theme color */
+            color: white;
+        }
+
+        /* Optional: A subtle hover effect for better user experience */
+        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
+            border-color: #0083B8;
+            color: white;
+            transform: scale(1.01); /* Slightly enlarge button on hover */
+        }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# --- Logo Display (same as your original code) ---
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 30px; margin-top: -45px;'>
+            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except FileNotFoundError:
+    st.sidebar.error("Logo file 'logo22.png' not found.")
+
+# --- Initialize session_state if it's the first run ---
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
+
+
+# --- Navigation Items Definition (emojis removed from text) ---
+nav_items = [
+    ('fundamentals', 'Forex Fundamentals'),
+    ('watch list', 'My Watchlist'),
+    ('trading_journal', 'My Trading Journal'),
+    ('mt5', 'Performance Dashboard'),
+    ('trading_tools', 'Trading Tools'),
+    ('strategy', 'Manage My Strategy'),
+    ('Community Chatroom', 'Community Chatroom'),
+    ('Zenvo Academy', 'Zenvo Academy'),
+    ('account', 'My Account'),
+]
+
+# --- Map your page keys to the icon file names in the 'icons' folder ---
+icon_mapping = {
+    'trading_journal': 'trading_journal.png',
+    'watch list': 'watchlist_icon.png',
+    'fundamentals': 'forex_fundamentals.png',
+    'mt5': 'performance_dashboard.png',
+    'account': 'my_account.png',
+    'strategy': 'manage_my_strategy.png',
+    'trading_tools': 'trading_tools.png',
+    'community': 'community_trade_ideas.png',
+    'Community Chatroom': 'community_chatroom.png',
+    'Zenvo Academy': 'zenvo_academy.png'  
+}
+
+
+# --- Loop to Create the Navigation Menu (your exact Python logic) ---
+for page_key, page_name in nav_items:
     
-    # Rule 3: Create a unique, high-priority rule for EACH button's icon image.
-    for page_key, page_name, icon_filename in nav_items:
-        icon_path = os.path.join("icons", icon_filename)
-        icon_base_64 = get_image_as_base_64(icon_path)
-        if icon_base_64:
-            # This selector is guaranteed to apply the background image.
-            style_block += f"""
-                button[title="{page_name}"] {{
-                    background-image: url("data:image/png;base64,{icon_base_64}") !important;
-                }}
-            """
+    # Create two columns: one for the icon, one for the button
+    col1, col2 = st.sidebar.columns([1, 4], gap="small")
 
-    # Rule 4: Hover and Active state styles.
-    style_block += """
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
-            border-color: #FFFFFF !important;
-            transform: scale(1.1);
-        }
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
-            border-color: #FFFFFF !important;
-            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7) !important;
-        }
-    """
-    style_block += "</style>"
-    st.markdown(style_block, unsafe_allow_html=True)
+    with col1:
+        icon_filename = icon_mapping.get(page_key)
+        if icon_filename:
+            icon_path = os.path.join("icons", icon_filename)
+            if os.path.exists(icon_path):
+                # NOTE: Adjusted width from 120 to 28 for a better layout
+                st.image(icon_path, width=100) # <-- CORRECTED WIDTH HERE
 
-    # --- GENERATE THE BUTTONS ---
-    for page_key, page_name, icon_filename in nav_items:
+    with col2:
+        # Highlight the active page button using 'type="primary"'
         is_active = (st.session_state.current_page == page_key)
+        button_type = "primary" if is_active else "secondary"
         
-        # We use Streamlit's native button, which is 100% reliable for navigation.
-        if st.button(
-            label=page_name,  # The label is now guaranteed to be hidden
-            key=f"nav_{page_key}",
-            type="primary" if is_active else "secondary",
-            use_container_width=True,
-            help=page_name # This creates the tooltip and the 'title' for our CSS
-        ):
-            # Simple, reliable state change and rerun
-            if st.session_state.current_page != page_key:
-                st.session_state.current_page = page_key
-                st.rerun()
+        # This is your original button logic, inside a column
+        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
+            st.rerun()
+
+# =========================================================
+# GLOBAL CSS & GRIDLINE SETTINGS
+# =========================================================
+st.markdown(
+    """
+    <style>
+    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
+    .stApp {
+        /* Retain Code B's background styling, adding only text color */
+        background-color: #000000; /* black background */
+        color: #c9d1d9; /* Text color from Code A */
+        /* Code B gridline background */
+        background-image:
+        linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
+        background-size: 40px 40px;
+        background-attachment: fixed;
+    }
+
+    .block-container {
+        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
+    }
+
+    h1, h2, h3, h4 {
+        color: #c9d1d9 !important; /* From Code A */
+    }
+
+    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
+    hr {
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
+        border-bottom: none !important;
+        background-color: transparent !important;
+        height: 1px !important;
+    }
+
+    /* Hide Streamlit Branding (From Code A & B merged) */
+    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
+
+    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
+    .css-18e3th9, .css-1d391kg {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
+
+    /* --- Metric Card Styling (from Code A) --- */
+    /* This styling for st.metric is kept for non-editable metrics elsewhere */
+    [data-testid="stMetric"] {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 1.2rem;
+        transition: all 0.2s ease-in-out;
+    }
+    [data-testid="stMetric"]:hover {
+        border-color: #58a6ff;
+    }
+    [data-testid="stMetricLabel"] {
+        font-weight: 500;
+        color: #8b949e;
+    }
+
+    /* --- Tab Styling (from Code A, adapted) --- */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        background-color: transparent;
+        border: 1px solid #30363d; /* Adjusted border from Code A */
+        border-radius: 8px;
+        padding: 0 24px;
+        transition: all 0.2s ease-in-out;
+        color: #c9d1d9; /* Default text color for tabs */
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #161b22;
+        color: #58a6ff;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background-color: #161b22;
+        border-color: #58a6ff;
+        color: #c9d1d9; /* Active tab text color from Code A */
+    }
+
+    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
+    .trade-notes-display {
+        background-color: #161b22;
+        border-left: 4px solid #58a6ff;
+        border-radius: 0 8px 8px 0;
+        padding: 1rem 1.5rem;
+        margin-top: 1rem;
+    }
+    .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
+    .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
+    
+    /* --- Custom Playbook Metric Display (new for editable section) --- */
+    .playbook-metric-display {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 10px; /* Space between rows of metrics/actions */
+    }
+    .playbook-metric-display .label {
+        font-size: 0.9em;
+        color: #8b949e;
+        margin-bottom: 5px;
+    }
+    .playbook-metric-display .value {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #c9d1d9;
+    }
+    .playbook-metric-display.profit-positive {
+        border-color: #2da44e; /* Green border for profit */
+        background-color: #0b1f15; /* Darker green background */
+    }
+    .playbook-metric-display.profit-negative {
+        border-color: #cf222e; /* Red border for loss */
+        background-color: #260d0d; /* Darker red background */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # =========================================================
 # 1. IMPORTS
 # =========================================================
@@ -441,10 +633,9 @@ def ta_update_xp(username, amount, description="XP activity"):
     })
 
     save_user_data(username) # Persist all changes to the database
-    if amount > 0:
-        # The show_xp_notification function uses st.components.v1.html,
-        # which is safe and does not trigger a conflicting rerun.
-        show_xp_notification(amount)
+    if amount != 0: # Only show notification for non-zero XP changes
+        show_xp_notification(amount) # Show notification
+
 def ta_award_badge(username, badge_name):
     """Awards a badge to the user and triggers a toast notification."""
     if username is None: return
