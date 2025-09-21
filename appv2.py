@@ -30,7 +30,7 @@ from datetime import datetime, date, timedelta
 import streamlit as st
 import base64
 import os
-from streamlit_card import card # <-- Import the new component
+from streamlit_card import card  # Make sure this is installed (pip install streamlit-card)
 
 # =========================================================
 # PAGE CONFIGURATION
@@ -49,10 +49,10 @@ def get_image_as_base64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# Initialize session state for the current page
+# Initialize session state if it doesn't exist
 # =========================================================================
 if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals' # Default page
+    st.session_state.current_page = 'fundamentals'  # Set your default page here
 
 # =========================================================
 # SIDEBAR
@@ -85,47 +85,36 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- Generate Icon Buttons using streamlit_card ---
+    # --- Generate Icon Buttons ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base64(icon_path)
 
-        # Skip if icon is not found
         if not icon_base64:
             continue
 
-        # Define custom CSS styles for the card
         card_styles = {
             "card": {
                 "width": "50px", "height": "50px", "margin": "5px auto", "padding": "0",
-                "border-radius": "10px", "background-color": "transparent",
+                "border-radius": "10px", "background-color": "transparent", "cursor": "pointer",
                 "box-shadow": "0 4px 8px -2px rgba(88,179,177,0.4)",
                 "border": f"2px solid {'#FFFFFF' if is_active else 'transparent'}",
                 "transition": "all 0.2s ease-in-out",
             },
-            "div": { # Style the div that contains the image
-                "padding": "0"
-            },
-            "img": { # Style the image itself
-                "width": "28px", "height": "28px", "margin": "auto", "display": "block",
-            },
-            "title": { # We don't have a title, so hide it
-                "display": "none",
-            },
-            "text": { # We don't have text, so hide it
-                "display": "none",
-            }
+            "div": {"padding": "0"}, "img": {"width": "28px", "height": "28px", "margin": "auto", "display": "block"},
+            "title": {"display": "none"}, "text": {"display": "none"}
         }
-        
-        # When card is clicked, it returns True. We use this to set the page.
+
+        # --- THIS IS THE CORRECTED LOGIC ---
+        # The card function returns True if it's clicked. We capture that in an 'if' statement.
         if card(
-            title="", text="", image=f"data:image/png;base64,{icon_base64}",
-            key=page_key,
+            title=page_name, # The title is used for accessibility but is hidden by CSS
+            text="", image=f"data:image/png;base64,{icon_base64}",
             styles=card_styles,
-            on_click=lambda: st.session_state.update(current_page=page_key)
+            key=page_key
         ):
-            # This logic triggers the script rerun to update the main page content
+            st.session_state.current_page = page_key
             st.rerun()
 
 # =========================================================
