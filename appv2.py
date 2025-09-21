@@ -40,9 +40,10 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # =========================================================
 # HELPER FUNCTION TO ENCODE IMAGES
 # =========================================================================
-def get_image_as_base64(path):
+def get_image_as_base_64(path):
     """Encodes a local image file into a Base64 string for embedding."""
     if not os.path.exists(path):
+        # Using st.warning is safer than st.error which can halt the app
         st.warning(f"Icon not found at: {path}")
         return None
     with open(path, "rb") as image_file:
@@ -50,18 +51,19 @@ def get_image_as_base64(path):
 
 # =========================================================
 # Initialize session state if it doesn't exist
+# This is crucial for the app to know the current page on first load
 # =========================================================================
 if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'  # Set your default page here
+    st.session_state.current_page = 'fundamentals'
 
 # =========================================================
-# SIDEBAR
+# SIDEBAR NAVIGATION (FINAL, ROBUST VERSION)
 # =========================================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
     logo_path = "logo22.png"
     if os.path.exists(logo_path):
-        logo_base64 = get_image_as_base64(logo_path)
+        logo_base64 = get_image_as_base_64(logo_path)
         if logo_base64:
             st.markdown(
                 f"""
@@ -85,11 +87,15 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- Generate Icon Buttons ---
+    # --- A simple helper function to change the page in session_state ---
+    def set_page(page_key):
+        st.session_state.current_page = page_key
+
+    # --- Generate Icon Buttons using the on_click callback ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
         icon_path = os.path.join("icons", icon_filename)
-        icon_base64 = get_image_as_base64(icon_path)
+        icon_base64 = get_image_as_base_64(icon_path)
 
         if not icon_base64:
             continue
@@ -106,16 +112,16 @@ with st.sidebar:
             "title": {"display": "none"}, "text": {"display": "none"}
         }
 
-        # --- THIS IS THE CORRECTED LOGIC ---
-        # The card function returns True if it's clicked. We capture that in an 'if' statement.
-        if card(
-            title=page_name, # The title is used for accessibility but is hidden by CSS
+        # This is the most reliable way to handle navigation.
+        # on_click tells Streamlit what function to run. Streamlit handles the rerun
+        # itself after the function completes, avoiding any conflicts.
+        card(
+            title=page_name,
             text="", image=f"data:image/png;base64,{icon_base64}",
             styles=card_styles,
-            key=page_key
-        ):
-            st.session_state.current_page = page_key
-            st.rerun()
+            key=page_key,
+            on_click=lambda page=page_key: set_page(page)
+        )
 
 # =========================================================
 # 1. IMPORTS
@@ -369,7 +375,9 @@ def show_xp_notification(xp_gained):
 
 def ta_update_xp(username, amount, description="XP activity"):
     """
-    Updates user XP, checks for level up, logs the transaction, and persists data.
+    (CORRECTED VERSION)
+    Updates user XP, checks for level up, logs the transaction, and persists data
+    WITHOUT causing a script rerun, which allows navigation to work.
     """
     if username is None: return
 
@@ -390,14 +398,14 @@ def ta_update_xp(username, amount, description="XP activity"):
 
     # Log XP transaction
     st.session_state.xp_log.append({
-        "Date": dt.date.today().isoformat(), # Use ISO format for consistent storage
+        "Date": dt.date.today().isoformat(),
         "Amount": amount,
         "Description": description
     })
 
-    save_user_data(username) # Persist all session state XP/Level/Badges/xp_log changes
-    if amount != 0: # Only show notification for non-zero XP changes
-        show_xp_notification(amount) # Show notification
+    save_user_data(username) # Persist all changes
+    if amount != 0:
+        show_xp_notification(amount) # This function is safe and does not rerun.
 
 def ta_award_badge(username, badge_name):
     """Awards a badge to the user and triggers a toast notification."""
