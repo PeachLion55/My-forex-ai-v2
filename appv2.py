@@ -26,25 +26,28 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Clickable Image Version)
+# SIDEBAR NAVIGATION (Definitive, Clickable Card Version)
 # =========================================================
 import streamlit as st
 from PIL import Image
 import io
 import base64
 import os
+from streamlit_card import card # Import the custom component
 
 # --- Helper function to make file paths robust ---
-# This ensures the code can find the 'icons' folder regardless of where you run the script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else os.getcwd()
 
 @st.cache_data
 def image_to_base_64(path):
+    """Encodes a local image file to a base64 string for embedding."""
     try:
-        with open(path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode()
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
     except FileNotFoundError:
-        return None # Silently fail if an icon is missing
+        # This error will appear in your sidebar if an icon is missing, helping you debug.
+        st.sidebar.error(f"Icon not found at: {path}")
+        return None
 
 # --- Navigation & Icon Mapping ---
 nav_items = [
@@ -74,24 +77,10 @@ icon_mapping = {
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
-# --- Handle Page Navigation via URL Parameter ---
-# This code checks if a "?page=..." parameter exists in the URL
-query_params = st.query_params
-if "page" in query_params:
-    page_key_from_url = query_params["page"]
-    # Update the session state only if the page is different, to avoid loops
-    if st.session_state.current_page != page_key_from_url:
-        st.session_state.current_page = page_key_from_url
-        # Clear the query parameter and rerun to have a clean URL
-        st.query_params.clear()
-        st.rerun()
-
-# --- Inject CSS for Clickable Icons ---
+# --- Inject CSS for Sidebar Layout ---
+# We still need a little CSS to center our cards vertically in the sidebar.
 st.markdown("""
 <style>
-/* Sidebar Base */
-section[data-testid="stSidebar"] { background-color: #000000; }
-
 /* Center all items in the sidebar */
 section[data-testid="stSidebar"] > div:first-child {
     display: flex;
@@ -99,51 +88,16 @@ section[data-testid="stSidebar"] > div:first-child {
     align-items: center;
     padding-top: 1rem;
 }
-
 /* Logo & App Name Styling */
 .sidebar-header { text-align: center; margin-bottom: 2rem; width: 100%; }
 .app-name {
-    background-color: #262730; color: #FFF; font-family: monospace; padding: 4px 10px;
-    border-radius: 5px; display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
-}
-
-/* Style for each navigation link (the <a> tag) */
-.nav-link {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 65px;
-    height: 65px;
-    border-radius: 16px;
-    background-color: #1A1A1A;
-    border: 2px solid #2A3B3A;
-    box-shadow: 0 0 10px rgba(77, 180, 176, 0.3);
-    margin-bottom: 1rem;
-    transition: all 0.2s ease-in-out;
-}
-
-.nav-link:hover {
-    transform: scale(1.08);
-    border-color: #4DB4B0;
-    box-shadow: 0 0 15px rgba(77, 180, 176, 0.6);
-}
-
-/* Style for the active link */
-.nav-link.active {
-    border-color: #4DB4B0;
-    box-shadow: 0 0 20px 2px rgba(77, 180, 176, 0.8);
-}
-
-/* Style for the icon image inside the link */
-.nav-link img {
-    width: 55%;
-    height: 55%;
-    object-fit: contain; /* Ensures the icon scales correctly */
+    background-color: #262730; color: #FFF; padding: 4px 10px; border-radius: 5px; 
+    display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Render the Sidebar Content ---
+# --- Render the Sidebar Header and Logo ---
 st.sidebar.markdown(
     "<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>",
     unsafe_allow_html=True
@@ -161,7 +115,7 @@ try:
 except FileNotFoundError:
     pass
 
-# --- Loop to Create the Clickable Icons ---
+# --- Loop to Create the Clickable Icon Cards ---
 active_page_key = st.session_state.current_page
 
 for page_key, page_name in nav_items:
@@ -173,16 +127,54 @@ for page_key, page_name in nav_items:
     icon_b64 = image_to_base_64(icon_path)
     
     if icon_b64:
-        # Determine if this is the active link to apply the "active" class
-        active_class = "active" if page_key == active_page_key else ""
+        is_active = (page_key == active_page_key)
         
-        # Create the HTML for the clickable icon link
-        link_html = f"""
-        <a href="?page={page_key}" class="nav-link {active_class}" title="{page_name}">
-            <img src="data:image/png;base64,{icon_b64}" />
-        </a>
-        """
-        st.sidebar.markdown(link_html, unsafe_allow_html=True)
+        # Define the styles for the card
+        # Base styles for all cards
+        card_styles = {
+            "card": {
+                "width": "65px",
+                "height": "65px",
+                "border-radius": "16px",
+                "background-color": "#1A1A1A",
+                "border": "2px solid #2A3B3A",
+                "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
+                "margin": "0 auto 1rem auto", # Center horizontally and add bottom margin
+                "padding": "0",
+                "display": "flex",
+                "justify-content": "center",
+                "align-items-center"
+            },
+            "div": { # Target the inner div
+                 "padding": "0",
+            },
+            "img": { # Style the icon image itself
+                "width": "55%",
+                "height": "55%",
+                "object-fit": "contain",
+            },
+            # Remove filter effect for clearer icons
+            "filter": {"background-color": "transparent"}, 
+        }
+
+        # Apply stronger glowing effect if the card is active
+        if is_active:
+            card_styles["card"]["border"] = "2px solid #4DB4B0"
+            card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
+
+        # The card component returns True when clicked, just like st.button
+        clicked = card(
+            title="",       # No title
+            text="",        # No text
+            image=f"data:image/png;base64,{icon_b64}",
+            styles=card_styles,
+            key=f"nav_card_{page_key}",
+            on_click=lambda: None # Required for it to be clickable
+        )
+        
+        if clicked:
+            st.session_state.current_page = page_key
+            st.rerun()
 
 # =========================================================
 # 1. IMPORTS
