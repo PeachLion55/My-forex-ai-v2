@@ -41,39 +41,41 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 def get_image_as_base64(path):
     """Encodes a local image file into a Base64 string."""
     if not os.path.exists(path):
+        st.warning(f"Icon not found at: {path}") # Display a warning in the UI
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# CHECK QUERY PARAMS TO SET PAGE
-# We do this at the top to ensure the state is set before the sidebar is drawn
+# MANAGE PAGE STATE USING URL QUERY PARAMS (MOST ROBUST METHOD)
 # =========================================================================
-# Get the page from the query parameters, or set a default
+# Check the URL for a 'page' parameter. If it exists, set the session state.
 query_params = st.query_params
 if "page" in query_params:
     st.session_state.current_page = query_params["page"]
+# If no URL param and no state exists, set a default.
 elif 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals' # Default page on first run
+    st.session_state.current_page = 'fundamentals'
 
 # =========================================================
 # SIDEBAR
 # =========================================================================
 with st.sidebar:
-    # --- LOGO ---
+    # --- LOGO DISPLAY ---
     logo_path = "logo22.png"
     if os.path.exists(logo_path):
         logo_base64 = get_image_as_base64(logo_path)
-        st.markdown(
-            f"""
-            <div style='text-align: center; margin-top: -50px; margin-bottom: 20px;'>
-                <img src="data:image/png;base64,{logo_base64}" width="60">
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        if logo_base64:
+            st.markdown(
+                f"""
+                <div style='text-align: center; margin-top: -60px; margin-bottom: 25px;'>
+                    <img src="data:image/png;base64,{logo_base64}" width="60">
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-    # --- ICON MAPPING ---
+    # --- ICON & PAGE MAPPING ---
     icon_mapping = {
         'fundamentals': ('Forex Fundamentals', 'forex_fundamentals.png'),
         'watch list': ('My Watchlist', 'watchlist_icon.png'),
@@ -86,45 +88,46 @@ with st.sidebar:
         'account': ('My Account', 'my_account.png'),
     }
 
-    # --- CUSTOM CSS FOR ICON BUTTONS ---
+    # --- GENERAL CSS FOR BUTTON SHAPE, HOVER, AND ACTIVE STATES ---
     st.markdown("""
     <style>
-        /* General sidebar style */
         section[data-testid="stSidebar"] {
             background-color: #000000 !important;
+            overflow-y: hidden !important; /* Prevents scrolling */
         }
 
-        /* Style for the container of our custom icon button */
-        .icon-button-container {
+        /* The container for each icon button */
+        .icon-container {
             display: flex;
-            justify-content: center; /* Center the button horizontally */
-            align-items: center;
-            margin: 5px 0; /* Add some vertical spacing */
+            justify-content: center;
+            margin: 5px 0;
         }
 
-        /* The custom icon button itself (an <a> tag) */
+        /* This is our custom button, built from an <a> tag */
         a.icon-button {
             display: block;
             width: 50px;
             height: 50px;
             border-radius: 10px;
-            background-color: transparent;
-            background-size: 28px 28px; /* Control the icon size */
-            background-repeat: no-repeat;
-            background-position: center;
             border: 2px solid transparent;
             box-shadow: 0 4px 8px -2px rgba(88,179,177,0.4);
+
+            /* Critical for making the inline style work */
+            background-size: 28px 28px;
+            background-repeat: no-repeat;
+            background-position: center;
+
             transition: all 0.2s ease-in-out;
         }
 
-        /* Hover effect */
+        /* Hover effect: controlled by the stylesheet */
         a.icon-button:hover {
             transform: scale(1.1);
             border-color: rgba(88, 179, 177, 1.0);
             box-shadow: 0 0 15px -2px rgba(88,179,177,0.9);
         }
 
-        /* Active state style */
+        /* Active state: controlled by the stylesheet */
         a.icon-button.active {
             border-color: #FFFFFF;
             box-shadow: 0 0 20px -2px rgba(88,179,177,1.0);
@@ -132,27 +135,28 @@ with st.sidebar:
     </style>
     """, unsafe_allow_html=True)
 
-    # --- CREATE NAVIGATION BUTTONS ---
+    # --- GENERATE THE ICONS IN A LOOP ---
     for page_key, (page_name, icon_filename) in icon_mapping.items():
         is_active = (st.session_state.current_page == page_key)
         active_class = "active" if is_active else ""
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base64(icon_path)
 
-        if icon_base64:
-            # Use columns to help center the button if needed, or just markdown directly
-            _, col, _ = st.columns([1, 1, 1])
-            with col:
-                st.markdown(
-                    f"""
-                    <div class="icon-button-container">
-                        <a href="?page={page_key}" target="_self" class="icon-button {active_class}" title="{page_name}"
-                           style="background-image: url('data:image/png;base64,{icon_base64}');">
-                        </a>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+        # Skip this icon if the file is not found
+        if not icon_base64:
+            continue
+
+        # The INLINE STYLE `style="..."` is the key fix here
+        st.markdown(
+            f"""
+            <div class="icon-container">
+                <a href="?page={page_key}" target="_self" class="icon-button {active_class}" title="{page_name}"
+                   style="background-image: url('data:image/png;base64,{icon_base64}');">
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # =========================================================
 # 1. IMPORTS
