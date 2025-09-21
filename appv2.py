@@ -40,41 +40,37 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
 # =========================================================
-# HELPER FUNCTIONS & NAVIGATION LOGIC
+# NAVIGATION HANDLER & HELPER FUNCTIONS
 # =========================================================================
+
+def handle_nav_click(page_key):
+    """
+    Updates the session state and forces an immediate re-run of the script
+    to ensure the page content updates smoothly.
+    """
+    st.session_state.current_page = page_key
+    # CRITICAL: This is the command that makes navigation instant.
+    st.rerun()
 
 def get_image_as_base64(path):
     """Encodes a local image to a base64 string for CSS embedding."""
     if not os.path.exists(path):
-        st.error(f"Icon not found at path: {path}")
+        # Don't display a scary error, just return None.
+        # The calling code can handle the absence of an icon.
         return None
     with open(path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-def handle_nav_click(page_key):
-    """
-    Updates the session state to navigate to the clicked page and forces a rerun.
-    """
-    st.session_state.current_page = page_key
-    # Reset other states if necessary
-    if 'current_subpage' in st.session_state:
-        st.session_state.current_subpage = None
-    
-    # CRITICAL: This forces Streamlit to re-run the script immediately,
-    # ensuring the page content updates smoothly.
-    st.rerun()
-
 # =========================================================
 # INITIALIZE SESSION STATE
-# =========================================================
+# =========================================================================
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
 
 # =========================================================
-# DEFINE NAVIGATION ITEMS AND ICONS
+# DEFINE NAVIGATION AND ICON MAPPING
 # =========================================================
-
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
@@ -100,110 +96,107 @@ icon_mapping = {
 }
 
 # =========================================================
-# BUILD AND INJECT CSS (ROBUST METHOD)
+# BUILD AND INJECT THE COMPLETE CSS (ROBUST METHOD)
 # =========================================================================
 
-# Start building the main CSS string for the sidebar layout
-css_style = """
+# Start with the static CSS for layout, containers, and buttons
+# This defines the "frame" for our icons.
+css_to_inject = """
 <style>
-/* Main Sidebar Style */
-section[data-testid="stSidebar"] {
-    background-color: #000000 !important;
-}
-section[data-testid="stSidebar"] > div:first-child {
-    overflow-y: hidden;
-}
+    /* Main Sidebar Style */
+    section[data-testid="stSidebar"] {
+        background-color: #000000 !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        overflow-y: hidden;
+    }
 
-/* Container for each icon button */
-.icon-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 10px auto;
-    width: 70px;
-    height: 70px;
-    border-radius: 15px;
-    border: 2px solid transparent;
-    box-shadow: 0 0 8px rgba(88, 179, 177, 0.4);
-    transition: all 0.3s ease-in-out;
-}
-.icon-container.active {
-    border-color: rgba(88, 179, 177, 1.0);
-    box-shadow: 0 0 15px rgba(88, 179, 177, 0.9);
-}
-.icon-container:hover {
-    transform: scale(1.1);
-    border-color: rgba(88, 179, 177, 0.7);
-}
+    /* Container for each icon button */
+    .icon-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 10px auto;
+        width: 70px;
+        height: 70px;
+        border-radius: 15px;
+        border: 2px solid transparent;
+        box-shadow: 0 0 8px rgba(88, 179, 177, 0.4);
+        transition: all 0.3s ease-in-out;
+    }
+    .icon-container.active {
+        border-color: rgba(88, 179, 177, 1.0);
+        box-shadow: 0 0 15px rgba(88, 179, 177, 0.9);
+    }
+    .icon-container:hover {
+        transform: scale(1.1);
+        border-color: rgba(88, 179, 177, 0.7);
+    }
 
-/* The actual Streamlit button */
-.icon-container button {
-    width: 60px;
-    height: 60px;
-    padding: 0;
-    border: none;
-    border-radius: 12px;
-    background-color: #0d1117;
-    background-size: 65% 65%;
-    background-repeat: no-repeat;
-    background-position: center;
-    color: transparent; /* Hides the button's text label */
-    transition: background-color 0.3s ease;
-}
-.icon-container button:hover,
-.icon-container button:active,
-.icon-container button:focus {
-    background-color: #1c1c1c !important;
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: transparent !important;
-}
-</style>
+    /* The actual Streamlit button element */
+    .icon-container button {
+        width: 60px;
+        height: 60px;
+        padding: 0;
+        border: none;
+        border-radius: 12px;
+        background-color: #0d1117;
+        background-size: 65% 65%;
+        background-repeat: no-repeat;
+        background-position: center;
+        color: transparent; /* Hides the button's text label */
+        transition: background-color 0.3s ease;
+    }
+    /* Remove Streamlit's default visual feedback on interaction */
+    .icon-container button:hover,
+    .icon-container button:active,
+    .icon-container button:focus {
+        background-color: #1c1c1c !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+        color: transparent !important;
+    }
 """
 
-# Build a second style block specifically for the button icons
-icon_styles = "<style>"
+# Now, dynamically add the CSS rule for each button's icon
 for page_key, _ in nav_items:
+    # Sanitize the key for CSS selector (e.g., 'watch list' -> 'watch-list')
+    sanitized_key = page_key.replace(" ", "-")
     icon_path = icon_mapping.get(page_key)
     if icon_path:
         icon_base64 = get_image_as_base64(icon_path)
         if icon_base64:
-            # Note the use of data-testid for a stable selector
-            icon_styles += f"""
-                div[data-testid="stButton--{page_key}"] button {{
+            # Use Streamlit's stable `data-testid` for precise targeting
+            css_to_inject += f"""
+                div[data-testid="stButton--{sanitized_key}"] button {{
                     background-image: url("data:image/png;base64,{icon_base64}");
                 }}
             """
-icon_styles += "</style>"
 
-# Inject both style blocks into the app
-st.markdown(css_style, unsafe_allow_html=True)
-st.markdown(icon_styles, unsafe_allow_html=True)
+# Close the style tag and inject the full CSS block once
+css_to_inject += "</style>"
+st.markdown(css_to_inject, unsafe_allow_html=True)
 
 
 # =========================================================
-# RENDER SIDEBAR CONTENT
+# RENDER THE SIDEBAR
 # =========================================================
 
+# Add vertical space and display the logo
 st.sidebar.markdown("<div style='margin-top: -60px;'></div>", unsafe_allow_html=True)
-try:
-    if os.path.exists("logo22.png"):
-        st.sidebar.image("logo22.png", width=80)
-    else:
-        st.sidebar.warning("Logo file 'logo22.png' not found.")
-except Exception as e:
-    st.sidebar.error(f"Error loading logo: {e}")
+if os.path.exists("logo22.png"):
+    st.sidebar.image("logo22.png", width=80)
 st.sidebar.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
-# Loop to create the buttons
+# Render the icon buttons
 for page_key, page_name in nav_items:
     is_active_class = "active" if st.session_state.current_page == page_key else ""
     
-    # Each button is wrapped in a container div for the glowing border effect
+    # Wrap each button in our styled container
     st.sidebar.markdown(f'<div class="icon-container {is_active_class}">', unsafe_allow_html=True)
     st.button(
-        label=page_name,
+        label=page_name,  # Hidden by CSS, but required by Streamlit
         key=page_key,
         on_click=handle_nav_click,
         args=(page_key,),
