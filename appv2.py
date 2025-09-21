@@ -774,7 +774,7 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
 # =========================================================
-# NEW CUSTOM SIDEBAR CSS WITH BOXICONS
+# NEW CUSTOM SIDEBAR CSS WITH BOXICONS (REPLACES OLD CSS)
 # =========================================================
 st.markdown("""
 <style>
@@ -964,15 +964,16 @@ import streamlit as st
 from PIL import Image
 import io
 import base64
-import os
+import os # Kept this import as it might be used elsewhere in your full app
 
 # =========================================================
-# REVAMPED SIDEBAR NAVIGATION
+# REVAMPED SIDEBAR NAVIGATION (REPLACES ORIGINAL LOGIC)
 # =========================================================
 
 # --- Logo Display ---
+# The logo will now be horizontally centered. Ensure 'logo22.png' is in your app's directory.
 try:
-    logo_path = "logo22.png" # Ensure your logo file is in the same directory as your app
+    logo_path = "logo22.png" 
     logo = Image.open(logo_path)
     logo_resized = logo.resize((60, 50)) # Resize for sidebar fit
     buffered = io.BytesIO()
@@ -995,7 +996,7 @@ if 'current_page' not in st.session_state:
 
 # --- Navigation Items Definition ---
 # The text here will serve as the button's label but will be hidden by CSS.
-# It will naturally provide a tooltip on hover, which is good for UX with icon-only nav.
+# It will naturally provide a tooltip on hover (most browsers), which is good for UX with icon-only nav.
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
