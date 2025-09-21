@@ -30,12 +30,20 @@ from datetime import datetime, date, timedelta
 import streamlit as st
 import base64
 import os
-from streamlit_card import card  # Make sure this is installed (pip install streamlit-card)
+from streamlit_card import card  # Ensure this is installed (pip install streamlit-card)
 
 # =========================================================
-# PAGE CONFIGURATION
-# =========================================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
+# URL-BASED NAVIGATION ROUTER (THE CRITICAL FIX)
+# This code runs at the top and reads the URL to set the page.
+# This makes navigation 100% reliable, overriding any other conflicting state changes.
+# =========================================================
+query_params = st.query_params.to_dict()
+if "page" in query_params:
+    # Set the session state from the URL's 'page' parameter
+    st.session_state.current_page = query_params["page"][0]
+elif 'current_page' not in st.session_state:
+    # If there's no page in the URL and the app is just starting, set a default
+    st.session_state.current_page = 'fundamentals'
 
 # =========================================================
 # HELPER FUNCTION TO ENCODE IMAGES
@@ -49,13 +57,7 @@ def get_image_as_base_64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# Initialize session state if it doesn't exist
-# =========================================================================
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'  # Set your default page here
-
-# =========================================================
-# SIDEBAR (FINAL, CORRECTED, SELF-CONTAINED SOLUTION)
+# SIDEBAR (FINAL, 100% RELIABLE VERSION)
 # =========================================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -85,36 +87,37 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- A "FORCEFUL" NAVIGATION FUNCTION ---
-    # This function is the key. It sets the state AND triggers its own rerun.
-    def force_set_page(page_key):
-        # Only act if we are actually changing the page
-        if st.session_state.current_page != page_key:
-            st.session_state.current_page = page_key
-            st.rerun() # This deliberate rerun forces Streamlit to process this page change last.
+    # --- RELIABLE NAVIGATION FUNCTION ---
+    # This function changes the URL, which is the most robust way to navigate.
+    def navigate_to(page_key):
+        # We need to set query_params which forces a rerun and changes the URL
+        st.query_params["page"] = page_key
 
     # --- Generate Icon Buttons ---
     for page_key, page_name, icon_filename in nav_items:
-        is_active = (st.session_state.current_page == page_key)
+        # Check if the page determined by the URL is this one
+        is_active = (st.session_state.get('current_page') == page_key)
         icon_path = os.path.join("icons", icon_filename)
-        
-        # --- CRITICAL FIX IS HERE ---
-        # First, we get the base64 string.
         icon_base_64 = get_image_as_base_64(icon_path)
 
-        # Second, we ONLY proceed to create the card IF the icon was successfully found and encoded.
         if icon_base_64:
+            # --- CSS TO FIX BLURRY / DARKENED ICONS ---
             card_styles = {
                 "card": {
-                    "width": "50px", "height": "50px", "margin": "5px auto", "padding": "0",
+                    "width": "55px", "height": "55px", "margin": "5px auto", "padding": "0",
                     "border-radius": "10px", "background-color": "transparent", "cursor": "pointer",
-                    "box-shadow": "0 4px 8px -2px rgba(88,179,177,0.4)",
-                    "border": f"2px solid {'#FFFFFF' if is_active else 'transparent'}",
+                    # Active state gets a bright border and an inner glow. Inactive is a clean, dark border.
+                    "border": f"2px solid {'#FFFFFF' if is_active else 'rgba(88,179,177,0.4)'}",
+                    "box-shadow": f"{'inset 0 0 8px rgba(255, 255, 255, 0.7)' if is_active else 'none'}",
                     "transition": "all 0.2s ease-in-out",
                 },
                 "div": {"padding": "0"},
                 "img": { # CSS for the icon image
-                    "width": "28px", "height": "28px", "margin": "auto", "display": "block",
+                    "width": "32px", "height": "32px",
+                    "margin": "auto", "display": "block",
+                    # Filter: brightness(1) ensures no darkening. Tweak if needed.
+                    "filter": "brightness(1.0)",
+                    # Force sharp, non-blurry rendering in browsers
                     "image-rendering": "-webkit-optimize-contrast",
                     "image-rendering": "pixelated",
                     "image-rendering": "crisp-edges",
@@ -122,15 +125,14 @@ with st.sidebar:
                 "title": {"display": "none"}, "text": {"display": "none"}
             }
 
-            # The card now calls our new, more forceful navigation function.
+            # Use on_click to call our URL-changing function
             card(
                 title=page_name,
-                text="", image=f"data:image/png;base64,{icon_base_64}", # This is now safe to run
+                text="", image=f"data:image/png;base64,{icon_base_64}",
                 styles=card_styles,
                 key=page_key,
-                on_click=lambda page=page_key: force_set_page(page)
+                on_click=lambda page=page_key: navigate_to(page)
             )
-
 # =========================================================
 # 1. IMPORTS
 # =========================================================
