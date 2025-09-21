@@ -25,6 +25,7 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+
 # =========================================================
 # PAGE CONFIGURATION (Streamlit requires this at top level)
 # =========================================================================
@@ -116,14 +117,13 @@ if 'current_page' not in st.session_state:
 # Check for navigation parameter in the URL
 query_params = st.query_params
 if 'nav' in query_params:
-    # Get the page from the URL
-    page_from_url = query_params['nav']
+    page_from_url = query_params.get('nav')
 
-    # Update the session state only if it's a new page
+    # Update the session state only if the page has actually changed
     if page_from_url != st.session_state.current_page:
         st.session_state.current_page = page_from_url
 
-        # --- Reset any other relevant state variables here ---
+        # Reset any other relevant state variables here
         if 'current_subpage' in st.session_state:
             st.session_state.current_subpage = None
         if 'show_tools_submenu' in st.session_state:
@@ -138,7 +138,6 @@ if 'nav' in query_params:
 
 # --- Logo Display ---
 try:
-    # Assuming logo22.png is in the root directory
     logo_path = "logo22.png"
     if os.path.exists(logo_path):
         logo_base64 = get_image_as_base64(logo_path)
@@ -191,13 +190,12 @@ for page_key, page_name in nav_items:
         icon_base64 = get_image_as_base64(icon_path)
 
         if icon_base64:
-            # Determine if the button is for the currently active page
             is_active_class = "active" if st.session_state.current_page == page_key else ""
 
-            # Create a clickable HTML link (<a> tag) for the icon
+            # Create a clickable HTML link with target="_self" to ensure same-tab navigation
             st.sidebar.markdown(
                 f"""
-                <a href="?nav={page_key}" class="icon-button {is_active_class}" title="{page_name}">
+                <a href="?nav={page_key}" target="_self" class="icon-button {is_active_class}" title="{page_name}">
                     <img src="data:image/png;base64,{icon_base64}" alt="{page_name}">
                 </a>
                 """,
