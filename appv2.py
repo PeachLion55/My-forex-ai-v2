@@ -25,7 +25,205 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+# =========================================================
+# PAGE CONFIGURATION (Streamlit requires this at top level)
+# =========================================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
+
+# =========================================================
+# CUSTOM SIDEBAR CSS
+# =========================================================
+st.markdown("""
+<style>
+/* Sidebar container - disable scrolling */
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: hidden !important;
+}
+
+/* Sidebar background stays black */
+section[data-testid="stSidebar"] {
+    background-color: #000000 !important;
+}
+
+/* Sidebar buttons - default state */
+section[data-testid="stSidebar"] div.stButton > button {
+    background-color: #000000 !important;
+    background-image: none !important; /* remove gradient */
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    margin: 2px 0 !important; /* This keeps the buttons close */
+    font-weight: bold !important;
+    font-size: 16px !important;
+    text-align: left !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    transition: all 0.3s ease !important;
+
+    /* Soft top and bottom glow only */
+    box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
+                0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
+}
+
+/* Hover effect - untouched */
+section[data-testid="stSidebar"] div.stButton > button:hover {
+    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    color: #f0f0f0 !important;
+    cursor: pointer !important;
+}
+
+/* Active button */
+section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: 0 -4px 12px -2px rgba(88,179,177,0.9), /* top glow */
+                0 4px 12px -2px rgba(88,179,177,0.9);  /* bottom glow */
+}
+</style>
+""", unsafe_allow_html=True)
+
+import streamlit as st
+from PIL import Image
+import io
+import base64
+import os
+
+# =========================================================
+# SIDEBAR NAVIGATION
+# =========================================================
+
+# --- Add custom CSS for alignment and gradient button styling ---
+st.markdown(
+    """
+    <style>
+        .sidebar-content {
+            padding-top: 0rem;
+        }
+
+        /* Vertically center elements in columns */
+        [data-testid="stHorizontalBlock"] {
+            align-items: center;
+        }
+
+        /* --- GRADIENT BUTTON STYLING --- */
+
+        /* Style for the default (secondary) button */
+        /* This applies the black gradient from the left */
+        [data-testid="stSidebar"] [data-testid="stButton"] button {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to transparent grey on the right */
+            background-image: linear-gradient(to right, black, rgba(49, 51, 63, 0.8));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; /* Ensure text color is visible against the gradient */
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover effects */
+        }
+
+        /* Style for the active (primary) button, overriding Streamlit's default color */
+        /* The ".st-emotion-cache-" class is what Streamlit uses internally for primary buttons */
+        [data-testid="stSidebar"] [data-testid="stButton"] button.st-emotion-cache-19rxjzo {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to the theme's blue on the right */
+            background-image: linear-gradient(to right, black, #1c83e1);
+            border: 1px solid #1c83e1; /* Match border to the theme color */
+            color: white;
+        }
+
+        /* Optional: A subtle hover effect for better user experience */
+        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
+            border-color: #0083B8;
+            color: white;
+            transform: scale(1.01); /* Slightly enlarge button on hover */
+        }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# --- Logo Display (same as your original code) ---
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 30px; margin-top: -45px;'>
+            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except FileNotFoundError:
+    st.sidebar.error("Logo file 'logo22.png' not found.")
+
+# --- Initialize session_state if it's the first run ---
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
+
+
+# --- Navigation Items Definition (emojis removed from text) ---
+nav_items = [
+    ('fundamentals', 'Forex Fundamentals'),
+    ('watch list', 'My Watchlist'),
+    ('trading_journal', 'My Trading Journal'),
+    ('mt5', 'Performance Dashboard'),
+    ('trading_tools', 'Trading Tools'),
+    ('strategy', 'Manage My Strategy'),
+    ('Community Chatroom', 'Community Chatroom'),
+    ('Zenvo Academy', 'Zenvo Academy'),
+    ('account', 'My Account'),
+]
+
+# --- Map your page keys to the icon file names in the 'icons' folder ---
+icon_mapping = {
+    'trading_journal': 'trading_journal.png',
+    'watch list': 'watchlist_icon.png',
+    'fundamentals': 'forex_fundamentals.png',
+    'mt5': 'performance_dashboard.png',
+    'account': 'my_account.png',
+    'strategy': 'manage_my_strategy.png',
+    'trading_tools': 'trading_tools.png',
+    'community': 'community_trade_ideas.png',
+    'Community Chatroom': 'community_chatroom.png',
+    'Zenvo Academy': 'zenvo_academy.png'  # <-- ADDED THIS LINE
+}
+
+
+# --- Loop to Create the Navigation Menu (your exact Python logic) ---
+for page_key, page_name in nav_items:
+    
+    # Create two columns: one for the icon, one for the button
+    col1, col2 = st.sidebar.columns([1, 4], gap="small")
+
+    with col1:
+        icon_filename = icon_mapping.get(page_key)
+        if icon_filename:
+            icon_path = os.path.join("icons", icon_filename)
+            if os.path.exists(icon_path):
+                # NOTE: Adjusted width from 120 to 28 for a better layout
+                st.image(icon_path, width=100) # <-- CORRECTED WIDTH HERE
+
+    with col2:
+        # Highlight the active page button using 'type="primary"'
+        is_active = (st.session_state.current_page == page_key)
+        button_type = "primary" if is_active else "secondary"
+        
+        # This is your original button logic, inside a column
+        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
+            st.rerun()
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
@@ -767,69 +965,7 @@ def initialize_and_load_session_state():
 
 initialize_and_load_session_state()
 
-# =========================================================
-# PAGE CONFIGURATION (Streamlit requires this at top level)
-# =========================================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
-
-# =========================================================
-# CUSTOM SIDEBAR CSS
-# =========================================================
-st.markdown("""
-<style>
-/* Sidebar container - disable scrolling */
-section[data-testid="stSidebar"] > div:first-child {
-    overflow-y: hidden !important;
-}
-
-/* Sidebar background stays black */
-section[data-testid="stSidebar"] {
-    background-color: #000000 !important;
-}
-
-/* Sidebar buttons - default state */
-section[data-testid="stSidebar"] div.stButton > button {
-    background-color: #000000 !important;
-    background-image: none !important; /* remove gradient */
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 5px !important;
-    padding: 10px !important;
-    margin: 2px 0 !important; /* This keeps the buttons close */
-    font-weight: bold !important;
-    font-size: 16px !important;
-    text-align: left !important;
-    display: block !important;
-    box-sizing: border-box !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    transition: all 0.3s ease !important;
-
-    /* Soft top and bottom glow only */
-    box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
-                0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
-}
-
-/* Hover effect - untouched */
-section[data-testid="stSidebar"] div.stButton > button:hover {
-    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
-    color: #f0f0f0 !important;
-    cursor: pointer !important;
-}
-
-/* Active button */
-section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
-    background-color: #000000 !important;
-    color: #ffffff !important;
-    box-shadow: 0 -4px 12px -2px rgba(88,179,177,0.9), /* top glow */
-                0 4px 12px -2px rgba(88,179,177,0.9);  /* bottom glow */
-}
-</style>
-""", unsafe_allow_html=True)
 # =========================================================
 # NEWS & ECONOMIC CALENDAR DATA / HELPERS
 # =========================================================
@@ -918,141 +1054,6 @@ econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
 
-import streamlit as st
-from PIL import Image
-import io
-import base64
-import os
-
-# =========================================================
-# SIDEBAR NAVIGATION
-# =========================================================
-
-# --- Add custom CSS for alignment and gradient button styling ---
-st.markdown(
-    """
-    <style>
-        .sidebar-content {
-            padding-top: 0rem;
-        }
-
-        /* Vertically center elements in columns */
-        [data-testid="stHorizontalBlock"] {
-            align-items: center;
-        }
-
-        /* --- GRADIENT BUTTON STYLING --- */
-
-        /* Style for the default (secondary) button */
-        /* This applies the black gradient from the left */
-        [data-testid="stSidebar"] [data-testid="stButton"] button {
-            background-color: transparent;
-            /* Gradient starts black on the left, fading to transparent grey on the right */
-            background-image: linear-gradient(to right, black, rgba(49, 51, 63, 0.8));
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white; /* Ensure text color is visible against the gradient */
-            transition: all 0.2s ease-in-out; /* Smooth transition for hover effects */
-        }
-
-        /* Style for the active (primary) button, overriding Streamlit's default color */
-        /* The ".st-emotion-cache-" class is what Streamlit uses internally for primary buttons */
-        [data-testid="stSidebar"] [data-testid="stButton"] button.st-emotion-cache-19rxjzo {
-            background-color: transparent;
-            /* Gradient starts black on the left, fading to the theme's blue on the right */
-            background-image: linear-gradient(to right, black, #1c83e1);
-            border: 1px solid #1c83e1; /* Match border to the theme color */
-            color: white;
-        }
-
-        /* Optional: A subtle hover effect for better user experience */
-        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
-            border-color: #0083B8;
-            color: white;
-            transform: scale(1.01); /* Slightly enlarge button on hover */
-        }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# --- Logo Display (same as your original code) ---
-try:
-    logo = Image.open("logo22.png")
-    logo = logo.resize((60, 50))
-    buffered = io.BytesIO()
-    logo.save(buffered, format="PNG")
-    logo_str = base64.b64encode(buffered.getvalue()).decode()
-    st.sidebar.markdown(
-        f"""
-        <div style='text-align: center; margin-bottom: 30px; margin-top: -45px;'>
-            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-except FileNotFoundError:
-    st.sidebar.error("Logo file 'logo22.png' not found.")
-
-# --- Initialize session_state if it's the first run ---
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
-
-
-# --- Navigation Items Definition (emojis removed from text) ---
-nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
-    ('watch list', 'My Watchlist'),
-    ('trading_journal', 'My Trading Journal'),
-    ('mt5', 'Performance Dashboard'),
-    ('trading_tools', 'Trading Tools'),
-    ('strategy', 'Manage My Strategy'),
-    ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account'),
-]
-
-# --- Map your page keys to the icon file names in the 'icons' folder ---
-icon_mapping = {
-    'trading_journal': 'trading_journal.png',
-    'watch list': 'watchlist_icon.png',
-    'fundamentals': 'forex_fundamentals.png',
-    'mt5': 'performance_dashboard.png',
-    'account': 'my_account.png',
-    'strategy': 'manage_my_strategy.png',
-    'trading_tools': 'trading_tools.png',
-    'community': 'community_trade_ideas.png',
-    'Community Chatroom': 'community_chatroom.png',
-    'Zenvo Academy': 'zenvo_academy.png'  # <-- ADDED THIS LINE
-}
-
-
-# --- Loop to Create the Navigation Menu (your exact Python logic) ---
-for page_key, page_name in nav_items:
-    
-    # Create two columns: one for the icon, one for the button
-    col1, col2 = st.sidebar.columns([1, 4], gap="small")
-
-    with col1:
-        icon_filename = icon_mapping.get(page_key)
-        if icon_filename:
-            icon_path = os.path.join("icons", icon_filename)
-            if os.path.exists(icon_path):
-                # NOTE: Adjusted width from 120 to 28 for a better layout
-                st.image(icon_path, width=100) # <-- CORRECTED WIDTH HERE
-
-    with col2:
-        # Highlight the active page button using 'type="primary"'
-        is_active = (st.session_state.current_page == page_key)
-        button_type = "primary" if is_active else "secondary"
-        
-        # This is your original button logic, inside a column
-        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
-            st.session_state.current_page = page_key
-            st.session_state.current_subpage = None
-            st.session_state.show_tools_submenu = False
-            st.rerun()
 # =========================================================
 # MAIN APPLICATION LOGIC
 # =========================================================
