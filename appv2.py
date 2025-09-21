@@ -32,6 +32,15 @@ import base64
 import os
 
 # =========================================================
+# PAGE CONFIGURATION
+# For your page layout to be full width ("wide"), this line MUST be present
+# and be the VERY FIRST Streamlit command in your main script file.
+# If you don't have it, please add it there.
+# =========================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
+
+
+# =========================================================
 # HELPER FUNCTION
 # =========================================================
 def get_image_as_base_64(path):
@@ -42,8 +51,9 @@ def get_image_as_base_64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
+
 # =========================================================
-# SIDEBAR (FINAL, GUARANTEED VERSION)
+# SIDEBAR (FINAL, GUARANTEED, SELF-CONTAINED SOLUTION)
 # =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -81,17 +91,22 @@ with st.sidebar:
     # This block creates one large, powerful stylesheet that CANNOT leak or be overridden.
     style_block = "<style>"
 
-    # Rule 1: The general style for all buttons to make them square icons.
-    # The 'section[data-testid="stSidebar"]' selector ensures these styles ONLY apply to the sidebar.
+    # Rule 1: A container to center the button. We will wrap each button in this.
     style_block += """
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0 !important;
-            margin: 5px auto !important;
+        .icon-button-container {
+            display: flex !important;
+            justify-content: center !important;
+            margin-bottom: 5px;
+        }
+    """
+
+    # Rule 2: The general style for the button itself. This ensures it's a square.
+    # The 'section[data-testid="stSidebar"]' selector ensures these styles ONLY apply here.
+    style_block += """
+        section[data-testid="stSidebar"] .icon-button-container button {
             width: 55px !important;
             height: 55px !important;
+            padding: 0 !important;
             
             background-color: transparent !important;
             background-size: 32px 32px !important;
@@ -105,27 +120,28 @@ with st.sidebar:
             
             transition: all 0.2s ease-in-out;
         }
+    """
 
-        /* BRUTE FORCE HIDE THE TEXT LABEL */
-        /* This selector finds the text span INSIDE the button and removes it from view completely. */
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button > span {
+    # Rule 3: This BRUTALLY hides the text label inside the button.
+    style_block += """
+        section[data-testid="stSidebar"] .icon-button-container button span {
             display: none !important;
         }
+    """
 
-        /* Hover effect */
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
+    # Rule 4: Hover and Active state styles
+    style_block += """
+        section[data-testid="stSidebar"] .icon-button-container button:hover {
             border-color: #FFFFFF !important;
             transform: scale(1.1);
         }
-
-        /* Style for the ACTIVE button (when type="primary") */
-        section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
+        section[data-testid="stSidebar"] .icon-button-container button[kind="primary"] {
             border-color: #FFFFFF !important;
             box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7) !important;
         }
     """
 
-    # Rule 2: Create a unique, high-priority rule for EACH button's icon.
+    # Rule 5: Create a unique, high-priority rule for EACH button's icon image.
     for page_key, page_name, icon_filename in nav_items:
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base_64(icon_path)
@@ -138,23 +154,29 @@ with st.sidebar:
             """
 
     style_block += "</style>"
+
+    # Inject the complete CSS stylesheet into the app
     st.markdown(style_block, unsafe_allow_html=True)
+
 
     # --- GENERATE THE BUTTONS ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
 
-        # We use Streamlit's native button. It is 100% reliable for navigation.
-        # The complex CSS we just built handles its entire appearance.
+        # We wrap the button in our centering container.
+        st.markdown('<div class="icon-button-container">', unsafe_allow_html=True)
+
         if st.button(
-            label=page_name,  # The text is REQUIRED by Streamlit but is now FORCEFULLY HIDDEN by our CSS
+            label=f"label_for_{page_key}",  # A unique, hidden label
             key=f"nav_{page_key}",
             type="primary" if is_active else "secondary",
-            use_container_width=True, # This helps with centering in the sidebar column
-            help=page_name  # 'help' creates a tooltip AND the 'title' attribute for our CSS to find
+            use_container_width=False, # CRITICAL: This MUST be False
+            help=page_name # Creates the tooltip and the 'title' for CSS
         ):
             st.session_state.current_page = page_key
             st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
 # =========================================================
 # 1. IMPORTS
 # =========================================================
