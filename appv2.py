@@ -130,46 +130,53 @@ with st.sidebar:
     except FileNotFoundError:
         pass # Silently fail if logo is missing
 
-    # --- Loop to Create the Clickable Icon Cards ---
-    for page_key, page_name in nav_items:
-        icon_filename = icon_mapping.get(page_key)
-        if not icon_filename:
-            continue
+    # --- Loop to Create the Clickable Icon Cards (CORRECTED) ---
+for page_key, page_name in nav_items:
+    icon_filename = icon_mapping.get(page_key)
+    if not icon_filename:
+        continue
+    
+    icon_path = os.path.join(SCRIPT_DIR, "icons", icon_filename)
+    icon_b64 = image_to_base_64(icon_path)
+    
+    if icon_b64:
+        is_active = (st.session_state.current_page == page_key)
         
-        icon_path = os.path.join(SCRIPT_DIR, "icons", icon_filename)
-        icon_b64 = image_to_base_64(icon_path)
-        
-        if icon_b64:
-            is_active = (st.session_state.current_page == page_key)
-            
-            card_styles = {
-                "card": {
-                    "width": "65px", "height": "65px", "border-radius": "16px",
-                    "background-color": "#1A1A1A", "margin": "0 auto 1rem auto",
-                    "border": "2px solid #2A3B3A", "padding": "0",
-                    "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
-                    "display": "flex", "justify-content": "center", "align-items": "center",
-                    "transition": "all 0.2s ease-in-out",
-                },
-                "div": {"padding": "0"},
-                "img": {"width": "55%", "height": "55%", "object-fit": "contain"},
-                "filter": {"background-color": "transparent"},
-            }
+        # Define base styles (as you did before)
+        card_styles = {
+            "card": {
+                "width": "65px", "height": "65px", "border-radius": "16px",
+                "background-color": "#1A1A1A", "margin": "0 auto 1rem auto",
+                "border": "2px solid #2A3B3A", "padding": "0",
+                "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
+                "display": "flex", "justify-content": "center", "align-items": "center",
+                "transition": "all 0.2s ease-in-out",
+            },
+            "div": {"padding": "0"},
+            "img": {"width": "55%", "height": "55%", "object-fit": "contain"},
+            "filter": {"background-color": "transparent"},
+        }
 
-            if is_active:
-                card_styles["card"]["border"] = "2px solid #4DB4B0"
-                card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
-            
-            # **THE SECOND CRITICAL FIX**: We now call the component and pass our
-            # `set_page` function to the `on_click` parameter.
-            # We use a lambda to ensure the correct `page_key` is passed for each card.
-            card(
-                title="", text="",
-                image=f"data:image/png;base64,{icon_b64}",
-                styles=card_styles,
-                key=f"nav_card_{page_key}",
-                on_click=lambda key=page_key: set_page(key)
-            )
+        # Apply active styles
+        if is_active:
+            card_styles["card"]["border"] = "2px solid #4DB4B0"
+            card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
+        
+        # --- THE FIX ---
+        # 1. Capture the return value of the card component.
+        # 2. Remove the on_click parameter.
+        clicked = card(
+            title="", text="",
+            image=f"data:image/png;base64,{icon_b64}",
+            styles=card_styles,
+            key=f"nav_card_{page_key}" 
+            # Note: The on_click parameter has been removed.
+        )
+        
+        # 3. Check the return value to trigger the page change.
+        if clicked:
+            st.session_state.current_page = page_key
+            st.rerun() # This ensures the app updates immediately with the new page
 
 # =========================================================
 # 1. IMPORTS
