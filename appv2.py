@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Definitive, Corrected Version)
+# SIDEBAR NAVIGATION (Final, Definitive Version using Mask-Image)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -34,17 +34,20 @@ import io
 import base64
 import os
 
-# --- Helper function to encode local images to base64 ---
+# --- Helper function to make file paths robust ---
+# This ensures the code can find the 'icons' folder regardless of where you run the script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @st.cache_data
 def image_to_base_64(path):
     try:
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        st.sidebar.error(f"Icon missing, check path: {path}")
+        st.sidebar.error(f"Icon file not found. Expected at: {path}")
         return None
 
-# --- Navigation Items Definition ---
+# --- Navigation & Icon Mapping ---
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
@@ -56,8 +59,6 @@ nav_items = [
     ('Zenvo Academy', 'Zenvo Academy'),
     ('account', 'My Account'),
 ]
-
-# --- Icon Mapping (Ensure filenames in your /icons folder match these exactly) ---
 icon_mapping = {
     'fundamentals': 'forex_fundamentals.png',
     'watch list': 'watchlist_icon.png',
@@ -74,7 +75,7 @@ icon_mapping = {
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
-# --- Generate Dynamic CSS Rules ---
+# --- Generate Dynamic CSS ---
 dynamic_css_rules = []
 active_page_key = st.session_state.current_page
 
@@ -84,23 +85,23 @@ for page_key, _ in nav_items:
     icon_b64 = ""
     icon_filename = icon_mapping.get(page_key)
     if icon_filename:
-        icon_path = os.path.join("icons", icon_filename)
-        if os.path.exists(icon_path):
-            icon_b64 = image_to_base_64(icon_path)
+        # Construct absolute path to the icon file
+        icon_path = os.path.join(SCRIPT_DIR, "icons", icon_filename)
+        icon_b64 = image_to_base_64(icon_path)
     
-    # **FINAL FIX**: The crucial addition of `!important` to the background-image property.
+    # **FINAL FIX**: We use `mask-image` which is much more reliable
     if icon_b64:
         dynamic_css_rules.append(f"""
             .{wrapper_class} button::after {{
-                background-image: url("data:image/png;base64,{icon_b64}") !important;
+                -webkit-mask-image: url("data:image/png;base64,{icon_b64}");
+                mask-image: url("data:image/png;base64,{icon_b64}");
             }}
         """)
     
-    # Special CSS for the currently active button
     if page_key == active_page_key:
         dynamic_css_rules.append(f"""
             .{wrapper_class} button {{
-                border: 2px solid #4DB4B0 !important;
+                border-color: #4DB4B0 !important;
                 box-shadow: 0 0 20px 2px rgba(77, 180, 176, 0.8) !important;
             }}
         """)
@@ -108,22 +109,19 @@ for page_key, _ in nav_items:
 # --- Inject All CSS into the App ---
 st.markdown(f"""
 <style>
-/* Sidebar Base Styles */
+/* Sidebar Base */
 section[data-testid="stSidebar"] {{ background-color: #000000; }}
-section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
 
-/* Logo and App Name Styling */
+/* Logo & App Name */
 .sidebar-header {{ text-align: center; margin-bottom: 2rem; }}
 .app-name {{
-    background-color: #262730; color: #FFF; font-family: monospace; padding: 4px 10px;
-    border-radius: 5px; display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
+    background-color: #262730; color: #FFF; padding: 4px 10px; border-radius: 5px; 
+    display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
 }}
 
-/* Button Layout & Centering */
+/* Button Layout & Sizing */
 [data-testid="stSidebar"] .stButton {{ display: flex; justify-content: center; }}
 [class*="nav-button-wrapper-"] {{ width: 75px; margin-bottom: 1rem; }}
-
-/* GENERAL Button Style */
 [class*="nav-button-wrapper-"] button {{
     position: relative;
     width: 65px !important;
@@ -136,72 +134,74 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
     transition: all 0.2s ease-in-out;
 }}
 
-/* Forcefully hide Streamlit's default button text */
+/* Hide Streamlit's default button text reliably */
 [class*="nav-button-wrapper-"] button p {{
     font-size: 0px !important;
-    visibility: hidden; /* Stronger than color:transparent */
+    visibility: hidden;
+    line-height: 0;
 }}
 
-/* The pseudo-element layer for the icon */
+/* **THE ICON LAYER** */
 [class*="nav-button-wrapper-"] button::after {{
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-size: 55%;
-    background-position: center;
-    background-repeat: no-repeat;
+    inset: 0; /* shorthand for top, left, bottom, right = 0 */
+    
+    /* This is the color of the icon itself */
+    background-color: #A9C5C5;
+
+    /* The mask properties apply the icon shape */
+    -webkit-mask-size: 55% 55%;
+    mask-size: 55% 55%;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+
+    transition: background-color 0.2s ease-in-out;
 }}
 
-/* HOVER Effect */
+/* HOVER Effect - change button and icon color */
 [class*="nav-button-wrapper-"] button:hover {{
     transform: scale(1.08);
     border-color: #4DB4B0 !important;
     box-shadow: 0 0 15px rgba(77, 180, 176, 0.6) !important;
-    cursor: pointer;
+}}
+[class*="nav-button-wrapper-"] button:hover::after {{
+    background-color: #FFFFFF !important; /* Icon becomes white on hover */
 }}
 
-/* This is where the Python-generated CSS for icons and active state goes */
+/* Dynamic CSS for individual icons and active state goes here */
 {''.join(dynamic_css_rules)}
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- Logo Display ---
+# --- Render the Sidebar Content ---
 st.sidebar.markdown(
     """<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>""",
     unsafe_allow_html=True
 )
 try:
-    logo_path = "logo22.png"
+    logo_path = os.path.join(SCRIPT_DIR, "logo22.png")
     if os.path.exists(logo_path):
         logo = Image.open(logo_path).resize((100, 50))
         buffered = io.BytesIO()
         logo.save(buffered, format="PNG")
         logo_str = base64.b64encode(buffered.getvalue()).decode()
         st.sidebar.markdown(
-            f"""<div style='text-align: center; margin-bottom: 2rem; margin-top: -3.5rem;'>
-                <img src="data:image/png;base64,{logo_str}" />
-            </div>""",
+            f"<div style='text-align:center; margin-bottom:2rem; margin-top:-3.5rem;'><img src='data:image/png;base64,{logo_str}'/></div>",
             unsafe_allow_html=True
         )
-except FileNotFoundError:
-    pass
+except Exception:
+    pass # Silently fail if logo is missing
 
-# --- Loop to Create the Buttons ---
+# Loop to Create the Buttons
 for page_key, page_name in nav_items:
     wrapper_class = f"nav-button-wrapper-{page_key.replace(' ', '-').replace('_', '-')}"
     st.sidebar.markdown(f'<div class="{wrapper_class}">', unsafe_allow_html=True)
     
-    if st.sidebar.button(
-        label=" ", # The empty space label
-        key=f"nav_{page_key}",
-        use_container_width=True,
-        help=page_name  # Tooltip on hover
-    ):
+    if st.sidebar.button(" ", key=f"nav_{page_key}", use_container_width=True, help=page_name):
         st.session_state.current_page = page_key
-        # Reset any sub-page states
-        if 'current_subpage' in st.session_state: st.session_state.current_subpage = None
-        if 'show_tools_submenu' in st.session_state: st.session_state.show_tools_submenu = False
         st.rerun()
         
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
