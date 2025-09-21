@@ -43,60 +43,68 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # =========================================================================
 st.markdown("""
 <style>
-/* Remove Streamlit's default hamburger menu */
-button[title="View fullscreen"] {
-    display: none;
-}
-
-/* Sidebar container - disable scrolling and hide scrollbar */
-section[data-testid="stSidebar"] > div:first-child {
-    overflow-y: hidden !important;
-}
-
-/* Sidebar background stays black */
+/* Main sidebar styling */
 section[data-testid="stSidebar"] {
     background-color: #000000 !important;
 }
 
-/* Styling for the icon buttons (as links) */
-a.icon-button {
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: hidden !important; /* Prevent scrolling */
+}
+
+/* This is the container we wrap around each button */
+.icon-button-container {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 50px; /* Square button width */
-    height: 50px; /* Square button height */
-    background-color: #000000;
-    border: 2px solid transparent;
-    border-radius: 10px;
-    margin: 5px auto; /* Centered with some vertical margin */
-    cursor: pointer;
+    justify-content: center; /* Center the button horizontally */
+    margin: 5px 0;
+    padding: 5px;
+    border-radius: 12px; /* Slightly larger radius for the glow effect */
+    border: 2px solid transparent; /* Start with a transparent border */
     transition: all 0.3s ease;
-    box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
-                0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
-    text-decoration: none; /* Remove underline from links */
 }
 
-a.icon-button:hover {
-    transform: scale(1.1);
-    border-color: rgba(88,179,177,1.0);
-}
-
-/* Style for the active page's icon */
-a.icon-button.active {
+/* Style for the container of the ACTIVE button */
+.icon-button-container.active {
     border-color: rgba(88,179,177,1.0);
     box-shadow: 0 0 15px rgba(88,179,177,0.9);
 }
 
-a.icon-button img {
-    width: 70%; /* Icon size within the button */
-    height: 70%;
-    object-fit: contain;
+/* Style for the container on HOVER */
+.icon-button-container:hover {
+    transform: scale(1.1);
+    border-color: rgba(88,179,177,1.0);
+}
+
+/* This targets the actual Streamlit button element inside our container */
+.icon-button-container button {
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    border: none;
+    border-radius: 10px;
+    background-color: #1a1a1a;
+    background-size: 70% 70%; /* Make the icon slightly smaller than the button */
+    background-repeat: no-repeat;
+    background-position: center;
+    color: transparent; /* This hides the button's text label */
+    transition: all 0.3s ease;
+}
+
+/* Ensure button inside container has no extra background on hover/active */
+.icon-button-container button:hover,
+.icon-button-container button:active,
+.icon-button-container button:focus {
+    background-color: #2a2a2a !important; /* Slightly lighten button on hover */
+    border: none !important;
+    box-shadow: none !important;
+    color: transparent !important; /* Keep text hidden */
 }
 </style>
 """, unsafe_allow_html=True)
 
+
 # =========================================================
-# HELPER FUNCTION
+# HELPER FUNCTIONS
 # =========================================================
 
 def get_image_as_base64(path):
@@ -106,31 +114,20 @@ def get_image_as_base64(path):
     with open(path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-# =========================================================
-# NAVIGATION LOGIC (Reads from URL)
-# =========================================================
+def handle_nav_click(page_key):
+    """Updates the session state to navigate to the clicked page."""
+    st.session_state.current_page = page_key
+    # Reset any other relevant state variables here if needed
+    if 'current_subpage' in st.session_state:
+        st.session_state.current_subpage = None
+    if 'show_tools_submenu' in st.session_state:
+        st.session_state.show_tools_submenu = False
 
-# Initialize session_state if it's the first run
+# =========================================================
+# INITIALIZE SESSION STATE
+# =========================================================
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
-
-# Check for navigation parameter in the URL
-query_params = st.query_params
-if 'nav' in query_params:
-    page_from_url = query_params.get('nav')
-
-    # Update the session state only if the page has actually changed
-    if page_from_url != st.session_state.current_page:
-        st.session_state.current_page = page_from_url
-
-        # Reset any other relevant state variables here
-        if 'current_subpage' in st.session_state:
-            st.session_state.current_subpage = None
-        if 'show_tools_submenu' in st.session_state:
-            st.session_state.show_tools_submenu = False
-
-        # Rerun to reflect the page change immediately
-        st.rerun()
 
 # =========================================================
 # SIDEBAR CONTENT
@@ -140,15 +137,7 @@ if 'nav' in query_params:
 try:
     logo_path = "logo22.png"
     if os.path.exists(logo_path):
-        logo_base64 = get_image_as_base64(logo_path)
-        st.sidebar.markdown(
-            f"""
-            <div style='text-align: center; margin-bottom: 30px;'>
-                <img src="data:image/png;base64,{logo_base64}" width="60"/>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.sidebar.image(logo_path, width=60)
     else:
         st.sidebar.warning("Logo file not found.")
 except Exception as e:
@@ -190,17 +179,28 @@ for page_key, page_name in nav_items:
         icon_base64 = get_image_as_base64(icon_path)
 
         if icon_base64:
-            is_active_class = "active" if st.session_state.current_page == page_key else ""
+            # Dynamically inject the CSS for this specific button's background
+            st.markdown(f"""
+            <style>
+            div[data-testid="stVerticalBlock"] div:has(button[data-testid="stButton--{page_key}"]) {{
+                background-image: url("data:image/png;base64,{icon_base64}");
+            }}
+            </style>
+            """, unsafe_allow_html=True)
 
-            # Create a clickable HTML link with target="_self" to ensure same-tab navigation
-            st.sidebar.markdown(
-                f"""
-                <a href="?nav={page_key}" target="_self" class="icon-button {is_active_class}" title="{page_name}">
-                    <img src="data:image/png;base64,{icon_base64}" alt="{page_name}">
-                </a>
-                """,
-                unsafe_allow_html=True
+            # Determine if this is the active page
+            is_active_class = "active" if st.session_state.current_page == page_key else "inactive"
+
+            # Create a container and place the button inside it
+            st.sidebar.markdown(f'<div class="icon-button-container {is_active_class}">', unsafe_allow_html=True)
+            st.button(
+                label=page_name,  # The label is hidden by CSS but needed for Streamlit
+                key=page_key,
+                on_click=handle_nav_click,
+                args=(page_key,),
+                use_container_width=True
             )
+            st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
