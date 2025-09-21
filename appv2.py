@@ -33,6 +33,9 @@ from datetime import datetime, date, timedelta
 # PAGE CONFIGURATION (MUST BE THE FIRST STREAMLIT COMMAND)
 # =========================================================
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
+# =========================================================
+# SIDEBAR NAVIGATION (Final, Definitive Working Version)
+# =========================================================
 import streamlit as st
 from PIL import Image
 import io
@@ -81,12 +84,15 @@ icon_mapping = {
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
-# --- **THE CRITICAL FIX**: Define a callback function to change the page ---
-def set_page(page_key):
-    """This function is called when a card is clicked."""
+# --- **THE CRITICAL FIX**: Define a callback function that includes st.rerun() ---
+def set_page_and_rerun(page_key):
+    """
+    This function is called when a card is clicked.
+    It updates the session state and forces an immediate script rerun.
+    """
     st.session_state.current_page = page_key
-    # We don't need st.rerun() here. Changing session_state is enough to
-    # tell Streamlit to re-render the app with the new page content.
+    # This explicit rerun is the key to making navigation reliable with st.set_page_config
+    st.rerun()
 
 # --- Inject CSS for Sidebar Layout and Hover Effects ---
 st.markdown("""
@@ -114,8 +120,7 @@ div[data-testid*="stVerticalBlock"] > div[data-testid*="element-container"] > di
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- Render all sidebar elements within a 'with st.sidebar:' block ---
+# --- Render All Sidebar Elements Inside a 'with st.sidebar:' Block ---
 with st.sidebar:
     # Render the Header and Logo
     st.markdown(
@@ -133,7 +138,7 @@ with st.sidebar:
             unsafe_allow_html=True
         )
     except FileNotFoundError:
-        pass # Silently fail if logo is missing
+        pass
 
     # --- Loop to Create the Clickable Icon Cards ---
     for page_key, page_name in nav_items:
@@ -165,15 +170,13 @@ with st.sidebar:
                 card_styles["card"]["border"] = "2px solid #4DB4B0"
                 card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
             
-            # **THE SECOND CRITICAL FIX**: We now call the component and pass our
-            # `set_page` function to the `on_click` parameter.
-            # We use a lambda to ensure the correct `page_key` is passed for each card.
             card(
                 title="", text="",
                 image=f"data:image/png;base64,{icon_b64}",
                 styles=card_styles,
                 key=f"nav_card_{page_key}",
-                on_click=lambda key=page_key: set_page(key)
+                # We call our new callback function here
+                on_click=lambda key=page_key: set_page_and_rerun(key)
             )
 
 # =========================================================
