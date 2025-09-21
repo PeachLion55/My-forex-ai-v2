@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Corrected Version)
+# SIDEBAR NAVIGATION (Final Corrected Version)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -41,8 +41,7 @@ def image_to_base_64(path):
         with open(path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode()
     except FileNotFoundError:
-        # This error will now appear directly in your sidebar if an icon is missing
-        st.sidebar.error(f"Icon not found: {path}")
+        st.sidebar.error(f"Icon missing: {path}")
         return None
 
 # --- Navigation Items Definition ---
@@ -58,7 +57,7 @@ nav_items = [
     ('account', 'My Account'),
 ]
 
-# --- Icon Mapping (ensure filenames in your /icons folder match these exactly) ---
+# --- Icon Mapping (Ensure filenames in your /icons folder match these exactly) ---
 icon_mapping = {
     'fundamentals': 'forex_fundamentals.png',
     'watch list': 'watchlist_icon.png',
@@ -76,34 +75,28 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
 # --- Generate Dynamic CSS Rules ---
-# This part generates a specific CSS rule for each button to apply its unique icon.
 dynamic_css_rules = []
 active_page_key = st.session_state.current_page
 
-for page_key, page_name in nav_items:
+for page_key, _ in nav_items:
     wrapper_class = f"nav-button-wrapper-{page_key.replace(' ', '-').replace('_', '-')}"
     
     icon_b64 = ""
     icon_filename = icon_mapping.get(page_key)
     if icon_filename:
         icon_path = os.path.join("icons", icon_filename)
-        # We only try to encode if the path exists
         if os.path.exists(icon_path):
             icon_b64 = image_to_base_64(icon_path)
     
-    # **CORRECTION**: Use the robust 'background' shorthand property
-    # This sets the icon, position, size, repeat, and color all at once.
+    # **FIX**: This rule targets the ::after pseudo-element to reliably display the icon.
     if icon_b64:
-        background_css = (
-            f'url("data:image/png;base64,{icon_b64}") center / 55% no-repeat #1A1A1A'
-        )
         dynamic_css_rules.append(f"""
-            .{wrapper_class} button {{
-                background: {background_css} !important;
+            .{wrapper_class} button::after {{
+                background-image: url("data:image/png;base64,{icon_b64}") !important;
             }}
         """)
     
-    # Special CSS for the currently active button
+    # Special CSS for the currently active button (stronger glow and border)
     if page_key == active_page_key:
         dynamic_css_rules.append(f"""
             .{wrapper_class} button {{
@@ -121,7 +114,7 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
 
 /* Logo and App Name Styling */
 .sidebar-header {{ text-align: center; margin-bottom: 2rem; }}
-.sidebar-header .app-name {{
+.app-name {{
     background-color: #262730; color: #FFF; font-family: monospace; padding: 4px 10px;
     border-radius: 5px; display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
 }}
@@ -132,14 +125,31 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
 
 /* GENERAL Button Style (Default State) */
 [class*="nav-button-wrapper-"] button {{
+    position: relative; /* CRITICAL: Required for the ::after pseudo-element */
     width: 65px !important;
     height: 65px !important;
     padding: 0 !important;
     border-radius: 16px !important;
+    background-color: #1A1A1A !important;
     border: 2px solid #2A3B3A !important;
     box-shadow: 0 0 10px rgba(77, 180, 176, 0.3);
-    color: transparent !important; /* Hides any text label */
     transition: all 0.2s ease-in-out;
+}}
+
+/* **FIX**: Target Streamlit's internal paragraph to hide the text label */
+[class*="nav-button-wrapper-"] button p {{
+    font-size: 0px !important;
+    color: transparent !important;
+}}
+
+/* **FIX**: This pseudo-element is the layer where the icon is displayed */
+[class*="nav-button-wrapper-"] button::after {{
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-size: 55%;
+    background-position: center;
+    background-repeat: no-repeat;
 }}
 
 /* HOVER Effect for all buttons */
@@ -150,23 +160,21 @@ section[data-testid="stSidebar"] > div:first-child {{ padding-top: 1rem; }}
     cursor: pointer;
 }}
 
-/* This is where the Python-generated CSS for icons and active state goes */
+/* Python-generated CSS for icons and active state will be inserted here */
 {''.join(dynamic_css_rules)}
+
 </style>
 """, unsafe_allow_html=True)
 
-
 # --- Logo Display ("streamlitApp" Text and Image) ---
 st.sidebar.markdown(
-    """
-    <div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>
-    """, unsafe_allow_html=True
+    """<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>""",
+    unsafe_allow_html=True
 )
 try:
     logo_path = "logo22.png"
     if os.path.exists(logo_path):
-        logo = Image.open(logo_path)
-        logo = logo.resize((100, 50)) 
+        logo = Image.open(logo_path).resize((100, 50))
         buffered = io.BytesIO()
         logo.save(buffered, format="PNG")
         logo_str = base64.b64encode(buffered.getvalue()).decode()
@@ -177,156 +185,29 @@ try:
             unsafe_allow_html=True
         )
 except FileNotFoundError:
-    pass # Don't show an error for the main logo, just skip it.
+    pass
 
 # --- Loop to Create the Icon-Only Navigation Buttons ---
 for page_key, page_name in nav_items:
     wrapper_class = f"nav-button-wrapper-{page_key.replace(' ', '-').replace('_', '-')}"
     st.sidebar.markdown(f'<div class="{wrapper_class}">', unsafe_allow_html=True)
     
-    # Use the page_key as the button's internal label. CSS hides it from view,
-    # but this makes the button more robust.
+    # **FIX**: The label is an empty space " ". This is important because
+    # an empty string `""` can cause Streamlit to render nothing.
+    # The CSS now reliably hides this from view.
     if st.sidebar.button(
-        label=page_key,
-        key=f"nav_{page_key}", 
+        label=" ",
+        key=f"nav_{page_key}",
         use_container_width=True,
-        help=page_name  # A tooltip shows the page name on hover
+        help=page_name  # Tooltip on hover still works
     ):
         st.session_state.current_page = page_key
         # Reset sub-pages on navigation
-        if 'current_subpage' in st.session_state:
-            st.session_state.current_subpage = None
-        if 'show_tools_submenu' in st.session_state:
-            st.session_state.show_tools_submenu = False
+        if 'current_subpage' in st.session_state: st.session_state.current_subpage = None
+        if 'show_tools_submenu' in st.session_state: st.session_state.show_tools_submenu = False
         st.rerun()
         
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
-
-# =========================================================
-# GLOBAL CSS & GRIDLINE SETTINGS
-# =========================================================
-st.markdown(
-    """
-    <style>
-    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
-    .stApp {
-        /* Retain Code B's background styling, adding only text color */
-        background-color: #000000; /* black background */
-        color: #c9d1d9; /* Text color from Code A */
-        /* Code B gridline background */
-        background-image:
-        linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
-        background-size: 40px 40px;
-        background-attachment: fixed;
-    }
-
-    .block-container {
-        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
-    }
-
-    h1, h2, h3, h4 {
-        color: #c9d1d9 !important; /* From Code A */
-    }
-
-    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
-    hr {
-        margin-top: 1.5rem !important;
-        margin-bottom: 1.5rem !important;
-        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
-        border-bottom: none !important;
-        background-color: transparent !important;
-        height: 1px !important;
-    }
-
-    /* Hide Streamlit Branding (From Code A & B merged) */
-    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
-
-    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
-    .css-18e3th9, .css-1d391kg {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    /* --- Metric Card Styling (from Code A) --- */
-    /* This styling for st.metric is kept for non-editable metrics elsewhere */
-    [data-testid="stMetric"] {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 1.2rem;
-        transition: all 0.2s ease-in-out;
-    }
-    [data-testid="stMetric"]:hover {
-        border-color: #58a6ff;
-    }
-    [data-testid="stMetricLabel"] {
-        font-weight: 500;
-        color: #8b949e;
-    }
-
-    /* --- Tab Styling (from Code A, adapted) --- */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        background-color: transparent;
-        border: 1px solid #30363d; /* Adjusted border from Code A */
-        border-radius: 8px;
-        padding: 0 24px;
-        transition: all 0.2s ease-in-out;
-        color: #c9d1d9; /* Default text color for tabs */
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #161b22;
-        color: #58a6ff;
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #161b22;
-        border-color: #58a6ff;
-        color: #c9d1d9; /* Active tab text color from Code A */
-    }
-
-    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
-    .trade-notes-display {
-        background-color: #161b22;
-        border-left: 4px solid #58a6ff;
-        border-radius: 0 8px 8px 0;
-        padding: 1rem 1.5rem;
-        margin-top: 1rem;
-    }
-    .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
-    .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
-    
-    /* --- Custom Playbook Metric Display (new for editable section) --- */
-    .playbook-metric-display {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 10px; /* Space between rows of metrics/actions */
-    }
-    .playbook-metric-display .label {
-        font-size: 0.9em;
-        color: #8b949e;
-        margin-bottom: 5px;
-    }
-    .playbook-metric-display .value {
-        font-size: 1.1em;
-        font-weight: bold;
-        color: #c9d1d9;
-    }
-    .playbook-metric-display.profit-positive {
-        border-color: #2da44e; /* Green border for profit */
-        background-color: #0b1f15; /* Darker green background */
-    }
-    .playbook-metric-display.profit-negative {
-        border-color: #cf222e; /* Red border for loss */
-        background-color: #260d0d; /* Darker red background */
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # =========================================================
 # 1. IMPORTS
