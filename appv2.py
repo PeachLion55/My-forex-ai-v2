@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Definitive, Clickable Card Version)
+# SIDEBAR NAVIGATION (Definitive, Clickable Card Version - CORRECTED)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -78,7 +78,6 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
 # --- Inject CSS for Sidebar Layout ---
-# We still need a little CSS to center our cards vertically in the sidebar.
 st.markdown("""
 <style>
 /* Center all items in the sidebar */
@@ -130,7 +129,6 @@ for page_key, page_name in nav_items:
         is_active = (page_key == active_page_key)
         
         # Define the styles for the card
-        # Base styles for all cards
         card_styles = {
             "card": {
                 "width": "65px",
@@ -139,21 +137,20 @@ for page_key, page_name in nav_items:
                 "background-color": "#1A1A1A",
                 "border": "2px solid #2A3B3A",
                 "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
-                "margin": "0 auto 1rem auto", # Center horizontally and add bottom margin
+                "margin": "0 auto 1rem auto",
                 "padding": "0",
                 "display": "flex",
                 "justify-content": "center",
-                "align-items-center"
+                "align-items": "center" # **FIX**: Corrected this line
             },
-            "div": { # Target the inner div
-                 "padding": "0",
+            "div": {
+                 "padding": "0"
             },
-            "img": { # Style the icon image itself
+            "img": {
                 "width": "55%",
                 "height": "55%",
-                "object-fit": "contain",
+                "object-fit": "contain"
             },
-            # Remove filter effect for clearer icons
             "filter": {"background-color": "transparent"}, 
         }
 
@@ -162,18 +159,22 @@ for page_key, page_name in nav_items:
             card_styles["card"]["border"] = "2px solid #4DB4B0"
             card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
 
-        # The card component returns True when clicked, just like st.button
         clicked = card(
-            title="",       # No title
-            text="",        # No text
+            title="",
+            text="",
             image=f"data:image/png;base64,{icon_b64}",
             styles=card_styles,
             key=f"nav_card_{page_key}",
-            on_click=lambda: None # Required for it to be clickable
+            on_click=lambda: None
         )
         
         if clicked:
             st.session_state.current_page = page_key
+            # This logic from your original code resets any sub-pages upon navigation
+            if 'current_subpage' in st.session_state:
+                st.session_state.current_subpage = None
+            if 'show_tools_submenu' in st.session_state:
+                st.session_state.show_tools_submenu = False
             st.rerun()
 
 # =========================================================
