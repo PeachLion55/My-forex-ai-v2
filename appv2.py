@@ -42,7 +42,12 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # =========================================================================
 st.markdown("""
 <style>
-/* Sidebar container - disable scrolling */
+/* Remove Streamlit's default hamburger menu */
+button[title="View fullscreen"] {
+    display: none;
+}
+
+/* Sidebar container - disable scrolling and hide scrollbar */
 section[data-testid="stSidebar"] > div:first-child {
     overflow-y: hidden !important;
 }
@@ -52,8 +57,8 @@ section[data-testid="stSidebar"] {
     background-color: #000000 !important;
 }
 
-/* Styling for the icon buttons */
-.icon-button {
+/* Styling for the icon buttons (as links) */
+a.icon-button {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -67,19 +72,21 @@ section[data-testid="stSidebar"] {
     transition: all 0.3s ease;
     box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
                 0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
+    text-decoration: none; /* Remove underline from links */
 }
 
-.icon-button:hover {
+a.icon-button:hover {
     transform: scale(1.1);
     border-color: rgba(88,179,177,1.0);
 }
 
-.icon-button.active {
+/* Style for the active page's icon */
+a.icon-button.active {
     border-color: rgba(88,179,177,1.0);
     box-shadow: 0 0 15px rgba(88,179,177,0.9);
 }
 
-.icon-button img {
+a.icon-button img {
     width: 70%; /* Icon size within the button */
     height: 70%;
     object-fit: contain;
@@ -88,41 +95,65 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 # =========================================================
-# HELPER FUNCTIONS
+# HELPER FUNCTION
 # =========================================================
 
 def get_image_as_base64(path):
-    """Encodes an image to a base64 string."""
+    """Encodes a local image to a base64 string."""
     if not os.path.exists(path):
         return None
     with open(path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-def handle_nav_click(page_key):
-    """Updates the session state to navigate to the clicked page."""
-    st.session_state.current_page = page_key
-    # Reset sub-states if necessary
-    if 'current_subpage' in st.session_state:
-        st.session_state.current_subpage = None
-    if 'show_tools_submenu' in st.session_state:
-        st.session_state.show_tools_submenu = False
-    st.rerun()
+# =========================================================
+# NAVIGATION LOGIC (Reads from URL)
+# =========================================================
+
+# Initialize session_state if it's the first run
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
+
+# Check for navigation parameter in the URL
+query_params = st.query_params
+if 'nav' in query_params:
+    # Get the page from the URL
+    page_from_url = query_params['nav']
+
+    # Update the session state only if it's a new page
+    if page_from_url != st.session_state.current_page:
+        st.session_state.current_page = page_from_url
+
+        # --- Reset any other relevant state variables here ---
+        if 'current_subpage' in st.session_state:
+            st.session_state.current_subpage = None
+        if 'show_tools_submenu' in st.session_state:
+            st.session_state.show_tools_submenu = False
+
+        # Rerun to reflect the page change immediately
+        st.rerun()
 
 # =========================================================
-# SIDEBAR NAVIGATION
+# SIDEBAR CONTENT
 # =========================================================
 
 # --- Logo Display ---
 try:
-    logo = Image.open("logo22.png")
-    st.sidebar.image(logo, width=60)
-except FileNotFoundError:
-    st.sidebar.error("Logo file 'logo22.png' not found.")
-
-
-# --- Initialize session_state if it's the first run ---
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
+    # Assuming logo22.png is in the root directory
+    logo_path = "logo22.png"
+    if os.path.exists(logo_path):
+        logo_base64 = get_image_as_base64(logo_path)
+        st.sidebar.markdown(
+            f"""
+            <div style='text-align: center; margin-bottom: 30px;'>
+                <img src="data:image/png;base64,{logo_base64}" width="60"/>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.sidebar.warning("Logo file not found.")
+except Exception as e:
+    st.sidebar.error(f"Error loading logo: {e}")
 
 
 # --- Navigation Items Definition ---
@@ -138,7 +169,7 @@ nav_items = [
     ('account', 'My Account'),
 ]
 
-# --- Map your page keys to the icon file names in the 'icons' folder ---
+# --- Icon Mapping ---
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
     'watch list': 'watchlist_icon.png',
@@ -147,13 +178,12 @@ icon_mapping = {
     'account': 'my_account.png',
     'strategy': 'manage_my_strategy.png',
     'trading_tools': 'trading_tools.png',
-    'community': 'community_trade_ideas.png',
     'Community Chatroom': 'community_chatroom.png',
     'Zenvo Academy': 'zenvo_academy.png'
 }
 
 
-# --- Loop to Create the Navigation Menu ---
+# --- Loop to Create the Icon Navigation Menu ---
 for page_key, page_name in nav_items:
     icon_filename = icon_mapping.get(page_key)
     if icon_filename:
@@ -161,25 +191,17 @@ for page_key, page_name in nav_items:
         icon_base64 = get_image_as_base64(icon_path)
 
         if icon_base64:
-            # Determine if the button is active
+            # Determine if the button is for the currently active page
             is_active_class = "active" if st.session_state.current_page == page_key else ""
 
-            # Create a clickable container with an icon
+            # Create a clickable HTML link (<a> tag) for the icon
             st.sidebar.markdown(
                 f"""
-                <a href="#" class="icon-button {is_active_class}" onclick="document.getElementById('{page_key}-button').click()">
+                <a href="?nav={page_key}" class="icon-button {is_active_class}" title="{page_name}">
                     <img src="data:image/png;base64,{icon_base64}" alt="{page_name}">
                 </a>
                 """,
                 unsafe_allow_html=True
-            )
-            # This is a hidden button to trigger the Streamlit callback
-            st.button(
-                page_name,
-                key=f"{page_key}-button",
-                on_click=handle_nav_click,
-                args=(page_key,),
-                # The button itself is hidden via CSS in a st.empty() container
             )
 
 # =========================================================
