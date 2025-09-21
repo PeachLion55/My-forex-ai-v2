@@ -32,15 +32,6 @@ import base64
 import os
 
 # =========================================================
-# PAGE CONFIGURATION
-# For your page layout to be full width ("wide"), this line MUST be present
-# and be the VERY FIRST Streamlit command in your main script file.
-# If you don't have it, please add it there.
-# =========================================================
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
-
-
-# =========================================================
 # HELPER FUNCTION
 # =========================================================
 def get_image_as_base_64(path):
@@ -51,9 +42,20 @@ def get_image_as_base_64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
+# =========================================================
+# URL ROUTER: THIS IS THE CORE OF THE RELIABLE NAVIGATION
+# This block runs first and sets the page state from the URL.
+# =========================================================
+query_params = st.query_params.to_dict()
+if "page" in query_params:
+    # Set the session state from the URL's 'page' parameter
+    st.session_state.current_page = query_params.get("page")[0]
+elif 'current_page' not in st.session_state:
+    # If there's no page in the URL and the app is just starting, set a default
+    st.session_state.current_page = 'fundamentals'
 
 # =========================================================
-# SIDEBAR (FINAL, GUARANTEED, SELF-CONTAINED SOLUTION)
+# SIDEBAR LOGIC (FINAL, GUARANTEED VERSION)
 # =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -70,10 +72,6 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-    # --- Initialize session state ---
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'fundamentals'
-
     # --- NAVIGATION ITEMS ---
     nav_items = [
         ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
@@ -87,96 +85,63 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- DYNAMIC "BRUTE FORCE" CSS INJECTION ---
-    # This block creates one large, powerful stylesheet that CANNOT leak or be overridden.
-    style_block = "<style>"
-
-    # Rule 1: A container to center the button. We will wrap each button in this.
-    style_block += """
+    # --- INJECT CSS FOR OUR CUSTOM ICON BUTTONS ---
+    st.markdown("""
+    <style>
+        /* The container that centers our icon button */
         .icon-button-container {
-            display: flex !important;
-            justify-content: center !important;
+            display: flex;
+            justify-content: center;
             margin-bottom: 5px;
         }
-    """
-
-    # Rule 2: The general style for the button itself. This ensures it's a square.
-    # The 'section[data-testid="stSidebar"]' selector ensures these styles ONLY apply here.
-    style_block += """
-        section[data-testid="stSidebar"] .icon-button-container button {
-            width: 55px !important;
-            height: 55px !important;
-            padding: 0 !important;
+        /* This is our custom button, made from an <a> (link) tag */
+        a.icon-button {
+            display: block; /* Makes the whole area clickable */
+            width: 55px;
+            height: 55px;
+            border-radius: 10px;
             
-            background-color: transparent !important;
-            background-size: 32px 32px !important;
-            background-repeat: no-repeat !important;
-            background-position: center !important;
+            background-color: transparent;
+            background-size: 32px 32px;
+            background-repeat: no-repeat;
+            background-position: center;
 
-            border-radius: 10px !important;
-            border-width: 2px !important;
-            border-style: solid !important;
-            border-color: rgba(88, 179, 177, 0.4) !important;
-            
+            border: 2px solid rgba(88, 179, 177, 0.4); /* Inactive border */
             transition: all 0.2s ease-in-out;
         }
-    """
-
-    # Rule 3: This BRUTALLY hides the text label inside the button.
-    style_block += """
-        section[data-testid="stSidebar"] .icon-button-container button span {
-            display: none !important;
-        }
-    """
-
-    # Rule 4: Hover and Active state styles
-    style_block += """
-        section[data-testid="stSidebar"] .icon-button-container button:hover {
-            border-color: #FFFFFF !important;
+        /* Hover effect */
+        a.icon-button:hover {
+            border-color: #FFFFFF;
             transform: scale(1.1);
         }
-        section[data-testid="stSidebar"] .icon-button-container button[kind="primary"] {
-            border-color: #FFFFFF !important;
-            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7) !important;
+        /* Active state style */
+        a.icon-button.active {
+            border-color: #FFFFFF;
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7);
         }
-    """
+    </style>
+    """, unsafe_allow_html=True)
 
-    # Rule 5: Create a unique, high-priority rule for EACH button's icon image.
+    # --- GENERATE THE CLICKABLE ICONS ---
     for page_key, page_name, icon_filename in nav_items:
+        is_active = (st.session_state.get('current_page') == page_key)
+        active_class = "active" if is_active else ""
         icon_path = os.path.join("icons", icon_filename)
-        icon_base64 = get_image_as_base_64(icon_path)
-        if icon_base64:
-            # This selector applies the background image and is guaranteed to win any CSS battle.
-            style_block += f"""
-                section[data-testid="stSidebar"] button[title="{page_name}"] {{
-                    background-image: url("data:image/png;base64,{icon_base64}") !important;
-                }}
-            """
+        icon_base_64 = get_image_as_base_64(icon_path)
 
-    style_block += "</style>"
-
-    # Inject the complete CSS stylesheet into the app
-    st.markdown(style_block, unsafe_allow_html=True)
-
-
-    # --- GENERATE THE BUTTONS ---
-    for page_key, page_name, icon_filename in nav_items:
-        is_active = (st.session_state.current_page == page_key)
-
-        # We wrap the button in our centering container.
-        st.markdown('<div class="icon-button-container">', unsafe_allow_html=True)
-
-        if st.button(
-            label=f"label_for_{page_key}",  # A unique, hidden label
-            key=f"nav_{page_key}",
-            type="primary" if is_active else "secondary",
-            use_container_width=False, # CRITICAL: This MUST be False
-            help=page_name # Creates the tooltip and the 'title' for CSS
-        ):
-            st.session_state.current_page = page_key
-            st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
+        if icon_base_64:
+            # We use st.markdown to create a custom HTML element for each button.
+            # This gives us total control and avoids all conflicts with Streamlit's button styles.
+            st.markdown(
+                f"""
+                <div class="icon-button-container">
+                    <a href="?page={page_key}" target="_self" class="icon-button {active_class}" title="{page_name}"
+                       style="background-image: url('data:image/png;base64,{icon_base_64}');">
+                    </a>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 # =========================================================
 # 1. IMPORTS
 # =========================================================
