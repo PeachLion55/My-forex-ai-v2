@@ -33,32 +33,29 @@ import os
 from streamlit_card import card  # Ensure this is installed (pip install streamlit-card)
 
 # =========================================================
-# URL-BASED NAVIGATION ROUTER (THE CRITICAL FIX)
-# This code runs at the top and reads the URL to set the page.
-# This makes navigation 100% reliable, overriding any other conflicting state changes.
+# URL ROUTER: THIS IS THE CRITICAL FIX
+# This block runs first. It reads the URL to determine the page, making navigation 100% reliable.
 # =========================================================
 query_params = st.query_params.to_dict()
 if "page" in query_params:
-    # Set the session state from the URL's 'page' parameter
     st.session_state.current_page = query_params["page"][0]
 elif 'current_page' not in st.session_state:
-    # If there's no page in the URL and the app is just starting, set a default
-    st.session_state.current_page = 'fundamentals'
+    st.session_state.current_page = 'fundamentals' # Default page on first load
 
 # =========================================================
-# HELPER FUNCTION TO ENCODE IMAGES
-# =========================================================================
+# HELPER FUNCTION
+# =========================================================
 def get_image_as_base_64(path):
-    """Encodes a local image file into a Base64 string for embedding."""
+    """Encodes an image file into a Base64 string."""
     if not os.path.exists(path):
-        st.warning(f"Icon file not found, skipping icon: {path}")
+        st.warning(f"Icon file not found: {path}")
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# SIDEBAR (FINAL, 100% RELIABLE VERSION)
-# =========================================================================
+# SIDEBAR LOGIC (FINAL, SELF-CONTAINED VERSION)
+# =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
     logo_path = "logo22.png"
@@ -74,7 +71,7 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-    # --- NAVIGATION ITEMS & ICONS ---
+    # --- NAVIGATION ITEMS ---
     nav_items = [
         ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
         ('watch list', 'My Watchlist', 'watchlist_icon.png'),
@@ -88,36 +85,36 @@ with st.sidebar:
     ]
 
     # --- RELIABLE NAVIGATION FUNCTION ---
-    # This function changes the URL, which is the most robust way to navigate.
+    # This function only changes the URL. Streamlit handles the rest.
     def navigate_to(page_key):
-        # We need to set query_params which forces a rerun and changes the URL
         st.query_params["page"] = page_key
 
-    # --- Generate Icon Buttons ---
+    # --- GENERATE ICON BUTTONS ---
     for page_key, page_name, icon_filename in nav_items:
-        # Check if the page determined by the URL is this one
+        # Determine active state by reading the session state, which is synced to the URL
         is_active = (st.session_state.get('current_page') == page_key)
         icon_path = os.path.join("icons", icon_filename)
         icon_base_64 = get_image_as_base_64(icon_path)
 
         if icon_base_64:
-            # --- CSS TO FIX BLURRY / DARKENED ICONS ---
+            # --- CSS TO FIX BLURRY & DARKENED ICONS ---
             card_styles = {
                 "card": {
                     "width": "55px", "height": "55px", "margin": "5px auto", "padding": "0",
                     "border-radius": "10px", "background-color": "transparent", "cursor": "pointer",
-                    # Active state gets a bright border and an inner glow. Inactive is a clean, dark border.
+                    # Active state: bright white border and an inner glow
+                    # Inactive state: clean, semi-transparent theme border
                     "border": f"2px solid {'#FFFFFF' if is_active else 'rgba(88,179,177,0.4)'}",
                     "box-shadow": f"{'inset 0 0 8px rgba(255, 255, 255, 0.7)' if is_active else 'none'}",
                     "transition": "all 0.2s ease-in-out",
                 },
                 "div": {"padding": "0"},
-                "img": { # CSS for the icon image
+                "img": {
                     "width": "32px", "height": "32px",
                     "margin": "auto", "display": "block",
-                    # Filter: brightness(1) ensures no darkening. Tweak if needed.
+                    # Filter: brightness(1) ensures no darkening of the icon itself
                     "filter": "brightness(1.0)",
-                    # Force sharp, non-blurry rendering in browsers
+                    # Force sharp, non-blurry rendering in all major browsers
                     "image-rendering": "-webkit-optimize-contrast",
                     "image-rendering": "pixelated",
                     "image-rendering": "crisp-edges",
@@ -125,7 +122,7 @@ with st.sidebar:
                 "title": {"display": "none"}, "text": {"display": "none"}
             }
 
-            # Use on_click to call our URL-changing function
+            # Use on_click to call our reliable URL-changing function
             card(
                 title=page_name,
                 text="", image=f"data:image/png;base64,{icon_base_64}",
