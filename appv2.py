@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Definitive, Clickable Card Version - CORRECTED)
+# SIDEBAR NAVIGATION (Definitive, Correctly Placed Version)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -45,8 +45,7 @@ def image_to_base_64(path):
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
     except FileNotFoundError:
-        # This error will appear in your sidebar if an icon is missing, helping you debug.
-        st.sidebar.error(f"Icon not found at: {path}")
+        st.sidebar.error(f"Icon not found: {path}") # Display error in sidebar
         return None
 
 # --- Navigation & Icon Mapping ---
@@ -77,14 +76,14 @@ icon_mapping = {
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
-# --- Inject CSS for Sidebar Layout ---
+# --- Inject CSS for Layout and Styling ---
 st.markdown("""
 <style>
-/* Center all items in the sidebar */
+/* Center all items within the sidebar container */
 section[data-testid="stSidebar"] > div:first-child {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: center; /* This centers the items horizontally */
     padding-top: 1rem;
 }
 /* Logo & App Name Styling */
@@ -93,89 +92,84 @@ section[data-testid="stSidebar"] > div:first-child {
     background-color: #262730; color: #FFF; padding: 4px 10px; border-radius: 5px; 
     display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
 }
+/* Custom hover effect for the card component */
+div[data-testid*="stVerticalBlock"] > div[data-testid*="element-container"] > div[data-testid*="stMarkdown"] > div[data-testid*="stStreamlitCard"] > div:hover {
+    transform: scale(1.08);
+    border-color: #4DB4B0;
+    box-shadow: 0 0 15px rgba(77, 180, 176, 0.6) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# --- Render the Sidebar Header and Logo ---
-st.sidebar.markdown(
-    "<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>",
-    unsafe_allow_html=True
-)
-try:
-    logo_path = os.path.join(SCRIPT_DIR, "logo22.png")
-    logo_image = Image.open(logo_path).resize((100, 50))
-    buffered = io.BytesIO()
-    logo_image.save(buffered, format="PNG")
-    logo_str = base64.b64encode(buffered.getvalue()).decode()
-    st.sidebar.markdown(
-        f"<div style='text-align:center; margin-top:-3.5rem; margin-bottom:2rem;'><img src='data:image/png;base64,{logo_str}'/></div>",
+
+# --- RENDER ALL SIDEBAR ELEMENTS WITHIN THIS BLOCK ---
+with st.sidebar:
+    # Render the Header and Logo
+    st.markdown(
+        "<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>",
         unsafe_allow_html=True
     )
-except FileNotFoundError:
-    pass
-
-# --- Loop to Create the Clickable Icon Cards ---
-active_page_key = st.session_state.current_page
-
-for page_key, page_name in nav_items:
-    icon_filename = icon_mapping.get(page_key)
-    if not icon_filename:
-        continue # Skip if no icon is defined
-    
-    icon_path = os.path.join(SCRIPT_DIR, "icons", icon_filename)
-    icon_b64 = image_to_base_64(icon_path)
-    
-    if icon_b64:
-        is_active = (page_key == active_page_key)
-        
-        # Define the styles for the card
-        card_styles = {
-            "card": {
-                "width": "65px",
-                "height": "65px",
-                "border-radius": "16px",
-                "background-color": "#1A1A1A",
-                "border": "2px solid #2A3B3A",
-                "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
-                "margin": "0 auto 1rem auto",
-                "padding": "0",
-                "display": "flex",
-                "justify-content": "center",
-                "align-items": "center" # **FIX**: Corrected this line
-            },
-            "div": {
-                 "padding": "0"
-            },
-            "img": {
-                "width": "55%",
-                "height": "55%",
-                "object-fit": "contain"
-            },
-            "filter": {"background-color": "transparent"}, 
-        }
-
-        # Apply stronger glowing effect if the card is active
-        if is_active:
-            card_styles["card"]["border"] = "2px solid #4DB4B0"
-            card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
-
-        clicked = card(
-            title="",
-            text="",
-            image=f"data:image/png;base64,{icon_b64}",
-            styles=card_styles,
-            key=f"nav_card_{page_key}",
-            on_click=lambda: None
+    try:
+        logo_path = os.path.join(SCRIPT_DIR, "logo22.png")
+        logo_image = Image.open(logo_path).resize((100, 50))
+        buffered = io.BytesIO()
+        logo_image.save(buffered, format="PNG")
+        logo_str = base64.b64encode(buffered.getvalue()).decode()
+        st.markdown(
+            f"<div style='text-align:center; margin-top:-3.5rem; margin-bottom:2rem;'><img src='data:image/png;base64,{logo_str}'/></div>",
+            unsafe_allow_html=True
         )
+    except FileNotFoundError:
+        pass # Silently fail if logo is missing
+
+    # --- Loop to Create the Clickable Icon Cards ---
+    active_page_key = st.session_state.current_page
+
+    for page_key, page_name in nav_items:
+        icon_filename = icon_mapping.get(page_key)
+        if not icon_filename:
+            continue
         
-        if clicked:
-            st.session_state.current_page = page_key
-            # This logic from your original code resets any sub-pages upon navigation
-            if 'current_subpage' in st.session_state:
-                st.session_state.current_subpage = None
-            if 'show_tools_submenu' in st.session_state:
-                st.session_state.show_tools_submenu = False
-            st.rerun()
+        icon_path = os.path.join(SCRIPT_DIR, "icons", icon_filename)
+        icon_b64 = image_to_base_64(icon_path)
+        
+        if icon_b64:
+            is_active = (page_key == active_page_key)
+            
+            card_styles = {
+                "card": {
+                    "width": "65px", "height": "65px", "border-radius": "16px",
+                    "background-color": "#1A1A1A", "margin": "0 auto 1rem auto",
+                    "border": "2px solid #2A3B3A", "padding": "0",
+                    "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
+                    "display": "flex", "justify-content": "center", "align-items": "center",
+                    "transition": "all 0.2s ease-in-out", # Added for smooth hover effect
+                },
+                "div": {"padding": "0"},
+                "img": {"width": "55%", "height": "55%", "object-fit": "contain"},
+                "filter": {"background-color": "transparent"},
+            }
+
+            if is_active:
+                card_styles["card"]["border"] = "2px solid #4DB4B0"
+                card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
+
+            clicked = card(
+                title="", text="",
+                image=f"data:image/png;base64,{icon_b64}",
+                styles=card_styles,
+                key=f"nav_card_{page_key}"
+                # The on_click parameter is not needed; we check the return value
+            )
+            
+            if clicked:
+                st.session_state.current_page = page_key
+                # Reset any sub-page states as per your original logic
+                if 'current_subpage' in st.session_state:
+                    st.session_state.current_subpage = None
+                if 'show_tools_submenu' in st.session_state:
+                    st.session_state.show_tools_submenu = False
+                st.rerun()
 
 # =========================================================
 # 1. IMPORTS
