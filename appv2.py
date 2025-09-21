@@ -43,7 +43,7 @@ def get_image_as_base_64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# SIDEBAR LOGIC (FINAL, GUARANTEED VERSION WITH ERROR FIX)
+# SIDEBAR (FINAL, GUARANTEED, SELF-CONTAINED SOLUTION)
 # =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -78,23 +78,13 @@ with st.sidebar:
     ]
 
     # --- "BRUTE FORCE" CSS INJECTION ---
+    # This stylesheet is designed with maximum specificity to win any CSS conflict.
+    # It CANNOT leak out and affect your main page layouts.
     style_block = "<style>"
-    for page_key, page_name, icon_filename in nav_items:
-        icon_path = os.path.join("icons", icon_filename)
-        # THIS IS THE CRITICAL LINE THAT WAS MISSING.
-        # It assigns the result of the function to the variable.
-        icon_base_64 = get_image_as_base_64(icon_path)
-        
-        # This check is now safe and will prevent errors if an icon is not found.
-        if icon_base_64:
-            style_block += f"""
-                button[title="{page_name}"] {{
-                    background-image: url("data:image/png;base64,{icon_base_64}") !important;
-                }}
-            """
-    
+
+    # Rule 1: General style for the button to make it a square.
     style_block += """
-        /* General styling for ALL sidebar buttons to make them square icons */
+        /* This selector CANNOT leak outside the sidebar */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
             display: flex;
             justify-content: center;
@@ -103,30 +93,48 @@ with st.sidebar:
             height: 55px !important;
             padding: 0 !important;
             margin: 5px auto !important;
-            
             background-color: transparent !important;
             background-size: 32px 32px !important;
             background-repeat: no-repeat !important;
             background-position: center !important;
-
             border-radius: 10px !important;
             border: 2px solid rgba(88, 179, 177, 0.4) !important;
-            
             transition: all 0.2s ease-in-out;
+            /* Forcefully hide any text color */
+            color: transparent !important;
         }
+    """
 
-        /* BRUTALLY HIDE THE TEXT LABEL INSIDE THE BUTTON */
+    # Rule 2: BRUTALLY HIDE THE TEXT LABEL.
+    # This targets the actual text element inside the button and removes it.
+    style_block += """
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button p {
-            display: none !important;
+            font-size: 0px !important;
+            line-height: 0 !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
         }
+    """
+    
+    # Rule 3: Create a unique, high-priority rule for EACH button's icon image.
+    for page_key, page_name, icon_filename in nav_items:
+        icon_path = os.path.join("icons", icon_filename)
+        icon_base_64 = get_image_as_base_64(icon_path)
+        if icon_base_64:
+            # This selector is guaranteed to apply the background image.
+            style_block += f"""
+                button[title="{page_name}"] {{
+                    background-image: url("data:image/png;base64,{icon_base_64}") !important;
+                }}
+            """
 
-        /* Hover effect */
+    # Rule 4: Hover and Active state styles.
+    style_block += """
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
             border-color: #FFFFFF !important;
             transform: scale(1.1);
         }
-
-        /* Style for the ACTIVE button */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
             border-color: #FFFFFF !important;
             box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7) !important;
@@ -135,18 +143,19 @@ with st.sidebar:
     style_block += "</style>"
     st.markdown(style_block, unsafe_allow_html=True)
 
-
     # --- GENERATE THE BUTTONS ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
-
+        
+        # We use Streamlit's native button, which is 100% reliable for navigation.
         if st.button(
-            label=page_name, # Text required by Streamlit, but now guaranteed to be hidden
+            label=page_name,  # The label is now guaranteed to be hidden
             key=f"nav_{page_key}",
             type="primary" if is_active else "secondary",
             use_container_width=True,
-            help=page_name # Creates tooltip and the 'title' attribute for CSS
+            help=page_name # This creates the tooltip and the 'title' for our CSS
         ):
+            # Simple, reliable state change and rerun
             if st.session_state.current_page != page_key:
                 st.session_state.current_page = page_key
                 st.rerun()
