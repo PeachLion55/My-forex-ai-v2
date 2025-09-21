@@ -28,6 +28,11 @@ from datetime import datetime, date, timedelta
 # =========================================================
 # SIDEBAR NAVIGATION (Correct Callback Implementation)
 # =========================================================
+
+# =========================================================
+# PAGE CONFIGURATION (MUST BE THE FIRST STREAMLIT COMMAND)
+# =========================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 import streamlit as st
 from PIL import Image
 import io
