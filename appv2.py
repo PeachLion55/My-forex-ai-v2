@@ -43,72 +43,26 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 def get_image_as_base64(path):
     """Encodes a local image file into a Base64 string."""
     if not os.path.exists(path):
+        st.error(f"Icon not found at path: {path}")
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
-
-# =========================================================
-# CUSTOM SIDEBAR CSS
-# =========================================================================
-# This CSS provides the foundational style for our square, icon-only buttons.
-st.markdown("""
-<style>
-    /* Main sidebar container */
-    section[data-testid="stSidebar"] {
-        background-color: #000000 !important;
-    }
-
-    /* General styling for all buttons in the sidebar */
-    section[data-testid="stSidebar"] div.stButton > button {
-        background-color: transparent;
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: 28px 28px; /* Control the size of the icon */
-
-        border: 2px solid transparent; /* Start with an invisible border */
-        border-radius: 10px; /* Makes the button a rounded square */
-        color: #ffffff;
-        display: block;
-        height: 50px; /* Fixed height to make it a square */
-        width: 50px;  /* Fixed width to make it a square */
-        margin: 5px auto; /* Center the buttons horizontally */
-        font-size: 0 !important; /* This hides the button's text label */
-        transition: all 0.3s ease; /* Smooth transition for hover effects */
-
-        /* A subtle glow effect */
-        box-shadow: 0 4px 8px -2px rgba(88,179,177,0.4);
-    }
-
-    /* Style for when a user hovers over a button */
-    section[data-testid="stSidebar"] div.stButton > button:hover {
-        border-color: rgba(88, 179, 177, 1.0); /* Highlight border on hover */
-        transform: scale(1.1); /* Slightly enlarge the button */
-        box-shadow: 0 4px 12px -2px rgba(88,179,177,0.8);
-    }
-
-    /* Style specifically for the active page's button */
-    section[data-testid="stSidebar"] div.stButton > button.st-emotion-cache-19rxjzo {
-        border: 2px solid #FFFFFF; /* A white border for the active button */
-        box-shadow: 0 4px 15px -2px rgba(88,179,177,1.0); /* A stronger glow */
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # =========================================================
 # SIDEBAR CONTENT
 # =========================================================================
 with st.sidebar:
     # --- Display Logo ---
-    try:
-        logo_path = "logo22.png"
-        logo_base64 = get_image_as_base64(logo_path)
-        if logo_base64:
-            st.markdown(
-                f"<div style='text-align: center; margin-bottom: 20px;'><img src='data:image/png;base64,{logo_base64}' width='60'></div>",
-                unsafe_allow_html=True
-            )
-    except FileNotFoundError:
-        st.error("Logo file not found.")
+    logo_path = "logo22.png"
+    if os.path.exists(logo_path):
+        st.markdown(
+            f"""
+            <div style='text-align: center; margin-top: -60px; margin-bottom: 20px;'>
+                <img src="data:image/png;base64,{get_image_as_base64(logo_path)}" width="60">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     # --- Initialize Session State ---
     if 'current_page' not in st.session_state:
@@ -127,40 +81,80 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- Dynamically Create Buttons and Their Specific Icon CSS ---
-    # We will build a string of CSS rules, one for each button.
-    dynamic_css = "<style>"
+    # --- Build the CSS for all buttons ---
+    # We will build one large string containing all our CSS rules.
+    css_rules = """
+    <style>
+        /* Make sidebar black */
+        section[data-testid="stSidebar"] {
+            background-color: #000000 !important;
+        }
+
+        /* Base style for all buttons in the sidebar */
+        section[data-testid="stSidebar"] div.stButton > button {
+            background-color: transparent;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 28px 28px; /* Size of the icon */
+
+            border: 2px solid transparent;
+            border-radius: 10px; /* Rounded square shape */
+            color: white; /* Not visible, but good practice */
+            display: block;
+            height: 50px;
+            width: 50px;
+            margin: 5px auto; /* Center buttons */
+            font-size: 0 !important; /* HIDE THE LABEL TEXT */
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px -2px rgba(88,179,177,0.4);
+        }
+
+        /* Style for hover effect */
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            border-color: rgba(88, 179, 177, 1.0);
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px -2px rgba(88,179,177,0.8);
+        }
+
+        /* Style for the active button (uses Streamlit's "primary" button type) */
+        section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+            border: 2px solid #FFFFFF;
+            box-shadow: 0 4px 15px -2px rgba(88,179,177,1.0);
+        }
+    """
+
+    # --- Dynamically add a CSS rule for EACH button's icon ---
     for page_key, page_name, icon_filename in nav_items:
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base64(icon_path)
-        
-        # Unique identifier for the button
-        button_key = f"nav_{page_key}"
 
         if icon_base64:
-            # This CSS rule targets a button by its key and sets its background image
-            dynamic_css += f"""
-                /* CSS rule for the button with key '{button_key}' */
-                div[data-testid="stButton"] > button[kind="secondary"]:has(span[class*="{button_key}"]) {{
+            # This is the stable selector targeting the button via its tooltip text
+            css_rules += f"""
+                button[title="{page_name}"] {{
                     background-image: url("data:image/png;base64,{icon_base64}");
                 }}
             """
-        
+
+    css_rules += "</style>"
+
+    # --- Inject the complete CSS into the app ---
+    st.markdown(css_rules, unsafe_allow_html=True)
+
+    # --- Create the actual buttons in the sidebar ---
+    for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
         button_type = "primary" if is_active else "secondary"
 
         if st.button(
-            label=" " * len(page_name), # Use spaces as a label to maintain key uniqueness internally
-            key=button_key,
-            help=page_name, # This creates the hover tooltip
+            label="",  # Label is empty as it's hidden by CSS
+            key=f"nav_{page_key}",
+            help=page_name,  # This creates the tooltip AND our CSS selector
             type=button_type
         ):
             st.session_state.current_page = page_key
+            # Add any other state resets you need here
             st.rerun()
-
-    dynamic_css += "</style>"
-    # Inject the dynamically generated CSS into the app
-    st.markdown(dynamic_css, unsafe_allow_html=True)
 
 # =========================================================
 # 1. IMPORTS
