@@ -43,7 +43,7 @@ def get_image_as_base_64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# SIDEBAR LOGIC (FINAL, GUARANTEED VERSION)
+# SIDEBAR (FINAL, GUARANTEED VERSION)
 # =========================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -77,60 +77,60 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- DYNAMIC CSS GENERATION (THE KEY FIX) ---
-    # This block creates one large, powerful CSS stylesheet that will be injected into the app.
+    # --- DYNAMIC "BRUTE FORCE" CSS INJECTION ---
+    # This block creates one large, powerful stylesheet that CANNOT leak or be overridden.
     style_block = "<style>"
 
-    # Rule 1: General style for all icon buttons
+    # Rule 1: The general style for all buttons to make them square icons.
+    # The 'section[data-testid="stSidebar"]' selector ensures these styles ONLY apply to the sidebar.
     style_block += """
-        /* Target all buttons within the sidebar */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 0;
-            margin: 5px auto; /* Center the buttons vertically and horizontally */
-            width: 55px;
-            height: 55px;
+            padding: 0 !important;
+            margin: 5px auto !important;
+            width: 55px !important;
+            height: 55px !important;
             
-            /* --- Force hide the text label --- */
-            color: transparent !important;
-            font-size: 0px !important;
-            line-height: 0;
-            
-            background-color: transparent;
-            background-size: 32px 32px; /* Control icon size */
-            background-repeat: no-repeat;
-            background-position: center;
+            background-color: transparent !important;
+            background-size: 32px 32px !important;
+            background-repeat: no-repeat !important;
+            background-position: center !important;
 
-            border-radius: 10px;
-            border-width: 2px;
-            border-style: solid;
-            border-color: rgba(88, 179, 177, 0.4); /* Default inactive border */
+            border-radius: 10px !important;
+            border-width: 2px !important;
+            border-style: solid !important;
+            border-color: rgba(88, 179, 177, 0.4) !important;
             
             transition: all 0.2s ease-in-out;
         }
 
-        /* Hover effect for all buttons */
+        /* BRUTE FORCE HIDE THE TEXT LABEL */
+        /* This selector finds the text span INSIDE the button and removes it from view completely. */
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button > span {
+            display: none !important;
+        }
+
+        /* Hover effect */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
-            border-color: #FFFFFF;
+            border-color: #FFFFFF !important;
             transform: scale(1.1);
         }
 
         /* Style for the ACTIVE button (when type="primary") */
         section[data-testid="stSidebar"] div[data-testid="stButton"] > button[kind="primary"] {
-            border-color: #FFFFFF;
-            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7);
+            border-color: #FFFFFF !important;
+            box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.7) !important;
         }
     """
 
-    # Rule 2: Create a unique, high-priority rule for EACH button's icon
+    # Rule 2: Create a unique, high-priority rule for EACH button's icon.
     for page_key, page_name, icon_filename in nav_items:
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base_64(icon_path)
         if icon_base64:
-            # This is the most important part: a very specific selector that applies
-            # the background-image with !important, ensuring it overrides everything else.
+            # This selector applies the background image and is guaranteed to win any CSS battle.
             style_block += f"""
                 section[data-testid="stSidebar"] button[title="{page_name}"] {{
                     background-image: url("data:image/png;base64,{icon_base64}") !important;
@@ -138,8 +138,6 @@ with st.sidebar:
             """
 
     style_block += "</style>"
-
-    # Inject the complete CSS stylesheet into the app
     st.markdown(style_block, unsafe_allow_html=True)
 
     # --- GENERATE THE BUTTONS ---
@@ -149,12 +147,11 @@ with st.sidebar:
         # We use Streamlit's native button. It is 100% reliable for navigation.
         # The complex CSS we just built handles its entire appearance.
         if st.button(
-            label=page_name,  # The text is required by Streamlit but is now hidden by our CSS
+            label=page_name,  # The text is REQUIRED by Streamlit but is now FORCEFULLY HIDDEN by our CSS
             key=f"nav_{page_key}",
             type="primary" if is_active else "secondary",
-            use_container_width=True,
-            # 'help' creates a nice tooltip and, crucially, the 'title' attribute for our CSS to find
-            help=page_name
+            use_container_width=True, # This helps with centering in the sidebar column
+            help=page_name  # 'help' creates a tooltip AND the 'title' attribute for our CSS to find
         ):
             st.session_state.current_page = page_key
             st.rerun()
