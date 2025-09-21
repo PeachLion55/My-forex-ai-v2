@@ -25,45 +25,27 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
-
 # =========================================================
-# PAGE CONFIGURATION
-# =========================================================================
+# SIDEBAR NAVIGATION
+# =========================================================
 import streamlit as st
+from PIL import Image
+import io
 import base64
 import os
 
-st.set_page_config(page_title="Forex Dashboard", layout="wide")
-
-
-# =========================================================
-# NAVIGATION & HELPER FUNCTIONS
-# =========================================================================
-def handle_nav_click(page_key):
-    """
-    Updates the session state and forces an immediate re-run to ensure
-    the page content updates smoothly and instantly.
-    """
-    st.session_state.current_page = page_key
-    st.rerun()
-
-def get_image_as_base64(path):
-    """Encodes a local image to a base64 string for CSS."""
-    if not os.path.exists(path):
+# --- Helper function to encode local images to base64 ---
+# This allows embedding icons directly into the CSS for reliable display.
+@st.cache_data
+def image_to_base_64(path):
+    try:
+        with open(path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except FileNotFoundError:
+        st.error(f"Icon file not found: {path}")
         return None
-    with open(path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
 
-# =========================================================
-# SESSION STATE INITIALIZATION
-# =========================================================================
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
-
-
-# =========================================================
-# NAVIGATION ITEMS & ICON MAPPING
-# =========================================================================
+# --- Navigation Items Definition ---
 nav_items = [
     ('fundamentals', 'Forex Fundamentals'),
     ('watch list', 'My Watchlist'),
@@ -76,120 +58,189 @@ nav_items = [
     ('account', 'My Account'),
 ]
 
+# --- Icon Mapping ---
+# Maps your page keys to the respective icon filenames in your 'icons' folder.
+# IMPORTANT: Ensure these filenames match the icons for each page as seen in your target design.
 icon_mapping = {
-    'fundamentals': 'icons/forex_fundamentals.png',
-    'watch list': 'icons/watchlist_icon.png',
-    'trading_journal': 'icons/trading_journal.png',
-    'mt5': 'icons/performance_dashboard.png',
-    'trading_tools': 'icons/trading_tools.png',
-    'strategy': 'icons/manage_my_strategy.png',
-    'Community Chatroom': 'icons/community_chatroom.png',
-    'Zenvo Academy': 'icons/zenvo_academy.png',
-    'account': 'icons/my_account.png',
+    'fundamentals': 'forex_fundamentals.png',        # Globe icon
+    'watch list': 'watchlist_icon.png',            # Monitor with chart icon
+    'trading_journal': 'trading_journal.png',          # Book icon
+    'mt5': 'performance_dashboard.png',            # Bar chart up icon
+    'trading_tools': 'trading_tools.png',              # Music note / misc icon
+    'strategy': 'manage_my_strategy.png',          # Credit card with % icon
+    'Community Chatroom': 'community_chatroom.png',    # Chat bubbles icon
+    'Zenvo Academy': 'zenvo_academy.png',          # Holographic book icon
+    'account': 'my_account.png'                    # User profile icon
 }
 
-# =========================================================
-# BUILD AND INJECT THE COMPLETE CSS
-# =========================================================================
+# --- Initialize session_state if it's the first run ---
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'strategy' # Active page from your screenshot
 
-css_to_inject = "<style>"
+# --- Generate Dynamic CSS Rules for Icons and Active State ---
+dynamic_css_rules = []
+active_page_key = st.session_state.current_page
 
-# --- 1. General styles for all our navigation buttons ---
-css_to_inject += """
-    /* Main Sidebar Style */
-    section[data-testid="stSidebar"] {
-        background-color: #000000 !important;
-        padding-top: 2rem;
-    }
-
-    /* Container holding the button */
-    div[data-testid*="stButton--nav-"] {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 12px;
-    }
-
-    /* The actual button element - force override */
-    div[data-testid*="stButton--nav-"] button {
-        width: 65px !important;
-        height: 65px !important;
-        padding: 0 !important;
-        border-radius: 15px !important;
-        background-color: #0d1117 !important;
-        color: transparent !important; /* HIDES THE TEXT LABEL */
-        border: 2px solid transparent !important;
-        box-shadow: 0 0 10px rgba(88, 179, 177, 0.5) !important; /* Ambient glow for all */
-        background-size: 60% 60% !important;
-        background-repeat: no-repeat !important;
-        background-position: center !important;
-        transition: all 0.3s ease !important;
-        outline: none !important;
-    }
-
-    /* Hover effect */
-    div[data-testid*="stButton--nav-"] button:hover {
-        transform: scale(1.1);
-        border-color: rgba(88, 179, 177, 0.7) !important;
-    }
+for page_key, page_name in nav_items:
+    # Create a unique, CSS-friendly class name for the wrapper div
+    wrapper_class = f"nav-button-wrapper-{page_key.replace(' ', '-').replace('_', '-')}"
     
-    /* Remove focus outline and apply a hover-like glow */
-    div[data-testid*="stButton--nav-"] button:focus {
-        outline: none !important;
-        box-shadow: 0 0 15px rgba(88, 179, 177, 0.9) !important;
-    }
-"""
-
-# --- 2. Dynamic styles for each button's icon and active state ---
-for page_key, _ in nav_items:
-    sanitized_key = page_key.replace(" ", "-")
-    button_testid = f"stButton--nav-{sanitized_key}"
+    # Get the icon for the button and convert it to a base64 string
+    icon_b64 = ""
+    icon_filename = icon_mapping.get(page_key)
+    if icon_filename:
+        icon_path = os.path.join("icons", icon_filename)
+        if os.path.exists(icon_path):
+            icon_b64 = image_to_base_64(icon_path)
     
-    # Rule for the icon background image
-    icon_path = icon_mapping.get(page_key)
-    if icon_path and (icon_base64 := get_image_as_base64(icon_path)):
-        css_to_inject += f"""
-            div[data-testid="{button_testid}"] button {{
-                background-image: url("data:image/png;base64,{icon_base64}") !important;
+    # Generate the CSS rule to set the icon as the button's background
+    if icon_b64:
+        dynamic_css_rules.append(f"""
+            .{wrapper_class} button {{
+                background-image: url("data:image/png;base64,{icon_b64}");
             }}
-        """
+        """)
     
-    # Rule for the ACTIVE button's distinct style (bright border and glow)
-    if st.session_state.current_page == page_key:
-        css_to_inject += f"""
-            div[data-testid="{button_testid}"] button {{
-                border-color: rgba(88, 179, 177, 1.0) !important;
-                box-shadow: 0 0 20px rgba(88, 179, 177, 1.0) !important;
+    # If this button corresponds to the active page, add special CSS for the stronger glow
+    if page_key == active_page_key:
+        dynamic_css_rules.append(f"""
+            .{wrapper_class} button {{
+                border: 2px solid #4DB4B0 !important; /* Brighter teal border */
+                box-shadow: 0 0 20px 2px rgba(77, 180, 176, 0.8) !important; /* Stronger glow */
             }}
-        """
+        """)
 
-css_to_inject += "</style>"
+# --- Inject All CSS (Static & Dynamic) into the App ---
+st.markdown(f"""
+<style>
+/* --- Sidebar Base Styles --- */
+section[data-testid="stSidebar"] {{
+    background-color: #000000;
+}}
+section[data-testid="stSidebar"] > div:first-child {{
+    padding-top: 1rem;
+}}
 
-# --- 3. Inject the single CSS block into the Streamlit app ---
-st.markdown(css_to_inject, unsafe_allow_html=True)
+/* --- Logo and App Name Styling --- */
+.sidebar-header {{
+    text-align: center;
+    margin-bottom: 2rem;
+}}
+.sidebar-header .app-name {{
+    background-color: #262730;
+    color: #FFF;
+    font-family: monospace;
+    padding: 4px 10px;
+    border-radius: 5px;
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    font-weight: bold;
+    border: 1px solid #3D3D48;
+}}
+
+/* --- Button Layout & Centering --- */
+[data-testid="stSidebar"] .stButton {{
+    display: flex;
+    justify-content: center;
+}}
+[class*="nav-button-wrapper-"] {{
+    width: 75px;
+    margin-bottom: 1rem;
+}}
+
+/* --- GENERAL Button Style (Default State) --- */
+[class*="nav-button-wrapper-"] button {{
+    width: 65px !important;
+    height: 65px !important;
+    padding: 0 !important;
+    border-radius: 16px !important; /* Squircle shape */
+    background-color: #1A1A1A !important;
+    border: 2px solid #2A3B3A !important; /* Faint, dark teal border */
+    box-shadow: 0 0 10px rgba(77, 180, 176, 0.3); /* Subtle default glow */
+
+    /* Icon styling */
+    background-size: 55%; /* Make icon smaller than the button area */
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    /* Hide button's default text/label */
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+
+    transition: all 0.2s ease-in-out;
+}}
+
+/* --- HOVER Effect for all buttons --- */
+[class*="nav-button-wrapper-"] button:hover {{
+    transform: scale(1.08);
+    border-color: #4DB4B0 !important; /* Brighten border on hover */
+    box-shadow: 0 0 15px rgba(77, 180, 176, 0.6) !important;
+    cursor: pointer;
+}}
+
+/* Clicking effect */
+[class*="nav-button-wrapper-"] button:active {{
+    transform: scale(1.02);
+}}
+
+/* --- This is where the Python-generated CSS rules get inserted --- */
+{''.join(dynamic_css_rules)}
+
+</style>
+""", unsafe_allow_html=True)
 
 
-# =========================================================
-# RENDER THE SIDEBAR UI
-# =========================================================
-with st.sidebar:
-    # Centering the logo using Base64 to avoid extra containers
-    if os.path.exists("logo22.png"):
-        logo_base64 = get_image_as_base64('logo22.png')
-        st.markdown(f"<div style='display: flex; justify-content: center;'><img src='data:image/png;base64,{logo_base64}' width='80'></div>", unsafe_allow_html=True)
-    else:
-        st.warning("Logo file not found.")
+# --- Logo Display ("streamlitApp" Text and Image) ---
+st.sidebar.markdown(
+    """
+    <div class='sidebar-header'>
+        <div class='app-name'>streamlitApp</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True) # Spacer
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((100, 50)) 
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 2rem; margin-top: -3.5rem;'>
+            <img src="data:image/png;base64,{logo_str}" />
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except FileNotFoundError:
+    st.sidebar.error("Logo file 'logo22.png' not found.")
 
-    # Render the icon buttons
-    for page_key, page_name in nav_items:
-        st.button(
-            label=page_name,  # Hidden by CSS but required by Streamlit
-            key=f"nav-{page_key.replace(' ', '-')}", # Create a unique and sanitized key
-            on_click=handle_nav_click,
-            args=(page_key,),
-        )
 
+# --- Loop to Create the Icon-Only Navigation Buttons ---
+for page_key, page_name in nav_items:
+    # We create a wrapper div with a unique class. This allows us to target
+    # each button specifically using CSS for its icon and active state.
+    wrapper_class = f"nav-button-wrapper-{page_key.replace(' ', '-').replace('_', '-')}"
+    st.sidebar.markdown(f'<div class="{wrapper_class}">', unsafe_allow_html=True)
+    
+    if st.sidebar.button(
+        label=" ",  # The button has no visible text
+        key=f"nav_{page_key}", 
+        use_container_width=True,
+        help=page_name  # A tooltip shows the page name on hover
+    ):
+        st.session_state.current_page = page_key
+        # This logic is from your original code to reset sub-pages on navigation
+        if 'current_subpage' in st.session_state:
+            st.session_state.current_subpage = None
+        if 'show_tools_submenu' in st.session_state:
+            st.session_state.show_tools_submenu = False
+        st.rerun()
+        
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # GLOBAL CSS & GRIDLINE SETTINGS
