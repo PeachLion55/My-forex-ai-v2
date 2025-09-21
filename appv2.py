@@ -27,8 +27,6 @@ from datetime import datetime, date, timedelta
 
 
 import streamlit as st
-from PIL import Image
-import io
 import base64
 import os
 
@@ -41,119 +39,117 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # HELPER FUNCTION TO ENCODE IMAGES FOR CSS
 # =========================================================================
 def get_image_as_base64(path):
-    """Encodes a local image file into a Base64 string."""
+    """Encodes a local image file into a Base64 string for CSS."""
     if not os.path.exists(path):
-        st.error(f"Icon not found at path: {path}")
+        # Instead of a hard error, return None to handle gracefully
+        # st.error(f"Icon not found at path: {path}")
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# SIDEBAR CONTENT
+# SIDEBAR SETUP
 # =========================================================================
 with st.sidebar:
-    # --- Display Logo ---
-    logo_path = "logo22.png"
+    # --- LOGO DISPLAY ---
+    logo_path = "logo22.png" # Assuming logo is at the root
     if os.path.exists(logo_path):
+        logo_base64 = get_image_as_base64(logo_path)
         st.markdown(
             f"""
             <div style='text-align: center; margin-top: -60px; margin-bottom: 20px;'>
-                <img src="data:image/png;base64,{get_image_as_base64(logo_path)}" width="60">
+                <img src="data:image/png;base64,{logo_base64}" width="60">
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    # --- Initialize Session State ---
+    # --- INITIALIZE SESSION STATE ---
     if 'current_page' not in st.session_state:
-        st.session_state.current_page = 'fundamentals'
+        st.session_state.current_page = 'fundamentals' # Default page
 
-    # --- Define Navigation Items and Their Icons ---
-    nav_items = [
-        ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
-        ('watch list', 'My Watchlist', 'watchlist_icon.png'),
-        ('trading_journal', 'My Trading Journal', 'trading_journal.png'),
-        ('mt5', 'Performance Dashboard', 'performance_dashboard.png'),
-        ('trading_tools', 'Trading Tools', 'trading_tools.png'),
-        ('strategy', 'Manage My Strategy', 'manage_my_strategy.png'),
-        ('Community Chatroom', 'Community Chatroom', 'community_chatroom.png'),
-        ('Zenvo Academy', 'Zenvo Academy', 'zenvo_academy.png'),
-        ('account', 'My Account', 'my_account.png'),
-    ]
+    # --- DEFINE NAVIGATION ITEMS AND ICONS ---
+    # Using the exact structure you provided
+    icon_mapping = {
+        'fundamentals': ('Forex Fundamentals', 'forex_fundamentals.png'),
+        'watch list': ('My Watchlist', 'watchlist_icon.png'),
+        'trading_journal': ('My Trading Journal', 'trading_journal.png'),
+        'mt5': ('Performance Dashboard', 'performance_dashboard.png'),
+        'trading_tools': ('Trading Tools', 'trading_tools.png'),
+        'strategy': ('Manage My Strategy', 'manage_my_strategy.png'),
+        'Community Chatroom': ('Community Chatroom', 'community_chatroom.png'),
+        'Zenvo Academy': ('Zenvo Academy', 'zenvo_academy.png'),
+        'account': ('My Account', 'my_account.png'),
+    }
 
-    # --- Build the CSS for all buttons ---
-    # We will build one large string containing all our CSS rules.
+    # --- DYNAMICALLY BUILD THE CSS STRING ---
     css_rules = """
     <style>
-        /* Make sidebar black */
+        /* Sidebar container background */
         section[data-testid="stSidebar"] {
             background-color: #000000 !important;
         }
 
-        /* Base style for all buttons in the sidebar */
+        /* Base style for ALL buttons in the sidebar */
         section[data-testid="stSidebar"] div.stButton > button {
             background-color: transparent;
             background-repeat: no-repeat;
             background-position: center;
-            background-size: 28px 28px; /* Size of the icon */
-
+            background-size: 28px 28px; /* Control icon size */
             border: 2px solid transparent;
-            border-radius: 10px; /* Rounded square shape */
-            color: white; /* Not visible, but good practice */
+            border-radius: 10px; /* Rounded square */
             display: block;
             height: 50px;
             width: 50px;
-            margin: 5px auto; /* Center buttons */
-            font-size: 0 !important; /* HIDE THE LABEL TEXT */
-            transition: all 0.3s ease;
+            margin: 5px auto;
+            font-size: 0 !important; /* CRITICAL: Hides the text label */
+            transition: all 0.2s ease-in-out;
             box-shadow: 0 4px 8px -2px rgba(88,179,177,0.4);
         }
 
-        /* Style for hover effect */
+        /* Hover effect */
         section[data-testid="stSidebar"] div.stButton > button:hover {
             border-color: rgba(88, 179, 177, 1.0);
             transform: scale(1.1);
-            box-shadow: 0 4px 12px -2px rgba(88,179,177,0.8);
         }
 
-        /* Style for the active button (uses Streamlit's "primary" button type) */
+        /* Style for the currently active button */
         section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
             border: 2px solid #FFFFFF;
-            box-shadow: 0 4px 15px -2px rgba(88,179,177,1.0);
+            box-shadow: 0 0 15px -2px rgba(88,179,177,1.0);
         }
     """
 
-    # --- Dynamically add a CSS rule for EACH button's icon ---
-    for page_key, page_name, icon_filename in nav_items:
+    # --- Add a specific CSS rule for each button's icon ---
+    for page_key, (page_name, icon_filename) in icon_mapping.items():
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base64(icon_path)
 
         if icon_base64:
-            # This is the stable selector targeting the button via its tooltip text
+            # THIS IS THE CORRECTED, HIGH-SPECIFICITY SELECTOR
             css_rules += f"""
-                button[title="{page_name}"] {{
-                    background-image: url("data:image/png;base64,{icon_base64}");
+                section[data-testid="stSidebar"] div.stButton > button[title="{page_name}"] {{
+                    background-image: url("data:image/png;base64,{icon_base64}") !important;
                 }}
             """
 
     css_rules += "</style>"
 
-    # --- Inject the complete CSS into the app ---
+    # --- INJECT ALL CSS RULES INTO THE APP ---
     st.markdown(css_rules, unsafe_allow_html=True)
 
-    # --- Create the actual buttons in the sidebar ---
-    for page_key, page_name, icon_filename in nav_items:
+    # --- CREATE THE ACTUAL BUTTONS ---
+    for page_key, (page_name, _) in icon_mapping.items():
         is_active = (st.session_state.current_page == page_key)
         button_type = "primary" if is_active else "secondary"
 
         if st.button(
-            label="",  # Label is empty as it's hidden by CSS
-            key=f"nav_{page_key}",
-            help=page_name,  # This creates the tooltip AND our CSS selector
+            label="",  # Label must be empty to be hidden
+            key=page_key,
+            help=page_name,  # 'help' creates the tooltip and the 'title' attribute for CSS
             type=button_type
         ):
             st.session_state.current_page = page_key
-            # Add any other state resets you need here
             st.rerun()
 
 # =========================================================
