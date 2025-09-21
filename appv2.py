@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Final, Clickable and Working Version)
+# SIDEBAR NAVIGATION (Correct Callback Implementation)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -76,7 +76,14 @@ icon_mapping = {
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
-# --- Inject CSS for Sidebar Layout ---
+# --- **THE CRITICAL FIX**: Define a callback function to change the page ---
+def set_page(page_key):
+    """This function is called when a card is clicked."""
+    st.session_state.current_page = page_key
+    # We don't need st.rerun() here. Changing session_state is enough to
+    # tell Streamlit to re-render the app with the new page content.
+
+# --- Inject CSS for Sidebar Layout and Hover Effects ---
 st.markdown("""
 <style>
 /* Center all items in the sidebar container */
@@ -97,11 +104,13 @@ div[data-testid*="stVerticalBlock"] > div[data-testid*="element-container"] > di
     transform: scale(1.08);
     border-color: #4DB4B0 !important;
     box-shadow: 0 0 15px rgba(77, 180, 176, 0.6) !important;
+    cursor: pointer;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Render All Sidebar Elements Inside a 'with st.sidebar:' Block ---
+
+# --- Render all sidebar elements within a 'with st.sidebar:' block ---
 with st.sidebar:
     # Render the Header and Logo
     st.markdown(
@@ -122,8 +131,6 @@ with st.sidebar:
         pass # Silently fail if logo is missing
 
     # --- Loop to Create the Clickable Icon Cards ---
-    active_page_key = st.session_state.current_page
-
     for page_key, page_name in nav_items:
         icon_filename = icon_mapping.get(page_key)
         if not icon_filename:
@@ -133,7 +140,7 @@ with st.sidebar:
         icon_b64 = image_to_base_64(icon_path)
         
         if icon_b64:
-            is_active = (page_key == active_page_key)
+            is_active = (st.session_state.current_page == page_key)
             
             card_styles = {
                 "card": {
@@ -152,26 +159,17 @@ with st.sidebar:
             if is_active:
                 card_styles["card"]["border"] = "2px solid #4DB4B0"
                 card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
-
-            # The card component returns True when clicked
-            clicked = card(
-                title="", 
-                text="",
+            
+            # **THE SECOND CRITICAL FIX**: We now call the component and pass our
+            # `set_page` function to the `on_click` parameter.
+            # We use a lambda to ensure the correct `page_key` is passed for each card.
+            card(
+                title="", text="",
                 image=f"data:image/png;base64,{icon_b64}",
                 styles=card_styles,
                 key=f"nav_card_{page_key}",
-                # **THE CRUCIAL FIX**: Add the on_click parameter to make the card interactive.
-                on_click=lambda: None
+                on_click=lambda key=page_key: set_page(key)
             )
-            
-            if clicked:
-                st.session_state.current_page = page_key
-                # Reset any sub-page states as per your original logic
-                if 'current_subpage' in st.session_state:
-                    st.session_state.current_subpage = None
-                if 'show_tools_submenu' in st.session_state:
-                    st.session_state.show_tools_submenu = False
-                st.rerun()
 
 # =========================================================
 # 1. IMPORTS
