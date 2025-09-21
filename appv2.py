@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Definitive, Correctly Placed Version)
+# SIDEBAR NAVIGATION (Final, Clickable and Working Version)
 # =========================================================
 import streamlit as st
 from PIL import Image
@@ -76,10 +76,10 @@ icon_mapping = {
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'strategy'
 
-# --- Inject CSS for Layout and Styling ---
+# --- Inject CSS for Sidebar Layout ---
 st.markdown("""
 <style>
-/* Center all items within the sidebar container */
+/* Center all items in the sidebar container */
 section[data-testid="stSidebar"] > div:first-child {
     display: flex;
     flex-direction: column;
@@ -95,14 +95,13 @@ section[data-testid="stSidebar"] > div:first-child {
 /* Custom hover effect for the card component */
 div[data-testid*="stVerticalBlock"] > div[data-testid*="element-container"] > div[data-testid*="stMarkdown"] > div[data-testid*="stStreamlitCard"] > div:hover {
     transform: scale(1.08);
-    border-color: #4DB4B0;
+    border-color: #4DB4B0 !important;
     box-shadow: 0 0 15px rgba(77, 180, 176, 0.6) !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- RENDER ALL SIDEBAR ELEMENTS WITHIN THIS BLOCK ---
+# --- Render All Sidebar Elements Inside a 'with st.sidebar:' Block ---
 with st.sidebar:
     # Render the Header and Logo
     st.markdown(
@@ -143,7 +142,7 @@ with st.sidebar:
                     "border": "2px solid #2A3B3A", "padding": "0",
                     "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
                     "display": "flex", "justify-content": "center", "align-items": "center",
-                    "transition": "all 0.2s ease-in-out", # Added for smooth hover effect
+                    "transition": "all 0.2s ease-in-out",
                 },
                 "div": {"padding": "0"},
                 "img": {"width": "55%", "height": "55%", "object-fit": "contain"},
@@ -154,12 +153,15 @@ with st.sidebar:
                 card_styles["card"]["border"] = "2px solid #4DB4B0"
                 card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
 
+            # The card component returns True when clicked
             clicked = card(
-                title="", text="",
+                title="", 
+                text="",
                 image=f"data:image/png;base64,{icon_b64}",
                 styles=card_styles,
-                key=f"nav_card_{page_key}"
-                # The on_click parameter is not needed; we check the return value
+                key=f"nav_card_{page_key}",
+                # **THE CRUCIAL FIX**: Add the on_click parameter to make the card interactive.
+                on_click=lambda: None
             )
             
             if clicked:
