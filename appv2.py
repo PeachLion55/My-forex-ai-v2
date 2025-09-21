@@ -41,19 +41,17 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 def get_image_as_base64(path):
     """Encodes a local image file into a Base64 string."""
     if not os.path.exists(path):
-        st.warning(f"Icon not found at: {path}") # Display a warning in the UI
+        st.warning(f"Icon not found at: {path}")
         return None
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# MANAGE PAGE STATE USING URL QUERY PARAMS (MOST ROBUST METHOD)
+# PAGE STATE MANAGEMENT (Reads the URL to set the page)
 # =========================================================================
-# Check the URL for a 'page' parameter. If it exists, set the session state.
 query_params = st.query_params
 if "page" in query_params:
     st.session_state.current_page = query_params["page"]
-# If no URL param and no state exists, set a default.
 elif 'current_page' not in st.session_state:
     st.session_state.current_page = 'fundamentals'
 
@@ -75,78 +73,54 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-    # --- ICON & PAGE MAPPING ---
-    icon_mapping = {
-        'fundamentals': ('Forex Fundamentals', 'forex_fundamentals.png'),
-        'watch list': ('My Watchlist', 'watchlist_icon.png'),
-        'trading_journal': ('My Trading Journal', 'trading_journal.png'),
-        'mt5': ('Performance Dashboard', 'performance_dashboard.png'),
-        'trading_tools': ('Trading Tools', 'trading_tools.png'),
-        'strategy': ('Manage My Strategy', 'manage_my_strategy.png'),
-        'Community Chatroom': ('Community Chatroom', 'community_chatroom.png'),
-        'Zenvo Academy': ('Zenvo Academy', 'zenvo_academy.png'),
-        'account': ('My Account', 'my_account.png'),
-    }
+    # --- ICON & PAGE MAPPING (Using your nav_items to build this) ---
+    nav_items = [
+        ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
+        ('watch list', 'My Watchlist', 'watchlist_icon.png'),
+        ('trading_journal', 'My Trading Journal', 'trading_journal.png'),
+        ('mt5', 'Performance Dashboard', 'performance_dashboard.png'),
+        ('trading_tools', 'Trading Tools', 'trading_tools.png'),
+        ('strategy', 'Manage My Strategy', 'manage_my_strategy.png'),
+        ('Community Chatroom', 'Community Chatroom', 'community_chatroom.png'),
+        ('Zenvo Academy', 'Zenvo Academy', 'zenvo_academy.png'),
+        ('account', 'My Account', 'my_account.png'),
+    ]
 
     # --- GENERAL CSS FOR BUTTON SHAPE, HOVER, AND ACTIVE STATES ---
     st.markdown("""
     <style>
         section[data-testid="stSidebar"] {
             background-color: #000000 !important;
-            overflow-y: hidden !important; /* Prevents scrolling */
+            overflow-y: hidden !important;
         }
-
-        /* The container for each icon button */
-        .icon-container {
-            display: flex;
-            justify-content: center;
-            margin: 5px 0;
-        }
-
-        /* This is our custom button, built from an <a> tag */
+        .icon-container { display: flex; justify-content: center; margin: 5px 0; }
         a.icon-button {
-            display: block;
-            width: 50px;
-            height: 50px;
-            border-radius: 10px;
+            display: block; width: 50px; height: 50px; border-radius: 10px;
             border: 2px solid transparent;
             box-shadow: 0 4px 8px -2px rgba(88,179,177,0.4);
-
-            /* Critical for making the inline style work */
-            background-size: 28px 28px;
-            background-repeat: no-repeat;
-            background-position: center;
-
+            background-size: 28px 28px; background-repeat: no-repeat; background-position: center;
             transition: all 0.2s ease-in-out;
         }
-
-        /* Hover effect: controlled by the stylesheet */
         a.icon-button:hover {
-            transform: scale(1.1);
-            border-color: rgba(88, 179, 177, 1.0);
+            transform: scale(1.1); border-color: rgba(88, 179, 177, 1.0);
             box-shadow: 0 0 15px -2px rgba(88,179,177,0.9);
         }
-
-        /* Active state: controlled by the stylesheet */
         a.icon-button.active {
-            border-color: #FFFFFF;
-            box-shadow: 0 0 20px -2px rgba(88,179,177,1.0);
+            border-color: #FFFFFF; box-shadow: 0 0 20px -2px rgba(88,179,177,1.0);
         }
     </style>
     """, unsafe_allow_html=True)
 
     # --- GENERATE THE ICONS IN A LOOP ---
-    for page_key, (page_name, icon_filename) in icon_mapping.items():
+    for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
         active_class = "active" if is_active else ""
         icon_path = os.path.join("icons", icon_filename)
         icon_base64 = get_image_as_base64(icon_path)
 
-        # Skip this icon if the file is not found
         if not icon_base64:
             continue
 
-        # The INLINE STYLE `style="..."` is the key fix here
         st.markdown(
             f"""
             <div class="icon-container">
