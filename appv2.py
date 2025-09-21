@@ -25,182 +25,114 @@ import base64
 import calendar
 from datetime import datetime, date, timedelta
 
+
 # =========================================================
-# PAGE CONFIGURATION (Streamlit requires this at top level)
+# PAGE CONFIGURATION
 # =========================================================================
 import streamlit as st
-from PIL import Image
-import io
-import base64
 import os
+import base64
 
+# Set page configuration - MUST be the first Streamlit command
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
+# =========================================================
+# HELPER FUNCTION TO LOAD IMAGES & HANDLE ERRORS
+# =========================================================================
+
+def image_to_base64(img_path):
+    """Safely converts a local image file to a Base64 string."""
+    if not os.path.exists(img_path):
+        return None  # Return None if file does not exist
+    try:
+        with open(img_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return None
 
 # =========================================================
-# CUSTOM SIDEBAR CSS FOR PROFESSIONAL ICON BUTTONS
+# UNIFIED PAGE AND ICON CONFIGURATION
 # =========================================================================
+
+# This new structure prevents key mismatches.
+# Each page is a dictionary with all its info.
+# FORMAT: (page_key, display_name, icon_filename)
+PAGES = [
+    ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
+    ('watch list', 'My Watchlist', 'watchlist_icon.png'),
+    ('trading_journal', 'My Trading Journal', 'trading_journal.png'),
+    ('mt5', 'Performance Dashboard', 'performance_dashboard.png'),
+    ('trading_tools', 'Trading Tools', 'trading_tools.png'),
+    ('strategy', 'Manage My Strategy', 'manage_my_strategy.png'),
+    ('Community Chatroom', 'Community Chatroom', 'community_chatroom.png'),
+    ('Zenvo Academy', 'Zenvo Academy', 'zenvo_academy.png'),
+    ('account', 'My Account', 'my_account.png'),
+]
+
+# =========================================================
+# CUSTOM SIDEBAR CSS
+# =========================================================================
+# (This CSS is the same as the last version and is confirmed to work)
 st.markdown("""
 <style>
-    /* Ensure the sidebar background is consistently black */
-    section[data-testid="stSidebar"] {
-        background-color: #000000 !important;
-    }
-
-    /* Container to hold and center our navigation buttons */
-    .nav-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center; /* Center buttons horizontally */
-        width: 100%;
-        padding-top: 1rem;
-    }
-
-    /* Style for each navigation button (as a clickable link) */
-    .nav-button {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 65px;  /* Square button width */
-        height: 65px; /* Square button height */
-        background-color: #1a1a1a;
-        border: 2px solid #333333;
-        border-radius: 12px; /* Rounded corners for a modern look */
-        margin: 6px 0;       /* Space between buttons */
-        transition: all 0.3s ease; /* Smooth transitions for hover effects */
-        cursor: pointer;
-    }
-
-    /* Style for the icon image inside the button */
-    .nav-button img {
-        width: 34px;  /* Icon size */
-        height: 34px;
-        transition: transform 0.3s ease; /* Smooth icon scaling */
-    }
-
-    /* --- INTERACTIVE EFFECTS --- */
-
-    /* Hover effect: subtle background change, border glow, and icon growth */
-    .nav-button:hover {
-        background-color: #252525;
-        border-color: rgba(88, 179, 177, 0.7);
-        transform: scale(1.05); /* Slightly enlarge button */
-    }
-
-    .nav-button:hover img {
-        transform: scale(1.1); /* Slightly enlarge icon */
-    }
-    
-    /* Style for the active button (the currently selected page) */
-    .nav-button.active {
-        background-color: #000000;
-        border-color: rgba(88, 179, 177, 1.0);
-        /* A glow effect using box-shadow for emphasis */
-        box-shadow: 0 0 15px rgba(88, 179, 177, 0.8), 0 0 5px rgba(88, 179, 177, 0.6) inset;
-    }
-    
-    /* Remove default hyperlink styles */
-    a, a:hover, a:visited, a:link, a:active {
-        text-decoration: none !important;
-        color: inherit !important;
-    }
+    section[data-testid="stSidebar"] { background-color: #000000 !important; }
+    .nav-container { display: flex; flex-direction: column; align-items: center; width: 100%; padding-top: 1rem; }
+    .nav-button { display: flex; justify-content: center; align-items: center; width: 65px; height: 65px; background-color: #1a1a1a; border: 2px solid #333333; border-radius: 12px; margin: 6px 0; transition: all 0.3s ease; cursor: pointer; }
+    .nav-button img { width: 34px; height: 34px; transition: transform 0.3s ease; }
+    .nav-button:hover { background-color: #252525; border-color: rgba(88, 179, 177, 0.7); transform: scale(1.05); }
+    .nav-button:hover img { transform: scale(1.1); }
+    .nav-button.active { background-color: #000000; border-color: rgba(88, 179, 177, 1.0); box-shadow: 0 0 15px rgba(88, 179, 177, 0.8), 0 0 5px rgba(88, 179, 177, 0.6) inset; }
+    a, a:hover, a:visited, a:link, a:active { text-decoration: none !important; color: inherit !important; }
 </style>
 """, unsafe_allow_html=True)
 
 
 # =========================================================
-# HELPER FUNCTION TO SAFELY LOAD IMAGES
+# SIDEBAR RENDERING WITH BUILT-IN DIAGNOSTICS
 # =========================================================================
 
-def image_to_base64(img_path):
-    """Converts a local image file to a Base64 string for embedding in HTML."""
-    try:
-        with open(img_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        return None
-
-# =========================================================
-# SIDEBAR NAVIGATION
-# =========================================================================
-
-# --- Get current page from URL. This is the most reliable way to manage state ---
-# It defaults to 'fundamentals' if no page is specified in the URL.
-st.session_state.current_page = st.query_params.get("page", "fundamentals")
-
+# --- Get current page from URL (prevents the "logout" issue) ---
+st.session_state.current_page = st.query_params.get("page", PAGES[0][0]) # Default to the first page
 
 # --- Logo Display ---
-try:
-    logo_base64 = image_to_base64("logo22.png")
-    if logo_base64:
-        st.sidebar.markdown(
-            f"""
-            <div style='text-align: center; margin-bottom: 20px; margin-top: -45px;'>
-                <img src="data:image/png;base64,{logo_base64}" width="60" height="50"/>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-except Exception:
-    st.sidebar.error("Logo 'logo22.png' not found.")
+logo_path = "logo22.png"
+logo_base64 = image_to_base64(logo_path)
+if logo_base64:
+    st.sidebar.markdown(f"<div style='text-align: center; margin-bottom: 20px; margin-top: -45px;'><img src='data:image/png;base64,{logo_base64}' width='60' height='50'/></div>", unsafe_allow_html=True)
+else:
+    st.sidebar.error(f"Logo not found at: {os.path.abspath(logo_path)}")
+
+# --- CRITICAL DIAGNOSTIC STEP ---
+# This will print the exact folder your script is running from.
+# Your 'icons' folder MUST be inside this folder.
+st.sidebar.info(f"Script running from: {os.getcwd()}")
+st.sidebar.info("Please ensure your 'icons' folder is located in the directory above.")
 
 
-# --- Navigation items and their icon mappings ---
-# IMPORTANT: Check that the keys here match your logic and filenames.
-nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
-    ('watch list', 'My Watchlist'),
-    ('trading_journal', 'My Trading Journal'),
-    ('mt5', 'Performance Dashboard'),
-    ('trading_tools', 'Trading Tools'),
-    ('strategy', 'Manage My Strategy'),
-    ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account'),
-]
-
-icon_mapping = {
-    'trading_journal': 'trading_journal.png',
-    'watch list': 'watchlist_icon.png',
-    'fundamentals': 'forex_fundamentals.png',
-    'mt5': 'performance_dashboard.png',
-    'account': 'my_account.png',
-    'strategy': 'manage_my_strategy.png',
-    'trading_tools': 'trading_tools.png',
-    'Community Chatroom': 'community_chatroom.png',
-    'Zenvo Academy': 'zenvo_academy.png'
-}
-
-
-# --- Generate HTML for the icon-based navigation menu ---
+# --- Generate Navigation Menu ---
 nav_html = "<div class='nav-container'>"
 
-for page_key, page_name in nav_items:
+for page_key, page_name, icon_filename in PAGES:
     is_active = (st.session_state.current_page == page_key)
     active_class = "active" if is_active else ""
-
-    icon_filename = icon_mapping.get(page_key)
-
-    # **DEBUGGING STEP:** Check if a mapping even exists
-    if not icon_filename:
-        st.sidebar.warning(f"No icon mapped for page: '{page_key}'")
-        continue # Skip this item and move to the next
-
-    icon_path = os.path.join("icons", icon_filename)
+    
+    # Construct the full, absolute path to the icon
+    icon_path = os.path.abspath(os.path.join("icons", icon_filename))
+    
+    # Try to load the icon from that path
     icon_base64 = image_to_base64(icon_path)
-
-    # If the icon was found and loaded successfully
+    
     if icon_base64:
-        # Create a clickable HTML link for navigation
+        # If successful, create the button
         nav_html += f"""
             <a href='?page={page_key}' target='_self' class='nav-button {active_class}' title='{page_name}'>
                 <img src='data:image/png;base64,{icon_base64}'>
             </a>
         """
-    # **CRITICAL DEBUGGING STEP:** If the icon file was NOT found, display a clear error message
     else:
-        st.sidebar.error(f"Icon not found. Path checked: {icon_path}")
-
+        # If it fails, THIS ERROR MESSAGE WILL APPEAR IN THE SIDEBAR
+        st.sidebar.error(f"'{page_key}' icon NOT FOUND at path: {icon_path}")
+        
 nav_html += "</div>"
 st.sidebar.markdown(nav_html, unsafe_allow_html=True)
 
