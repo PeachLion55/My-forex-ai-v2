@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# PAGE CONFIGURATION
+# PAGE CONFIGURATION (Streamlit requires this at top level)
 # =========================================================================
 import streamlit as st
 from PIL import Image
@@ -34,91 +34,72 @@ import io
 import base64
 import os
 
-# Set page configuration at the very top
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
 # =========================================================
-# CUSTOM SIDEBAR CSS
+# CUSTOM SIDEBAR CSS FOR PROFESSIONAL ICON BUTTONS
 # =========================================================================
 st.markdown("""
 <style>
-    /* Main app layout adjustments */
-    .main .block-container {
-        padding-top: 2rem;
-    }
-
-    /* Sidebar container */
+    /* Ensure the sidebar background is consistently black */
     section[data-testid="stSidebar"] {
         background-color: #000000 !important;
     }
 
-    /* Container for our custom navigation buttons */
+    /* Container to hold and center our navigation buttons */
     .nav-container {
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: center; /* Center buttons horizontally */
         width: 100%;
+        padding-top: 1rem;
     }
 
-    /* Base style for each navigation button link */
+    /* Style for each navigation button (as a clickable link) */
     .nav-button {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 70px;
-        height: 70px;
+        width: 65px;  /* Square button width */
+        height: 65px; /* Square button height */
         background-color: #1a1a1a;
         border: 2px solid #333333;
-        border-radius: 12px;
-        margin: 8px 0;
-        transition: all 0.3s ease;
+        border-radius: 12px; /* Rounded corners for a modern look */
+        margin: 6px 0;       /* Space between buttons */
+        transition: all 0.3s ease; /* Smooth transitions for hover effects */
         cursor: pointer;
     }
 
-    /* Style for the icon image within the button */
+    /* Style for the icon image inside the button */
     .nav-button img {
-        width: 36px;
-        height: 36px;
-        transition: transform 0.3s ease;
+        width: 34px;  /* Icon size */
+        height: 34px;
+        transition: transform 0.3s ease; /* Smooth icon scaling */
     }
 
-    /* Hover effect for buttons */
+    /* --- INTERACTIVE EFFECTS --- */
+
+    /* Hover effect: subtle background change, border glow, and icon growth */
     .nav-button:hover {
-        background-color: #222222;
+        background-color: #252525;
         border-color: rgba(88, 179, 177, 0.7);
-        transform: scale(1.05);
+        transform: scale(1.05); /* Slightly enlarge button */
     }
 
     .nav-button:hover img {
-        transform: scale(1.1);
+        transform: scale(1.1); /* Slightly enlarge icon */
     }
     
-    /* Style for the currently active button */
+    /* Style for the active button (the currently selected page) */
     .nav-button.active {
         background-color: #000000;
-        box-shadow: 0 0 15px rgba(88, 179, 177, 0.8), 0 0 5px rgba(88, 179, 177, 0.6) inset;
         border-color: rgba(88, 179, 177, 1.0);
+        /* A glow effect using box-shadow for emphasis */
+        box-shadow: 0 0 15px rgba(88, 179, 177, 0.8), 0 0 5px rgba(88, 179, 177, 0.6) inset;
     }
-
-    /* Style for placeholder buttons when an icon is missing */
-    .nav-button-error {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 70px;
-        height: 70px;
-        background-color: #1a1a1a;
-        border: 2px dashed #ff4b4b; /* Red dashed border */
-        border-radius: 12px;
-        margin: 8px 0;
-        color: #ff4b4b; /* Red text color */
-        font-weight: bold;
-        font-size: 14px; /* Initials of the page name */
-        text-align: center;
-    }
-
-    /* Remove hyperlink styling */
+    
+    /* Remove default hyperlink styles */
     a, a:hover, a:visited, a:link, a:active {
         text-decoration: none !important;
         color: inherit !important;
@@ -128,7 +109,7 @@ st.markdown("""
 
 
 # =========================================================
-# HELPER FUNCTION
+# HELPER FUNCTION TO SAFELY LOAD IMAGES
 # =========================================================================
 
 def image_to_base64(img_path):
@@ -137,15 +118,15 @@ def image_to_base64(img_path):
         with open(img_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
     except FileNotFoundError:
-        # Return None if the file doesn't exist
         return None
 
 # =========================================================
-# SIDEBAR NAVIGATION LOGIC
+# SIDEBAR NAVIGATION
 # =========================================================================
 
-# --- Get the current page from URL. This is the reliable way to manage state. ---
-st.session_state.page = st.query_params.get("page", "fundamentals")
+# --- Get current page from URL. This is the most reliable way to manage state ---
+# It defaults to 'fundamentals' if no page is specified in the URL.
+st.session_state.current_page = st.query_params.get("page", "fundamentals")
 
 
 # --- Logo Display ---
@@ -161,21 +142,22 @@ try:
             unsafe_allow_html=True
         )
 except Exception:
-    st.sidebar.error("Logo file 'logo22.png' not found.")
+    st.sidebar.error("Logo 'logo22.png' not found.")
 
-# --- Define the pages and their corresponding icon files ---
-# IMPORTANT: The 'key' must match the filename (without .png) in your 'icons' folder.
-nav_items = {
-    "fundamentals": "Forex Fundamentals",
-    "watch list": "My Watchlist",
-    "trading_journal": "My Trading Journal",
-    "mt5": "Performance Dashboard",
-    "trading_tools": "Trading Tools",
-    "strategy": "Manage My Strategy",
-    "Community Chatroom": "Community Chatroom",
-    "Zenvo Academy": "Zenvo Academy",
-    "account": "My Account"
-}
+
+# --- Navigation items and their icon mappings ---
+# IMPORTANT: Check that the keys here match your logic and filenames.
+nav_items = [
+    ('fundamentals', 'Forex Fundamentals'),
+    ('watch list', 'My Watchlist'),
+    ('trading_journal', 'My Trading Journal'),
+    ('mt5', 'Performance Dashboard'),
+    ('trading_tools', 'Trading Tools'),
+    ('strategy', 'Manage My Strategy'),
+    ('Community Chatroom', 'Community Chatroom'),
+    ('Zenvo Academy', 'Zenvo Academy'),
+    ('account', 'My Account'),
+]
 
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
@@ -185,52 +167,41 @@ icon_mapping = {
     'account': 'my_account.png',
     'strategy': 'manage_my_strategy.png',
     'trading_tools': 'trading_tools.png',
-    'community': 'community_trade_ideas.png', # This seems unused in your nav_items list
     'Community Chatroom': 'community_chatroom.png',
     'Zenvo Academy': 'zenvo_academy.png'
 }
 
 
-# --- Generate the HTML for the navigation buttons ---
+# --- Generate HTML for the icon-based navigation menu ---
 nav_html = "<div class='nav-container'>"
 
-for page_key, page_name in nav_items.items():
-    is_active = (st.session_state.page == page_key)
+for page_key, page_name in nav_items:
+    is_active = (st.session_state.current_page == page_key)
     active_class = "active" if is_active else ""
 
     icon_filename = icon_mapping.get(page_key)
-    
-    if icon_filename:
-        icon_path = os.path.join("icons", icon_filename)
-        icon_base64 = image_to_base64(icon_path)
-        
-        # If the icon was successfully found and converted
-        if icon_base64:
-            nav_html += f"""
-                <a href='?page={page_key}' target='_self' class='nav-button {active_class}' title='{page_name}'>
-                    <img src='data:image/png;base64,{icon_base64}'>
-                </a>
-            """
-        # If the icon file was NOT found, show the error placeholder
-        else:
-            initials = ''.join([name[0] for name in page_name.split()])[:2].upper()
-            nav_html += f"""
-                <div class='nav-button-error' title='ERROR: Icon not found at "{icon_path}"'>
-                    <span>{initials}</span>
-                </div>
-            """
-    else:
-        # Handle cases where page_key is not in icon_mapping
-        initials = ''.join([name[0] for name in page_name.split()])[:2].upper()
+
+    # **DEBUGGING STEP:** Check if a mapping even exists
+    if not icon_filename:
+        st.sidebar.warning(f"No icon mapped for page: '{page_key}'")
+        continue # Skip this item and move to the next
+
+    icon_path = os.path.join("icons", icon_filename)
+    icon_base64 = image_to_base64(icon_path)
+
+    # If the icon was found and loaded successfully
+    if icon_base64:
+        # Create a clickable HTML link for navigation
         nav_html += f"""
-            <div class='nav-button-error' title='ERROR: No icon specified for "{page_key}" in icon_mapping'>
-                <span>{initials}</span>
-            </div>
-            """
+            <a href='?page={page_key}' target='_self' class='nav-button {active_class}' title='{page_name}'>
+                <img src='data:image/png;base64,{icon_base64}'>
+            </a>
+        """
+    # **CRITICAL DEBUGGING STEP:** If the icon file was NOT found, display a clear error message
+    else:
+        st.sidebar.error(f"Icon not found. Path checked: {icon_path}")
 
 nav_html += "</div>"
-
-# Render the entire navigation block in the sidebar
 st.sidebar.markdown(nav_html, unsafe_allow_html=True)
 
 # =========================================================
