@@ -30,12 +30,12 @@ from datetime import datetime, date, timedelta
 import streamlit as st
 import base64
 import os
-from streamlit_card import card  # Ensure this is installed (pip install streamlit-card)
+from streamlit_card import card  # Make sure this is installed (pip install streamlit-card)
 
 # =========================================================
-# PAGE CONFIGURATION (Assuming this is at the top of your main script)
+# PAGE CONFIGURATION
 # =========================================================================
-# st.set_page_config(page_title="Forex Dashboard", layout="wide")
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 # =========================================================
 # HELPER FUNCTION TO ENCODE IMAGES
@@ -49,13 +49,13 @@ def get_image_as_base_64(path):
         return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# Initialize session state for current page
+# Initialize session state if it doesn't exist
 # =========================================================================
 if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'fundamentals'
+    st.session_state.current_page = 'fundamentals'  # Set your default page here
 
 # =========================================================
-# SIDEBAR NAVIGATION (FINAL, ROBUST VERSION)
+# SIDEBAR (FINAL, SELF-CONTAINED SOLUTION)
 # =========================================================================
 with st.sidebar:
     # --- LOGO DISPLAY ---
@@ -85,11 +85,15 @@ with st.sidebar:
         ('account', 'My Account', 'my_account.png'),
     ]
 
-    # --- A helper function to change the page in session_state ---
-    def set_page(page_key):
-        st.session_state.current_page = page_key
+    # --- A "FORCEFUL" NAVIGATION FUNCTION ---
+    # This function is the key. It sets the state AND triggers its own rerun.
+    def force_set_page(page_key):
+        # Only act if we are actually changing the page
+        if st.session_state.current_page != page_key:
+            st.session_state.current_page = page_key
+            st.rerun() # This deliberate rerun forces Streamlit to process this page change last.
 
-    # --- Generate Icon Buttons using the on_click callback ---
+    # --- Generate Icon Buttons ---
     for page_key, page_name, icon_filename in nav_items:
         is_active = (st.session_state.current_page == page_key)
         icon_path = os.path.join("icons", icon_filename)
@@ -111,18 +115,19 @@ with st.sidebar:
             "img": { # CSS for the icon image
                 "width": "28px", "height": "28px", "margin": "auto", "display": "block",
                 "image-rendering": "-webkit-optimize-contrast",  # For Chrome/Safari
+                "image-rendering": "pixelated",               # General sharp scaling
                 "image-rendering": "crisp-edges",             # For Firefox
             },
             "title": {"display": "none"}, "text": {"display": "none"}
         }
 
-        # The 'on_click' callback is the most reliable way to handle navigation state
+        # The card now calls our new, more forceful navigation function.
         card(
             title=page_name,
             text="", image=f"data:image/png;base64,{icon_base_64}",
             styles=card_styles,
             key=page_key,
-            on_click=lambda page=page_key: set_page(page)
+            on_click=lambda page=page_key: force_set_page(page)
         )
 
 # =========================================================
