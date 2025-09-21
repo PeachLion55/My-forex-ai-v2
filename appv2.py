@@ -26,115 +26,149 @@ import calendar
 from datetime import datetime, date, timedelta
 
 
+import streamlit as st
+from PIL import Image
+import io
+import base64
+import os
+
 # =========================================================
 # PAGE CONFIGURATION
 # =========================================================================
-import streamlit as st
-import os
-import base64
-
-# Set page configuration - MUST be the first Streamlit command
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
-# =========================================================
-# HELPER FUNCTION TO LOAD IMAGES & HANDLE ERRORS
-# =========================================================================
 
-def image_to_base64(img_path):
-    """Safely converts a local image file to a Base64 string."""
-    if not os.path.exists(img_path):
-        return None  # Return None if file does not exist
-    try:
-        with open(img_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except Exception:
+# =========================================================
+# HELPER FUNCTION TO ENCODE IMAGES
+# =========================================================
+def get_image_as_base64(path):
+    """Encodes an image file to a Base64 string."""
+    if not os.path.exists(path):
         return None
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 # =========================================================
-# UNIFIED PAGE AND ICON CONFIGURATION
+# CUSTOM SIDEBAR CSS (NOW DYNAMICALLY GENERATED)
 # =========================================================================
+def get_custom_sidebar_css():
+    """Returns the custom CSS for the sidebar, including dynamic button styles."""
+    return """
+    <style>
+        /* Main sidebar container styling */
+        section[data-testid="stSidebar"] {
+            background-color: #000000 !important;
+        }
 
-# This new structure prevents key mismatches.
-# Each page is a dictionary with all its info.
-# FORMAT: (page_key, display_name, icon_filename)
-PAGES = [
-    ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
-    ('watch list', 'My Watchlist', 'watchlist_icon.png'),
-    ('trading_journal', 'My Trading Journal', 'trading_journal.png'),
-    ('mt5', 'Performance Dashboard', 'performance_dashboard.png'),
-    ('trading_tools', 'Trading Tools', 'trading_tools.png'),
-    ('strategy', 'Manage My Strategy', 'manage_my_strategy.png'),
-    ('Community Chatroom', 'Community Chatroom', 'community_chatroom.png'),
-    ('Zenvo Academy', 'Zenvo Academy', 'zenvo_academy.png'),
-    ('account', 'My Account', 'my_account.png'),
-]
+        /* General button styling for the sidebar */
+        section[data-testid="stSidebar"] div.stButton > button {
+            background-color: transparent !important;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 28px 28px; /* Adjust icon size here */
+
+            color: #ffffff !important;
+            border: 2px solid transparent !important; /* Start with a transparent border */
+            border-radius: 8px !important;
+            height: 50px !important; /* Fixed height for all buttons */
+            width: 50px !important;  /* Fixed width for all buttons */
+            margin: 5px auto !important; /* Centered with some vertical margin */
+            font-size: 0 !important; /* Hide any lingering text */
+            display: block !important;
+            transition: all 0.3s ease !important;
+
+            /* Soft glow effect */
+            box-shadow: 0 0 8px -2px rgba(88,179,177,0.6);
+        }
+
+        /* Hover effect - icon gets a colored border */
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            transform: scale(1.1) !important;
+            border-color: rgba(88, 179, 177, 1.0) !important;
+            box-shadow: 0 0 15px -2px rgba(88,179,177,0.9);
+        }
+
+        /* Active button - more prominent border and glow */
+        section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+            border-color: #ffffff !important;
+            box-shadow: 0 0 20px -2px rgba(88,179,177,1.0);
+        }
+    </style>
+    """
+
+# Inject the general CSS
+st.markdown(get_custom_sidebar_css(), unsafe_allow_html=True)
 
 # =========================================================
-# CUSTOM SIDEBAR CSS
+# SIDEBAR NAVIGATION & LOGO
 # =========================================================================
-# (This CSS is the same as the last version and is confirmed to work)
-st.markdown("""
-<style>
-    section[data-testid="stSidebar"] { background-color: #000000 !important; }
-    .nav-container { display: flex; flex-direction: column; align-items: center; width: 100%; padding-top: 1rem; }
-    .nav-button { display: flex; justify-content: center; align-items: center; width: 65px; height: 65px; background-color: #1a1a1a; border: 2px solid #333333; border-radius: 12px; margin: 6px 0; transition: all 0.3s ease; cursor: pointer; }
-    .nav-button img { width: 34px; height: 34px; transition: transform 0.3s ease; }
-    .nav-button:hover { background-color: #252525; border-color: rgba(88, 179, 177, 0.7); transform: scale(1.05); }
-    .nav-button:hover img { transform: scale(1.1); }
-    .nav-button.active { background-color: #000000; border-color: rgba(88, 179, 177, 1.0); box-shadow: 0 0 15px rgba(88, 179, 177, 0.8), 0 0 5px rgba(88, 179, 177, 0.6) inset; }
-    a, a:hover, a:visited, a:link, a:active { text-decoration: none !important; color: inherit !important; }
-</style>
-""", unsafe_allow_html=True)
+with st.sidebar:
+    # --- Logo Display ---
+    try:
+        logo_path = "logo22.png"
+        logo_base64 = get_image_as_base64(logo_path)
+        if logo_base64:
+            st.markdown(
+                f"""
+                <div style='text-align: center; margin-bottom: 30px;'>
+                    <img src="data:image/png;base64,{logo_base64}" width="60"/>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    except FileNotFoundError:
+        st.error("Logo file not found.")
 
+    # --- Initialize session_state ---
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 'fundamentals'
 
-# =========================================================
-# SIDEBAR RENDERING WITH BUILT-IN DIAGNOSTICS
-# =========================================================================
+    # --- Navigation Items ---
+    nav_items = [
+        ('fundamentals', 'Forex Fundamentals', 'forex_fundamentals.png'),
+        ('watch list', 'My Watchlist', 'watchlist_icon.png'),
+        ('trading_journal', 'My Trading Journal', 'trading_journal.png'),
+        ('mt5', 'Performance Dashboard', 'performance_dashboard.png'),
+        ('trading_tools', 'Trading Tools', 'trading_tools.png'),
+        ('strategy', 'Manage My Strategy', 'manage_my_strategy.png'),
+        ('Community Chatroom', 'Community Chatroom', 'community_chatroom.png'),
+        ('Zenvo Academy', 'Zenvo Academy', 'zenvo_academy.png'),
+        ('account', 'My Account', 'my_account.png'),
+    ]
 
-# --- Get current page from URL (prevents the "logout" issue) ---
-st.session_state.current_page = st.query_params.get("page", PAGES[0][0]) # Default to the first page
-
-# --- Logo Display ---
-logo_path = "logo22.png"
-logo_base64 = image_to_base64(logo_path)
-if logo_base64:
-    st.sidebar.markdown(f"<div style='text-align: center; margin-bottom: 20px; margin-top: -45px;'><img src='data:image/png;base64,{logo_base64}' width='60' height='50'/></div>", unsafe_allow_html=True)
-else:
-    st.sidebar.error(f"Logo not found at: {os.path.abspath(logo_path)}")
-
-# --- CRITICAL DIAGNOSTIC STEP ---
-# This will print the exact folder your script is running from.
-# Your 'icons' folder MUST be inside this folder.
-st.sidebar.info(f"Script running from: {os.getcwd()}")
-st.sidebar.info("Please ensure your 'icons' folder is located in the directory above.")
-
-
-# --- Generate Navigation Menu ---
-nav_html = "<div class='nav-container'>"
-
-for page_key, page_name, icon_filename in PAGES:
-    is_active = (st.session_state.current_page == page_key)
-    active_class = "active" if is_active else ""
-    
-    # Construct the full, absolute path to the icon
-    icon_path = os.path.abspath(os.path.join("icons", icon_filename))
-    
-    # Try to load the icon from that path
-    icon_base64 = image_to_base64(icon_path)
-    
-    if icon_base64:
-        # If successful, create the button
-        nav_html += f"""
-            <a href='?page={page_key}' target='_self' class='nav-button {active_class}' title='{page_name}'>
-                <img src='data:image/png;base64,{icon_base64}'>
-            </a>
-        """
-    else:
-        # If it fails, THIS ERROR MESSAGE WILL APPEAR IN THE SIDEBAR
-        st.sidebar.error(f"'{page_key}' icon NOT FOUND at path: {icon_path}")
+    # --- Generate Icon Buttons ---
+    dynamic_styles = "<style>"
+    for page_key, page_name, icon_filename in nav_items:
+        icon_path = os.path.join("icons", icon_filename)
+        icon_base64 = get_image_as_base64(icon_path)
         
-nav_html += "</div>"
-st.sidebar.markdown(nav_html, unsafe_allow_html=True)
+        # We need a unique selector for each button, its key is a good candidate
+        button_key = f"nav_{page_key}"
+
+        if icon_base64:
+            # Add a CSS rule for each button to set its specific background icon
+            dynamic_styles += f"""
+                div[data-testid="stButton"] > button[kind="secondary"]:has(span[data-baseweb="button-kind-secondary"][class*="{button_key}"]) {{
+                    background-image: url("data:image/png;base64,{icon_base64}");
+                }}
+            """
+        
+        is_active = (st.session_state.current_page == page_key)
+        button_type = "primary" if is_active else "secondary"
+        
+        if st.button(
+            label=page_name,  # The label is now used as a tooltip
+            key=button_key,
+            use_container_width=True,
+            type=button_type,
+            help=page_name  # The 'help' parameter creates the professional tooltip on hover
+        ):
+            st.session_state.current_page = page_key
+            # Add any other state resets you need here
+            st.rerun()
+
+    dynamic_styles += "</style>"
+    st.markdown(dynamic_styles, unsafe_allow_html=True)
 
 # =========================================================
 # 1. IMPORTS
