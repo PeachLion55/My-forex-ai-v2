@@ -8,3 +8,5 @@ pytz
 streamlit-autorefresh
 supabase
 streamlit-extras
+
+streamlit-card
