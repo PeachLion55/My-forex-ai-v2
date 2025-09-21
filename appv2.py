@@ -26,7 +26,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# PAGE CONFIGURATION (Streamlit requires this at top level)
+# PAGE CONFIGURATION
 # =========================================================================
 import streamlit as st
 from PIL import Image
@@ -34,6 +34,7 @@ import io
 import base64
 import os
 
+# Set page configuration at the very top
 st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
 
@@ -42,7 +43,12 @@ st.set_page_config(page_title="Forex Dashboard", layout="wide")
 # =========================================================================
 st.markdown("""
 <style>
-    /* Ensure the sidebar background is black */
+    /* Main app layout adjustments */
+    .main .block-container {
+        padding-top: 2rem;
+    }
+
+    /* Sidebar container */
     section[data-testid="stSidebar"] {
         background-color: #000000 !important;
     }
@@ -51,52 +57,68 @@ st.markdown("""
     .nav-container {
         display: flex;
         flex-direction: column;
-        align-items: center; /* Center buttons horizontally */
+        align-items: center;
         width: 100%;
     }
 
-    /* Style for each navigation button (as an anchor tag) */
+    /* Base style for each navigation button link */
     .nav-button {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 70px;  /* Square button width */
-        height: 70px; /* Square button height */
+        width: 70px;
+        height: 70px;
         background-color: #1a1a1a;
         border: 2px solid #333333;
-        border-radius: 12px; /* Rounded corners */
-        margin: 8px 0; /* Space between buttons */
-        transition: all 0.3s ease; /* Smooth transition for effects */
+        border-radius: 12px;
+        margin: 8px 0;
+        transition: all 0.3s ease;
         cursor: pointer;
     }
 
-    /* Icon style within the button */
+    /* Style for the icon image within the button */
     .nav-button img {
-        width: 36px;  /* Icon size */
+        width: 36px;
         height: 36px;
         transition: transform 0.3s ease;
     }
 
-    /* Hover effect: subtle background change, border glow, and icon growth */
+    /* Hover effect for buttons */
     .nav-button:hover {
         background-color: #222222;
         border-color: rgba(88, 179, 177, 0.7);
-        transform: scale(1.05); /* Slightly enlarge button on hover */
+        transform: scale(1.05);
     }
 
     .nav-button:hover img {
-        transform: scale(1.1); /* Slightly enlarge icon on hover */
+        transform: scale(1.1);
     }
     
-    /* Style for the active button */
+    /* Style for the currently active button */
     .nav-button.active {
         background-color: #000000;
-        /* A glow effect using box-shadow */
         box-shadow: 0 0 15px rgba(88, 179, 177, 0.8), 0 0 5px rgba(88, 179, 177, 0.6) inset;
         border-color: rgba(88, 179, 177, 1.0);
     }
 
-    /* Remove default anchor tag underline and color */
+    /* Style for placeholder buttons when an icon is missing */
+    .nav-button-error {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 70px;
+        height: 70px;
+        background-color: #1a1a1a;
+        border: 2px dashed #ff4b4b; /* Red dashed border */
+        border-radius: 12px;
+        margin: 8px 0;
+        color: #ff4b4b; /* Red text color */
+        font-weight: bold;
+        font-size: 14px; /* Initials of the page name */
+        text-align: center;
+    }
+
+    /* Remove hyperlink styling */
     a, a:hover, a:visited, a:link, a:active {
         text-decoration: none !important;
         color: inherit !important;
@@ -107,28 +129,23 @@ st.markdown("""
 
 # =========================================================
 # HELPER FUNCTION
-# =========================================================
+# =========================================================================
 
 def image_to_base64(img_path):
-    """Converts a local image file to a Base64 string."""
+    """Converts a local image file to a Base64 string for embedding in HTML."""
     try:
         with open(img_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
     except FileNotFoundError:
+        # Return None if the file doesn't exist
         return None
 
 # =========================================================
 # SIDEBAR NAVIGATION LOGIC
-# =========================================================
+# =========================================================================
 
-# --- Get the current page from URL query parameters ---
-query_params = st.query_params.to_dict()
-# Set the default page if 'page' is not in the URL
-if 'page' not in st.session_state:
-    st.session_state.page = query_params.get('page', 'fundamentals')
-else:
-    # Update state from URL if it exists
-    st.session_state.page = query_params.get('page', st.session_state.page)
+# --- Get the current page from URL. This is the reliable way to manage state. ---
+st.session_state.page = st.query_params.get("page", "fundamentals")
 
 
 # --- Logo Display ---
@@ -143,24 +160,23 @@ try:
             """,
             unsafe_allow_html=True
         )
-except FileNotFoundError:
+except Exception:
     st.sidebar.error("Logo file 'logo22.png' not found.")
 
+# --- Define the pages and their corresponding icon files ---
+# IMPORTANT: The 'key' must match the filename (without .png) in your 'icons' folder.
+nav_items = {
+    "fundamentals": "Forex Fundamentals",
+    "watch list": "My Watchlist",
+    "trading_journal": "My Trading Journal",
+    "mt5": "Performance Dashboard",
+    "trading_tools": "Trading Tools",
+    "strategy": "Manage My Strategy",
+    "Community Chatroom": "Community Chatroom",
+    "Zenvo Academy": "Zenvo Academy",
+    "account": "My Account"
+}
 
-# --- Navigation Items Definition ---
-nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
-    ('watch list', 'My Watchlist'),
-    ('trading_journal', 'My Trading Journal'),
-    ('mt5', 'Performance Dashboard'),
-    ('trading_tools', 'Trading Tools'),
-    ('strategy', 'Manage My Strategy'),
-    ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account'),
-]
-
-# --- Icon mapping ---
 icon_mapping = {
     'trading_journal': 'trading_journal.png',
     'watch list': 'watchlist_icon.png',
@@ -169,163 +185,53 @@ icon_mapping = {
     'account': 'my_account.png',
     'strategy': 'manage_my_strategy.png',
     'trading_tools': 'trading_tools.png',
-    'community': 'community_trade_ideas.png',
+    'community': 'community_trade_ideas.png', # This seems unused in your nav_items list
     'Community Chatroom': 'community_chatroom.png',
     'Zenvo Academy': 'zenvo_academy.png'
 }
 
 
-# --- Generate HTML for the navigation buttons ---
+# --- Generate the HTML for the navigation buttons ---
 nav_html = "<div class='nav-container'>"
 
-for page_key, page_name in nav_items:
-    # Determine if the current button is active
+for page_key, page_name in nav_items.items():
     is_active = (st.session_state.page == page_key)
     active_class = "active" if is_active else ""
 
-    # Get the icon for the page
     icon_filename = icon_mapping.get(page_key)
+    
     if icon_filename:
         icon_path = os.path.join("icons", icon_filename)
-        # Convert icon to Base64 to embed it directly in HTML
         icon_base64 = image_to_base64(icon_path)
+        
+        # If the icon was successfully found and converted
         if icon_base64:
-            # Create a link with a query parameter to switch pages
-            # Tooltip is set to page_name for professional look
             nav_html += f"""
                 <a href='?page={page_key}' target='_self' class='nav-button {active_class}' title='{page_name}'>
                     <img src='data:image/png;base64,{icon_base64}'>
                 </a>
             """
+        # If the icon file was NOT found, show the error placeholder
+        else:
+            initials = ''.join([name[0] for name in page_name.split()])[:2].upper()
+            nav_html += f"""
+                <div class='nav-button-error' title='ERROR: Icon not found at "{icon_path}"'>
+                    <span>{initials}</span>
+                </div>
+            """
+    else:
+        # Handle cases where page_key is not in icon_mapping
+        initials = ''.join([name[0] for name in page_name.split()])[:2].upper()
+        nav_html += f"""
+            <div class='nav-button-error' title='ERROR: No icon specified for "{page_key}" in icon_mapping'>
+                <span>{initials}</span>
+            </div>
+            """
 
 nav_html += "</div>"
+
+# Render the entire navigation block in the sidebar
 st.sidebar.markdown(nav_html, unsafe_allow_html=True)
-
-# =========================================================
-# GLOBAL CSS & GRIDLINE SETTINGS
-# =========================================================
-st.markdown(
-    """
-    <style>
-    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
-    .stApp {
-        /* Retain Code B's background styling, adding only text color */
-        background-color: #000000; /* black background */
-        color: #c9d1d9; /* Text color from Code A */
-        /* Code B gridline background */
-        background-image:
-        linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
-        background-size: 40px 40px;
-        background-attachment: fixed;
-    }
-
-    .block-container {
-        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
-    }
-
-    h1, h2, h3, h4 {
-        color: #c9d1d9 !important; /* From Code A */
-    }
-
-    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
-    hr {
-        margin-top: 1.5rem !important;
-        margin-bottom: 1.5rem !important;
-        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
-        border-bottom: none !important;
-        background-color: transparent !important;
-        height: 1px !important;
-    }
-
-    /* Hide Streamlit Branding (From Code A & B merged) */
-    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
-
-    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
-    .css-18e3th9, .css-1d391kg {
-        padding-top: 0rem !important;
-        margin-top: 0rem !important;
-    }
-
-    /* --- Metric Card Styling (from Code A) --- */
-    /* This styling for st.metric is kept for non-editable metrics elsewhere */
-    [data-testid="stMetric"] {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 1.2rem;
-        transition: all 0.2s ease-in-out;
-    }
-    [data-testid="stMetric"]:hover {
-        border-color: #58a6ff;
-    }
-    [data-testid="stMetricLabel"] {
-        font-weight: 500;
-        color: #8b949e;
-    }
-
-    /* --- Tab Styling (from Code A, adapted) --- */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        background-color: transparent;
-        border: 1px solid #30363d; /* Adjusted border from Code A */
-        border-radius: 8px;
-        padding: 0 24px;
-        transition: all 0.2s ease-in-out;
-        color: #c9d1d9; /* Default text color for tabs */
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #161b22;
-        color: #58a6ff;
-    }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #161b22;
-        border-color: #58a6ff;
-        color: #c9d1d9; /* Active tab text color from Code A */
-    }
-
-    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
-    .trade-notes-display {
-        background-color: #161b22;
-        border-left: 4px solid #58a6ff;
-        border-radius: 0 8px 8px 0;
-        padding: 1rem 1.5rem;
-        margin-top: 1rem;
-    }
-    .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
-    .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
-    
-    /* --- Custom Playbook Metric Display (new for editable section) --- */
-    .playbook-metric-display {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 10px; /* Space between rows of metrics/actions */
-    }
-    .playbook-metric-display .label {
-        font-size: 0.9em;
-        color: #8b949e;
-        margin-bottom: 5px;
-    }
-    .playbook-metric-display .value {
-        font-size: 1.1em;
-        font-weight: bold;
-        color: #c9d1d9;
-    }
-    .playbook-metric-display.profit-positive {
-        border-color: #2da44e; /* Green border for profit */
-        background-color: #0b1f15; /* Darker green background */
-    }
-    .playbook-metric-display.profit-negative {
-        border-color: #cf222e; /* Red border for loss */
-        background-color: #260d0d; /* Darker red background */
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # =========================================================
 # 1. IMPORTS
