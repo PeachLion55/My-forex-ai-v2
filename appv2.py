@@ -26,150 +26,130 @@ import calendar
 from datetime import datetime, date, timedelta
 
 # =========================================================
-# SIDEBAR NAVIGATION (Correct Callback Implementation)
+# GLOBAL CSS & GRIDLINE SETTINGS
 # =========================================================
-import streamlit as st
-from PIL import Image
-import io
-import base64
-import os
-from streamlit_card import card # Import the custom component
+st.markdown(
+    """
+    <style>
+    /* --- Main App Styling (from Code A, adapted to use Code B's background) --- */
+    .stApp {
+        /* Retain Code B's background styling, adding only text color */
+        background-color: #000000; /* black background */
+        color: #c9d1d9; /* Text color from Code A */
+        /* Code B gridline background */
+        background-image:
+        linear-gradient(rgba(88, 179, 177, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88, 179, 177, 0.16) 1px, transparent 1px);
+        background-size: 40px 40px;
+        background-attachment: fixed;
+    }
 
-# --- Helper function to make file paths robust ---
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in locals() else os.getcwd()
+    .block-container {
+        padding: 1.5rem 2.5rem 2rem 2.5rem !important; /* From Code A */
+    }
 
-@st.cache_data
-def image_to_base_64(path):
-    """Encodes a local image file to a base64 string for embedding."""
-    try:
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except FileNotFoundError:
-        st.sidebar.error(f"Icon not found: {path}") # Display error in sidebar
-        return None
+    h1, h2, h3, h4 {
+        color: #c9d1d9 !important; /* From Code A */
+    }
 
-# --- Navigation & Icon Mapping ---
-nav_items = [
-    ('fundamentals', 'Forex Fundamentals'),
-    ('watch list', 'My Watchlist'),
-    ('trading_journal', 'My Trading Journal'),
-    ('mt5', 'Performance Dashboard'),
-    ('trading_tools', 'Trading Tools'),
-    ('strategy', 'Manage My Strategy'),
-    ('Community Chatroom', 'Community Chatroom'),
-    ('Zenvo Academy', 'Zenvo Academy'),
-    ('account', 'My Account'),
-]
-icon_mapping = {
-    'fundamentals': 'forex_fundamentals.png',
-    'watch list': 'watchlist_icon.png',
-    'trading_journal': 'trading_journal.png',
-    'mt5': 'performance_dashboard.png',
-    'trading_tools': 'trading_tools.png',
-    'strategy': 'manage_my_strategy.png',
-    'Community Chatroom': 'community_chatroom.png',
-    'Zenvo Academy': 'zenvo_academy.png',
-    'account': 'my_account.png'
-}
+    /* --- Global Horizontal Line Style --- (From Code B, then refined with Code A's) */
+    hr {
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+        border-top: 1px solid #30363d !important; /* Adjusted from Code A */
+        border-bottom: none !important;
+        background-color: transparent !important;
+        height: 1px !important;
+    }
 
-# --- Initialize session_state ---
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'strategy'
+    /* Hide Streamlit Branding (From Code A & B merged) */
+    #MainMenu, footer, [data-testid="stDecoration"] { visibility: hidden !important; }
 
-# --- **THE CRITICAL FIX**: Define a callback function to change the page ---
-def set_page(page_key):
-    """This function is called when a card is clicked."""
-    st.session_state.current_page = page_key
-    # We don't need st.rerun() here. Changing session_state is enough to
-    # tell Streamlit to re-render the app with the new page content.
+    /* Optional: remove extra padding/margin from main page (from Code B, adapted) */
+    .css-18e3th9, .css-1d391kg {
+        padding-top: 0rem !important;
+        margin-top: 0rem !important;
+    }
 
-# --- Inject CSS for Sidebar Layout and Hover Effects ---
-st.markdown("""
-<style>
-/* Center all items in the sidebar container */
-section[data-testid="stSidebar"] > div:first-child {
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* This centers the items horizontally */
-    padding-top: 1rem;
-}
-/* Logo & App Name Styling */
-.sidebar-header { text-align: center; margin-bottom: 2rem; width: 100%; }
-.app-name {
-    background-color: #262730; color: #FFF; padding: 4px 10px; border-radius: 5px; 
-    display: inline-block; margin-bottom: 1.5rem; font-weight: bold; border: 1px solid #3D3D48;
-}
-/* Custom hover effect for the card component */
-div[data-testid*="stVerticalBlock"] > div[data-testid*="element-container"] > div[data-testid*="stMarkdown"] > div[data-testid*="stStreamlitCard"] > div:hover {
-    transform: scale(1.08);
-    border-color: #4DB4B0 !important;
-    box-shadow: 0 0 15px rgba(77, 180, 176, 0.6) !important;
-    cursor: pointer;
-}
-</style>
-""", unsafe_allow_html=True)
+    /* --- Metric Card Styling (from Code A) --- */
+    /* This styling for st.metric is kept for non-editable metrics elsewhere */
+    [data-testid="stMetric"] {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 1.2rem;
+        transition: all 0.2s ease-in-out;
+    }
+    [data-testid="stMetric"]:hover {
+        border-color: #58a6ff;
+    }
+    [data-testid="stMetricLabel"] {
+        font-weight: 500;
+        color: #8b949e;
+    }
 
+    /* --- Tab Styling (from Code A, adapted) --- */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 48px;
+        background-color: transparent;
+        border: 1px solid #30363d; /* Adjusted border from Code A */
+        border-radius: 8px;
+        padding: 0 24px;
+        transition: all 0.2s ease-in-out;
+        color: #c9d1d9; /* Default text color for tabs */
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #161b22;
+        color: #58a6ff;
+    }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background-color: #161b22;
+        border-color: #58a6ff;
+        color: #c9d1d9; /* Active tab text color from Code A */
+    }
 
-# --- Render all sidebar elements within a 'with st.sidebar:' block ---
-with st.sidebar:
-    # Render the Header and Logo
-    st.markdown(
-        "<div class='sidebar-header'><div class='app-name'>streamlitApp</div></div>",
-        unsafe_allow_html=True
-    )
-    try:
-        logo_path = os.path.join(SCRIPT_DIR, "logo22.png")
-        logo_image = Image.open(logo_path).resize((100, 50))
-        buffered = io.BytesIO()
-        logo_image.save(buffered, format="PNG")
-        logo_str = base64.b64encode(buffered.getvalue()).decode()
-        st.markdown(
-            f"<div style='text-align:center; margin-top:-3.5rem; margin-bottom:2rem;'><img src='data:image/png;base64,{logo_str}'/></div>",
-            unsafe_allow_html=True
-        )
-    except FileNotFoundError:
-        pass # Silently fail if logo is missing
-
-    # --- Loop to Create the Clickable Icon Cards ---
-    for page_key, page_name in nav_items:
-        icon_filename = icon_mapping.get(page_key)
-        if not icon_filename:
-            continue
-        
-        icon_path = os.path.join(SCRIPT_DIR, "icons", icon_filename)
-        icon_b64 = image_to_base_64(icon_path)
-        
-        if icon_b64:
-            is_active = (st.session_state.current_page == page_key)
-            
-            card_styles = {
-                "card": {
-                    "width": "65px", "height": "65px", "border-radius": "16px",
-                    "background-color": "#1A1A1A", "margin": "0 auto 1rem auto",
-                    "border": "2px solid #2A3B3A", "padding": "0",
-                    "box-shadow": "0 0 10px rgba(77, 180, 176, 0.3)",
-                    "display": "flex", "justify-content": "center", "align-items": "center",
-                    "transition": "all 0.2s ease-in-out",
-                },
-                "div": {"padding": "0"},
-                "img": {"width": "55%", "height": "55%", "object-fit": "contain"},
-                "filter": {"background-color": "transparent"},
-            }
-
-            if is_active:
-                card_styles["card"]["border"] = "2px solid #4DB4B0"
-                card_styles["card"]["box-shadow"] = "0 0 20px 2px rgba(77, 180, 176, 0.8)"
-            
-            # **THE SECOND CRITICAL FIX**: We now call the component and pass our
-            # `set_page` function to the `on_click` parameter.
-            # We use a lambda to ensure the correct `page_key` is passed for each card.
-            card(
-                title="", text="",
-                image=f"data:image/png;base64,{icon_b64}",
-                styles=card_styles,
-                key=f"nav_card_{page_key}",
-                on_click=lambda key=page_key: set_page(key)
-            )
+    /* --- Styling for Markdown in Trade Playbook (from Code A) --- */
+    .trade-notes-display {
+        background-color: #161b22;
+        border-left: 4px solid #58a6ff;
+        border-radius: 0 8px 8px 0;
+        padding: 1rem 1.5rem;
+        margin-top: 1rem;
+    }
+    .trade-notes-display p { font-size: 15px; color: #c9d1d9; line-height: 1.6; }
+    .trade-notes-display h1, h2, h3, h4 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 4px; }
+    
+    /* --- Custom Playbook Metric Display (new for editable section) --- */
+    .playbook-metric-display {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 10px; /* Space between rows of metrics/actions */
+    }
+    .playbook-metric-display .label {
+        font-size: 0.9em;
+        color: #8b949e;
+        margin-bottom: 5px;
+    }
+    .playbook-metric-display .value {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #c9d1d9;
+    }
+    .playbook-metric-display.profit-positive {
+        border-color: #2da44e; /* Green border for profit */
+        background-color: #0b1f15; /* Darker green background */
+    }
+    .playbook-metric-display.profit-negative {
+        border-color: #cf222e; /* Red border for loss */
+        background-color: #260d0d; /* Darker red background */
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # =========================================================
 # 1. IMPORTS
@@ -423,10 +403,7 @@ def show_xp_notification(xp_gained):
 
 def ta_update_xp(username, amount, description="XP activity"):
     """
-    (CORRECTED VERSION)
-    Updates user XP, checks for level up, and logs the transaction.
-    CRITICALLY, this version does NOT cause an extra page refresh,
-    which solves the navigation conflict.
+    Updates user XP, checks for level up, logs the transaction, and persists data.
     """
     if username is None: return
 
@@ -440,19 +417,19 @@ def ta_update_xp(username, amount, description="XP activity"):
     if new_level > st.session_state.get('level', 0):
         st.session_state.level = new_level
         badge_name = f"Level {new_level}"
-        if badge_name not in st.session_state.get('badges', []):
+        if badge_name not in st.session_state.badges:
             st.session_state.badges.append(badge_name)
         st.balloons()
         st.success(f"Level up! You are now level {new_level}!")
 
     # Log XP transaction
     st.session_state.xp_log.append({
-        "Date": dt.date.today().isoformat(),
+        "Date": dt.date.today().isoformat(), # Use ISO format for consistent storage
         "Amount": amount,
         "Description": description
     })
 
-    save_user_data(username) # Persist all changes to the database
+    save_user_data(username) # Persist all session state XP/Level/Badges/xp_log changes
     if amount != 0: # Only show notification for non-zero XP changes
         show_xp_notification(amount) # Show notification
 
@@ -788,7 +765,69 @@ def initialize_and_load_session_state():
 
 initialize_and_load_session_state()
 
+# =========================================================
+# PAGE CONFIGURATION (Streamlit requires this at top level)
+# =========================================================================
+st.set_page_config(page_title="Forex Dashboard", layout="wide")
 
+
+# =========================================================
+# CUSTOM SIDEBAR CSS
+# =========================================================
+st.markdown("""
+<style>
+/* Sidebar container - disable scrolling */
+section[data-testid="stSidebar"] > div:first-child {
+    overflow-y: hidden !important;
+}
+
+/* Sidebar background stays black */
+section[data-testid="stSidebar"] {
+    background-color: #000000 !important;
+}
+
+/* Sidebar buttons - default state */
+section[data-testid="stSidebar"] div.stButton > button {
+    background-color: #000000 !important;
+    background-image: none !important; /* remove gradient */
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 10px !important;
+    margin: 2px 0 !important; /* This keeps the buttons close */
+    font-weight: bold !important;
+    font-size: 16px !important;
+    text-align: left !important;
+    display: block !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    transition: all 0.3s ease !important;
+
+    /* Soft top and bottom glow only */
+    box-shadow: 0 -4px 8px -2px rgba(88,179,177,0.6), /* top glow */
+                0 4px 8px -2px rgba(88,179,177,0.6);  /* bottom glow */
+}
+
+/* Hover effect - untouched */
+section[data-testid="stSidebar"] div.stButton > button:hover {
+    background: linear-gradient(to right, rgba(88, 179, 177, 1.0), rgba(0, 0, 0, 1.0)) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+    color: #f0f0f0 !important;
+    cursor: pointer !important;
+}
+
+/* Active button */
+section[data-testid="stSidebar"] div.stButton > button[data-active="true"] {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: 0 -4px 12px -2px rgba(88,179,177,0.9), /* top glow */
+                0 4px 12px -2px rgba(88,179,177,0.9);  /* bottom glow */
+}
+</style>
+""", unsafe_allow_html=True)
 # =========================================================
 # NEWS & ECONOMIC CALENDAR DATA / HELPERS
 # =========================================================
@@ -877,6 +916,141 @@ econ_df = pd.DataFrame(econ_calendar_data)
 df_news = get_fxstreet_forex_news()
 
 
+import streamlit as st
+from PIL import Image
+import io
+import base64
+import os
+
+# =========================================================
+# SIDEBAR NAVIGATION
+# =========================================================
+
+# --- Add custom CSS for alignment and gradient button styling ---
+st.markdown(
+    """
+    <style>
+        .sidebar-content {
+            padding-top: 0rem;
+        }
+
+        /* Vertically center elements in columns */
+        [data-testid="stHorizontalBlock"] {
+            align-items: center;
+        }
+
+        /* --- GRADIENT BUTTON STYLING --- */
+
+        /* Style for the default (secondary) button */
+        /* This applies the black gradient from the left */
+        [data-testid="stSidebar"] [data-testid="stButton"] button {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to transparent grey on the right */
+            background-image: linear-gradient(to right, black, rgba(49, 51, 63, 0.8));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white; /* Ensure text color is visible against the gradient */
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover effects */
+        }
+
+        /* Style for the active (primary) button, overriding Streamlit's default color */
+        /* The ".st-emotion-cache-" class is what Streamlit uses internally for primary buttons */
+        [data-testid="stSidebar"] [data-testid="stButton"] button.st-emotion-cache-19rxjzo {
+            background-color: transparent;
+            /* Gradient starts black on the left, fading to the theme's blue on the right */
+            background-image: linear-gradient(to right, black, #1c83e1);
+            border: 1px solid #1c83e1; /* Match border to the theme color */
+            color: white;
+        }
+
+        /* Optional: A subtle hover effect for better user experience */
+        [data-testid="stSidebar"] [data-testid="stButton"] button:hover {
+            border-color: #0083B8;
+            color: white;
+            transform: scale(1.01); /* Slightly enlarge button on hover */
+        }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# --- Logo Display (same as your original code) ---
+try:
+    logo = Image.open("logo22.png")
+    logo = logo.resize((60, 50))
+    buffered = io.BytesIO()
+    logo.save(buffered, format="PNG")
+    logo_str = base64.b64encode(buffered.getvalue()).decode()
+    st.sidebar.markdown(
+        f"""
+        <div style='text-align: center; margin-bottom: 30px; margin-top: -45px;'>
+            <img src="data:image/png;base64,{logo_str}" width="60" height="50"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+except FileNotFoundError:
+    st.sidebar.error("Logo file 'logo22.png' not found.")
+
+# --- Initialize session_state if it's the first run ---
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'fundamentals'
+
+
+# --- Navigation Items Definition (emojis removed from text) ---
+nav_items = [
+    ('fundamentals', 'Forex Fundamentals'),
+    ('watch list', 'My Watchlist'),
+    ('trading_journal', 'My Trading Journal'),
+    ('mt5', 'Performance Dashboard'),
+    ('trading_tools', 'Trading Tools'),
+    ('strategy', 'Manage My Strategy'),
+    ('Community Chatroom', 'Community Chatroom'),
+    ('Zenvo Academy', 'Zenvo Academy'),
+    ('account', 'My Account'),
+]
+
+# --- Map your page keys to the icon file names in the 'icons' folder ---
+icon_mapping = {
+    'trading_journal': 'trading_journal.png',
+    'watch list': 'watchlist_icon.png',
+    'fundamentals': 'forex_fundamentals.png',
+    'mt5': 'performance_dashboard.png',
+    'account': 'my_account.png',
+    'strategy': 'manage_my_strategy.png',
+    'trading_tools': 'trading_tools.png',
+    'community': 'community_trade_ideas.png',
+    'Community Chatroom': 'community_chatroom.png',
+    'Zenvo Academy': 'zenvo_academy.png'  # <-- ADDED THIS LINE
+}
+
+
+# --- Loop to Create the Navigation Menu (your exact Python logic) ---
+for page_key, page_name in nav_items:
+    
+    # Create two columns: one for the icon, one for the button
+    col1, col2 = st.sidebar.columns([1, 4], gap="small")
+
+    with col1:
+        icon_filename = icon_mapping.get(page_key)
+        if icon_filename:
+            icon_path = os.path.join("icons", icon_filename)
+            if os.path.exists(icon_path):
+                # NOTE: Adjusted width from 120 to 28 for a better layout
+                st.image(icon_path, width=100) # <-- CORRECTED WIDTH HERE
+
+    with col2:
+        # Highlight the active page button using 'type="primary"'
+        is_active = (st.session_state.current_page == page_key)
+        button_type = "primary" if is_active else "secondary"
+        
+        # This is your original button logic, inside a column
+        if st.button(page_name, key=f"nav_{page_key}", use_container_width=True, type=button_type):
+            st.session_state.current_page = page_key
+            st.session_state.current_subpage = None
+            st.session_state.show_tools_submenu = False
+            st.rerun()
 # =========================================================
 # MAIN APPLICATION LOGIC
 # =========================================================
@@ -2316,6 +2490,39 @@ if st.session_state.current_page == 'mt5':
         losses_sum = abs(df_filtered[df_filtered["Profit"] < 0]["Profit"].sum())
         return wins_sum / losses_sum if losses_sum != 0.0 else (np.inf if wins_sum > 0 else np.nan)
 
+    def _ta_show_badges_mt5(df_trades):
+        st.subheader("🎖️ Your Trading Badges")
+
+        # Ensure only trades with symbols are considered for badge calculations
+        df_filtered_for_badges = df_trades[df_trades['Symbol'].notna()]
+
+        total_profit_val = df_filtered_for_badges["Profit"].sum()
+        total_trades_val = len(df_filtered_for_badges)
+
+        col_badge1, col_badge2, col_badge3 = st.columns(3)
+        with col_badge1:
+            if total_profit_val > 10000:
+                st.markdown("<div class='metric-box profitable'><strong>🎖️ Profit Pioneer</strong><br><span class='metric-value'>Achieved over $10,000 profit!</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown("<div class='metric-box'><strong>🎖️ Profit Pioneer</strong><br><span class='metric-value'>Goal: $10,000 profit</span></div>", unsafe_allow_html=True)
+
+        with col_badge2:
+            if total_trades_val >= 30:
+                st.markdown("<div class='metric-box profitable'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Completed over 30 trades!</span></div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='metric-box'><strong>🎖️ Active Trader</strong><br><span class='metric-value'>Goal: 30 trades ({max(0, 30 - total_trades_val)} left)</span></div>", unsafe_allow_html=True)
+
+        avg_win_for_badge = df_filtered_for_badges[df_filtered_for_badges["Profit"] > 0]["Profit"].mean()
+        avg_loss_for_badge = df_filtered_for_badges[df_filtered_for_badges["Profit"] < 0]["Profit"].mean()
+
+        with col_badge3:
+            if pd.notna(avg_win_for_badge) and pd.notna(avg_loss_for_badge) and avg_loss_for_badge < 0.0:
+                if avg_win_for_badge > abs(avg_loss_for_badge):
+                    st.markdown("<div class='metric-box profitable'><strong>🎖️ Smart Scaler</strong><br><span class='metric-value'>Avg Win > Avg Loss!</span></div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div class='metric-box'><strong>🎖️ Smart Scaler</strong><br><span class='metric-value'>Improve R:R ratio</span></div>", unsafe_allow_html=True)
+            else:
+                 st.markdown("<div class='metric-box'><strong>Smart Scaler</strong><br><span class='metric-value'>Trade more to assess!</span></div>", unsafe_allow_html=True)
 
     def _ta_calculate_trading_score(trades_df):
         """
